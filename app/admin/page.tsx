@@ -1,6 +1,5 @@
 ﻿'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 const MODULES = [
   {
@@ -101,10 +100,7 @@ export default function AdminPage() {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
 
-  useEffect(() => {
-    const token = document.cookie.includes('auth-token') || localStorage.getItem('auth-token')
-    if (!token) router.push('/login')
-  }, [router])
+  
 
   const categories = ['All', ...Array.from(new Set(MODULES.map(m => m.category)))]
   const filtered = MODULES.filter(m => {

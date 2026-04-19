@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import Replicate from 'replicate'
 
 export async function POST(req: NextRequest) {

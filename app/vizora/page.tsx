@@ -4,51 +4,11 @@ import { useDropzone } from 'react-dropzone'
 import Link from 'next/link'
 
 const TOOLS = [
-  {
-    id: 'generate',
-    emoji: '📸',
-    name: 'AI Photo Generator',
-    tagline: 'Exact dress on real model',
-    cost: '₹6/image',
-    accent: '#a855f7',
-    bg: 'linear-gradient(135deg,#4c1d95,#6d28d9)',
-  },
-  {
-    id: 'upscale',
-    emoji: '🔍',
-    name: 'Photo Upscaler 4x',
-    tagline: 'Print-ready quality',
-    cost: '₹2/image',
-    accent: '#38bdf8',
-    bg: 'linear-gradient(135deg,#0c4a6e,#0284c7)',
-  },
-  {
-    id: 'video',
-    emoji: '🎬',
-    name: 'Video Ad Generator',
-    tagline: 'Instagram reel in seconds',
-    cost: '₹4/video',
-    accent: '#f472b6',
-    bg: 'linear-gradient(135deg,#831843,#db2777)',
-  },
-  {
-    id: 'ugc',
-    emoji: '🎭',
-    name: 'UGC Ads Creator',
-    tagline: 'AI avatar speaks your brand',
-    cost: '₹45/video',
-    accent: '#fb923c',
-    bg: 'linear-gradient(135deg,#7c2d12,#ea580c)',
-  },
-  {
-    id: 'eraser',
-    emoji: '✨',
-    name: 'Magic Eraser',
-    tagline: 'Remove backgrounds instantly',
-    cost: '₹2/image',
-    accent: '#34d399',
-    bg: 'linear-gradient(135deg,#064e3b,#059669)',
-  },
+  { id: 'generate', emoji: '📸', name: 'AI Photo Generator', tagline: 'Exact dress on real model', cost: '₹6/image', accent: '#7c3aed', light: '#ede9fe', border: '#c4b5fd' },
+  { id: 'upscale', emoji: '🔍', name: 'Photo Upscaler 4x', tagline: 'Print-ready quality', cost: '₹2/image', accent: '#0284c7', light: '#e0f2fe', border: '#7dd3fc' },
+  { id: 'video', emoji: '🎬', name: 'Video Ad Generator', tagline: 'Instagram reel in seconds', cost: '₹4/video', accent: '#db2777', light: '#fce7f3', border: '#f9a8d4' },
+  { id: 'ugc', emoji: '🎭', name: 'UGC Ads Creator', tagline: 'AI avatar speaks your brand', cost: '₹45/video', accent: '#d97706', light: '#fef3c7', border: '#fcd34d' },
+  { id: 'eraser', emoji: '✨', name: 'Magic Eraser', tagline: 'Remove backgrounds instantly', cost: '₹2/image', accent: '#059669', light: '#d1fae5', border: '#6ee7b7' },
 ]
 
 const SHOOT_TYPES = [
@@ -89,7 +49,7 @@ export default function VizoraStudio() {
   })
 
   const generate = async () => {
-    if (!image && activeTool !== 'video' && activeTool !== 'ugc') { setError('Upload a photo first'); return }
+    if (!image && activeTool !== 'video' && activeTool !== 'ugc') { setError('Please upload a photo first'); return }
     setGenerating(true); setError(''); setResults([])
     try {
       if (activeTool === 'generate') {
@@ -120,9 +80,9 @@ export default function VizoraStudio() {
         if (data.image) setResults([data.image])
         else setError(data.error || 'Background removal failed')
       } else {
-        setError('This tool is coming soon — API integration in progress')
+        setError('This tool is coming soon — integration in progress')
       }
-    } catch { setError('Network error — try again') }
+    } catch { setError('Network error — please try again') }
     finally { setGenerating(false) }
   }
 
@@ -133,156 +93,170 @@ export default function VizoraStudio() {
   const selectedShoot = SHOOT_TYPES.find(s => s.id === shootType)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#080c14', fontFamily: '"DM Sans", -apple-system, BlinkMacSystemFont, sans-serif', color: '#f1f5f9' }}>
+    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', color: '#0f172a' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
         @keyframes spin { to { transform: rotate(360deg) } }
-        @keyframes shimmer { 0%,100%{opacity:0.5} 50%{opacity:1} }
         * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
       `}</style>
 
       {/* Top bar */}
-      <div style={{ height: '52px', background: '#0a0f1e', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', padding: '0 20px', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '13px', color: 'white', boxShadow: '0 0 12px #7c3aed60' }}>V</div>
-          <span style={{ fontWeight: '700', fontSize: '15px', color: 'white' }}>Vizora Studio</span>
-          <span style={{ background: '#7c3aed20', color: '#a78bfa', fontSize: '10px', padding: '2px 8px', borderRadius: '99px', border: '1px solid #7c3aed40', fontWeight: '600' }}>AI Creative Suite</span>
+      <div style={{ height: '56px', background: 'white', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', padding: '0 24px', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '14px', color: 'white' }}>V</div>
+          <div>
+            <span style={{ fontWeight: '700', fontSize: '16px', color: '#0f172a' }}>Vizora </span>
+            <span style={{ fontWeight: '400', fontSize: '16px', color: '#94a3b8' }}>Studio</span>
+          </div>
+          <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }} />
+          <span style={{ background: '#ede9fe', color: '#7c3aed', fontSize: '11px', padding: '3px 10px', borderRadius: '99px', fontWeight: '600', border: '1px solid #c4b5fd' }}>AI Creative Suite — 5 Tools</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#0f172a', border: '1px solid #1e293b', borderRadius: '99px', padding: '4px 12px' }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981', animation: 'shimmer 2s infinite' }} />
-            <span style={{ fontSize: '11px', color: '#94a3b8' }}>FASHN.ai Live</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '99px', padding: '5px 12px' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+            <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>FASHN.ai Live</span>
           </div>
-          <Link href="/admin" style={{ color: '#475569', fontSize: '12px', textDecoration: 'none', background: '#0f172a', border: '1px solid #1e293b', padding: '5px 12px', borderRadius: '8px' }}>← Admin</Link>
+          <Link href="/admin" style={{ color: '#64748b', fontSize: '12px', textDecoration: 'none', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '6px 14px', borderRadius: '8px', fontWeight: '500' }}>← Admin</Link>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr', minHeight: 'calc(100vh - 52px)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '230px 320px 1fr', minHeight: 'calc(100vh - 56px)' }}>
 
-        {/* LEFT SIDEBAR — Tool selector */}
-        <div style={{ background: '#0a0f1e', borderRight: '1px solid #1e293b', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <p style={{ fontSize: '9px', color: '#334155', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700', margin: '0 0 10px 4px' }}>Select Tool</p>
+        {/* LEFT — Tool selector */}
+        <div style={{ background: 'white', borderRight: '1px solid #e2e8f0', padding: '20px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <p style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700', margin: '0 0 12px 4px' }}>Choose Tool</p>
           {TOOLS.map(t => (
             <button
               key={t.id}
               onClick={() => { setActiveTool(t.id); setResults([]); setError('') }}
               style={{
-                width: '100%', padding: '12px 14px', border: `1px solid ${activeTool === t.id ? t.accent + '60' : '#1e293b'}`,
-                background: activeTool === t.id ? t.accent + '15' : 'transparent',
-                borderRadius: '12px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
-                boxShadow: activeTool === t.id ? `0 0 20px ${t.accent}20` : 'none',
+                width: '100%', padding: '12px 14px',
+                border: `1.5px solid ${activeTool === t.id ? t.border : '#f1f5f9'}`,
+                background: activeTool === t.id ? t.light : '#fafafa',
+                borderRadius: '12px', cursor: 'pointer', textAlign: 'left',
+                transition: 'all 0.15s',
+                boxShadow: activeTool === t.id ? `0 2px 8px ${t.accent}20` : 'none',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: activeTool === t.id ? t.bg : '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0, transition: 'all 0.2s' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: activeTool === t.id ? t.accent : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', flexShrink: 0, transition: 'all 0.15s' }}>
                   {t.emoji}
                 </div>
                 <div>
-                  <p style={{ margin: '0 0 1px', fontSize: '12px', fontWeight: '600', color: activeTool === t.id ? t.accent : '#94a3b8', lineHeight: '1.3' }}>{t.name}</p>
-                  <p style={{ margin: '0', fontSize: '10px', color: '#475569' }}>{t.cost}</p>
+                  <p style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: '700', color: activeTool === t.id ? t.accent : '#374151' }}>{t.name}</p>
+                  <p style={{ margin: '0', fontSize: '10px', color: '#94a3b8' }}>{t.cost}</p>
                 </div>
               </div>
             </button>
           ))}
 
-          {/* Credits info */}
-          <div style={{ marginTop: 'auto', background: '#0f172a', border: '1px solid #1e293b', borderRadius: '10px', padding: '12px' }}>
-            <p style={{ fontSize: '9px', color: '#334155', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700', margin: '0 0 8px' }}>Credits</p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ fontSize: '11px', color: '#64748b' }}>FASHN.ai</span>
-              <span style={{ fontSize: '11px', color: '#a78bfa', fontWeight: '600' }}>~95 left</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b' }}>Replicate</span>
-              <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: '600' }}>$9.50 left</span>
-            </div>
+          {/* Credits */}
+          <div style={{ marginTop: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
+            <p style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700', margin: '0 0 10px' }}>API Credits</p>
+            {[
+              { label: 'FASHN.ai', value: '~95 left', color: '#7c3aed', bar: 95 },
+              { label: 'Replicate', value: '$9.50', color: '#0284c7', bar: 95 },
+            ].map(c => (
+              <div key={c.label} style={{ marginBottom: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>{c.label}</span>
+                  <span style={{ fontSize: '11px', color: c.color, fontWeight: '700' }}>{c.value}</span>
+                </div>
+                <div style={{ height: '3px', background: '#e2e8f0', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${c.bar}%`, background: c.color, borderRadius: '2px' }} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* MIDDLE — Settings panel */}
-        <div style={{ background: '#0d1117', borderRight: '1px solid #1e293b', padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* MIDDLE — Settings */}
+        <div style={{ background: '#fdfdfe', borderRight: '1px solid #e2e8f0', padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
 
           {/* Tool header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '16px', borderBottom: '1px solid #1e293b' }}>
-            <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: tool.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', boxShadow: `0 0 20px ${tool.accent}40` }}>{tool.emoji}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '18px', borderBottom: '1px solid #f1f5f9' }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: tool.light, border: `1px solid ${tool.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>{tool.emoji}</div>
             <div>
-              <p style={{ margin: '0 0 2px', fontWeight: '700', fontSize: '15px', color: 'white' }}>{tool.name}</p>
-              <p style={{ margin: '0', fontSize: '11px', color: '#475569' }}>{tool.tagline} · {tool.cost}</p>
+              <p style={{ margin: '0 0 3px', fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>{tool.name}</p>
+              <p style={{ margin: '0', fontSize: '11px', color: '#94a3b8' }}>{tool.tagline} · <span style={{ color: tool.accent, fontWeight: '600' }}>{tool.cost}</span></p>
             </div>
           </div>
 
-          {/* Upload zone */}
+          {/* Upload */}
           {activeTool !== 'video' && activeTool !== 'ugc' && (
             <div>
-              <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Product / Mannequin Photo</p>
+              <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Upload Photo</p>
               {image ? (
                 <div style={{ position: 'relative' }}>
-                  <img src={image} alt="upload" style={{ width: '100%', borderRadius: '10px', maxHeight: '220px', objectFit: 'cover', display: 'block', border: '1px solid #1e293b' }} />
-                  <button onClick={() => { setImage(null); setResults([]) }} style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.8)', color: 'white', border: '1px solid #334155', fontSize: '11px', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer' }}>Change</button>
+                  <img src={image} alt="upload" style={{ width: '100%', borderRadius: '12px', maxHeight: '200px', objectFit: 'cover', display: 'block', border: '1px solid #e2e8f0' }} />
+                  <button onClick={() => { setImage(null); setResults([]) }} style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(255,255,255,0.9)', color: '#374151', border: '1px solid #e2e8f0', fontSize: '11px', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', backdropFilter: 'blur(4px)' }}>Change</button>
                 </div>
               ) : (
-                <div {...getRootProps()} style={{ border: `2px dashed ${isDragActive ? tool.accent : '#1e293b'}`, background: isDragActive ? tool.accent + '10' : '#0a0f1e', borderRadius: '12px', padding: '28px 16px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
+                <div {...getRootProps()} style={{ border: `2px dashed ${isDragActive ? tool.accent : '#cbd5e1'}`, background: isDragActive ? tool.light : '#f8fafc', borderRadius: '12px', padding: '28px 16px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
                   <input {...getInputProps()} />
                   <div style={{ fontSize: '28px', marginBottom: '8px' }}>🖼️</div>
-                  <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 3px' }}>{isDragActive ? 'Drop here!' : 'Drag & drop or click to upload'}</p>
-                  <p style={{ color: '#334155', fontSize: '10px', margin: '0' }}>JPG, PNG, WEBP</p>
+                  <p style={{ color: '#64748b', fontSize: '13px', margin: '0 0 4px', fontWeight: '500' }}>{isDragActive ? 'Drop here!' : 'Drag & drop or click to upload'}</p>
+                  <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0' }}>JPG, PNG, WEBP — Max 10MB</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Tool-specific settings */}
+          {/* Pose selector */}
           {activeTool === 'generate' && (
             <>
               <div>
-                <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pose Type — 12 Options</p>
+                <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pose Type — 12 Options</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
                   {SHOOT_TYPES.map(type => (
-                    <button key={type.id} onClick={() => setShootType(type.id)} style={{ padding: '7px 9px', border: `1px solid ${shootType === type.id ? tool.accent : '#1e293b'}`, background: shootType === type.id ? tool.accent + '20' : 'transparent', color: shootType === type.id ? tool.accent : '#64748b', borderRadius: '7px', cursor: 'pointer', fontSize: '10px', fontWeight: shootType === type.id ? '600' : '400', textAlign: 'left', transition: 'all 0.15s' }}>
+                    <button key={type.id} onClick={() => setShootType(type.id)} style={{ padding: '7px 10px', border: `1.5px solid ${shootType === type.id ? tool.border : '#e2e8f0'}`, background: shootType === type.id ? tool.light : 'white', color: shootType === type.id ? tool.accent : '#64748b', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: shootType === type.id ? '700' : '400', textAlign: 'left', transition: 'all 0.15s' }}>
                       {type.label}
                     </button>
                   ))}
                 </div>
-                {selectedShoot && <p style={{ fontSize: '10px', color: '#475569', margin: '8px 0 0', background: '#0a0f1e', padding: '6px 10px', borderRadius: '6px' }}>Selected: {selectedShoot.label}</p>}
+                {selectedShoot && <p style={{ fontSize: '11px', color: '#7c3aed', margin: '8px 0 0', background: '#ede9fe', padding: '7px 12px', borderRadius: '8px', fontWeight: '500' }}>✓ {selectedShoot.label} selected</p>}
               </div>
               <div>
-                <label style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Extra Details</label>
-                <textarea value={extra} onChange={e => setExtra(e.target.value)} placeholder="e.g. gold jewelry, white background, Indian model..." style={{ width: '100%', background: '#0a0f1e', border: '1px solid #1e293b', color: '#e2e8f0', fontSize: '12px', padding: '9px 12px', borderRadius: '8px', outline: 'none', height: '64px', resize: 'none', fontFamily: 'inherit' }} />
+                <label style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Extra Details (optional)</label>
+                <textarea value={extra} onChange={e => setExtra(e.target.value)} placeholder="e.g. gold jewelry, white background, fair skin Indian model..." style={{ width: '100%', background: 'white', border: '1px solid #e2e8f0', color: '#0f172a', fontSize: '12px', padding: '10px 12px', borderRadius: '10px', outline: 'none', height: '68px', resize: 'none', fontFamily: 'inherit' }} />
               </div>
             </>
           )}
 
+          {/* Upscale settings */}
           {activeTool === 'upscale' && (
             <div>
-              <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Scale Factor</p>
+              <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Scale Factor</p>
               <div style={{ display: 'flex', gap: '8px' }}>
                 {[2, 4, 6, 8].map(s => (
-                  <button key={s} onClick={() => setScale(s)} style={{ flex: 1, padding: '10px', border: `2px solid ${scale === s ? tool.accent : '#1e293b'}`, background: scale === s ? tool.accent + '20' : 'transparent', color: scale === s ? tool.accent : '#64748b', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '700', transition: 'all 0.15s' }}>{s}x</button>
+                  <button key={s} onClick={() => setScale(s)} style={{ flex: 1, padding: '10px', border: `2px solid ${scale === s ? tool.border : '#e2e8f0'}`, background: scale === s ? tool.light : 'white', color: scale === s ? tool.accent : '#64748b', borderRadius: '10px', cursor: 'pointer', fontSize: '15px', fontWeight: '700', transition: 'all 0.15s' }}>{s}x</button>
                 ))}
               </div>
-              <p style={{ fontSize: '11px', color: '#475569', margin: '10px 0 0' }}>{scale}x upscale — perfect for {scale <= 2 ? 'WhatsApp' : scale <= 4 ? 'Myntra listings' : 'print catalogs & billboards'}</p>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: '10px 0 0', background: '#f8fafc', padding: '8px 12px', borderRadius: '8px' }}>
+                {scale <= 2 ? '2x — Great for WhatsApp & social media' : scale <= 4 ? '4x — Perfect for Myntra & e-commerce listings' : '6-8x — Print catalogs & large format displays'}
+              </p>
             </div>
           )}
 
+          {/* Coming soon */}
           {(activeTool === 'video' || activeTool === 'ugc') && (
-            <div style={{ background: '#0a0f1e', border: '1px solid #1e293b', borderRadius: '12px', padding: '24px', textAlign: 'center' }}>
-              <div style={{ fontSize: '36px', marginBottom: '12px' }}>{activeTool === 'video' ? '🎬' : '🎭'}</div>
-              <p style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '600', margin: '0 0 8px' }}>Coming Soon</p>
-              <p style={{ color: '#334155', fontSize: '11px', margin: '0 0 16px', lineHeight: '1.6' }}>
-                {activeTool === 'video' ? 'Kling AI + FFmpeg integration in progress' : 'HeyGen API + ElevenLabs Hindi voice integration in progress'}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '32px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '40px', marginBottom: '14px' }}>{activeTool === 'video' ? '🎬' : '🎭'}</div>
+              <p style={{ color: '#374151', fontSize: '15px', fontWeight: '700', margin: '0 0 8px' }}>Coming Soon</p>
+              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 20px', lineHeight: '1.7' }}>
+                {activeTool === 'video' ? 'Kling AI + FFmpeg integration\nin progress — launching soon!' : 'HeyGen API + ElevenLabs Hindi voice\nintegration in progress — launching soon!'}
               </p>
-              <a href={activeTool === 'video' ? 'https://klingai.com' : 'https://heygen.com'} target="_blank" rel="noopener noreferrer" style={{ color: tool.accent, fontSize: '12px', textDecoration: 'none', border: `1px solid ${tool.accent}40`, padding: '6px 14px', borderRadius: '6px' }}>
-                Get API Key →
+              <a href={activeTool === 'video' ? 'https://klingai.com' : 'https://heygen.com'} target="_blank" rel="noopener noreferrer" style={{ color: tool.accent, fontSize: '12px', textDecoration: 'none', background: tool.light, border: `1px solid ${tool.border}`, padding: '7px 16px', borderRadius: '8px', fontWeight: '600' }}>
+                Learn more →
               </a>
             </div>
           )}
 
           {error && (
-            <div style={{ background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fca5a5', fontSize: '12px', padding: '10px 14px', borderRadius: '8px', lineHeight: '1.5' }}>
-              {error}
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: '12px', padding: '10px 14px', borderRadius: '10px', lineHeight: '1.6' }}>
+              ⚠️ {error}
             </div>
           )}
 
@@ -291,59 +265,66 @@ export default function VizoraStudio() {
             onClick={generate}
             disabled={generating || ((!image) && activeTool !== 'video' && activeTool !== 'ugc')}
             style={{
-              width: '100%', padding: '13px',
-              background: generating || (!image && activeTool !== 'video' && activeTool !== 'ugc') ? '#0f172a' : tool.bg,
-              color: generating || (!image && activeTool !== 'video' && activeTool !== 'ugc') ? '#334155' : 'white',
-              border: `1px solid ${generating ? '#1e293b' : tool.accent + '60'}`,
-              fontSize: '13px', fontWeight: '700', borderRadius: '10px',
+              width: '100%', padding: '14px',
+              background: generating || (!image && activeTool !== 'video' && activeTool !== 'ugc') ? '#f1f5f9' : tool.accent,
+              color: generating || (!image && activeTool !== 'video' && activeTool !== 'ugc') ? '#94a3b8' : 'white',
+              border: 'none', fontSize: '14px', fontWeight: '700', borderRadius: '12px',
               cursor: generating || (!image && activeTool !== 'video' && activeTool !== 'ugc') ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              boxShadow: !generating && (image || activeTool === 'video' || activeTool === 'ugc') ? `0 0 20px ${tool.accent}30` : 'none',
+              boxShadow: !generating && (image || activeTool === 'video' || activeTool === 'ugc') ? `0 4px 16px ${tool.accent}40` : 'none',
               transition: 'all 0.2s',
             }}
           >
             {generating ? (
               <>
-                <svg style={{ animation: 'spin 1s linear infinite', width: '15px', height: '15px' }} viewBox="0 0 24 24" fill="none">
+                <svg style={{ animation: 'spin 1s linear infinite', width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
                   <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                 </svg>
-                Processing... 20-40 sec
+                Processing... 20–40 sec
               </>
             ) : (
-              <>{tool.emoji} {activeTool === 'generate' ? `Generate — ${selectedShoot?.label}` : activeTool === 'upscale' ? `Upscale ${scale}x` : activeTool === 'eraser' ? 'Remove Background' : activeTool === 'video' ? 'Generate Video Ad' : 'Create UGC Ad'}</>
+              <>{tool.emoji} {
+                activeTool === 'generate' ? `Generate — ${selectedShoot?.label}` :
+                activeTool === 'upscale' ? `Upscale ${scale}x` :
+                activeTool === 'eraser' ? 'Remove Background' :
+                activeTool === 'video' ? 'Generate Video Ad' : 'Create UGC Ad'
+              }</>
             )}
           </button>
-
-          <p style={{ fontSize: '10px', color: '#334155', textAlign: 'center', margin: '0' }}>{tool.cost} · {tool.tagline}</p>
+          <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', margin: '-8px 0 0' }}>{tool.cost} · {tool.tagline}</p>
         </div>
 
-        {/* RIGHT — Output panel */}
-        <div style={{ background: '#080c14', padding: '20px', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #1e293b' }}>
-            <p style={{ fontSize: '11px', color: '#334155', fontWeight: '600', margin: '0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Output</p>
-            {results.length > 0 && <span style={{ fontSize: '11px', color: '#64748b' }}>Hover to download</span>}
+        {/* RIGHT — Output */}
+        <div style={{ background: '#f8fafc', padding: '24px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
+            <div>
+              <p style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 2px' }}>Generated Output</p>
+              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0' }}>{tool.name} · {tool.cost}</p>
+            </div>
+            {results.length > 0 && <span style={{ background: '#f0fdf4', color: '#16a34a', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #bbf7d0' }}>✓ {results.length} result{results.length > 1 ? 's' : ''} ready</span>}
           </div>
 
           {results.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 160px)', textAlign: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 200px)', textAlign: 'center' }}>
               {generating ? (
                 <>
-                  <div style={{ width: '56px', height: '56px', border: `4px solid ${tool.accent}30`, borderTopColor: tool.accent, borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '20px' }} />
-                  <p style={{ color: '#94a3b8', fontSize: '15px', fontWeight: '600', margin: '0 0 6px' }}>AI is working...</p>
-                  <p style={{ color: '#334155', fontSize: '12px', margin: '0' }}>Your result will appear here in 20-40 seconds</p>
+                  <div style={{ width: '60px', height: '60px', border: `4px solid ${tool.light}`, borderTopColor: tool.accent, borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '24px' }} />
+                  <p style={{ color: '#374151', fontSize: '16px', fontWeight: '700', margin: '0 0 8px' }}>Generating your result...</p>
+                  <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0' }}>FASHN.ai is placing your garment on a real model</p>
+                  <p style={{ color: '#cbd5e1', fontSize: '12px', margin: '6px 0 0' }}>Usually takes 20–40 seconds</p>
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: '56px', marginBottom: '16px', opacity: 0.08 }}>{tool.emoji}</div>
-                  <p style={{ color: '#334155', fontSize: '14px', margin: '0 0 6px', fontWeight: '500' }}>{image ? 'Click Generate to start' : 'Upload a photo first'}</p>
-                  <p style={{ color: '#1e293b', fontSize: '12px', margin: '0 0 20px' }}>{tool.tagline}</p>
-                  <div style={{ background: '#0a0f1e', border: '1px solid #1e293b', borderRadius: '10px', padding: '14px 20px', maxWidth: '280px' }}>
-                    <p style={{ fontSize: '11px', color: '#475569', margin: '0', lineHeight: '1.8' }}>
-                      {activeTool === 'generate' && <>✓ Exact same dress & print<br />✓ Real human model<br />✓ 12 professional poses<br />✓ Ready in 20-40 seconds</>}
-                      {activeTool === 'upscale' && <>✓ 2x to 8x upscaling<br />✓ Print-ready quality<br />✓ Myntra & catalog ready<br />✓ AI face enhancement</>}
-                      {activeTool === 'eraser' && <>✓ Instant background removal<br />✓ Clean PNG with transparency<br />✓ Perfect for listings<br />✓ Any background color</>}
-                      {(activeTool === 'video' || activeTool === 'ugc') && <>✓ Coming soon<br />✓ API integration in progress<br />✓ Get notified when live</>}
+                  <div style={{ width: '80px', height: '80px', borderRadius: '20px', background: tool.light, border: `1px solid ${tool.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', marginBottom: '20px' }}>{tool.emoji}</div>
+                  <p style={{ color: '#374151', fontSize: '15px', fontWeight: '600', margin: '0 0 8px' }}>{image ? 'Click Generate to start' : 'Upload a photo to begin'}</p>
+                  <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 24px' }}>{tool.tagline}</p>
+                  <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px 22px', maxWidth: '300px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: '0', lineHeight: '2', textAlign: 'left' }}>
+                      {activeTool === 'generate' && <>📸 Same exact print & colors<br />👗 Real human model<br />🎯 12 professional pose types<br />⚡ Ready in 20–40 seconds</>}
+                      {activeTool === 'upscale' && <>🔍 2x to 8x upscaling<br />🖨️ Print-ready quality<br />🛒 Myntra & catalog ready<br />✨ AI face enhancement</>}
+                      {activeTool === 'eraser' && <>✂️ Instant background removal<br />🖼️ Clean PNG transparency<br />🎨 Perfect for listings<br />⚡ Ready in seconds</>}
+                      {(activeTool === 'video' || activeTool === 'ugc') && <>🚀 Coming soon<br />🔧 API integration in progress<br />📱 Instagram reel format<br />🎬 30-second ad ready</>}
                     </p>
                   </div>
                 </>
@@ -354,20 +335,23 @@ export default function VizoraStudio() {
               {results.map((img, i) => (
                 <div
                   key={i}
-                  style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', border: `1px solid ${tool.accent}30`, marginBottom: '12px', boxShadow: `0 0 30px ${tool.accent}15` }}
+                  style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', marginBottom: '14px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', background: 'white' }}
                   onMouseEnter={e => { (e.currentTarget.querySelector('.ov') as HTMLElement).style.opacity = '1' }}
                   onMouseLeave={e => { (e.currentTarget.querySelector('.ov') as HTMLElement).style.opacity = '0' }}
                 >
                   <img src={img} alt={`result-${i}`} style={{ width: '100%', display: 'block' }} />
-                  <div className="ov" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', opacity: 0, transition: 'opacity 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', borderRadius: '14px' }}>
-                    <button onClick={() => download(img, i)} style={{ background: 'white', color: '#0f172a', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>⬇ Download</button>
-                    <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('AI fashion shoot: ' + img)}`, '_blank')} style={{ background: '#25d366', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>WhatsApp</button>
+                  <div className="ov" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', opacity: 0, transition: 'opacity 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <button onClick={() => download(img, i)} style={{ background: 'white', color: '#0f172a', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 22px', borderRadius: '10px', cursor: 'pointer' }}>⬇ Download</button>
+                    <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('AI fashion shoot: ' + img)}`, '_blank')} style={{ background: '#25d366', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 22px', borderRadius: '10px', cursor: 'pointer' }}>WhatsApp</button>
                   </div>
                 </div>
               ))}
-              <div style={{ background: '#0a0f1e', border: `1px solid ${tool.accent}30`, borderRadius: '10px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '12px', color: '#34d399', fontWeight: '600' }}>✓ Ready for catalog!</span>
-                <button onClick={generate} style={{ background: tool.accent + '20', color: tool.accent, border: `1px solid ${tool.accent}40`, fontSize: '12px', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>Generate Again</button>
+              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <div>
+                  <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', margin: '0 0 2px' }}>✓ Ready for catalog!</p>
+                  <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0' }}>Hover image to download or share</p>
+                </div>
+                <button onClick={generate} style={{ background: tool.light, color: tool.accent, border: `1px solid ${tool.border}`, fontSize: '12px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>Generate Again</button>
               </div>
             </div>
           )}

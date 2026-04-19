@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// These are reliable full-body model images that FASHN can detect pose from
+const MODEL_IMAGES = [
+  'https://images.fashn.ai/examples/model1.jpg',
+  'https://v3.fal.media/files/panda/jRavCEb1D4OpZBjZKxaH7_image_2024-12-08_18-37-27 Large.jpeg',
+  'https://storage.googleapis.com/falserverless/example_inputs/model.png',
+]
+
 export async function POST(req: NextRequest) {
   try {
     const { image } = await req.json()
@@ -19,35 +26,81 @@ export async function POST(req: NextRequest) {
       'Authorization': `Bearer ${API_KEY}`,
     }
 
-    // Only model_image and garment_image are required
-    const runRes = await fetch(`${BASE_URL}/run`, {
+    // Try each model image until one works
+    for (const modelImage of MODEL_IMAGES) {
+      const runRes = await fetch(`${BASE_URL}/run`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model_name: 'tryon-v1.6',
+          inputs: {
+            model_image: modelImage,
+            garment_image: image,
+          },
+        }),
+      })
+
+      const runData = await runRes.json()
+
+      if (!runRes.ok) {
+        console.error('FASHN run error:', runData)
+        continue
+      }
+
+      const predictionId = runData.id
+      if (!predictionId) continue
+
+      // Poll for result
+      for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+
+        const statusRes = await fetch(`${BASE_URL}/status/${predictionId}`, { headers })
+        const statusData = await statusRes.json()
+
+        if (statusData.status === 'completed' && statusData.output?.length > 0) {
+          return NextResponse.json({ images: [statusData.output[0]] })
+        }
+
+        if (statusData.status === 'failed') {
+          const errName = statusData.error?.name || ''
+          // If pose error — try next model image
+          if (errName === 'PoseError') break
+          return NextResponse.json({ 
+            error: `Generation failed: ${statusData.error?.message || JSON.stringify(statusData.error)}` 
+          }, { status: 500 })
+        }
+      }
+    }
+
+    // All model images failed — use garment-only mode
+    // Try product-to-model endpoint instead
+    const p2mRes = await fetch(`${BASE_URL}/run`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model_name: 'tryon-v1.6',
+        model_name: 'product-to-model',
         inputs: {
-          model_image: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=768&q=80',
           garment_image: image,
+          garment_type: 'tops',
         },
       }),
     })
 
-    const runData = await runRes.json()
+    const p2mData = await p2mRes.json()
 
-    if (!runRes.ok) {
-      return NextResponse.json({ error: `FASHN error: ${JSON.stringify(runData)}` }, { status: 500 })
+    if (!p2mRes.ok) {
+      return NextResponse.json({ error: `FASHN error: ${JSON.stringify(p2mData)}` }, { status: 500 })
     }
 
-    const predictionId = runData.id
-    if (!predictionId) {
-      return NextResponse.json({ error: `No ID returned: ${JSON.stringify(runData)}` }, { status: 500 })
+    const p2mId = p2mData.id
+    if (!p2mId) {
+      return NextResponse.json({ error: 'No prediction ID returned' }, { status: 500 })
     }
 
-    // Poll for result
     for (let i = 0; i < 30; i++) {
       await new Promise(r => setTimeout(r, 2000))
 
-      const statusRes = await fetch(`${BASE_URL}/status/${predictionId}`, { headers })
+      const statusRes = await fetch(`${BASE_URL}/status/${p2mId}`, { headers })
       const statusData = await statusRes.json()
 
       if (statusData.status === 'completed' && statusData.output?.length > 0) {
@@ -55,11 +108,13 @@ export async function POST(req: NextRequest) {
       }
 
       if (statusData.status === 'failed') {
-        return NextResponse.json({ error: `Failed: ${JSON.stringify(statusData)}` }, { status: 500 })
+        return NextResponse.json({ 
+          error: `Failed: ${statusData.error?.message || JSON.stringify(statusData.error)}` 
+        }, { status: 500 })
       }
     }
 
-    return NextResponse.json({ error: 'Timed out — try again' }, { status: 500 })
+    return NextResponse.json({ error: 'Timed out — please try again' }, { status: 500 })
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

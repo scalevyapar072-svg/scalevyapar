@@ -83,9 +83,7 @@ export default function GeneratePage() {
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: '20px' }}>
 
-          {/* LEFT */}
           <div>
-            {/* Upload */}
             <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', marginBottom: '14px' }}>
               <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: '700' }}>Product / Mannequin Photo</p>
               {image ? (
@@ -103,9 +101,8 @@ export default function GeneratePage() {
               )}
             </div>
 
-            {/* Shoot Types */}
             <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', marginBottom: '14px' }}>
-              <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: '700' }}>Shoot Type ({SHOOT_TYPES.length} poses)</p>
+              <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: '700' }}>Shoot Type — 12 Poses</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                 {SHOOT_TYPES.map((type) => (
                   <button
@@ -132,18 +129,17 @@ export default function GeneratePage() {
               </div>
               {selectedShoot && (
                 <p style={{ fontSize: '11px', color: '#64748b', margin: '10px 0 0', background: '#f8fafc', padding: '8px 10px', borderRadius: '6px' }}>
-                  {selectedShoot.desc}
+                  ℹ️ {selectedShoot.desc}
                 </p>
               )}
             </div>
 
-            {/* Extra details */}
             <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', marginBottom: '14px' }}>
               <label style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: '700', display: 'block', marginBottom: '8px' }}>Extra details (optional)</label>
               <textarea
                 value={extra}
                 onChange={e => setExtra(e.target.value)}
-                placeholder="e.g. dupatta in pink, gold zari border, white background, fair skin Indian model..."
+                placeholder="e.g. dupatta in pink, gold zari border, white background..."
                 style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', fontSize: '12px', padding: '9px 12px', borderRadius: '8px', outline: 'none', height: '70px', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
               />
             </div>
@@ -173,48 +169,37 @@ export default function GeneratePage() {
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
                     <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                   </svg>
-                  Generating exact dress shoot... 30-60 sec
+                  Generating exact dress... 30-60 sec
                 </>
               ) : (
                 <>📸 Generate — {selectedShoot?.label}</>
               )}
             </button>
-
-            <p style={{ fontSize: '11px', color: '#94a3b8', margin: '8px 0 0', textAlign: 'center' }}>
-              Powered by FASHN.ai • Exact same print & colors • ₹6 per image
-            </p>
+            <p style={{ fontSize: '11px', color: '#94a3b8', margin: '8px 0 0', textAlign: 'center' }}>FASHN.ai • Exact same print & colors • ₹6 per image</p>
           </div>
 
-          {/* RIGHT */}
           <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '22px', minHeight: '540px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: '700' }}>
-                Generated Photo — {selectedShoot?.label}
-              </p>
-              {results.length > 0 && (
-                <span style={{ fontSize: '12px', color: '#64748b' }}>Hover to download / share</span>
-              )}
-            </div>
+            <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: '700' }}>
+              Generated Photo — {selectedShoot?.label}
+            </p>
 
             {results.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '460px', textAlign: 'center' }}>
                 {generating ? (
                   <>
                     <div style={{ width: '56px', height: '56px', border: '4px solid #ede9fe', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '18px' }}></div>
-                    <p style={{ color: '#374151', fontSize: '16px', fontWeight: '600', margin: '0 0 8px' }}>Generating your exact dress shoot...</p>
-                    <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 4px' }}>FASHN.ai is placing your garment on a real model</p>
-                    <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0' }}>Usually takes 20–40 seconds</p>
+                    <p style={{ color: '#374151', fontSize: '16px', fontWeight: '600', margin: '0 0 8px' }}>Generating exact dress shoot...</p>
+                    <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0' }}>FASHN.ai placing your garment on real model — 20-40 sec</p>
                   </>
                 ) : (
                   <>
                     <div style={{ fontSize: '52px', marginBottom: '14px', opacity: 0.15 }}>📸</div>
                     <p style={{ color: '#64748b', fontSize: '15px', fontWeight: '500', margin: '0 0 8px' }}>Upload mannequin photo → Select pose → Generate</p>
-                    <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 16px' }}>FASHN.ai puts your exact dress on a real human model</p>
-                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 18px', maxWidth: '320px' }}>
-                      <p style={{ fontSize: '12px', color: '#166534', margin: '0', lineHeight: '1.6' }}>
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 18px', maxWidth: '320px', marginTop: '8px' }}>
+                      <p style={{ fontSize: '12px', color: '#166534', margin: '0', lineHeight: '1.8' }}>
                         ✓ Same exact print & colors<br />
                         ✓ Same dupatta & embroidery<br />
-                        ✓ Real human model — Indian & international<br />
+                        ✓ Real human model<br />
                         ✓ 12 professional pose types
                       </p>
                     </div>
@@ -232,20 +217,14 @@ export default function GeneratePage() {
                   >
                     <img src={img} alt={`result-${i}`} style={{ width: '100%', display: 'block', borderRadius: '12px' }} />
                     <div className="ov" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)', opacity: 0, transition: 'opacity 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', borderRadius: '12px' }}>
-                      <button onClick={() => download(img, i)} style={{ background: 'white', color: '#0f172a', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer' }}>
-                        ⬇ Download
-                      </button>
-                      <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('Check this AI fashion shoot: ' + img)}`, '_blank')} style={{ background: '#25d366', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer' }}>
-                        WhatsApp
-                      </button>
+                      <button onClick={() => download(img, i)} style={{ background: 'white', color: '#0f172a', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer' }}>⬇ Download</button>
+                      <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('AI fashion shoot: ' + img)}`, '_blank')} style={{ background: '#25d366', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer' }}>WhatsApp</button>
                     </div>
                   </div>
                 ))}
                 <div style={{ marginTop: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '12px', color: '#166534', fontWeight: '600' }}>✓ Exact dress on real model — ready for catalog!</span>
-                  <button onClick={generate} style={{ background: '#7c3aed', color: 'white', border: 'none', fontSize: '11px', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>
-                    Generate Again
-                  </button>
+                  <span style={{ fontSize: '12px', color: '#166534', fontWeight: '600' }}>✓ Exact dress — ready for catalog!</span>
+                  <button onClick={generate} style={{ background: '#7c3aed', color: 'white', border: 'none', fontSize: '11px', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>Generate Again</button>
                 </div>
               </div>
             )}

@@ -1,0 +1,86 @@
+{
+  "users": [
+    {
+      "id": "admin-1776342803704-zlfwbgvd3",
+      "name": "Scale Vyapar",
+      "email": "admin@scalevyapar.com",
+      "password": "$2b$10$b.Jb6or5h4xqtO9HbbALDurPfrur1Yn6CqxpXQL9CpVZwIsUuf9ki",
+      "role": "ADMIN",
+      "createdAt": "2026-04-16T12:33:23.704Z"
+    },
+    {
+      "id": "client-1776346123958-g7l955z69",
+      "name": "Neelufer Creations",
+      "email": "neelufercreation@gmail.com",
+      "password": "$2b$10$DhNAFi4Knpjulvv2x0qHWeirkchG2AZhTKux1sxSJFvJkzhR2rNy6",
+      "role": "CLIENT",
+      "createdAt": "2026-04-16T13:28:43.958Z"
+    }
+  ],
+  "modules": [
+    {
+      "id": "mod-1",
+      "name": "Lead Generation",
+      "slug": "leads",
+      "isActive": true
+    },
+    {
+      "id": "mod-2",
+      "name": "CRM",
+      "slug": "crm"
+    },
+    {
+      "id": "mod-3",
+      "name": "WhatsApp",
+      "slug": "whatsapp"
+    },
+    {
+      "id": "mod-4",
+      "name": "Shopify",
+      "slug": "shopify"
+    },
+    {
+      "id": "mod-5",
+      "name": "Inventory",
+      "slug": "inventory"
+    },
+    {
+      "id": "mod-1776360268307-h1tvsnfgp",
+      "name": "Botbee",
+      "slug": "ChatBot",
+      "description": "erhtyjjtgref"
+    }
+  ],
+  "userModules": [
+    {
+      "userId": "client-1776346123958-g7l955z69",
+      "moduleId": "mod-1",
+      "isEnabled": true
+    },
+    {
+      "userId": "client-1776346123958-g7l955z69",
+      "moduleId": "mod-2",
+      "isEnabled": true
+    },
+    {
+      "userId": "client-1776346123958-g7l955z69",
+      "moduleId": "mod-3",
+      "isEnabled": true
+    },
+    {
+      "userId": "client-1776346123958-g7l955z69",
+      "moduleId": "mod-4",
+      "isEnabled": true
+    },
+    {
+      "userId": "client-1776346123958-g7l955z69",
+      "moduleId": "mod-1776360268307-h1tvsnfgp",
+      "isEnabled": true
+    },
+    {
+      "userId": "client-1776346123958-g7l955z69",
+      "moduleId": "mod-1776513914800",
+      "isEnabled": true
+    }
+  ]
+}

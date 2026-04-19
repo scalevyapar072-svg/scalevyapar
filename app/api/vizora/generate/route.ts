@@ -1,8 +1,20 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 
+// Model images for try-on poses — these are hosted on reliable CDNs
+const POSE_CONFIGS: Record<string, { model_image?: string; use_p2m?: boolean; prompt?: string }> = {
+  'Front Standing Shoot': { use_p2m: true },
+  'One-Arm-Up Glamour Pose': { use_p2m: true },
+  'Neckline Extreme Close-Up': { use_p2m: true },
+  'Sitting on Stool Pose': { use_p2m: true },
+  'Over-the-Shoulder Left Pose': { use_p2m: true },
+  'Close-Up Hand Editorial': { use_p2m: true },
+  'Fabric Texture Macro Shot': { use_p2m: true },
+  'Stitch Detailing Close-Up': { use_p2m: true },
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { image } = await req.json()
+    const { image, shootType } = await req.json()
 
     if (!process.env.FASHN_API_KEY) {
       return NextResponse.json({ error: 'FASHN_API_KEY not set' }, { status: 500 })
@@ -19,8 +31,7 @@ export async function POST(req: NextRequest) {
       'Authorization': `Bearer ${API_KEY}`,
     }
 
-    // product-to-model â€” puts garment on AI generated model automatically
-    // No model image needed â€” FASHN generates the model itself
+    // Use product-to-model — automatically generates model wearing your exact garment
     const runRes = await fetch(`${BASE_URL}/run`, {
       method: 'POST',
       headers,
@@ -33,7 +44,6 @@ export async function POST(req: NextRequest) {
     })
 
     const runData = await runRes.json()
-    console.log('FASHN run response:', JSON.stringify(runData))
 
     if (!runRes.ok) {
       return NextResponse.json({ error: `FASHN error: ${JSON.stringify(runData)}` }, { status: 500 })
@@ -41,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     const predictionId = runData.id
     if (!predictionId) {
-      return NextResponse.json({ error: `No ID: ${JSON.stringify(runData)}` }, { status: 500 })
+      return NextResponse.json({ error: `No ID returned: ${JSON.stringify(runData)}` }, { status: 500 })
     }
 
     // Poll for result
@@ -50,8 +60,6 @@ export async function POST(req: NextRequest) {
 
       const statusRes = await fetch(`${BASE_URL}/status/${predictionId}`, { headers })
       const statusData = await statusRes.json()
-
-      console.log(`Poll ${i + 1}: ${statusData.status}`)
 
       if (statusData.status === 'completed' && statusData.output?.length > 0) {
         return NextResponse.json({ images: [statusData.output[0]] })
@@ -64,7 +72,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ error: 'Timed out â€” please try again' }, { status: 500 })
+    return NextResponse.json({ error: 'Timed out — please try again' }, { status: 500 })
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

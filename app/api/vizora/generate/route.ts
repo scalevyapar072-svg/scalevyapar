@@ -1,77 +1,89 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Replicate from 'replicate'
-
-// Model images of real human models for try-on
-const MODEL_IMAGES = [
-  'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=768&q=80',
-  'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=768&q=80',
-  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=768&q=80',
-  'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=768&q=80',
-]
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, image, numImages = 1 } = await req.json()
+    const { image, prompt, shootType } = await req.json()
 
-    if (!process.env.REPLICATE_API_TOKEN) {
-      return NextResponse.json({ error: 'REPLICATE_API_TOKEN not set' }, { status: 500 })
+    if (!process.env.FASHN_API_KEY) {
+      return NextResponse.json({ error: 'FASHN_API_KEY not set in Vercel environment variables' }, { status: 500 })
     }
 
-    const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN })
-
-    let output: any
-
-    if (image) {
-      // Pick random model image
-      const humanImg = MODEL_IMAGES[Math.floor(Math.random() * MODEL_IMAGES.length)]
-
-      // Use IDM-VTON for exact garment transfer
-      output = await replicate.run(
-        'cuuupid/idm-vton',
-        {
-          input: {
-            garm_img: image,
-            human_img: humanImg,
-            garment_des: prompt || 'Indian kurta set',
-            is_checked: true,
-            is_checked_crop: false,
-            denoise_steps: 30,
-            seed: Math.floor(Math.random() * 999999),
-          },
-        }
-      )
-    } else {
-      // Text only fallback
-      output = await replicate.run(
-        'black-forest-labs/flux-dev',
-        {
-          input: {
-            prompt: prompt,
-            negative_prompt: 'mannequin, dummy, plastic, CGI, blurry, bad quality, watermark, deformed',
-            num_outputs: 1,
-            aspect_ratio: '2:3',
-            output_format: 'png',
-            output_quality: 90,
-            guidance_scale: 7.5,
-            num_inference_steps: 28,
-          },
-        }
-      )
+    if (!image) {
+      return NextResponse.json({ error: 'Please upload a product photo first' }, { status: 400 })
     }
 
-    const images = Array.isArray(output)
-      ? output.map((item: any) => {
-          if (typeof item === 'string') return item
-          if (item && typeof item.url === 'function') return item.url().toString()
-          if (item && item.href) return item.href
-          return String(item)
-        })
-      : [String(output)]
+    // Step 1 — Start the prediction
+    const startRes = await fetch('https://api.fashn.ai/v1/run', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.FASHN_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model_image: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=768&q=80',
+        garment_image: image,
+        category: 'tops',
+        mode: 'balanced',
+        garment_photo_type: 'auto',
+        num_samples: 1,
+        cover_feet: false,
+        adjust_hands: true,
+        restore_background: false,
+        restore_clothes: false,
+        flat_lay: false,
+      }),
+    })
 
-    return NextResponse.json({ images })
+    if (!startRes.ok) {
+      const err = await startRes.text()
+      console.error('FASHN start error:', err)
+      return NextResponse.json({ error: `FASHN API error: ${err}` }, { status: 500 })
+    }
+
+    const startData = await startRes.json()
+    const predictionId = startData.id
+
+    if (!predictionId) {
+      return NextResponse.json({ error: 'No prediction ID returned from FASHN' }, { status: 500 })
+    }
+
+    // Step 2 — Poll for result (max 60 seconds)
+    let imageUrl: string | null = null
+    let attempts = 0
+    const maxAttempts = 30
+
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      attempts++
+
+      const statusRes = await fetch(`https://api.fashn.ai/v1/status/${predictionId}`, {
+        headers: {
+          'Authorization': `Bearer ${process.env.FASHN_API_KEY}`,
+        },
+      })
+
+      if (!statusRes.ok) continue
+
+      const statusData = await statusRes.json()
+
+      if (statusData.status === 'completed' && statusData.output && statusData.output.length > 0) {
+        imageUrl = statusData.output[0]
+        break
+      }
+
+      if (statusData.status === 'failed') {
+        return NextResponse.json({ error: `FASHN generation failed: ${statusData.error || 'Unknown error'}` }, { status: 500 })
+      }
+    }
+
+    if (!imageUrl) {
+      return NextResponse.json({ error: 'Generation timed out — please try again' }, { status: 500 })
+    }
+
+    return NextResponse.json({ images: [imageUrl] })
 
   } catch (error: any) {
-    console.error('Vizora error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Vizora FASHN error:', error)
+    return NextResponse.json({ error: error.message || 'Generation failed' }, { status: 500 })
   }
 }

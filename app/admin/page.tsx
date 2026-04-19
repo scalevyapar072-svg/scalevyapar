@@ -1,114 +1,125 @@
 ﻿'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import Link from 'next/link'
 
-const MODULES = [
+const modules = [
   {
     id: 'vizora',
-    name: 'Vizora AI Studio',
-    description: 'AI fashion photo generation — exact dress on real model, 12 pose types, 5 tools',
+    name: 'Vizora',
+    description: 'AI-powered photo, video and ad creation studio for fashion and product sellers.',
+    status: 'active',
+    type: 'AI Module',
     icon: '✦',
-    color: '#7c3aed',
-    gradient: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
-    link: '/vizora',
-    externalLink: 'https://scalevyapar.vercel.app/vizora',
-    badge: 'Live',
-    badgeColor: '#10b981',
-    features: ['AI Photo Generator', 'Photo Upscaler 4x', 'Video Ad Generator', 'UGC Ads Creator', 'Magic Eraser'],
-    cost: '₹6/image',
-    category: 'AI Creative',
+    color: 'from-violet-600 to-indigo-600',
+    href: '/vizora',
+    customerLink: 'https://scalevyapar.vercel.app/vizora',
+    stats: { clients: 0, usage: 0, revenue: '₹0' },
+    features: ['AI Photo Generation', 'Photo Upscaling 4x', 'Video Ads', 'UGC Creator Videos', 'Magic Eraser'],
+  },
+  {
+    id: 'crm',
+    name: 'CRM Module',
+    description: 'Customer relationship management and call tracking.',
+    status: 'coming_soon',
+    type: 'Standard',
+    icon: '◈',
+    color: 'from-blue-500 to-cyan-500',
+    href: '#',
+    customerLink: null,
+    stats: { clients: 0, usage: 0, revenue: '₹0' },
+    features: ['Contact Management', 'Call Tracking', 'Follow-ups', 'Pipeline'],
+  },
+  {
+    id: 'inventory',
+    name: 'Inventory Module',
+    description: 'Stock management and production tracking.',
+    status: 'coming_soon',
+    type: 'Standard',
+    icon: '◉',
+    color: 'from-emerald-500 to-teal-500',
+    href: '#',
+    customerLink: null,
+    stats: { clients: 0, usage: 0, revenue: '₹0' },
+    features: ['Stock Tracking', 'Production Orders', 'Raw Materials', 'Dispatch'],
+  },
+  {
+    id: 'whatsapp',
+    name: 'WhatsApp Module',
+    description: 'Bulk messaging, chatbot and lead automation.',
+    status: 'coming_soon',
+    type: 'Standard',
+    icon: '◎',
+    color: 'from-green-500 to-emerald-500',
+    href: '#',
+    customerLink: null,
+    stats: { clients: 0, usage: 0, revenue: '₹0' },
+    features: ['Bulk Messaging', 'Chatbot', 'Auto Replies', 'Lead Capture'],
   },
   {
     id: 'leads',
     name: 'Lead Generation',
-    description: 'Google data extractor — scrape B2B leads by location, business type and keywords',
-    icon: '🎯',
-    color: '#0284c7',
-    gradient: 'linear-gradient(135deg, #0284c7, #0369a1)',
-    link: '/dashboard',
-    externalLink: null,
-    badge: 'Coming Soon',
-    badgeColor: '#6366f1',
-    features: ['Google Maps Scraper', 'Filter by Location', 'Filter by Business Type', 'Export to CSV'],
-    cost: 'Free',
-    category: 'Lead Gen',
-  },
-  {
-    id: 'crm',
-    name: 'CRM + Call Management',
-    description: 'Track calls, follow-ups, notes and lead status — Hot / Warm / Cold',
-    icon: '📞',
-    color: '#059669',
-    gradient: 'linear-gradient(135deg, #059669, #047857)',
-    link: '/dashboard',
-    externalLink: null,
-    badge: 'Coming Soon',
-    badgeColor: '#6366f1',
-    features: ['Call Tracking', 'Follow-up Reminders', 'Lead Status', 'Notes & History'],
-    cost: 'Free',
-    category: 'CRM',
-  },
-  {
-    id: 'whatsapp',
-    name: 'WhatsApp Automation',
-    description: 'Chatbot, bulk messaging, auto replies and lead nurturing via WhatsApp',
-    icon: '💬',
-    color: '#16a34a',
-    gradient: 'linear-gradient(135deg, #25d366, #128c7e)',
-    link: '/dashboard',
-    externalLink: null,
-    badge: 'Coming Soon',
-    badgeColor: '#6366f1',
-    features: ['Chatbot', 'Bulk Messaging', 'Auto Replies', 'Lead Nurturing'],
-    cost: 'API based',
-    category: 'Marketing',
+    description: 'Google data extractor — scrape B2B leads by location and business type.',
+    status: 'coming_soon',
+    type: 'Standard',
+    icon: '◎',
+    color: 'from-orange-500 to-amber-500',
+    href: '#',
+    customerLink: null,
+    stats: { clients: 0, usage: 0, revenue: '₹0' },
+    features: ['Google Maps Scraper', 'Filter by Location', 'Filter by Business', 'Export CSV'],
   },
   {
     id: 'shopify',
-    name: 'Website & Sales',
-    description: 'Shopify store setup, product catalog, pricing and order management',
-    icon: '🛒',
-    color: '#96bf48',
-    gradient: 'linear-gradient(135deg, #96bf48, #5e8e3e)',
-    link: '/dashboard',
-    externalLink: null,
-    badge: 'Coming Soon',
-    badgeColor: '#6366f1',
+    name: 'Shopify / Website',
+    description: 'Website setup, product catalog, pricing and order management.',
+    status: 'coming_soon',
+    type: 'Standard',
+    icon: '◇',
+    color: 'from-lime-500 to-green-500',
+    href: '#',
+    customerLink: null,
+    stats: { clients: 0, usage: 0, revenue: '₹0' },
     features: ['Shopify Setup', 'Product Catalog', 'Order Management', 'Pricing'],
-    cost: 'Shopify plan',
-    category: 'Sales',
-  },
-  {
-    id: 'inventory',
-    name: 'Inventory + Production',
-    description: 'Raw materials, production tracking, orders and dispatch management',
-    icon: '📦',
-    color: '#d97706',
-    gradient: 'linear-gradient(135deg, #d97706, #b45309)',
-    link: '/dashboard',
-    externalLink: null,
-    badge: 'Coming Soon',
-    badgeColor: '#6366f1',
-    features: ['Inventory Management', 'Production Tracking', 'Raw Materials', 'Dispatch'],
-    cost: 'Free',
-    category: 'Operations',
   },
 ]
 
-export default function AdminPage() {
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState('modules')
-  const [search, setSearch] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All')
+// Sample clients data
+const initialClients = [
+  {
+    id: 'client-1776346123958-g7l955z69',
+    name: 'Neelufer Creations',
+    email: 'neelufercreation@gmail.com',
+    plan: 'Growth',
+    status: 'active',
+    assignedModules: ['vizora'],
+    joinedAt: '2026-04-16',
+  },
+]
 
-  
+export default function AdminPanel() {
+  const [activeTab, setActiveTab] = useState<'modules' | 'clients'>('modules')
+  const [clients, setClients] = useState(initialClients)
+  const [editingClient, setEditingClient] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
 
-  const categories = ['All', ...Array.from(new Set(MODULES.map(m => m.category)))]
-  const filtered = MODULES.filter(m => {
-    const matchSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.description.toLowerCase().includes(search.toLowerCase())
-    const matchCat = selectedCategory === 'All' || m.category === selectedCategory
-    return matchSearch && matchCat
-  })
+  const toggleModule = (clientId: string, moduleId: string) => {
+    setClients(prev => prev.map(c => {
+      if (c.id !== clientId) return c
+      const has = c.assignedModules.includes(moduleId)
+      return {
+        ...c,
+        assignedModules: has
+          ? c.assignedModules.filter(m => m !== moduleId)
+          : [...c.assignedModules, moduleId],
+      }
+    }))
+  }
+
+  const copyLink = (link: string, id: string) => {
+    navigator.clipboard.writeText(link)
+    setCopied(id)
+    setTimeout(() => setCopied(null), 2000)
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -117,7 +128,7 @@ export default function AdminPage() {
       <div style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', padding: '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', color: 'white', fontSize: '14px' }}>SV</div>
+            <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', color: 'white', fontSize: '14px' }}>SV</div>
             <div>
               <p style={{ margin: 0, color: 'white', fontSize: '14px', fontWeight: '700' }}>Scale Vyapar</p>
               <p style={{ margin: 0, color: '#475569', fontSize: '10px' }}>Business Automation Platform</p>
@@ -127,27 +138,24 @@ export default function AdminPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ color: '#64748b', fontSize: '13px' }}>admin@scalevyapar.com</span>
-          <button onClick={() => { localStorage.removeItem('auth-token'); router.push('/login') }} style={{ background: '#1e293b', color: '#94a3b8', border: '1px solid #334155', fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer' }}>
+          <button
+            onClick={() => { window.location.href = '/login' }}
+            style={{ background: '#1e293b', color: '#94a3b8', border: '1px solid #334155', fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer' }}
+          >
             Logout
           </button>
         </div>
       </div>
 
-      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px' }}>
+      <div style={{ maxWidth: '1320px', margin: '0 auto', padding: '32px' }}>
 
-        {/* Header */}
-        <div style={{ marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: '700', color: '#0f172a', margin: '0 0 6px' }}>Module Management</h1>
-          <p style={{ color: '#64748b', fontSize: '15px', margin: '0' }}>Manage and assign platform modules to your clients</p>
-        </div>
-
-        {/* Quick Stats */}
+        {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '28px' }}>
           {[
-            { label: 'Total Modules', value: '6', icon: '🧩', color: '#7c3aed' },
+            { label: 'Total Modules', value: `${modules.length}`, icon: '🧩', color: '#7c3aed' },
             { label: 'Live Modules', value: '1', icon: '✅', color: '#10b981' },
-            { label: 'Coming Soon', value: '5', icon: '🔜', color: '#6366f1' },
-            { label: 'Active Clients', value: '0', icon: '👥', color: '#0284c7' },
+            { label: 'Active Clients', value: `${clients.length}`, icon: '👥', color: '#0284c7' },
+            { label: 'Monthly Revenue', value: '₹0', icon: '💰', color: '#f59e0b' },
           ].map(s => (
             <div key={s.label} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{ fontSize: '28px' }}>{s.icon}</div>
@@ -159,82 +167,216 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* Search + Filter */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', alignItems: 'center' }}>
-          <input
-            type="text"
-            placeholder="Search modules..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ flex: 1, background: 'white', border: '1px solid #e2e8f0', color: '#0f172a', fontSize: '14px', padding: '10px 16px', borderRadius: '10px', outline: 'none' }}
-          />
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {categories.map(cat => (
-              <button key={cat} onClick={() => setSelectedCategory(cat)} style={{ padding: '8px 16px', border: `1px solid ${selectedCategory === cat ? '#7c3aed' : '#e2e8f0'}`, background: selectedCategory === cat ? '#ede9fe' : 'white', color: selectedCategory === cat ? '#7c3aed' : '#64748b', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: selectedCategory === cat ? '600' : '400' }}>
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Modules Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '20px' }}>
-          {filtered.map(mod => (
-            <div key={mod.id} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '18px', overflow: 'hidden', transition: 'all 0.2s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 30px rgba(0,0,0,0.1)'; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = ''; (e.currentTarget as HTMLDivElement).style.transform = '' }}
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+          {[
+            { key: 'modules', label: '🧩 Module Management' },
+            { key: 'clients', label: '👥 Client Management' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              style={{
+                padding: '10px 20px',
+                border: `2px solid ${activeTab === tab.key ? '#7c3aed' : '#e2e8f0'}`,
+                background: activeTab === tab.key ? '#ede9fe' : 'white',
+                color: activeTab === tab.key ? '#7c3aed' : '#64748b',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: activeTab === tab.key ? '700' : '500',
+              }}
             >
-              {/* Top gradient bar */}
-              <div style={{ height: '5px', background: mod.gradient }} />
-
-              <div style={{ padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-                  <div style={{ width: '46px', height: '46px', borderRadius: '12px', background: mod.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
-                    {mod.icon}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                    <span style={{ background: mod.badgeColor + '20', color: mod.badgeColor, fontSize: '10px', padding: '2px 8px', borderRadius: '99px', fontWeight: '700', border: `1px solid ${mod.badgeColor}40` }}>
-                      {mod.badge}
-                    </span>
-                    <span style={{ fontSize: '10px', color: '#94a3b8' }}>{mod.category}</span>
-                  </div>
-                </div>
-
-                <h3 style={{ color: '#0f172a', fontSize: '15px', fontWeight: '700', margin: '0 0 6px' }}>{mod.name}</h3>
-                <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 14px', lineHeight: '1.6' }}>{mod.description}</p>
-
-                {/* Features */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '16px' }}>
-                  {mod.features.map(f => (
-                    <span key={f} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', padding: '2px 8px', borderRadius: '99px' }}>{f}</span>
-                  ))}
-                </div>
-
-                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>Cost: {mod.cost}</span>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {mod.externalLink && (
-                      <a href={mod.externalLink} target="_blank" rel="noopener noreferrer" style={{ background: '#f1f5f9', color: '#64748b', fontSize: '11px', padding: '5px 12px', borderRadius: '6px', textDecoration: 'none', fontWeight: '500' }}>
-                        Share Link ↗
-                      </a>
-                    )}
-                    <a href={mod.link} style={{ background: mod.gradient, color: 'white', fontSize: '11px', padding: '5px 12px', borderRadius: '6px', textDecoration: 'none', fontWeight: '600' }}>
-                      {mod.badge === 'Live' ? 'Open →' : 'Preview →'}
-                    </a>
-                  </div>
-                </div>
-
-                {/* Customer access link for Vizora */}
-                {mod.id === 'vizora' && (
-                  <div style={{ marginTop: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '8px 12px' }}>
-                    <p style={{ fontSize: '10px', color: '#166534', margin: '0 0 4px', fontWeight: '600' }}>🔗 Customer Access Link</p>
-                    <p style={{ fontSize: '10px', color: '#16a34a', margin: '0', wordBreak: 'break-all' }}>https://scalevyapar.vercel.app/vizora</p>
-                  </div>
-                )}
-              </div>
-            </div>
+              {tab.label}
+            </button>
           ))}
         </div>
+
+        {/* MODULES TAB */}
+        {activeTab === 'modules' && (
+          <div>
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>Module Management</h2>
+              <p style={{ color: '#64748b', fontSize: '14px', margin: '0' }}>All platform modules — assign to clients from the Client tab</p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '20px' }}>
+              {modules.map(mod => (
+                <div key={mod.id} style={{ background: 'white', border: `1px solid ${mod.status === 'active' ? '#a78bfa50' : '#e2e8f0'}`, borderRadius: '18px', overflow: 'hidden', boxShadow: mod.status === 'active' ? '0 4px 20px rgba(124,58,237,0.1)' : 'none' }}>
+                  <div style={{ height: '5px', background: `linear-gradient(135deg, ${mod.color.includes('violet') ? '#7c3aed,#4f46e5' : mod.color.includes('blue') ? '#0284c7,#0369a1' : mod.color.includes('emerald') ? '#059669,#047857' : mod.color.includes('green') ? '#16a34a,#15803d' : mod.color.includes('orange') ? '#d97706,#b45309' : '#84cc16,#65a30d'})` }} />
+                  <div style={{ padding: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: mod.status === 'active' ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+                        {mod.icon}
+                      </div>
+                      <span style={{ background: mod.status === 'active' ? '#d1fae520' : '#f1f5f9', color: mod.status === 'active' ? '#10b981' : '#94a3b8', fontSize: '11px', padding: '3px 10px', borderRadius: '99px', fontWeight: '700', border: `1px solid ${mod.status === 'active' ? '#10b98130' : '#e2e8f0'}` }}>
+                        {mod.status === 'active' ? '● Live' : '○ Coming Soon'}
+                      </span>
+                    </div>
+                    <h3 style={{ color: '#0f172a', fontSize: '15px', fontWeight: '700', margin: '0 0 6px' }}>{mod.name}</h3>
+                    <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 14px', lineHeight: '1.6' }}>{mod.description}</p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '16px' }}>
+                      {mod.features.map(f => (
+                        <span key={f} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', padding: '2px 8px', borderRadius: '99px' }}>{f}</span>
+                      ))}
+                    </div>
+
+                    {/* Customer Access Link for Vizora */}
+                    {mod.customerLink && (
+                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
+                        <p style={{ fontSize: '10px', color: '#166534', margin: '0 0 4px', fontWeight: '700' }}>🔗 Customer Access Link</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <p style={{ fontSize: '10px', color: '#16a34a', margin: '0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mod.customerLink}</p>
+                          <button
+                            onClick={() => copyLink(mod.customerLink!, mod.id)}
+                            style={{ background: '#16a34a', color: 'white', border: 'none', fontSize: '10px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: '600' }}
+                          >
+                            {copied === mod.id ? '✓ Copied!' : 'Copy'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px', flex: 1, marginRight: '12px' }}>
+                        {[
+                          { label: 'Clients', value: mod.stats.clients },
+                          { label: 'Usage', value: mod.stats.usage },
+                          { label: 'Revenue', value: mod.stats.revenue },
+                        ].map(s => (
+                          <div key={s.label} style={{ background: '#f8fafc', borderRadius: '6px', padding: '6px', textAlign: 'center' }}>
+                            <p style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: '0' }}>{s.value}</p>
+                            <p style={{ fontSize: '10px', color: '#94a3b8', margin: '0' }}>{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {mod.status === 'active' ? (
+                        <Link href={mod.href} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', fontSize: '12px', padding: '7px 14px', borderRadius: '8px', textDecoration: 'none', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                          Open →
+                        </Link>
+                      ) : (
+                        <span style={{ background: '#f1f5f9', color: '#94a3b8', fontSize: '11px', padding: '7px 14px', borderRadius: '8px', whiteSpace: 'nowrap' }}>Soon</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* CLIENTS TAB */}
+        {activeTab === 'clients' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>Client Management</h2>
+                <p style={{ color: '#64748b', fontSize: '14px', margin: '0' }}>Assign modules to each client — toggle to enable/disable</p>
+              </div>
+              <button style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '13px', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
+                + Add Client
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {clients.map(client => (
+                <div key={client.id} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', overflow: 'hidden' }}>
+                  {/* Client header */}
+                  <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '16px' }}>
+                        {client.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p style={{ margin: '0 0 2px', fontWeight: '700', color: '#0f172a', fontSize: '15px' }}>{client.name}</p>
+                        <p style={{ margin: '0', color: '#64748b', fontSize: '12px' }}>{client.email}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ background: '#ede9fe', color: '#7c3aed', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600' }}>{client.plan} Plan</span>
+                      <span style={{ background: '#f0fdf4', color: '#16a34a', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #bbf7d0' }}>● Active</span>
+                      <span style={{ color: '#94a3b8', fontSize: '11px' }}>Joined {client.joinedAt}</span>
+                      <button
+                        onClick={() => setEditingClient(editingClient === client.id ? null : client.id)}
+                        style={{ background: editingClient === client.id ? '#ede9fe' : '#f8fafc', color: editingClient === client.id ? '#7c3aed' : '#64748b', border: `1px solid ${editingClient === client.id ? '#7c3aed' : '#e2e8f0'}`, fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
+                      >
+                        {editingClient === client.id ? 'Done ✓' : 'Edit Modules'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Module assignment */}
+                  <div style={{ padding: '20px 24px' }}>
+                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 14px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Assigned Modules ({client.assignedModules.length}/{modules.length})
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '10px' }}>
+                      {modules.map(mod => {
+                        const isAssigned = client.assignedModules.includes(mod.id)
+                        const isEditing = editingClient === client.id
+                        return (
+                          <div
+                            key={mod.id}
+                            onClick={() => isEditing && mod.status === 'active' && toggleModule(client.id, mod.id)}
+                            style={{
+                              padding: '12px 14px',
+                              border: `2px solid ${isAssigned ? '#7c3aed' : '#e2e8f0'}`,
+                              background: isAssigned ? '#ede9fe' : '#f8fafc',
+                              borderRadius: '10px',
+                              cursor: isEditing && mod.status === 'active' ? 'pointer' : 'default',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              transition: 'all 0.15s',
+                              opacity: mod.status !== 'active' && !isAssigned ? 0.5 : 1,
+                            }}
+                          >
+                            <div>
+                              <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '600', color: isAssigned ? '#7c3aed' : '#374151' }}>{mod.name}</p>
+                              <p style={{ margin: '0', fontSize: '10px', color: '#94a3b8' }}>{mod.status === 'active' ? 'Live' : 'Coming Soon'}</p>
+                            </div>
+                            <div style={{
+                              width: '22px', height: '22px', borderRadius: '50%',
+                              background: isAssigned ? '#7c3aed' : 'transparent',
+                              border: `2px solid ${isAssigned ? '#7c3aed' : '#d1d5db'}`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: 'white', fontSize: '12px', fontWeight: '700', flexShrink: 0,
+                            }}>
+                              {isAssigned ? '✓' : ''}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {editingClient === client.id && (
+                      <div style={{ marginTop: '14px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 14px' }}>
+                        <p style={{ margin: '0', fontSize: '12px', color: '#92400e' }}>
+                          ✏️ Editing mode — click any <strong>Live</strong> module to toggle. Coming Soon modules will be enabled when they launch.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Vizora access link for client */}
+                    {client.assignedModules.includes('vizora') && (
+                      <div style={{ marginTop: '14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <p style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: '700', color: '#166534' }}>🔗 Vizora Access Link for {client.name}</p>
+                          <p style={{ margin: '0', fontSize: '11px', color: '#16a34a' }}>https://scalevyapar.vercel.app/vizora</p>
+                        </div>
+                        <button
+                          onClick={() => copyLink('https://scalevyapar.vercel.app/vizora', client.id + '-vizora')}
+                          style={{ background: '#16a34a', color: 'white', border: 'none', fontSize: '12px', padding: '7px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
+                        >
+                          {copied === client.id + '-vizora' ? '✓ Copied!' : 'Copy & Share'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -3,7 +3,7 @@ import Replicate from 'replicate'
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, image, numImages = 1 } = await req.json()
+    const { prompt, numImages = 1 } = await req.json()
 
     if (!process.env.REPLICATE_API_TOKEN) {
       return NextResponse.json({ error: 'REPLICATE_API_TOKEN not set' }, { status: 500 })
@@ -12,19 +12,14 @@ export async function POST(req: NextRequest) {
     const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN })
 
     const input: any = {
-      prompt: 'Real human female model NOT mannequin, beautiful Indian woman fair skin, front pose standing studio, wearing exact same garment from reference photo, same colors same print same fabric, white background, photorealistic 8K, no CGI',
-      negative_prompt: 'mannequin, dummy, plastic, CGI, blurry, bad quality, watermark, deformed',
+      prompt: prompt,
+      negative_prompt: 'mannequin, dummy, plastic, CGI, cartoon, anime, blurry, bad quality, watermark, deformed, low resolution, ugly, extra limbs, missing limbs, bad hands, bad face, doll, robot, headless',
       num_outputs: 1,
       aspect_ratio: '2:3',
       output_format: 'png',
       output_quality: 90,
       guidance_scale: 7.5,
       num_inference_steps: 28,
-    }
-
-    if (image) {
-      input.image = image
-      input.prompt_strength = 0.6
     }
 
     const output = await replicate.run('black-forest-labs/flux-dev', { input })

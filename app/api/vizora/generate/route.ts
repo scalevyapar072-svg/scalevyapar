@@ -3,7 +3,7 @@ import Replicate from 'replicate'
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, numImages = 1 } = await req.json()
+    const { prompt, image, numImages = 1 } = await req.json()
 
     if (!process.env.REPLICATE_API_TOKEN) {
       return NextResponse.json({ error: 'REPLICATE_API_TOKEN not set' }, { status: 500 })
@@ -11,18 +11,42 @@ export async function POST(req: NextRequest) {
 
     const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN })
 
-    const input: any = {
-      prompt: prompt,
-      negative_prompt: 'mannequin, dummy, plastic, CGI, cartoon, anime, blurry, bad quality, watermark, deformed, low resolution, ugly, extra limbs, missing limbs, bad hands, bad face, doll, robot, headless',
-      num_outputs: 1,
-      aspect_ratio: '2:3',
-      output_format: 'png',
-      output_quality: 90,
-      guidance_scale: 7.5,
-      num_inference_steps: 28,
-    }
+    let output: any
 
-    const output = await replicate.run('black-forest-labs/flux-dev', { input })
+    if (image) {
+      // Virtual Try-On — puts exact garment from your photo onto a real model
+      output = await replicate.run(
+        'cuuupid/idm-vton:906425dbaca4437faces1b67bee26c032d7a3a5a87941a03c55de2fc56c6a90d',
+        {
+          input: {
+            garm_img: image,
+            human_img: 'https://images.unsplash.com/photo-1594938298603-c8148c4b4057?w=768&q=80',
+            garment_des: prompt,
+            is_checked: true,
+            is_checked_crop: false,
+            denoise_steps: 30,
+            seed: Math.floor(Math.random() * 999999),
+          },
+        }
+      )
+    } else {
+      // Text only fallback
+      output = await replicate.run(
+        'black-forest-labs/flux-dev',
+        {
+          input: {
+            prompt: prompt,
+            negative_prompt: 'mannequin, dummy, plastic, CGI, blurry, bad quality, watermark, deformed',
+            num_outputs: 1,
+            aspect_ratio: '2:3',
+            output_format: 'png',
+            output_quality: 90,
+            guidance_scale: 7.5,
+            num_inference_steps: 28,
+          },
+        }
+      )
+    }
 
     const images = Array.isArray(output)
       ? output.map((item: any) => {

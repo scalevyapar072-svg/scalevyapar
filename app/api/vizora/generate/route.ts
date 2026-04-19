@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,16 +19,15 @@ export async function POST(req: NextRequest) {
       'Authorization': `Bearer ${API_KEY}`,
     }
 
-    // product-to-model — puts garment on AI generated model automatically
-    // No model image needed — FASHN generates the model itself
+    // product-to-model â€” puts garment on AI generated model automatically
+    // No model image needed â€” FASHN generates the model itself
     const runRes = await fetch(`${BASE_URL}/run`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
         model_name: 'product-to-model',
         inputs: {
-          garment_image: image,
-          garment_type: 'auto',
+          product_image: image,
         },
       }),
     })
@@ -65,7 +64,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ error: 'Timed out — please try again' }, { status: 500 })
+    return NextResponse.json({ error: 'Timed out â€” please try again' }, { status: 500 })
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

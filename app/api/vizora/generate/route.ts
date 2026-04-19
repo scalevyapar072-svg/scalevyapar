@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     if (image) {
       input.image = image
-      input.prompt_strength = 0.85
+      input.prompt_strength = 0.6
     }
 
     const output = await replicate.run('black-forest-labs/flux-dev', { input })

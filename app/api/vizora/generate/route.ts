@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (statusData.status === 'failed') {
-        return NextResponse.json({ error: `Failed: ${JSON.stringify(statusData.error)}` }, { status: 500 })
+        return NextResponse.json({ error: `Failed: ${JSON.stringify(statusData)}` }, { status: 500 })
       }
     }
 

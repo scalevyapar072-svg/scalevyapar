@@ -71,12 +71,32 @@
   "userModules": [
     {
       "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-1",
+      "moduleId": "mod-vizora",
       "isEnabled": true
     },
     {
       "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-vizora",
+      "moduleId": "mod-crm",
+      "isEnabled": true
+    },
+    {
+      "userId": "client-1776346123958-g7l955z69",
+      "moduleId": "mod-inventory",
+      "isEnabled": true
+    },
+    {
+      "userId": "client-1776346123958-g7l955z69",
+      "moduleId": "mod-whatsapp",
+      "isEnabled": true
+    },
+    {
+      "userId": "client-1776346123958-g7l955z69",
+      "moduleId": "mod-leads",
+      "isEnabled": true
+    },
+    {
+      "userId": "client-1776346123958-g7l955z69",
+      "moduleId": "mod-shopify",
       "isEnabled": true
     }
   ]

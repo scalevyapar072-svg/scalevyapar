@@ -1,5 +1,5 @@
 ﻿'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 const initialModules = [
@@ -18,73 +18,82 @@ const initialClients = [
 const BLANK_CLIENT = { name: '', email: '', phone: '', plan: 'Starter', assignedModules: [] as string[] }
 const BLANK_MODULE = { id: '', name: '', description: '', status: 'coming_soon', type: 'Standard', icon: '◆', href: '#', customerLink: '', features: [''], color: '#7c3aed' }
 
+function load(key: string, fallback: any) {
+  if (typeof window === 'undefined') return fallback
+  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback } catch { return fallback }
+}
+function save(key: string, value: any) {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
+}
+
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<'modules' | 'clients'>('modules')
-  
-  const [modules, setModules] = useState(() => {
-    if (typeof window === 'undefined') return initialModules
-    try { const saved = localStorage.getItem('sv-modules'); return saved ? JSON.parse(saved) : initialModules } catch { return initialModules }
-  })
-  const [clients, setClients] = useState(() => {
-    if (typeof window === 'undefined') return initialClients
-    try { const saved = localStorage.getItem('sv-clients'); return saved ? JSON.parse(saved) : initialClients } catch { return initialClients }
-  })
+  const [modules, setModules] = useState(initialModules)
+  const [clients, setClients] = useState(initialClients)
+  const [hydrated, setHydrated] = useState(false)
 
-  // Module states
+  useEffect(() => {
+    setModules(load('sv-modules', initialModules))
+    setClients(load('sv-clients', initialClients))
+    setHydrated(true)
+  }, [])
+
+  const setAndSaveModules = (val: any[]) => { setModules(val); save('sv-modules', val) }
+  const setAndSaveClients = (val: any[]) => { setClients(val); save('sv-clients', val) }
+
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null)
   const [editModule, setEditModule] = useState<any>(null)
   const [addingModule, setAddingModule] = useState(false)
   const [newModule, setNewModule] = useState({ ...BLANK_MODULE })
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-
-  // Client states
   const [editingClient, setEditingClient] = useState<string | null>(null)
   const [addingClient, setAddingClient] = useState(false)
   const [newClient, setNewClient] = useState({ ...BLANK_CLIENT })
   const [deleteClientConfirm, setDeleteClientConfirm] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [saved, setSaved] = useState<string | null>(null)
 
   const inp = { width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', fontSize: '13px', padding: '8px 12px', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' as const, fontFamily: 'inherit' }
-  const label = { fontSize: '11px', color: '#64748b', fontWeight: '600' as const, display: 'block' as const, marginBottom: '4px' }
+  const lbl = { fontSize: '11px', color: '#64748b', fontWeight: '600' as const, display: 'block' as const, marginBottom: '4px' }
 
-  // Module helpers
+  const showSaved = (id: string) => { setSaved(id); setTimeout(() => setSaved(null), 2000) }
+
   const startEdit = (mod: any) => { setEditModule({ ...mod, features: [...mod.features] }); setEditingModuleId(mod.id); setAddingModule(false) }
- const saveEdit = () => {
+  const saveEdit = () => {
     if (!editModule.name.trim()) return
-    const updated = modules.map(m => m.id === editModule.id ? { ...editModule } : m)
-    setModules(updated)
-    localStorage.setItem('sv-modules', JSON.stringify(updated))
+    const updated = modules.map((m: any) => m.id === editModule.id ? { ...editModule } : m)
+    setAndSaveModules(updated)
     setEditingModuleId(null); setEditModule(null)
+    showSaved('edit')
   }
-  const deleteModule = (id: string) => { const updated = modules.filter(m => m.id !== id)
-    setModules(updated)
-    localStorage.setItem('sv-modules', JSON.stringify(updated))
-    setDeleteConfirm(null)
+  const deleteModule = (id: string) => { const updated = modules.filter((m: any) => m.id !== id); setAndSaveModules(updated); setDeleteConfirm(null) }
   const saveNewModule = () => {
     if (!newModule.name.trim()) return
     const id = newModule.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
     const updated = [...modules, { ...newModule, id, features: newModule.features.filter((f: string) => f.trim()) }]
-    setModules(updated)
-    localStorage.setItem('sv-modules', JSON.stringify(updated))
+    setAndSaveModules(updated)
     setNewModule({ ...BLANK_MODULE }); setAddingModule(false)
+    showSaved('new-mod')
   }
   const updateFeature = (arr: string[], i: number, val: string) => arr.map((f, idx) => idx === i ? val : f)
 
-  // Client helpers
   const saveNewClient = () => {
     if (!newClient.name.trim() || !newClient.email.trim()) return
     const id = 'client-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8)
     const today = new Date().toISOString().split('T')[0]
-    setClients(p => [...p, { ...newClient, id, status: 'active', joinedAt: today }])
+    const updated = [...clients, { ...newClient, id, status: 'active', joinedAt: today }]
+    setAndSaveClients(updated)
     setNewClient({ ...BLANK_CLIENT }); setAddingClient(false)
+    showSaved('new-client')
   }
-  const deleteClient = (id: string) => { setClients(p => p.filter(c => c.id !== id)); setDeleteClientConfirm(null) }
+  const deleteClient = (id: string) => { const updated = clients.filter((c: any) => c.id !== id); setAndSaveClients(updated); setDeleteClientConfirm(null) }
   const toggleModule = (clientId: string, moduleId: string) => {
-    setClients(p => p.map(c => {
+    const updated = clients.map((c: any) => {
       if (c.id !== clientId) return c
       const has = c.assignedModules.includes(moduleId)
-      return { ...c, assignedModules: has ? c.assignedModules.filter(m => m !== moduleId) : [...c.assignedModules, moduleId] }
-    }))
+      return { ...c, assignedModules: has ? c.assignedModules.filter((m: string) => m !== moduleId) : [...c.assignedModules, moduleId] }
+    })
+    setAndSaveClients(updated)
   }
   const copyLink = (link: string, id: string) => { navigator.clipboard.writeText(link); setCopied(id); setTimeout(() => setCopied(null), 2000) }
 
@@ -92,30 +101,31 @@ export default function AdminPanel() {
     <div style={{ background: '#f0ebff', border: '2px solid #7c3aed', borderRadius: '14px', padding: '20px', marginBottom: '16px' }}>
       <p style={{ fontSize: '13px', fontWeight: '700', color: '#7c3aed', margin: '0 0 16px' }}>{title}</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-        <div><label style={label}>Module Name *</label><input value={data.name} onChange={e => setData({ ...data, name: e.target.value })} placeholder="e.g. Ads Manager" style={inp} /></div>
-        <div><label style={label}>Type</label>
+        <div><label style={lbl}>Module Name *</label><input value={data.name} onChange={e => setData({ ...data, name: e.target.value })} placeholder="e.g. Ads Manager" style={inp} /></div>
+        <div><label style={lbl}>Type</label>
           <select value={data.type} onChange={e => setData({ ...data, type: e.target.value })} style={inp}>
             <option>Standard</option><option>AI Module</option><option>Premium</option>
           </select>
         </div>
-        <div><label style={label}>Status</label>
+        <div><label style={lbl}>Status</label>
           <select value={data.status} onChange={e => setData({ ...data, status: e.target.value })} style={inp}>
             <option value="active">Live / Active</option><option value="coming_soon">Coming Soon</option>
           </select>
         </div>
-        <div><label style={label}>Icon (emoji)</label><input value={data.icon} onChange={e => setData({ ...data, icon: e.target.value })} placeholder="📊" style={inp} /></div>
-        <div><label style={label}>Module URL</label><input value={data.href} onChange={e => setData({ ...data, href: e.target.value })} placeholder="/module or #" style={inp} /></div>
-        <div><label style={label}>Customer Access Link</label><input value={data.customerLink} onChange={e => setData({ ...data, customerLink: e.target.value })} placeholder="https://..." style={inp} /></div>
-        <div style={{ gridColumn: '1/-1' }}><label style={label}>Color (hex)</label>
+        <div><label style={lbl}>Icon (emoji)</label><input value={data.icon} onChange={e => setData({ ...data, icon: e.target.value })} placeholder="📊" style={inp} /></div>
+        <div><label style={lbl}>Module URL</label><input value={data.href} onChange={e => setData({ ...data, href: e.target.value })} placeholder="/module or #" style={inp} /></div>
+        <div><label style={lbl}>Customer Access Link</label><input value={data.customerLink} onChange={e => setData({ ...data, customerLink: e.target.value })} placeholder="https://..." style={inp} /></div>
+        <div style={{ gridColumn: '1/-1' }}>
+          <label style={lbl}>Color (hex)</label>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <input value={data.color} onChange={e => setData({ ...data, color: e.target.value })} placeholder="#7c3aed" style={{ ...inp, flex: 1 }} />
             <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: data.color, border: '1px solid #e2e8f0', flexShrink: 0 }} />
           </div>
         </div>
-        <div style={{ gridColumn: '1/-1' }}><label style={label}>Description</label><textarea value={data.description} onChange={e => setData({ ...data, description: e.target.value })} placeholder="What does this module do?" rows={2} style={{ ...inp, resize: 'none' }} /></div>
+        <div style={{ gridColumn: '1/-1' }}><label style={lbl}>Description</label><textarea value={data.description} onChange={e => setData({ ...data, description: e.target.value })} placeholder="What does this module do?" rows={2} style={{ ...inp, resize: 'none' }} /></div>
       </div>
       <div style={{ marginBottom: '16px' }}>
-        <label style={{ ...label, marginBottom: '8px' }}>Features</label>
+        <label style={{ ...lbl, marginBottom: '8px' }}>Features</label>
         {data.features.map((f: string, i: number) => (
           <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
             <input value={f} onChange={e => setData({ ...data, features: updateFeature(data.features, i, e.target.value) })} placeholder={`Feature ${i + 1}`} style={{ ...inp, flex: 1 }} />
@@ -125,15 +135,23 @@ export default function AdminPanel() {
         <button onClick={() => setData({ ...data, features: [...data.features, ''] })} style={{ background: '#ede9fe', color: '#7c3aed', border: '1px dashed #7c3aed', borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>+ Add Feature</button>
       </div>
       <div style={{ display: 'flex', gap: '8px' }}>
-        <button onClick={onSave} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '9px 20px', borderRadius: '8px', cursor: 'pointer' }}>Save Module</button>
+        <button onClick={onSave} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '9px 20px', borderRadius: '8px', cursor: 'pointer' }}>💾 Save Module</button>
         <button onClick={onCancel} style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', fontSize: '13px', padding: '9px 16px', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
       </div>
     </div>
   )
 
+  if (!hydrated) return <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p style={{ color: '#94a3b8' }}>Loading...</p></div>
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      {/* Top Nav */}
+
+      {saved && (
+        <div style={{ position: 'fixed', top: '20px', right: '20px', background: '#0f172a', color: '#4ade80', fontSize: '13px', fontWeight: '700', padding: '12px 20px', borderRadius: '10px', zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          ✓ Saved successfully!
+        </div>
+      )}
+
       <div style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', padding: '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -152,11 +170,11 @@ export default function AdminPanel() {
       </div>
 
       <div style={{ maxWidth: '1320px', margin: '0 auto', padding: '32px' }}>
-        {/* Stats */}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '28px' }}>
           {[
             { label: 'Total Modules', value: `${modules.length}`, icon: '🧩', color: '#7c3aed' },
-            { label: 'Live Modules', value: `${modules.filter(m => m.status === 'active').length}`, icon: '✅', color: '#10b981' },
+            { label: 'Live Modules', value: `${modules.filter((m: any) => m.status === 'active').length}`, icon: '✅', color: '#10b981' },
             { label: 'Active Clients', value: `${clients.length}`, icon: '👥', color: '#0284c7' },
             { label: 'Monthly Revenue', value: '₹0', icon: '💰', color: '#f59e0b' },
           ].map(s => (
@@ -170,7 +188,6 @@ export default function AdminPanel() {
           ))}
         </div>
 
-        {/* Tabs */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
           {[{ key: 'modules', label: '🧩 Module Management' }, { key: 'clients', label: '👥 Client Management' }].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key as any)} style={{ padding: '10px 20px', border: `2px solid ${activeTab === tab.key ? '#7c3aed' : '#e2e8f0'}`, background: activeTab === tab.key ? '#ede9fe' : 'white', color: activeTab === tab.key ? '#7c3aed' : '#64748b', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: activeTab === tab.key ? '700' : '500' }}>
@@ -179,23 +196,23 @@ export default function AdminPanel() {
           ))}
         </div>
 
-        {/* ===== MODULES TAB ===== */}
         {activeTab === 'modules' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
                 <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>Module Management</h2>
-                <p style={{ color: '#64748b', fontSize: '14px', margin: '0' }}>Add, edit or delete modules. Assign to clients in the Client tab.</p>
+                <p style={{ color: '#64748b', fontSize: '14px', margin: '0' }}>All changes save automatically to your browser storage</p>
               </div>
-              <button onClick={() => { setAddingModule(true); setEditingModuleId(null); setNewModule({ ...BLANK_MODULE }) }} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>
-                + Add New Module
-              </button>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button onClick={() => { if (confirm('Reset all modules to default?')) { setAndSaveModules(initialModules); showSaved('reset') } }} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '12px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>↺ Reset</button>
+                <button onClick={() => { setAddingModule(true); setEditingModuleId(null); setNewModule({ ...BLANK_MODULE }) }} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>+ Add New Module</button>
+              </div>
             </div>
 
             {addingModule && <ModuleForm data={newModule} setData={setNewModule} onSave={saveNewModule} onCancel={() => setAddingModule(false)} title="✦ Create New Module" />}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '20px' }}>
-              {modules.map(mod => (
+              {modules.map((mod: any) => (
                 <div key={mod.id}>
                   {editingModuleId === mod.id && editModule ? (
                     <ModuleForm data={editModule} setData={setEditModule} onSave={saveEdit} onCancel={() => { setEditingModuleId(null); setEditModule(null) }} title={`✎ Editing — ${mod.name}`} />
@@ -213,7 +230,7 @@ export default function AdminPanel() {
                         <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 6px' }}>{mod.type}</p>
                         <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 12px', lineHeight: '1.6' }}>{mod.description}</p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
-                          {mod.features.map(f => <span key={f} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', padding: '2px 8px', borderRadius: '99px' }}>{f}</span>)}
+                          {mod.features.map((f: string) => <span key={f} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', padding: '2px 8px', borderRadius: '99px' }}>{f}</span>)}
                         </div>
                         {mod.customerLink && (
                           <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '8px 10px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -223,7 +240,7 @@ export default function AdminPanel() {
                         )}
                         <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px', display: 'flex', gap: '8px' }}>
                           <button onClick={() => startEdit(mod)} style={{ flex: 1, background: '#ede9fe', color: '#7c3aed', border: '1px solid #c4b5fd', fontSize: '12px', fontWeight: '700', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>✎ Edit</button>
-                          {mod.status === 'active' && <Link href={mod.href} target="_blank" target="_blank" style={{ flex: 1, background: '#7c3aed', color: 'white', fontSize: '12px', fontWeight: '700', padding: '8px', borderRadius: '8px', textDecoration: 'none', textAlign: 'center' }}>Open →</Link>}
+                          {mod.status === 'active' && <Link href={mod.href} target="_blank" style={{ flex: 1, background: '#7c3aed', color: 'white', fontSize: '12px', fontWeight: '700', padding: '8px', borderRadius: '8px', textDecoration: 'none', textAlign: 'center' }}>Open →</Link>}
                           {deleteConfirm === mod.id ? (
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <button onClick={() => deleteModule(mod.id)} style={{ background: '#dc2626', color: 'white', border: 'none', fontSize: '11px', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>Delete!</button>
@@ -242,39 +259,24 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* ===== CLIENTS TAB ===== */}
         {activeTab === 'clients' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
                 <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>Client Management</h2>
-                <p style={{ color: '#64748b', fontSize: '14px', margin: '0' }}>Add clients and assign modules to each one</p>
+                <p style={{ color: '#64748b', fontSize: '14px', margin: '0' }}>Add clients and assign modules — saves automatically</p>
               </div>
-              <button onClick={() => { setAddingClient(true); setNewClient({ ...BLANK_CLIENT }) }} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>
-                + Add New Client
-              </button>
+              <button onClick={() => { setAddingClient(true); setNewClient({ ...BLANK_CLIENT }) }} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>+ Add New Client</button>
             </div>
 
-            {/* ===== ADD CLIENT FORM ===== */}
             {addingClient && (
               <div style={{ background: '#f0ebff', border: '2px solid #7c3aed', borderRadius: '16px', padding: '24px', marginBottom: '20px' }}>
                 <p style={{ fontSize: '15px', fontWeight: '700', color: '#7c3aed', margin: '0 0 20px' }}>✦ Add New Client</p>
-
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={label}>Business Name *</label>
-                    <input value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} placeholder="e.g. Sharma Textiles" style={inp} />
-                  </div>
-                  <div>
-                    <label style={label}>Email Address *</label>
-                    <input type="email" value={newClient.email} onChange={e => setNewClient({ ...newClient, email: e.target.value })} placeholder="owner@business.com" style={inp} />
-                  </div>
-                  <div>
-                    <label style={label}>Phone Number</label>
-                    <input value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} placeholder="+91 98765 43210" style={inp} />
-                  </div>
-                  <div>
-                    <label style={label}>Subscription Plan</label>
+                  <div><label style={lbl}>Business Name *</label><input value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} placeholder="e.g. Sharma Textiles" style={inp} /></div>
+                  <div><label style={lbl}>Email Address *</label><input type="email" value={newClient.email} onChange={e => setNewClient({ ...newClient, email: e.target.value })} placeholder="owner@business.com" style={inp} /></div>
+                  <div><label style={lbl}>Phone Number</label><input value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} placeholder="+91 98765 43210" style={inp} /></div>
+                  <div><label style={lbl}>Subscription Plan</label>
                     <select value={newClient.plan} onChange={e => setNewClient({ ...newClient, plan: e.target.value })} style={inp}>
                       <option>Starter — ₹999/mo</option>
                       <option>Growth — ₹2,499/mo</option>
@@ -283,22 +285,14 @@ export default function AdminPanel() {
                     </select>
                   </div>
                 </div>
-
-                {/* Module assignment during creation */}
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ ...label, marginBottom: '10px' }}>Assign Modules</label>
+                  <label style={{ ...lbl, marginBottom: '10px' }}>Assign Modules</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
-                    {modules.map(mod => {
+                    {modules.map((mod: any) => {
                       const isSelected = newClient.assignedModules.includes(mod.id)
                       return (
-                        <div
-                          key={mod.id}
-                          onClick={() => {
-                            const has = newClient.assignedModules.includes(mod.id)
-                            setNewClient({ ...newClient, assignedModules: has ? newClient.assignedModules.filter(m => m !== mod.id) : [...newClient.assignedModules, mod.id] })
-                          }}
-                          style={{ padding: '10px 12px', border: `2px solid ${isSelected ? mod.color : '#e2e8f0'}`, background: isSelected ? mod.color + '12' : 'white', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.15s' }}
-                        >
+                        <div key={mod.id} onClick={() => { const has = newClient.assignedModules.includes(mod.id); setNewClient({ ...newClient, assignedModules: has ? newClient.assignedModules.filter((m: string) => m !== mod.id) : [...newClient.assignedModules, mod.id] }) }}
+                          style={{ padding: '10px 12px', border: `2px solid ${isSelected ? mod.color : '#e2e8f0'}`, background: isSelected ? mod.color + '12' : 'white', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.15s' }}>
                           <div>
                             <p style={{ margin: '0 0 1px', fontSize: '13px', fontWeight: '600', color: isSelected ? mod.color : '#374151' }}>{mod.name}</p>
                             <p style={{ margin: '0', fontSize: '10px', color: '#94a3b8' }}>{mod.status === 'active' ? '● Live' : '○ Coming Soon'}</p>
@@ -311,23 +305,16 @@ export default function AdminPanel() {
                     })}
                   </div>
                 </div>
-
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button
-                    onClick={saveNewClient}
-                    disabled={!newClient.name.trim() || !newClient.email.trim()}
-                    style={{ background: !newClient.name.trim() || !newClient.email.trim() ? '#e2e8f0' : 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: !newClient.name.trim() || !newClient.email.trim() ? '#94a3b8' : 'white', border: 'none', fontSize: '14px', fontWeight: '700', padding: '11px 24px', borderRadius: '10px', cursor: !newClient.name.trim() || !newClient.email.trim() ? 'not-allowed' : 'pointer' }}
-                  >
-                    ✓ Save Client
+                  <button onClick={saveNewClient} disabled={!newClient.name.trim() || !newClient.email.trim()}
+                    style={{ background: !newClient.name.trim() || !newClient.email.trim() ? '#e2e8f0' : 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: !newClient.name.trim() || !newClient.email.trim() ? '#94a3b8' : 'white', border: 'none', fontSize: '14px', fontWeight: '700', padding: '11px 24px', borderRadius: '10px', cursor: !newClient.name.trim() || !newClient.email.trim() ? 'not-allowed' : 'pointer' }}>
+                    💾 Save Client
                   </button>
-                  <button onClick={() => { setAddingClient(false); setNewClient({ ...BLANK_CLIENT }) }} style={{ background: 'white', color: '#64748b', border: '1px solid #e2e8f0', fontSize: '13px', padding: '11px 20px', borderRadius: '10px', cursor: 'pointer' }}>
-                    Cancel
-                  </button>
+                  <button onClick={() => { setAddingClient(false); setNewClient({ ...BLANK_CLIENT }) }} style={{ background: 'white', color: '#64748b', border: '1px solid #e2e8f0', fontSize: '13px', padding: '11px 20px', borderRadius: '10px', cursor: 'pointer' }}>Cancel</button>
                 </div>
               </div>
             )}
 
-            {/* Client list */}
             {clients.length === 0 && !addingClient ? (
               <div style={{ background: 'white', border: '2px dashed #e2e8f0', borderRadius: '16px', padding: '48px', textAlign: 'center' }}>
                 <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }}>👥</div>
@@ -337,16 +324,14 @@ export default function AdminPanel() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {clients.map(client => (
+                {clients.map((client: any) => (
                   <div key={client.id} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', overflow: 'hidden' }}>
                     <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '18px' }}>
-                          {client.name.charAt(0).toUpperCase()}
-                        </div>
+                        <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '18px' }}>{client.name.charAt(0).toUpperCase()}</div>
                         <div>
                           <p style={{ margin: '0 0 2px', fontWeight: '700', color: '#0f172a', fontSize: '15px' }}>{client.name}</p>
-                          <p style={{ margin: '0', color: '#64748b', fontSize: '12px' }}>{client.email} {client.phone ? `· ${client.phone}` : ''}</p>
+                          <p style={{ margin: '0', color: '#64748b', fontSize: '12px' }}>{client.email}{client.phone ? ` · ${client.phone}` : ''}</p>
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -366,17 +351,15 @@ export default function AdminPanel() {
                         )}
                       </div>
                     </div>
-
                     <div style={{ padding: '20px 24px' }}>
-                      <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 14px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Assigned Modules ({client.assignedModules.length}/{modules.length})
-                      </p>
+                      <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 14px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Assigned Modules ({client.assignedModules.length}/{modules.length})</p>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '10px' }}>
-                        {modules.map(mod => {
+                        {modules.map((mod: any) => {
                           const isAssigned = client.assignedModules.includes(mod.id)
                           const isEditing = editingClient === client.id
                           return (
-                            <div key={mod.id} onClick={() => isEditing && toggleModule(client.id, mod.id)} style={{ padding: '12px 14px', border: `2px solid ${isAssigned ? mod.color : '#e2e8f0'}`, background: isAssigned ? mod.color + '10' : '#f8fafc', borderRadius: '10px', cursor: isEditing ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.15s' }}>
+                            <div key={mod.id} onClick={() => isEditing && toggleModule(client.id, mod.id)}
+                              style={{ padding: '12px 14px', border: `2px solid ${isAssigned ? mod.color : '#e2e8f0'}`, background: isAssigned ? mod.color + '10' : '#f8fafc', borderRadius: '10px', cursor: isEditing ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.15s' }}>
                               <div>
                                 <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '600', color: isAssigned ? mod.color : '#374151' }}>{mod.name}</p>
                                 <p style={{ margin: '0', fontSize: '10px', color: '#94a3b8' }}>{mod.status === 'active' ? 'Live' : 'Coming Soon'}</p>
@@ -390,7 +373,7 @@ export default function AdminPanel() {
                       </div>
                       {editingClient === client.id && (
                         <div style={{ marginTop: '12px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 14px' }}>
-                          <p style={{ margin: '0', fontSize: '12px', color: '#92400e' }}>✏️ Click any module card above to toggle access ON/OFF for this client</p>
+                          <p style={{ margin: '0', fontSize: '12px', color: '#92400e' }}>✏️ Click any module card above to toggle access ON/OFF — saves automatically</p>
                         </div>
                       )}
                       {client.assignedModules.includes('vizora') && (
@@ -415,6 +398,3 @@ export default function AdminPanel() {
     </div>
   )
 }
-
-
-

@@ -20,8 +20,15 @@ const BLANK_MODULE = { id: '', name: '', description: '', status: 'coming_soon',
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<'modules' | 'clients'>('modules')
-  const [modules, setModules] = useState(initialModules)
-  const [clients, setClients] = useState(initialClients)
+  
+  const [modules, setModules] = useState(() => {
+    if (typeof window === 'undefined') return initialModules
+    try { const saved = localStorage.getItem('sv-modules'); return saved ? JSON.parse(saved) : initialModules } catch { return initialModules }
+  })
+  const [clients, setClients] = useState(() => {
+    if (typeof window === 'undefined') return initialClients
+    try { const saved = localStorage.getItem('sv-clients'); return saved ? JSON.parse(saved) : initialClients } catch { return initialClients }
+  })
 
   // Module states
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null)
@@ -42,12 +49,23 @@ export default function AdminPanel() {
 
   // Module helpers
   const startEdit = (mod: any) => { setEditModule({ ...mod, features: [...mod.features] }); setEditingModuleId(mod.id); setAddingModule(false) }
-  const saveEdit = () => { if (!editModule.name.trim()) return; setModules(p => p.map(m => m.id === editModule.id ? { ...editModule } : m)); setEditingModuleId(null); setEditModule(null) }
-  const deleteModule = (id: string) => { setModules(p => p.filter(m => m.id !== id)); setDeleteConfirm(null) }
+ const saveEdit = () => {
+    if (!editModule.name.trim()) return
+    const updated = modules.map(m => m.id === editModule.id ? { ...editModule } : m)
+    setModules(updated)
+    localStorage.setItem('sv-modules', JSON.stringify(updated))
+    setEditingModuleId(null); setEditModule(null)
+  }
+  const deleteModule = (id: string) => { const updated = modules.filter(m => m.id !== id)
+    setModules(updated)
+    localStorage.setItem('sv-modules', JSON.stringify(updated))
+    setDeleteConfirm(null)
   const saveNewModule = () => {
     if (!newModule.name.trim()) return
     const id = newModule.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
-    setModules(p => [...p, { ...newModule, id, features: newModule.features.filter(f => f.trim()) }])
+    const updated = [...modules, { ...newModule, id, features: newModule.features.filter((f: string) => f.trim()) }]
+    setModules(updated)
+    localStorage.setItem('sv-modules', JSON.stringify(updated))
     setNewModule({ ...BLANK_MODULE }); setAddingModule(false)
   }
   const updateFeature = (arr: string[], i: number, val: string) => arr.map((f, idx) => idx === i ? val : f)

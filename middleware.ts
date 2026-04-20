@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { jwtVerify } from 'jose'
-
-const JWT_SECRET = new TextEncoder().encode('scalevyapar-secret-key-2024')
+import { verifyToken } from '@/lib/auth'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Public routes
   if (pathname === '/login' || pathname.startsWith('/api/auth')) {
     return NextResponse.next()
   }
@@ -16,30 +13,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  let userRole: string | null = null
-  try {
-    const { payload } = await jwtVerify(authToken, JWT_SECRET)
-    userRole = payload.role as string
-  } catch (error) {
+  const user = await verifyToken(authToken)
+  if (!user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
   if (pathname.startsWith('/admin')) {
-    if (userRole !== 'ADMIN') {
+    if (user.role !== 'ADMIN') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
     return NextResponse.next()
   }
 
   if (pathname.startsWith('/dashboard')) {
-    if (userRole !== 'CLIENT') {
+    if (user.role !== 'CLIENT') {
       return NextResponse.redirect(new URL('/admin', request.url))
     }
     return NextResponse.next()
   }
 
   if (pathname === '/') {
-    if (userRole === 'ADMIN') {
+    if (user.role === 'ADMIN') {
       return NextResponse.redirect(new URL('/admin', request.url))
     }
     return NextResponse.redirect(new URL('/dashboard', request.url))

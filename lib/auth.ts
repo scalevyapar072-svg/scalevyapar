@@ -2,11 +2,12 @@
 
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { getUserByEmail } from './db'
 import bcrypt from 'bcryptjs'
 
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+  process.env.JWT_SECRET || 'scalevyapar-secret-key-2024'
 )
 
 export interface User {
@@ -14,6 +15,9 @@ export interface User {
   name: string
   email: string
   role: string
+  phone?: string
+  plan?: string
+  status?: string
 }
 
 export interface AuthResult {
@@ -22,21 +26,22 @@ export interface AuthResult {
   error?: string
 }
 
-// Generate JWT token
 export async function generateToken(user: User): Promise<string> {
   return await new SignJWT({
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role
+    role: user.role,
+    phone: user.phone,
+    plan: user.plan,
+    status: user.status
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('24h')
+    .setExpirationTime('7d')
     .sign(JWT_SECRET)
 }
 
-// Verify JWT token
 export async function verifyToken(token: string): Promise<User | null> {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET)
@@ -44,71 +49,71 @@ export async function verifyToken(token: string): Promise<User | null> {
       id: payload.id as string,
       name: payload.name as string,
       email: payload.email as string,
-      role: payload.role as string
+      role: payload.role as string,
+      phone: payload.phone as string | undefined,
+      plan: payload.plan as string | undefined,
+      status: payload.status as string | undefined
     }
-  } catch (error) {
+  } catch {
     return null
   }
 }
 
-// Login function
+export function createAuthCookie(token: string) {
+  return {
+    name: 'auth-token',
+    value: token,
+    options: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      maxAge: 7 * 24 * 60 * 60,
+      path: '/'
+    }
+  }
+}
+
 export async function login(email: string, password: string): Promise<AuthResult> {
   try {
-    console.log('Login attempt for email:', email)
-
     const user = await getUserByEmail(email)
-    console.log('User found in database:', user ? 'YES' : 'NO')
 
     if (!user) {
-      console.log('Login failed: User not found')
       return { success: false, error: 'Invalid credentials' }
     }
-
-    console.log('Stored password hash starts with:', user.password.substring(0, 10) + '...')
-    console.log('Comparing entered password with stored hash...')
 
     const isValidPassword = await bcrypt.compare(password, user.password)
-    console.log('Password comparison result:', isValidPassword)
-
     if (!isValidPassword) {
-      console.log('Login failed: Invalid password')
       return { success: false, error: 'Invalid credentials' }
     }
-
-    console.log('Login successful for user:', user.email, 'role:', user.role)
 
     const userData: User = {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      phone: user.phone,
+      plan: user.plan,
+      status: user.status
     }
 
     const token = await generateToken(userData)
+    const authCookie = createAuthCookie(token)
 
-    // Set HTTP-only cookie
     const cookieStore = await cookies()
-    cookieStore.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 // 24 hours
-    })
+    cookieStore.set(authCookie.name, authCookie.value, authCookie.options)
 
     return { success: true, user: userData }
-  } catch (error) {
+  } catch {
     console.error('Login error:', error)
     return { success: false, error: 'Login failed' }
   }
 }
 
-// Logout function
 export async function logout(): Promise<void> {
   const cookieStore = await cookies()
   cookieStore.delete('auth-token')
 }
 
-// Get current user from token
 export async function getCurrentUser(): Promise<User | null> {
   try {
     const cookieStore = await cookies()
@@ -119,41 +124,58 @@ export async function getCurrentUser(): Promise<User | null> {
     }
 
     return await verifyToken(token)
-  } catch (error) {
+  } catch {
     return null
   }
 }
 
-// Check if user is authenticated
 export async function isAuthenticated(): Promise<boolean> {
   const user = await getCurrentUser()
   return user !== null
 }
 
-// Check if user has role
 export async function hasRole(role: string): Promise<boolean> {
   const user = await getCurrentUser()
   return user?.role === role
 }
 
-// Middleware helper - get user from request cookies
 export async function getUserFromRequest(request: Request): Promise<User | null> {
   try {
     const cookieHeader = request.headers.get('cookie')
     if (!cookieHeader) return null
 
-    // Parse cookie manually
-    const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-      const [key, value] = cookie.trim().split('=')
-      acc[key] = value
-      return acc
-    }, {} as Record<string, string>)
+    const token = cookieHeader
+      .split(';')
+      .map(cookie => cookie.trim())
+      .find(cookie => cookie.startsWith('auth-token='))
+      ?.split('=')[1]
 
-    const token = cookies['auth-token']
     if (!token) return null
 
     return await verifyToken(token)
-  } catch (error) {
+  } catch {
     return null
   }
+}
+
+export async function requireUser(request: Request): Promise<User | NextResponse> {
+  const user = await getUserFromRequest(request)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  return user
+}
+
+export async function requireAdmin(request: Request): Promise<User | NextResponse> {
+  const user = await getUserFromRequest(request)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  return user
 }

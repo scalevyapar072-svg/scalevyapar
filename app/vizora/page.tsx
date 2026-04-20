@@ -118,7 +118,7 @@ export default function VizoraStudio() {
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
             <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>FASHN.ai Live</span>
           </div>
-          <Link href="/admin" target="_blank" target="_blank" target="_blank" style={{ color: '#64748b', fontSize: '12px', textDecoration: 'none', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '6px 14px', borderRadius: '8px', fontWeight: '500' }}>â† Admin</Link>
+          <Link href="/admin" target="_blank" style={{ color: '#64748b', fontSize: '12px', textDecoration: 'none', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '6px 14px', borderRadius: '8px', fontWeight: '500' }}>â† Admin</Link>
         </div>
       </div>
 
@@ -360,4 +360,5 @@ export default function VizoraStudio() {
     </div>
   )
 }
+
 

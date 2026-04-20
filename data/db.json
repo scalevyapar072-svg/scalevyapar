@@ -55,7 +55,17 @@
       "name": "Vizora",
       "slug": "vizora",
       "isActive": true,
-      "href": "/vizora"
+      "href": "/vizora",
+      "status": "active",
+      "customerLink": "https://scalevyapar.vercel.app/vizora",
+      "description": "AI-powered photo, video and ad creation — exact dress on real model, 12 pose types",
+      "features": [
+        "AI Photo Generation",
+        "Photo Upscaler 4x",
+        "Video Ad Generator",
+        "UGC Ads Creator",
+        "Magic Eraser"
+      ]
     }
   ],
   "userModules": [

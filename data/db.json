@@ -49,6 +49,13 @@
       "name": "Botbee",
       "slug": "ChatBot",
       "description": "erhtyjjtgref"
+    },
+    {
+      "id": "mod-vizora",
+      "name": "Vizora",
+      "slug": "vizora",
+      "isActive": true,
+      "href": "/vizora"
     }
   ],
   "userModules": [
@@ -59,27 +66,7 @@
     },
     {
       "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-2",
-      "isEnabled": true
-    },
-    {
-      "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-3",
-      "isEnabled": true
-    },
-    {
-      "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-4",
-      "isEnabled": true
-    },
-    {
-      "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-1776360268307-h1tvsnfgp",
-      "isEnabled": true
-    },
-    {
-      "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-1776513914800",
+      "moduleId": "mod-vizora",
       "isEnabled": true
     }
   ]

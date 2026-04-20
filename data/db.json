@@ -66,6 +66,36 @@
         "UGC Ads Creator",
         "Magic Eraser"
       ]
+    },
+    {
+      "id": "mod-crm",
+      "name": "CRM Module",
+      "slug": "crm",
+      "isActive": false
+    },
+    {
+      "id": "mod-inventory",
+      "name": "Inventory Module",
+      "slug": "inventory",
+      "isActive": false
+    },
+    {
+      "id": "mod-whatsapp",
+      "name": "WhatsApp Module",
+      "slug": "whatsapp",
+      "isActive": false
+    },
+    {
+      "id": "mod-leads",
+      "name": "Lead Generation",
+      "slug": "leads",
+      "isActive": false
+    },
+    {
+      "id": "mod-shopify",
+      "name": "Shopify / Website",
+      "slug": "shopify",
+      "isActive": false
     }
   ],
   "userModules": [

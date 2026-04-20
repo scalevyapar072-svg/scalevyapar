@@ -205,7 +205,7 @@ export default function AdminPanel() {
                         )}
                         <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px', display: 'flex', gap: '8px' }}>
                           <button onClick={() => startEdit(mod)} style={{ flex: 1, background: '#ede9fe', color: '#7c3aed', border: '1px solid #c4b5fd', fontSize: '12px', fontWeight: '700', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>✎ Edit</button>
-                          {mod.status === 'active' && <Link href={mod.href} style={{ flex: 1, background: '#7c3aed', color: 'white', fontSize: '12px', fontWeight: '700', padding: '8px', borderRadius: '8px', textDecoration: 'none', textAlign: 'center' }}>Open →</Link>}
+                          {mod.status === 'active' && <Link href={mod.href} target="_blank" style={{ flex: 1, background: '#7c3aed', color: 'white', fontSize: '12px', fontWeight: '700', padding: '8px', borderRadius: '8px', textDecoration: 'none', textAlign: 'center' }}>Open →</Link>}
                           {deleteConfirm === mod.id ? (
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <button onClick={() => deleteModule(mod.id)} style={{ background: '#dc2626', color: 'white', border: 'none', fontSize: '11px', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>Delete!</button>

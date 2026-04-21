@@ -50,6 +50,14 @@ interface ClientInput {
   plan?: string
 }
 
+interface ClientUpdateInput {
+  name?: string
+  email?: string
+  phone?: string
+  plan?: string
+  status?: 'active' | 'inactive'
+}
+
 interface ModuleInput {
   name: string
   slug: string
@@ -84,25 +92,34 @@ if (!db.data.users || db.data.users.length === 0) {
     { id: 'mod-shopify', name: 'Shopify / Website', slug: 'shopify', status: 'coming_soon', type: 'Standard', icon: '◇', href: '#', customerLink: '', features: ['Shopify Setup', 'Product Catalog', 'Order Management', 'Pricing'], color: '#84cc16', isActive: false }
   ]
 
-  const hashedPassword = await bcrypt.hash('admin123', 10)
-  const adminUser: UserRecord = {
-    id: 'admin-' + Date.now(),
-    name: 'Admin',
-    email: 'admin@scalevyapar.com',
-    password: hashedPassword,
-    role: 'ADMIN',
-    createdAt: new Date().toISOString(),
-    status: 'active'
+  const defaultAdminEmail = process.env.DEFAULT_ADMIN_EMAIL
+  const defaultAdminPassword = process.env.DEFAULT_ADMIN_PASSWORD
+
+  let users: UserRecord[] = []
+  let adminModules: UserModuleRecord[] = []
+
+  if (defaultAdminEmail && defaultAdminPassword) {
+    const hashedPassword = await bcrypt.hash(defaultAdminPassword, 10)
+    const adminUser: UserRecord = {
+      id: 'admin-' + Date.now(),
+      name: process.env.DEFAULT_ADMIN_NAME || 'Admin',
+      email: defaultAdminEmail,
+      password: hashedPassword,
+      role: 'ADMIN',
+      createdAt: new Date().toISOString(),
+      status: 'active'
+    }
+
+    users = [adminUser]
+    adminModules = defaultModules.map(module => ({
+      userId: adminUser.id,
+      moduleId: module.id,
+      isEnabled: true
+    }))
   }
 
-  const adminModules: UserModuleRecord[] = defaultModules.map(module => ({
-    userId: adminUser.id,
-    moduleId: module.id,
-    isEnabled: true
-  }))
-
   db.data = {
-    users: [adminUser],
+    users,
     modules: defaultModules,
     userModules: adminModules
   }
@@ -229,6 +246,23 @@ export const deleteUser = async (userId: string): Promise<void> => {
   db.data.users = db.data.users.filter(user => user.id !== userId)
   db.data.userModules = db.data.userModules.filter(um => um.userId !== userId)
   await db.write()
+}
+
+export const updateClient = async (userId: string, input: ClientUpdateInput): Promise<UserRecord | null> => {
+  await ensureDatabaseShape()
+  const userIndex = db.data.users.findIndex(user => user.id === userId && user.role === 'CLIENT')
+  if (userIndex === -1) {
+    return null
+  }
+
+  const current = db.data.users[userIndex]
+  db.data.users[userIndex] = {
+    ...current,
+    ...input
+  }
+
+  await db.write()
+  return db.data.users[userIndex]
 }
 
 export const getAllUsersWithModules = async (): Promise<(UserRecord & { modules: string })[]> => {

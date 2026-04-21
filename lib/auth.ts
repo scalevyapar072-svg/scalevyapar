@@ -1,24 +1,10 @@
-'use server'
-
-import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { getUserByEmail } from './db'
 import bcrypt from 'bcryptjs'
+import { createAuthCookie, generateToken, getTokenFromCookieHeader, type User, verifyToken } from './auth-token'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'scalevyapar-secret-key-2024'
-)
-
-export interface User {
-  id: string
-  name: string
-  email: string
-  role: string
-  phone?: string
-  plan?: string
-  status?: string
-}
+export type { User } from './auth-token'
 
 export interface AuthResult {
   success: boolean
@@ -26,52 +12,7 @@ export interface AuthResult {
   error?: string
 }
 
-export async function generateToken(user: User): Promise<string> {
-  return await new SignJWT({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    phone: user.phone,
-    plan: user.plan,
-    status: user.status
-  })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime('7d')
-    .sign(JWT_SECRET)
-}
-
-export async function verifyToken(token: string): Promise<User | null> {
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
-    return {
-      id: payload.id as string,
-      name: payload.name as string,
-      email: payload.email as string,
-      role: payload.role as string,
-      phone: payload.phone as string | undefined,
-      plan: payload.plan as string | undefined,
-      status: payload.status as string | undefined
-    }
-  } catch {
-    return null
-  }
-}
-
-export function createAuthCookie(token: string) {
-  return {
-    name: 'auth-token',
-    value: token,
-    options: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      maxAge: 7 * 24 * 60 * 60,
-      path: '/'
-    }
-  }
-}
+export { createAuthCookie, generateToken, verifyToken }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
   try {
@@ -103,7 +44,7 @@ export async function login(email: string, password: string): Promise<AuthResult
     cookieStore.set(authCookie.name, authCookie.value, authCookie.options)
 
     return { success: true, user: userData }
-  } catch {
+  } catch (error) {
     console.error('Login error:', error)
     return { success: false, error: 'Login failed' }
   }
@@ -141,16 +82,10 @@ export async function hasRole(role: string): Promise<boolean> {
 
 export async function getUserFromRequest(request: Request): Promise<User | null> {
   try {
-    const cookieHeader = request.headers.get('cookie')
-    if (!cookieHeader) return null
-
-    const token = cookieHeader
-      .split(';')
-      .map(cookie => cookie.trim())
-      .find(cookie => cookie.startsWith('auth-token='))
-      ?.split('=')[1]
-
-    if (!token) return null
+    const token = getTokenFromCookieHeader(request.headers.get('cookie'))
+    if (!token) {
+      return null
+    }
 
     return await verifyToken(token)
   } catch {

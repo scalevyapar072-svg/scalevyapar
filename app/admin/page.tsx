@@ -239,6 +239,20 @@ export default function AdminPanel() {
     showSaved('Client created')
   }
 
+  const deleteClient = async (clientId: string) => {
+    const res = await fetch(`/api/admin/users/${clientId}`, {
+      method: 'DELETE'
+    })
+
+    if (!res.ok) {
+      setError('Failed to delete client.')
+      return
+    }
+
+    setClients(current => current.filter(client => client.id !== clientId))
+    showSaved('Client deleted')
+  }
+
   const toggleClientModule = async (clientId: string, moduleId: string) => {
     const client = clients.find(item => item.id === clientId)
     if (!client) return
@@ -571,6 +585,9 @@ export default function AdminPanel() {
                       <span style={{ color: '#94a3b8', fontSize: '11px' }}>Joined {formatDate(client.createdAt)}</span>
                       <button onClick={() => setEditingClientId(current => current === client.id ? null : client.id)} style={{ background: editingClientId === client.id ? '#ede9fe' : '#f8fafc', color: editingClientId === client.id ? '#7c3aed' : '#64748b', border: `1px solid ${editingClientId === client.id ? '#7c3aed' : '#e2e8f0'}`, fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
                         {editingClientId === client.id ? 'Done ✓' : 'Edit Modules'}
+                      </button>
+                      <button onClick={() => deleteClient(client.id)} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                        Delete
                       </button>
                     </div>
                   </div>

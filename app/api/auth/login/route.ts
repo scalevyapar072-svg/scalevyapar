@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
-import { createAuthCookie, generateToken } from '@/lib/auth'
+import { createAuthCookie } from '@/lib/auth'
+import { generateToken } from '@/lib/auth-token'
 import { getUserByEmail } from '@/lib/db'
 
 export async function POST(request: NextRequest) {

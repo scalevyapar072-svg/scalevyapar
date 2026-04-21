@@ -163,6 +163,7 @@ export default function AdminPanel() {
   }
 
   const saveModule = async () => {
+    setError('')
     const payload = {
       ...moduleDraft,
       slug: moduleDraft.slug || toSlug(moduleDraft.name),
@@ -175,14 +176,15 @@ export default function AdminPanel() {
       return
     }
 
+    const endpoint = editingModuleId ? `/api/admin/modules/${editingModuleId}` : '/api/admin/modules'
     const method = editingModuleId ? 'PUT' : 'POST'
-    const res = await fetch('/api/admin/modules', {
+    const res = await fetch(endpoint, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editingModuleId ? { ...payload, id: editingModuleId } : payload)
+      body: JSON.stringify(payload)
     })
 
-    const data = await res.json()
+    const data = await res.json().catch(() => ({ error: 'Unexpected response from server.' }))
     if (!res.ok) {
       setError(data.error || 'Failed to save module.')
       return
@@ -196,14 +198,19 @@ export default function AdminPanel() {
   }
 
   const deleteModule = async (id: string) => {
-    const res = await fetch('/api/admin/modules', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
+    setError('')
+    const confirmed = window.confirm('Delete this module? This will also remove it from assigned clients.')
+    if (!confirmed) {
+      return
+    }
+
+    const res = await fetch(`/api/admin/modules/${id}`, {
+      method: 'DELETE'
     })
 
     if (!res.ok) {
-      setError('Failed to delete module.')
+      const data = await res.json().catch(() => ({ error: 'Failed to delete module.' }))
+      setError(data.error || 'Failed to delete module.')
       return
     }
 
@@ -212,6 +219,7 @@ export default function AdminPanel() {
   }
 
   const saveClient = async () => {
+    setError('')
     if (!clientDraft.name.trim() || !clientDraft.email.trim()) {
       setError('Client name and email are required.')
       return
@@ -226,7 +234,7 @@ export default function AdminPanel() {
       })
     })
 
-    const data = await res.json()
+    const data = await res.json().catch(() => ({ error: 'Unexpected response from server.' }))
     if (!res.ok) {
       setError(data.error || 'Failed to create client.')
       return
@@ -240,12 +248,19 @@ export default function AdminPanel() {
   }
 
   const deleteClient = async (clientId: string) => {
+    setError('')
+    const confirmed = window.confirm('Delete this client? Their module assignments will also be removed.')
+    if (!confirmed) {
+      return
+    }
+
     const res = await fetch(`/api/admin/users/${clientId}`, {
       method: 'DELETE'
     })
 
     if (!res.ok) {
-      setError('Failed to delete client.')
+      const data = await res.json().catch(() => ({ error: 'Failed to delete client.' }))
+      setError(data.error || 'Failed to delete client.')
       return
     }
 
@@ -254,6 +269,7 @@ export default function AdminPanel() {
   }
 
   const toggleClientModule = async (clientId: string, moduleId: string) => {
+    setError('')
     const client = clients.find(item => item.id === clientId)
     if (!client) return
 
@@ -268,7 +284,8 @@ export default function AdminPanel() {
     })
 
     if (!res.ok) {
-      setError('Failed to update client modules.')
+      const data = await res.json().catch(() => ({ error: 'Failed to update client modules.' }))
+      setError(data.error || 'Failed to update client modules.')
       return
     }
 

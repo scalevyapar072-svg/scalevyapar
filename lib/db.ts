@@ -72,6 +72,35 @@ interface ModuleInput {
   isActive?: boolean
 }
 
+const moduleScore = (moduleRecord: ModuleRecord) => {
+  let score = 0
+  if (moduleRecord.customerLink) score += 4
+  if (moduleRecord.href && moduleRecord.href !== '#') score += 3
+  if (moduleRecord.features && moduleRecord.features.length > 0) score += 3
+  if (moduleRecord.description) score += 2
+  if (moduleRecord.status === 'active' || moduleRecord.isActive) score += 2
+  if (moduleRecord.type) score += 1
+  if (moduleRecord.color) score += 1
+  if (moduleRecord.icon) score += 1
+  if (moduleRecord.id.startsWith('mod-') && moduleRecord.id.length > 8) score += 1
+  return score
+}
+
+const getCanonicalModules = (modules: ModuleRecord[]) => {
+  const bySlug = new Map<string, ModuleRecord>()
+
+  for (const moduleRecord of modules) {
+    const key = (moduleRecord.slug || moduleRecord.id).toLowerCase()
+    const existing = bySlug.get(key)
+
+    if (!existing || moduleScore(moduleRecord) >= moduleScore(existing)) {
+      bySlug.set(key, moduleRecord)
+    }
+  }
+
+  return Array.from(bySlug.values())
+}
+
 const file = path.join(process.cwd(), 'data/db.json')
 const adapter = new JSONFile<Database>(file)
 const db = new Low<Database>(adapter, {
@@ -203,7 +232,7 @@ export const getAllUsers = async (): Promise<UserRecord[]> => {
 
 export const getAllModules = async (): Promise<ModuleRecord[]> => {
   await ensureDatabaseShape()
-  return db.data.modules
+  return getCanonicalModules(db.data.modules)
 }
 
 export const getUserModules = async (userId: string): Promise<ModuleRecord[]> => {

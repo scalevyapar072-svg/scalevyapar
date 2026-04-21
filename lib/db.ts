@@ -1,7 +1,5 @@
-import { Low } from 'lowdb'
-import { JSONFile } from 'lowdb/node'
 import bcrypt from 'bcryptjs'
-import path from 'path'
+import { supabaseAdmin } from './supabase-admin'
 
 export interface UserRecord {
   id: string
@@ -28,18 +26,6 @@ export interface ModuleRecord {
   features?: string[]
   color?: string
   isActive?: boolean
-}
-
-interface UserModuleRecord {
-  userId: string
-  moduleId: string
-  isEnabled: boolean
-}
-
-interface Database {
-  users: UserRecord[]
-  modules: ModuleRecord[]
-  userModules: UserModuleRecord[]
 }
 
 interface ClientInput {
@@ -72,123 +58,171 @@ interface ModuleInput {
   isActive?: boolean
 }
 
-const moduleScore = (moduleRecord: ModuleRecord) => {
-  let score = 0
-  if (moduleRecord.customerLink) score += 4
-  if (moduleRecord.href && moduleRecord.href !== '#') score += 3
-  if (moduleRecord.features && moduleRecord.features.length > 0) score += 3
-  if (moduleRecord.description) score += 2
-  if (moduleRecord.status === 'active' || moduleRecord.isActive) score += 2
-  if (moduleRecord.type) score += 1
-  if (moduleRecord.color) score += 1
-  if (moduleRecord.icon) score += 1
-  if (moduleRecord.id.startsWith('mod-') && moduleRecord.id.length > 8) score += 1
-  return score
-}
-
-const getCanonicalModules = (modules: ModuleRecord[]) => {
-  const bySlug = new Map<string, ModuleRecord>()
-
-  for (const moduleRecord of modules) {
-    const key = (moduleRecord.slug || moduleRecord.id).toLowerCase()
-    const existing = bySlug.get(key)
-
-    if (!existing || moduleScore(moduleRecord) >= moduleScore(existing)) {
-      bySlug.set(key, moduleRecord)
-    }
-  }
-
-  return Array.from(bySlug.values())
-}
-
-const file = path.join(process.cwd(), 'data/db.json')
-const adapter = new JSONFile<Database>(file)
-const db = new Low<Database>(adapter, {
-  users: [],
-  modules: [],
-  userModules: []
+const mapClientRow = (row: {
+  id: string
+  name: string
+  email: string
+  password_hash: string
+  role: string
+  created_at: string
+  phone: string | null
+  plan: string | null
+  status: string | null
+}): UserRecord => ({
+  id: row.id,
+  name: row.name,
+  email: row.email,
+  password: row.password_hash,
+  role: row.role as 'ADMIN' | 'CLIENT',
+  createdAt: row.created_at,
+  phone: row.phone || undefined,
+  plan: row.plan || undefined,
+  status: (row.status as 'active' | 'inactive' | null) || undefined
 })
 
-await db.read()
+const mapModuleRow = (row: {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  status: string | null
+  type: string | null
+  icon: string | null
+  href: string | null
+  customer_link: string | null
+  features: string[] | null
+  color: string | null
+  is_active: boolean | null
+}): ModuleRecord => ({
+  id: row.id,
+  name: row.name,
+  slug: row.slug,
+  description: row.description || '',
+  status: (row.status as 'active' | 'coming_soon' | null) || undefined,
+  type: row.type || undefined,
+  icon: row.icon || undefined,
+  href: row.href || '#',
+  customerLink: row.customer_link || '',
+  features: Array.isArray(row.features) ? row.features : [],
+  color: row.color || undefined,
+  isActive: row.is_active ?? false
+})
 
-if (!db.data.users || db.data.users.length === 0) {
-  const defaultModules: ModuleRecord[] = [
-    { id: 'mod-vizora', name: 'Vizora', slug: 'vizora', description: 'AI-powered photo, video and ad creation studio.', status: 'active', type: 'AI Module', icon: '✦', href: '/vizora', customerLink: 'https://scalevyapar.vercel.app/vizora', features: ['AI Photo Generation', 'Photo Upscaling 4x', 'Video Ads', 'UGC Creator Videos', 'Magic Eraser'], color: '#7c3aed', isActive: true },
-    { id: 'mod-crm', name: 'CRM Module', slug: 'crm', status: 'coming_soon', type: 'Standard', icon: '◈', href: '#', customerLink: '', features: ['Contact Management', 'Call Tracking', 'Follow-ups', 'Pipeline'], color: '#0284c7', isActive: false },
-    { id: 'mod-inventory', name: 'Inventory Module', slug: 'inventory', status: 'coming_soon', type: 'Standard', icon: '◉', href: '#', customerLink: '', features: ['Stock Tracking', 'Production Orders', 'Raw Materials', 'Dispatch'], color: '#059669', isActive: false },
-    { id: 'mod-whatsapp', name: 'WhatsApp Module', slug: 'whatsapp', status: 'coming_soon', type: 'Standard', icon: '◎', href: '#', customerLink: '', features: ['Bulk Messaging', 'Chatbot', 'Auto Replies', 'Lead Capture'], color: '#16a34a', isActive: false },
-    { id: 'mod-leads', name: 'Lead Generation', slug: 'leads', status: 'coming_soon', type: 'Standard', icon: '◎', href: '#', customerLink: '', features: ['Google Maps Scraper', 'Filter by Location', 'Filter by Business', 'Export CSV'], color: '#d97706', isActive: false },
-    { id: 'mod-shopify', name: 'Shopify / Website', slug: 'shopify', status: 'coming_soon', type: 'Standard', icon: '◇', href: '#', customerLink: '', features: ['Shopify Setup', 'Product Catalog', 'Order Management', 'Pricing'], color: '#84cc16', isActive: false }
-  ]
+const sanitizeUser = (user: UserRecord) => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  createdAt: user.createdAt,
+  phone: user.phone,
+  plan: user.plan,
+  status: user.status
+})
 
-  const defaultAdminEmail = process.env.DEFAULT_ADMIN_EMAIL
-  const defaultAdminPassword = process.env.DEFAULT_ADMIN_PASSWORD
+const mapJoinedUserRows = (
+  rows: Array<{
+    id: string
+    name: string
+    email: string
+    password_hash: string
+    role: string
+    created_at: string
+    phone: string | null
+    plan: string | null
+    status: string | null
+    client_modules: Array<{
+      is_enabled: boolean
+      module_id: string
+      modules:
+        | {
+            id: string
+            name: string
+            slug: string
+            description: string | null
+            status: string | null
+            type: string | null
+            icon: string | null
+            href: string | null
+            customer_link: string | null
+            features: string[] | null
+            color: string | null
+            is_active: boolean | null
+          }
+        | Array<{
+            id: string
+            name: string
+            slug: string
+            description: string | null
+            status: string | null
+            type: string | null
+            icon: string | null
+            href: string | null
+            customer_link: string | null
+            features: string[] | null
+            color: string | null
+            is_active: boolean | null
+          }>
+        | null
+    }> | null
+  }>
+) => {
+  return rows.map(row => {
+    const user = mapClientRow(row)
+    const enabledMappings = (row.client_modules || []).filter(mapping => mapping.is_enabled && mapping.modules)
+    const assignedModules = enabledMappings.flatMap(mapping => {
+      const nestedModules = mapping.modules
+      if (!nestedModules) {
+        return []
+      }
 
-  let users: UserRecord[] = []
-  let adminModules: UserModuleRecord[] = []
+      return Array.isArray(nestedModules)
+        ? nestedModules.map(moduleRecord => mapModuleRow(moduleRecord))
+        : [mapModuleRow(nestedModules)]
+    })
+    const assignedModuleIds = assignedModules.map(module => module.id)
 
-  if (defaultAdminEmail && defaultAdminPassword) {
-    const hashedPassword = await bcrypt.hash(defaultAdminPassword, 10)
-    const adminUser: UserRecord = {
-      id: 'admin-' + Date.now(),
-      name: process.env.DEFAULT_ADMIN_NAME || 'Admin',
-      email: defaultAdminEmail,
-      password: hashedPassword,
-      role: 'ADMIN',
-      createdAt: new Date().toISOString(),
-      status: 'active'
+    return {
+      ...sanitizeUser(user),
+      assignedModules,
+      assignedModuleIds
     }
-
-    users = [adminUser]
-    adminModules = defaultModules.map(module => ({
-      userId: adminUser.id,
-      moduleId: module.id,
-      isEnabled: true
-    }))
-  }
-
-  db.data = {
-    users,
-    modules: defaultModules,
-    userModules: adminModules
-  }
-
-  await db.write()
-}
-
-const ensureDatabaseShape = async () => {
-  await db.read()
-  db.data ||= { users: [], modules: [], userModules: [] }
-  db.data.users ||= []
-  db.data.modules ||= []
-  db.data.userModules ||= []
-}
-
-const sanitizeUser = (user: UserRecord) => {
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    createdAt: user.createdAt,
-    phone: user.phone,
-    plan: user.plan,
-    status: user.status
-  }
+  })
 }
 
 export const getUserByEmail = async (email: string): Promise<UserRecord | undefined> => {
-  await ensureDatabaseShape()
-  return db.data.users.find(user => user.email === email)
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .select('id, name, email, password_hash, role, created_at, phone, plan, status')
+    .eq('email', email)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to fetch user by email: ${error.message}`)
+  }
+
+  return data ? mapClientRow(data) : undefined
 }
 
 export const getUserById = async (id: string): Promise<UserRecord | undefined> => {
-  await ensureDatabaseShape()
-  return db.data.users.find(user => user.id === id)
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .select('id, name, email, password_hash, role, created_at, phone, plan, status')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to fetch user by id: ${error.message}`)
+  }
+
+  return data ? mapClientRow(data) : undefined
 }
 
-export const createUser = async (name: string, email: string, password: string, role: 'ADMIN' | 'CLIENT' = 'CLIENT'): Promise<UserRecord> => {
-  await ensureDatabaseShape()
+export const createUser = async (
+  name: string,
+  email: string,
+  password: string,
+  role: 'ADMIN' | 'CLIENT' = 'CLIENT'
+): Promise<UserRecord> => {
   const hashedPassword = await bcrypt.hash(password, 10)
   const user: UserRecord = {
     id: `${role.toLowerCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
@@ -200,183 +234,338 @@ export const createUser = async (name: string, email: string, password: string, 
     status: 'active'
   }
 
-  db.data.users.push(user)
-  await db.write()
-  return user
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .insert({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      password_hash: user.password,
+      role: user.role,
+      created_at: user.createdAt,
+      phone: user.phone ?? null,
+      plan: user.plan ?? null,
+      status: user.status ?? 'active'
+    })
+    .select('id, name, email, password_hash, role, created_at, phone, plan, status')
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to create user: ${error.message}`)
+  }
+
+  return mapClientRow(data)
 }
 
 export const createClient = async ({ name, email, password, phone, plan }: ClientInput): Promise<UserRecord> => {
-  await ensureDatabaseShape()
   const hashedPassword = await bcrypt.hash(password, 10)
-  const user: UserRecord = {
-    id: `client-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    name,
-    email,
-    password: hashedPassword,
-    role: 'CLIENT',
-    createdAt: new Date().toISOString(),
-    phone,
-    plan,
-    status: 'active'
+  const clientId = `client-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .insert({
+      id: clientId,
+      name,
+      email,
+      password_hash: hashedPassword,
+      role: 'CLIENT',
+      phone: phone ?? null,
+      plan: plan ?? null,
+      status: 'active'
+    })
+    .select('id, name, email, password_hash, role, created_at, phone, plan, status')
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to create client: ${error.message}`)
   }
 
-  db.data.users.push(user)
-  await db.write()
-  return user
+  return mapClientRow(data)
 }
 
 export const getAllUsers = async (): Promise<UserRecord[]> => {
-  await ensureDatabaseShape()
-  return db.data.users
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .select('id, name, email, password_hash, role, created_at, phone, plan, status')
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    throw new Error(`Failed to fetch users: ${error.message}`)
+  }
+
+  return (data || []).map(mapClientRow)
 }
 
 export const getAllModules = async (): Promise<ModuleRecord[]> => {
-  await ensureDatabaseShape()
-  return getCanonicalModules(db.data.modules)
+  const { data, error } = await supabaseAdmin
+    .from('modules')
+    .select('id, name, slug, description, status, type, icon, href, customer_link, features, color, is_active')
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    throw new Error(`Failed to fetch modules: ${error.message}`)
+  }
+
+  return (data || []).map(mapModuleRow)
 }
 
 export const getUserModules = async (userId: string): Promise<ModuleRecord[]> => {
-  await ensureDatabaseShape()
-  const userModuleIds = db.data.userModules
-    .filter(um => um.userId === userId && um.isEnabled)
-    .map(um => um.moduleId)
+  const { data, error } = await supabaseAdmin
+    .from('client_modules')
+    .select(`
+      is_enabled,
+      modules (
+        id,
+        name,
+        slug,
+        description,
+        status,
+        type,
+        icon,
+        href,
+        customer_link,
+        features,
+        color,
+        is_active
+      )
+    `)
+    .eq('client_id', userId)
+    .eq('is_enabled', true)
 
-  return db.data.modules.filter(module => userModuleIds.includes(module.id))
+  if (error) {
+    throw new Error(`Failed to fetch user modules: ${error.message}`)
+  }
+
+  return (data || [])
+    .flatMap(row => {
+      const nestedModules = row.modules
+      if (!nestedModules) {
+        return []
+      }
+
+      return Array.isArray(nestedModules)
+        ? nestedModules.map(moduleRecord => mapModuleRow(moduleRecord))
+        : [mapModuleRow(nestedModules)]
+    })
 }
 
 export const assignModuleToUser = async (userId: string, moduleId: string, isEnabled: boolean = true): Promise<void> => {
-  await ensureDatabaseShape()
-  db.data.userModules = db.data.userModules.filter(um => !(um.userId === userId && um.moduleId === moduleId))
-  db.data.userModules.push({ userId, moduleId, isEnabled })
-  await db.write()
+  const { error } = await supabaseAdmin
+    .from('client_modules')
+    .upsert(
+      {
+        client_id: userId,
+        module_id: moduleId,
+        is_enabled: isEnabled
+      },
+      { onConflict: 'client_id,module_id' }
+    )
+
+  if (error) {
+    throw new Error(`Failed to assign module: ${error.message}`)
+  }
 }
 
 export const removeModuleFromUser = async (userId: string, moduleId: string): Promise<void> => {
-  await ensureDatabaseShape()
-  db.data.userModules = db.data.userModules.filter(um => !(um.userId === userId && um.moduleId === moduleId))
-  await db.write()
+  const { error } = await supabaseAdmin
+    .from('client_modules')
+    .delete()
+    .eq('client_id', userId)
+    .eq('module_id', moduleId)
+
+  if (error) {
+    throw new Error(`Failed to remove module from user: ${error.message}`)
+  }
 }
 
 export const updateUserModules = async (userId: string, moduleIds: string[]): Promise<void> => {
-  await ensureDatabaseShape()
-  db.data.userModules = db.data.userModules.filter(userModule => userModule.userId !== userId)
-  for (const moduleId of moduleIds) {
-    db.data.userModules.push({
-      userId,
-      moduleId,
-      isEnabled: true
-    })
+  const { error: deleteError } = await supabaseAdmin
+    .from('client_modules')
+    .delete()
+    .eq('client_id', userId)
+
+  if (deleteError) {
+    throw new Error(`Failed to clear client modules: ${deleteError.message}`)
   }
-  await db.write()
+
+  if (moduleIds.length === 0) {
+    return
+  }
+
+  const { error: insertError } = await supabaseAdmin
+    .from('client_modules')
+    .insert(
+      moduleIds.map(moduleId => ({
+        client_id: userId,
+        module_id: moduleId,
+        is_enabled: true
+      }))
+    )
+
+  if (insertError) {
+    throw new Error(`Failed to assign client modules: ${insertError.message}`)
+  }
 }
 
 export const deleteUser = async (userId: string): Promise<void> => {
-  await ensureDatabaseShape()
-  db.data.users = db.data.users.filter(user => user.id !== userId)
-  db.data.userModules = db.data.userModules.filter(um => um.userId !== userId)
-  await db.write()
+  const { error } = await supabaseAdmin
+    .from('clients')
+    .delete()
+    .eq('id', userId)
+
+  if (error) {
+    throw new Error(`Failed to delete user: ${error.message}`)
+  }
 }
 
 export const updateClient = async (userId: string, input: ClientUpdateInput): Promise<UserRecord | null> => {
-  await ensureDatabaseShape()
-  const userIndex = db.data.users.findIndex(user => user.id === userId && user.role === 'CLIENT')
-  if (userIndex === -1) {
-    return null
+  const updatePayload = {
+    name: input.name,
+    email: input.email,
+    phone: input.phone ?? null,
+    plan: input.plan ?? null,
+    status: input.status ?? null
   }
 
-  const current = db.data.users[userIndex]
-  db.data.users[userIndex] = {
-    ...current,
-    ...input
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .update(updatePayload)
+    .eq('id', userId)
+    .eq('role', 'CLIENT')
+    .select('id, name, email, password_hash, role, created_at, phone, plan, status')
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to update client: ${error.message}`)
   }
 
-  await db.write()
-  return db.data.users[userIndex]
+  return data ? mapClientRow(data) : null
 }
 
 export const getAllUsersWithModules = async (): Promise<(UserRecord & { modules: string })[]> => {
-  await ensureDatabaseShape()
-  const users = db.data.users
-  const userModules = db.data.userModules
-  const modules = db.data.modules
+  const usersWithAssignments = await getAllUsersWithAssignedModules()
 
-  return users.map(user => {
-    const userModuleIds = userModules
-      .filter(um => um.userId === user.id && um.isEnabled)
-      .map(um => um.moduleId)
-
-    const userModuleNames = userModuleIds
-      .map(moduleId => modules.find(m => m.id === moduleId)?.name)
-      .filter(Boolean)
-
-    return {
-      ...user,
-      modules: userModuleNames.length > 0 ? userModuleNames.join(', ') : 'None'
-    }
-  })
+  return usersWithAssignments.map(user => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role as 'ADMIN' | 'CLIENT',
+    createdAt: user.createdAt,
+    phone: user.phone,
+    plan: user.plan,
+    status: user.status as 'active' | 'inactive' | undefined,
+    password: '',
+    modules: user.assignedModules.length > 0
+      ? user.assignedModules.map(moduleRecord => moduleRecord.name).join(', ')
+      : 'None'
+  }))
 }
 
 export const getAllUsersWithAssignedModules = async (): Promise<Array<ReturnType<typeof sanitizeUser> & { assignedModules: ModuleRecord[]; assignedModuleIds: string[] }>> => {
-  await ensureDatabaseShape()
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .select(`
+      id,
+      name,
+      email,
+      password_hash,
+      role,
+      created_at,
+      phone,
+      plan,
+      status,
+      client_modules (
+        is_enabled,
+        module_id,
+        modules (
+          id,
+          name,
+          slug,
+          description,
+          status,
+          type,
+          icon,
+          href,
+          customer_link,
+          features,
+          color,
+          is_active
+        )
+      )
+    `)
+    .order('created_at', { ascending: true })
 
-  return db.data.users.map(user => {
-    const assignedModuleIds = db.data.userModules
-      .filter(um => um.userId === user.id && um.isEnabled)
-      .map(um => um.moduleId)
+  if (error) {
+    throw new Error(`Failed to fetch users with assigned modules: ${error.message}`)
+  }
 
-    const assignedModules = db.data.modules.filter(module => assignedModuleIds.includes(module.id))
-
-    return {
-      ...sanitizeUser(user),
-      assignedModules,
-      assignedModuleIds
-    }
-  })
+  return mapJoinedUserRows(data || [])
 }
 
 export const createModule = async (input: ModuleInput): Promise<ModuleRecord> => {
-  await ensureDatabaseShape()
-  const moduleRecord: ModuleRecord = {
-    id: `mod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    name: input.name,
-    slug: input.slug,
-    description: input.description || '',
-    status: input.status || (input.isActive ? 'active' : 'coming_soon'),
-    type: input.type || 'Standard',
-    icon: input.icon || '◆',
-    href: input.href || '#',
-    customerLink: input.customerLink || '',
-    features: input.features || [],
-    color: input.color || '#7c3aed',
-    isActive: input.isActive ?? input.status === 'active'
+  const { data, error } = await supabaseAdmin
+    .from('modules')
+    .insert({
+      id: `mod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: input.name,
+      slug: input.slug,
+      description: input.description || '',
+      status: input.status || (input.isActive ? 'active' : 'coming_soon'),
+      type: input.type || 'Standard',
+      icon: input.icon || '◆',
+      href: input.href || '#',
+      customer_link: input.customerLink || '',
+      features: input.features || [],
+      color: input.color || '#7c3aed',
+      is_active: input.isActive ?? input.status === 'active'
+    })
+    .select('id, name, slug, description, status, type, icon, href, customer_link, features, color, is_active')
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to create module: ${error.message}`)
   }
 
-  db.data.modules.push(moduleRecord)
-  await db.write()
-  return moduleRecord
+  return mapModuleRow(data)
 }
 
 export const updateModule = async (id: string, input: Partial<ModuleInput>): Promise<boolean> => {
-  await ensureDatabaseShape()
-  const moduleIndex = db.data.modules.findIndex(moduleRecord => moduleRecord.id === id)
-  if (moduleIndex === -1) return false
-
-  const current = db.data.modules[moduleIndex]
-  const status = input.status ?? current.status
-  db.data.modules[moduleIndex] = {
-    ...current,
-    ...input,
+  const status = input.status
+  const updatePayload = {
+    name: input.name,
+    slug: input.slug,
+    description: input.description,
     status,
-    isActive: input.isActive ?? (status === 'active')
+    type: input.type,
+    icon: input.icon,
+    href: input.href,
+    customer_link: input.customerLink,
+    features: input.features,
+    color: input.color,
+    is_active: input.isActive ?? (status ? status === 'active' : undefined)
   }
 
-  await db.write()
-  return true
+  const { data, error } = await supabaseAdmin
+    .from('modules')
+    .update(updatePayload)
+    .eq('id', id)
+    .select('id')
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to update module: ${error.message}`)
+  }
+
+  return Boolean(data)
 }
 
 export const deleteModuleById = async (id: string): Promise<void> => {
-  await ensureDatabaseShape()
-  db.data.modules = db.data.modules.filter(module => module.id !== id)
-  db.data.userModules = db.data.userModules.filter(userModule => userModule.moduleId !== id)
-  await db.write()
+  const { error } = await supabaseAdmin
+    .from('modules')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    throw new Error(`Failed to delete module: ${error.message}`)
+  }
 }

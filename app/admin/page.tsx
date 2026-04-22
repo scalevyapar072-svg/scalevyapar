@@ -38,7 +38,7 @@ const BLANK_MODULE: ModuleItem = {
   description: '',
   status: 'coming_soon',
   type: 'Standard',
-  icon: 'â—†',
+  icon: '◆',
   href: '#',
   customerLink: '',
   features: [''],
@@ -363,7 +363,7 @@ export default function AdminPanel() {
   const ModuleForm = (
     <div style={{ background: '#f0ebff', border: '2px solid #7c3aed', borderRadius: '14px', padding: '20px', marginBottom: '16px' }}>
       <p style={{ fontSize: '13px', fontWeight: '700', color: '#7c3aed', margin: '0 0 16px' }}>
-        {editingModuleId ? 'âœŽ Edit Module' : 'âœ¦ Create New Module'}
+        {editingModuleId ? 'Edit Module' : 'Create New Module'}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
         <div>
@@ -417,7 +417,7 @@ export default function AdminPanel() {
             <input value={feature} onChange={event => updateFeature(index, event.target.value)} style={{ ...inp, flex: 1 }} />
             {(moduleDraft.features || []).length > 1 && (
               <button onClick={() => setModuleDraft(current => ({ ...current, features: (current.features || []).filter((_, featureIndex) => featureIndex !== index) }))} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '0 10px', cursor: 'pointer', fontSize: '16px' }}>
-                Ã—
+                x
               </button>
             )}
           </div>
@@ -475,10 +475,10 @@ export default function AdminPanel() {
       <div style={{ maxWidth: '1320px', margin: '0 auto', padding: '32px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '28px' }}>
           {[
-            { label: 'Total Modules', value: `${modules.length}`, icon: 'ðŸ§©', color: '#7c3aed' },
-            { label: 'Live Modules', value: `${activeModulesCount}`, icon: 'âœ…', color: '#10b981' },
-            { label: 'Active Clients', value: `${clients.length}`, icon: 'ðŸ‘¥', color: '#0284c7' },
-            { label: 'Connected Assignments', value: `${clients.reduce((count, client) => count + client.assignedModuleIds.length, 0)}`, icon: 'ðŸ”—', color: '#f59e0b' }
+            { label: 'Total Modules', value: `${modules.length}`, icon: 'MOD', color: '#7c3aed' },
+            { label: 'Live Modules', value: `${activeModulesCount}`, icon: 'ON', color: '#10b981' },
+            { label: 'Active Clients', value: `${clients.length}`, icon: 'CLI', color: '#0284c7' },
+            { label: 'Connected Assignments', value: `${clients.reduce((count, client) => count + client.assignedModuleIds.length, 0)}`, icon: 'LNK', color: '#f59e0b' }
           ].map(card => (
             <div key={card.label} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{ fontSize: '28px' }}>{card.icon}</div>
@@ -527,7 +527,7 @@ export default function AdminPanel() {
         )}
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
-          {[{ key: 'modules', label: 'ðŸ§© Module Management' }, { key: 'clients', label: 'ðŸ‘¥ Client Management' }].map(tab => (
+          {[{ key: 'modules', label: 'Module Management' }, { key: 'clients', label: 'Client Management' }].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key as 'modules' | 'clients')} style={{ padding: '10px 20px', border: `2px solid ${activeTab === tab.key ? '#7c3aed' : '#e2e8f0'}`, background: activeTab === tab.key ? '#ede9fe' : 'white', color: activeTab === tab.key ? '#7c3aed' : '#64748b', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: activeTab === tab.key ? '700' : '500' }}>
               {tab.label}
             </button>
@@ -555,10 +555,10 @@ export default function AdminPanel() {
                   <div style={{ padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                       <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${module.color || '#7c3aed'}15`, border: `1px solid ${(module.color || '#7c3aed')}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
-                        {module.icon || 'â—†'}
+                        {module.icon || '◆'}
                       </div>
                       <span style={{ background: module.status === 'active' ? '#f0fdf4' : '#f8fafc', color: module.status === 'active' ? '#16a34a' : '#94a3b8', fontSize: '11px', padding: '3px 10px', borderRadius: '99px', fontWeight: '700', border: `1px solid ${module.status === 'active' ? '#bbf7d0' : '#e2e8f0'}` }}>
-                        {module.status === 'active' ? 'â— Live' : 'â—‹ Coming Soon'}
+                        {module.status === 'active' ? 'Live' : 'Coming Soon'}
                       </span>
                     </div>
                     <h3 style={{ color: '#0f172a', fontSize: '15px', fontWeight: '700', margin: '0 0 4px' }}>{module.name}</h3>
@@ -575,7 +575,7 @@ export default function AdminPanel() {
                       <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '8px 10px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                         <p style={{ fontSize: '10px', color: '#16a34a', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{module.customerLink}</p>
                         <button onClick={() => copyText(module.customerLink || '', module.id)} style={{ background: '#16a34a', color: 'white', border: 'none', fontSize: '10px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>
-                          {copied === module.id ? 'âœ“' : 'Copy'}
+                          {copied === module.id ? 'Copied' : 'Copy'}
                         </button>
                       </div>
                     )}
@@ -585,11 +585,11 @@ export default function AdminPanel() {
                       </button>
                       {module.href && module.href !== '#' && (
                         <Link href={module.href} target="_blank" style={{ flex: 1, background: '#7c3aed', color: 'white', fontSize: '12px', fontWeight: '700', padding: '8px', borderRadius: '8px', textDecoration: 'none', textAlign: 'center' }}>
-                          Open â†’
+                          Open
                         </Link>
                       )}
                       <button onClick={() => deleteModule(module.id)} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '12px', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer' }}>
-                        ðŸ—‘
+                        Delete
                       </button>
                     </div>
                   </div>
@@ -658,15 +658,15 @@ export default function AdminPanel() {
                       </div>
                       <div>
                         <p style={{ margin: '0 0 2px', fontWeight: '700', color: '#0f172a', fontSize: '15px' }}>{client.name}</p>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{client.email}{client.phone ? ` Â· ${client.phone}` : ''}</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{client.email}{client.phone ? ` · ${client.phone}` : ''}</p>
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ background: '#ede9fe', color: '#7c3aed', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600' }}>{client.plan || 'Starter'}</span>
-                      <span style={{ background: '#f0fdf4', color: '#16a34a', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #bbf7d0' }}>â— {client.status || 'active'}</span>
+                      <span style={{ background: '#f0fdf4', color: '#16a34a', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #bbf7d0' }}>{client.status || 'active'}</span>
                       <span style={{ color: '#94a3b8', fontSize: '11px' }}>Joined {formatDate(client.createdAt)}</span>
                       <button onClick={() => setEditingClientId(current => current === client.id ? null : client.id)} style={{ background: editingClientId === client.id ? '#ede9fe' : '#f8fafc', color: editingClientId === client.id ? '#7c3aed' : '#64748b', border: `1px solid ${editingClientId === client.id ? '#7c3aed' : '#e2e8f0'}`, fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
-                        {editingClientId === client.id ? 'Done âœ“' : 'Edit Modules'}
+                        {editingClientId === client.id ? 'Done' : 'Edit Modules'}
                       </button>
                       <button onClick={() => resetClientPassword(client)} style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
                         Reset Password
@@ -692,7 +692,7 @@ export default function AdminPanel() {
                               <p style={{ margin: 0, fontSize: '10px', color: '#94a3b8' }}>{module.status === 'active' ? 'Live' : 'Coming Soon'}</p>
                             </div>
                             <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: isAssigned ? module.color || '#7c3aed' : 'transparent', border: `2px solid ${isAssigned ? module.color || '#7c3aed' : '#d1d5db'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '12px', fontWeight: '700' }}>
-                              {isAssigned ? 'âœ“' : ''}
+                              {isAssigned ? 'Yes' : ''}
                             </div>
                           </div>
                         )
@@ -714,7 +714,7 @@ export default function AdminPanel() {
                             <p style={{ margin: 0, fontSize: '11px', color: '#16a34a' }}>{module.customerLink}</p>
                           </div>
                           <button onClick={() => copyText(module.customerLink || '', `${client.id}-${module.id}`)} style={{ background: '#16a34a', color: 'white', border: 'none', fontSize: '12px', padding: '7px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
-                            {copied === `${client.id}-${module.id}` ? 'âœ“ Copied' : 'Copy Link'}
+                            {copied === `${client.id}-${module.id}` ? 'Copied' : 'Copy Link'}
                           </button>
                         </div>
                       ))}

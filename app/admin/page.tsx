@@ -92,12 +92,12 @@ export default function AdminPanel() {
 
   const inp = {
     width: '100%',
-    background: '#f8fafc',
-    border: '1px solid #e2e8f0',
+    background: '#ffffff',
+    border: '1px solid #dbe2ea',
     color: '#0f172a',
     fontSize: '13px',
-    padding: '8px 12px',
-    borderRadius: '8px',
+    padding: '10px 12px',
+    borderRadius: '10px',
     outline: 'none',
     boxSizing: 'border-box' as const,
     fontFamily: 'inherit'
@@ -105,7 +105,7 @@ export default function AdminPanel() {
 
   const lbl = {
     fontSize: '11px',
-    color: '#64748b',
+    color: '#475569',
     fontWeight: '600' as const,
     display: 'block' as const,
     marginBottom: '4px'
@@ -361,8 +361,8 @@ export default function AdminPanel() {
   }
 
   const ModuleForm = (
-    <div style={{ background: '#f0ebff', border: '2px solid #7c3aed', borderRadius: '14px', padding: '20px', marginBottom: '16px' }}>
-      <p style={{ fontSize: '13px', fontWeight: '700', color: '#7c3aed', margin: '0 0 16px' }}>
+    <div style={{ background: '#ffffff', border: '1px solid #dbe2ea', borderRadius: '18px', padding: '24px', marginBottom: '20px', boxShadow: '0 12px 30px rgba(15, 23, 42, 0.05)' }}>
+      <p style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: '0 0 16px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
         {editingModuleId ? 'Edit Module' : 'Create New Module'}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
@@ -416,21 +416,21 @@ export default function AdminPanel() {
           <div key={`${feature}-${index}`} style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
             <input value={feature} onChange={event => updateFeature(index, event.target.value)} style={{ ...inp, flex: 1 }} />
             {(moduleDraft.features || []).length > 1 && (
-              <button onClick={() => setModuleDraft(current => ({ ...current, features: (current.features || []).filter((_, featureIndex) => featureIndex !== index) }))} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '0 10px', cursor: 'pointer', fontSize: '16px' }}>
+              <button onClick={() => setModuleDraft(current => ({ ...current, features: (current.features || []).filter((_, featureIndex) => featureIndex !== index) }))} style={{ background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '0 10px', cursor: 'pointer', fontSize: '16px' }}>
                 x
               </button>
             )}
           </div>
         ))}
-        <button onClick={() => setModuleDraft(current => ({ ...current, features: [...(current.features || []), ''] }))} style={{ background: '#ede9fe', color: '#7c3aed', border: '1px dashed #7c3aed', borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+        <button onClick={() => setModuleDraft(current => ({ ...current, features: [...(current.features || []), ''] }))} style={{ background: '#f8fafc', color: '#2563eb', border: '1px dashed #93c5fd', borderRadius: '8px', padding: '7px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
           + Add Feature
         </button>
       </div>
       <div style={{ display: 'flex', gap: '8px' }}>
-        <button onClick={saveModule} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '9px 20px', borderRadius: '8px', cursor: 'pointer' }}>
+        <button onClick={saveModule} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>
           Save Module
         </button>
-        <button onClick={() => { setAddingModule(false); setEditingModuleId(null); setModuleDraft(BLANK_MODULE) }} style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', fontSize: '13px', padding: '9px 16px', borderRadius: '8px', cursor: 'pointer' }}>
+        <button onClick={() => { setAddingModule(false); setEditingModuleId(null); setModuleDraft(BLANK_MODULE) }} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', fontSize: '13px', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer' }}>
           Cancel
         </button>
       </div>
@@ -446,27 +446,27 @@ export default function AdminPanel() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#f6f8fb', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       {(saved || error) && (
-        <div style={{ position: 'fixed', top: '20px', right: '20px', background: error ? '#7f1d1d' : '#0f172a', color: error ? '#fecaca' : '#4ade80', fontSize: '13px', fontWeight: '700', padding: '12px 20px', borderRadius: '10px', zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+        <div style={{ position: 'fixed', top: '20px', right: '20px', background: error ? '#fff1f2' : '#eff6ff', color: error ? '#b91c1c' : '#1d4ed8', border: `1px solid ${error ? '#fecdd3' : '#bfdbfe'}`, fontSize: '13px', fontWeight: '700', padding: '12px 20px', borderRadius: '12px', zIndex: 9999, boxShadow: '0 12px 30px rgba(15,23,42,0.08)' }}>
           {error || saved}
         </div>
       )}
 
-      <div style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', padding: '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 0 rgba(15,23,42,0.03)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', color: 'white', fontSize: '14px' }}>SV</div>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', color: 'white', fontSize: '14px' }}>SV</div>
             <div>
-              <p style={{ margin: 0, color: 'white', fontSize: '14px', fontWeight: '700' }}>Scale Vyapar</p>
-              <p style={{ margin: 0, color: '#475569', fontSize: '10px' }}>Business Automation Platform</p>
+              <p style={{ margin: 0, color: '#0f172a', fontSize: '14px', fontWeight: '700' }}>Scale Vyapar</p>
+              <p style={{ margin: 0, color: '#94a3b8', fontSize: '10px' }}>Business Automation Platform</p>
             </div>
           </div>
-          <span style={{ background: '#7c3aed20', color: '#a78bfa', fontSize: '11px', padding: '2px 10px', borderRadius: '99px', border: '1px solid #7c3aed40' }}>Admin Panel</span>
+          <span style={{ background: '#f8fafc', color: '#334155', fontSize: '11px', padding: '4px 10px', borderRadius: '99px', border: '1px solid #e2e8f0', fontWeight: '600' }}>Admin Panel</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ color: '#64748b', fontSize: '13px' }}>admin@scalevyapar.com</span>
-          <button onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login' }} style={{ background: '#1e293b', color: '#94a3b8', border: '1px solid #334155', fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer' }}>
+          <button onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login' }} style={{ background: '#ffffff', color: '#334155', border: '1px solid #dbe2ea', fontSize: '12px', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
             Logout
           </button>
         </div>
@@ -480,46 +480,46 @@ export default function AdminPanel() {
             { label: 'Active Clients', value: `${clients.length}`, icon: 'Clients', color: '#0284c7' },
             { label: 'Connected Assignments', value: `${clients.reduce((count, client) => count + client.assignedModuleIds.length, 0)}`, icon: 'Links', color: '#f59e0b' }
           ].map(card => (
-            <div key={card.label} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ fontSize: '28px' }}>{card.icon}</div>
+            <div key={card.label} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '18px', padding: '20px 22px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)' }}>
+              <div style={{ minWidth: '56px', height: '56px', borderRadius: '14px', background: '#f8fafc', border: '1px solid #eef2f7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700', color: '#334155', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{card.icon}</div>
               <div>
-                <p style={{ fontSize: '24px', fontWeight: '700', color: card.color, margin: 0 }}>{card.value}</p>
-                <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>{card.label}</p>
+                <p style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', margin: '0 0 2px' }}>{card.value}</p>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>{card.label}</p>
               </div>
             </div>
           ))}
         </div>
 
         {generatedCredentials && (
-          <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: '12px', padding: '14px 16px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '18px', padding: '18px 20px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)' }}>
             <div style={{ flex: 1 }}>
-              <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: '700', color: '#92400e' }}>{generatedCredentials.title}</p>
+              <p style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: '700', color: '#0f172a', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{generatedCredentials.title}</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px' }}>
-                <div style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px' }}>
-                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#a16207', fontWeight: '700' }}>Client ID</p>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#78350f', wordBreak: 'break-all' }}>{generatedCredentials.clientId}</p>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#64748b', fontWeight: '700' }}>Client ID</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#0f172a', wordBreak: 'break-all' }}>{generatedCredentials.clientId}</p>
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px' }}>
-                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#a16207', fontWeight: '700' }}>Email</p>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#78350f', wordBreak: 'break-all' }}>{generatedCredentials.email}</p>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#64748b', fontWeight: '700' }}>Email</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#0f172a', wordBreak: 'break-all' }}>{generatedCredentials.email}</p>
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px' }}>
-                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#a16207', fontWeight: '700' }}>Temporary Password</p>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#78350f', wordBreak: 'break-all' }}>{generatedCredentials.temporaryPassword}</p>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#64748b', fontWeight: '700' }}>Temporary Password</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#0f172a', wordBreak: 'break-all' }}>{generatedCredentials.temporaryPassword}</p>
                 </div>
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button onClick={() => copyText(generatedCredentials.clientId, 'generated-client-id')} style={{ background: '#ca8a04', color: 'white', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
+              <button onClick={() => copyText(generatedCredentials.clientId, 'generated-client-id')} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '12px', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>
                 {copied === 'generated-client-id' ? 'Copied ID' : 'Copy ID'}
               </button>
-              <button onClick={() => copyText(generatedCredentials.email, 'generated-client-email')} style={{ background: '#ca8a04', color: 'white', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
+              <button onClick={() => copyText(generatedCredentials.email, 'generated-client-email')} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '12px', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>
                 {copied === 'generated-client-email' ? 'Copied Email' : 'Copy Email'}
               </button>
-              <button onClick={() => copyText(generatedCredentials.temporaryPassword, 'generated-client-password')} style={{ background: '#ca8a04', color: 'white', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
+              <button onClick={() => copyText(generatedCredentials.temporaryPassword, 'generated-client-password')} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '12px', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>
                 {copied === 'generated-client-password' ? 'Copied Password' : 'Copy Password'}
               </button>
-              <button onClick={() => setGeneratedCredentials(null)} style={{ background: 'white', color: '#a16207', border: '1px solid #fcd34d', fontSize: '12px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
+              <button onClick={() => setGeneratedCredentials(null)} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', fontSize: '12px', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>
                 Dismiss
               </button>
             </div>
@@ -528,7 +528,7 @@ export default function AdminPanel() {
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
           {[{ key: 'modules', label: 'Module Management' }, { key: 'clients', label: 'Client Management' }].map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key as 'modules' | 'clients')} style={{ padding: '10px 20px', border: `2px solid ${activeTab === tab.key ? '#7c3aed' : '#e2e8f0'}`, background: activeTab === tab.key ? '#ede9fe' : 'white', color: activeTab === tab.key ? '#7c3aed' : '#64748b', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: activeTab === tab.key ? '700' : '500' }}>
+            <button key={tab.key} onClick={() => setActiveTab(tab.key as 'modules' | 'clients')} style={{ padding: '10px 20px', border: `1px solid ${activeTab === tab.key ? '#cbd5e1' : '#e2e8f0'}`, background: activeTab === tab.key ? '#ffffff' : '#f8fafc', color: activeTab === tab.key ? '#0f172a' : '#64748b', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: activeTab === tab.key ? '700' : '600', boxShadow: activeTab === tab.key ? '0 6px 18px rgba(15, 23, 42, 0.06)' : 'none' }}>
               {tab.label}
             </button>
           ))}
@@ -541,7 +541,7 @@ export default function AdminPanel() {
                 <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>Module Management</h2>
                 <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Changes here now update the same server data used by client dashboards.</p>
               </div>
-              <button onClick={startAddModule} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>
+              <button onClick={startAddModule} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '11px 20px', borderRadius: '12px', cursor: 'pointer' }}>
                 + Add New Module
               </button>
             </div>
@@ -550,14 +550,14 @@ export default function AdminPanel() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '20px' }}>
               {modules.map(module => (
-                <div key={module.id} style={{ background: 'white', border: `1px solid ${(module.color || '#7c3aed')}30`, borderRadius: '18px', overflow: 'hidden' }}>
-                  <div style={{ height: '5px', background: module.color || '#7c3aed' }} />
+                <div key={module.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)' }}>
+                  <div style={{ height: '4px', background: '#e2e8f0' }} />
                   <div style={{ padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                      <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${module.color || '#7c3aed'}15`, border: `1px solid ${(module.color || '#7c3aed')}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+                      <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', color: '#334155' }}>
                         {module.icon || '◆'}
                       </div>
-                      <span style={{ background: module.status === 'active' ? '#f0fdf4' : '#f8fafc', color: module.status === 'active' ? '#16a34a' : '#94a3b8', fontSize: '11px', padding: '3px 10px', borderRadius: '99px', fontWeight: '700', border: `1px solid ${module.status === 'active' ? '#bbf7d0' : '#e2e8f0'}` }}>
+                      <span style={{ background: module.status === 'active' ? '#f0fdf4' : '#f8fafc', color: module.status === 'active' ? '#166534' : '#64748b', fontSize: '11px', padding: '4px 10px', borderRadius: '99px', fontWeight: '700', border: `1px solid ${module.status === 'active' ? '#bbf7d0' : '#e2e8f0'}` }}>
                         {module.status === 'active' ? 'Live' : 'Coming Soon'}
                       </span>
                     </div>
@@ -574,17 +574,17 @@ export default function AdminPanel() {
                     {module.customerLink && (
                       <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '8px 10px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                         <p style={{ fontSize: '10px', color: '#16a34a', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{module.customerLink}</p>
-                        <button onClick={() => copyText(module.customerLink || '', module.id)} style={{ background: '#16a34a', color: 'white', border: 'none', fontSize: '10px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>
+                        <button onClick={() => copyText(module.customerLink || '', module.id)} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '10px', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>
                           {copied === module.id ? 'Copied' : 'Copy'}
                         </button>
                       </div>
                     )}
                     <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px', display: 'flex', gap: '8px' }}>
-                      <button onClick={() => startEditModule(module)} style={{ flex: 1, background: '#ede9fe', color: '#7c3aed', border: '1px solid #c4b5fd', fontSize: '12px', fontWeight: '700', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>
+                      <button onClick={() => startEditModule(module)} style={{ flex: 1, background: '#ffffff', color: '#0f172a', border: '1px solid #dbe2ea', fontSize: '12px', fontWeight: '700', padding: '9px', borderRadius: '10px', cursor: 'pointer' }}>
                         Edit
                       </button>
                       {module.href && module.href !== '#' && (
-                        <Link href={module.href} target="_blank" style={{ flex: 1, background: '#7c3aed', color: 'white', fontSize: '12px', fontWeight: '700', padding: '8px', borderRadius: '8px', textDecoration: 'none', textAlign: 'center' }}>
+                        <Link href={module.href} target="_blank" style={{ flex: 1, background: '#0f172a', color: 'white', fontSize: '12px', fontWeight: '700', padding: '9px', borderRadius: '10px', textDecoration: 'none', textAlign: 'center' }}>
                           Open
                         </Link>
                       )}
@@ -606,14 +606,14 @@ export default function AdminPanel() {
                 <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>Client Management</h2>
                 <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Assign modules here and the client dashboard will update from the same backend records.</p>
               </div>
-              <button onClick={() => setAddingClient(true)} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>
+              <button onClick={() => setAddingClient(true)} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '11px 20px', borderRadius: '12px', cursor: 'pointer' }}>
                 + Add New Client
               </button>
             </div>
 
             {addingClient && (
-              <div style={{ background: '#f0ebff', border: '2px solid #7c3aed', borderRadius: '16px', padding: '24px', marginBottom: '20px' }}>
-                <p style={{ fontSize: '15px', fontWeight: '700', color: '#7c3aed', margin: '0 0 20px' }}>Create Client</p>
+              <div style={{ background: '#ffffff', border: '1px solid #dbe2ea', borderRadius: '18px', padding: '24px', marginBottom: '20px', boxShadow: '0 12px 30px rgba(15, 23, 42, 0.05)' }}>
+                <p style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 20px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Create Client</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', marginBottom: '16px' }}>
                   <div>
                     <label style={lbl}>Business Name *</label>
@@ -638,10 +638,10 @@ export default function AdminPanel() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={saveClient} style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white', border: 'none', fontSize: '14px', fontWeight: '700', padding: '11px 24px', borderRadius: '10px', cursor: 'pointer' }}>
+                  <button onClick={saveClient} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '14px', fontWeight: '700', padding: '11px 24px', borderRadius: '12px', cursor: 'pointer' }}>
                     Save Client
                   </button>
-                  <button onClick={() => setAddingClient(false)} style={{ background: 'white', color: '#64748b', border: '1px solid #e2e8f0', fontSize: '13px', padding: '11px 20px', borderRadius: '10px', cursor: 'pointer' }}>
+                  <button onClick={() => setAddingClient(false)} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', fontSize: '13px', padding: '11px 20px', borderRadius: '12px', cursor: 'pointer' }}>
                     Cancel
                   </button>
                 </div>
@@ -650,10 +650,10 @@ export default function AdminPanel() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {clients.map(client => (
-                <div key={client.id} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', overflow: 'hidden' }}>
+                <div key={client.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)' }}>
                   <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                      <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '18px' }}>
+                      <div style={{ width: '46px', height: '46px', borderRadius: '14px', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '18px' }}>
                         {client.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -662,16 +662,16 @@ export default function AdminPanel() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ background: '#ede9fe', color: '#7c3aed', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600' }}>{client.plan || 'Starter'}</span>
-                      <span style={{ background: '#f0fdf4', color: '#16a34a', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #bbf7d0' }}>{client.status || 'active'}</span>
+                      <span style={{ background: '#f8fafc', color: '#334155', fontSize: '12px', padding: '5px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #e2e8f0' }}>{client.plan || 'Starter'}</span>
+                      <span style={{ background: '#f0fdf4', color: '#166534', fontSize: '12px', padding: '5px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #bbf7d0' }}>{client.status || 'active'}</span>
                       <span style={{ color: '#94a3b8', fontSize: '11px' }}>Joined {formatDate(client.createdAt)}</span>
-                      <button onClick={() => setEditingClientId(current => current === client.id ? null : client.id)} style={{ background: editingClientId === client.id ? '#ede9fe' : '#f8fafc', color: editingClientId === client.id ? '#7c3aed' : '#64748b', border: `1px solid ${editingClientId === client.id ? '#7c3aed' : '#e2e8f0'}`, fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                      <button onClick={() => setEditingClientId(current => current === client.id ? null : client.id)} style={{ background: editingClientId === client.id ? '#0f172a' : '#ffffff', color: editingClientId === client.id ? '#ffffff' : '#475569', border: `1px solid ${editingClientId === client.id ? '#0f172a' : '#dbe2ea'}`, fontSize: '12px', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
                         {editingClientId === client.id ? 'Done' : 'Edit Modules'}
                       </button>
-                      <button onClick={() => resetClientPassword(client)} style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                      <button onClick={() => resetClientPassword(client)} style={{ background: '#ffffff', color: '#2563eb', border: '1px solid #bfdbfe', fontSize: '12px', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
                         Reset Password
                       </button>
-                      <button onClick={() => deleteClient(client.id)} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                      <button onClick={() => deleteClient(client.id)} style={{ background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', fontSize: '12px', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
                         Delete
                       </button>
                     </div>
@@ -686,12 +686,12 @@ export default function AdminPanel() {
                         const isAssigned = client.assignedModuleIds.includes(module.id)
                         const isEditing = editingClientId === client.id
                         return (
-                          <div key={`${client.id}-${module.id}`} onClick={() => isEditing && toggleClientModule(client.id, module.id)} style={{ padding: '12px 14px', border: `2px solid ${isAssigned ? module.color || '#7c3aed' : '#e2e8f0'}`, background: isAssigned ? `${module.color || '#7c3aed'}10` : '#f8fafc', borderRadius: '10px', cursor: isEditing ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div key={`${client.id}-${module.id}`} onClick={() => isEditing && toggleClientModule(client.id, module.id)} style={{ padding: '12px 14px', border: `1px solid ${isAssigned ? module.color || '#2563eb' : '#e2e8f0'}`, background: isAssigned ? '#ffffff' : '#f8fafc', borderRadius: '12px', cursor: isEditing ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: isAssigned ? '0 6px 18px rgba(15, 23, 42, 0.04)' : 'none' }}>
                             <div>
-                              <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '600', color: isAssigned ? module.color || '#7c3aed' : '#374151' }}>{module.name}</p>
+                              <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{module.name}</p>
                               <p style={{ margin: 0, fontSize: '10px', color: '#94a3b8' }}>{module.status === 'active' ? 'Live' : 'Coming Soon'}</p>
                             </div>
-                            <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: isAssigned ? module.color || '#7c3aed' : 'transparent', border: `2px solid ${isAssigned ? module.color || '#7c3aed' : '#d1d5db'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '12px', fontWeight: '700' }}>
+                            <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: isAssigned ? '#0f172a' : 'transparent', border: `2px solid ${isAssigned ? '#0f172a' : '#d1d5db'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', fontWeight: '700' }}>
                               {isAssigned ? 'Yes' : ''}
                             </div>
                           </div>
@@ -700,20 +700,20 @@ export default function AdminPanel() {
                     </div>
 
                     {editingClientId === client.id && (
-                      <div style={{ marginTop: '12px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 14px' }}>
-                        <p style={{ margin: 0, fontSize: '12px', color: '#92400e' }}>Click any module card above to toggle access on or off. The client dashboard will reflect the change from backend data.</p>
+                      <div style={{ marginTop: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                        <p style={{ margin: 0, fontSize: '12px', color: '#475569' }}>Click any module card above to toggle access on or off. The client dashboard will reflect the change from backend data.</p>
                       </div>
                     )}
 
                     {client.assignedModules
                       .filter(module => module.customerLink)
                       .map(module => (
-                        <div key={`${client.id}-${module.id}-link`} style={{ marginTop: '14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                        <div key={`${client.id}-${module.id}-link`} style={{ marginTop: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                           <div>
-                            <p style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: '700', color: '#166534' }}>{module.name} Access Link</p>
-                            <p style={{ margin: 0, fontSize: '11px', color: '#16a34a' }}>{module.customerLink}</p>
+                            <p style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>{module.name} Access Link</p>
+                            <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>{module.customerLink}</p>
                           </div>
-                          <button onClick={() => copyText(module.customerLink || '', `${client.id}-${module.id}`)} style={{ background: '#16a34a', color: 'white', border: 'none', fontSize: '12px', padding: '7px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                          <button onClick={() => copyText(module.customerLink || '', `${client.id}-${module.id}`)} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
                             {copied === `${client.id}-${module.id}` ? 'Copied' : 'Copy Link'}
                           </button>
                         </div>

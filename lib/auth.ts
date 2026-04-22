@@ -82,7 +82,13 @@ export async function hasRole(role: string): Promise<boolean> {
 
 export async function getUserFromRequest(request: Request): Promise<User | null> {
   try {
-    const token = getTokenFromCookieHeader(request.headers.get('cookie'))
+    const nextRequest = request as Request & {
+      cookies?: { get: (name: string) => { value?: string } | undefined }
+    }
+
+    const token = nextRequest.cookies?.get?.('auth-token')?.value
+      ?? getTokenFromCookieHeader(request.headers.get('cookie'))
+
     if (!token) {
       return null
     }
@@ -114,3 +120,4 @@ export async function requireAdmin(request: Request): Promise<User | NextRespons
 
   return user
 }
+

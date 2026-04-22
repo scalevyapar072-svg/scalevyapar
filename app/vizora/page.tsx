@@ -4,26 +4,26 @@ import { useDropzone } from 'react-dropzone'
 import Link from 'next/link'
 
 const TOOLS = [
-  { id: 'generate', emoji: 'ðŸ“¸', name: 'AI Photo Generator', tagline: 'Exact dress on real model', cost: 'â‚¹6/image', accent: '#7c3aed', light: '#ede9fe', border: '#c4b5fd' },
-  { id: 'upscale', emoji: 'ðŸ”', name: 'Photo Upscaler 4x', tagline: 'Print-ready quality', cost: 'â‚¹2/image', accent: '#0284c7', light: '#e0f2fe', border: '#7dd3fc' },
-  { id: 'video', emoji: 'ðŸŽ¬', name: 'Video Ad Generator', tagline: 'Instagram reel in seconds', cost: 'â‚¹4/video', accent: '#db2777', light: '#fce7f3', border: '#f9a8d4' },
-  { id: 'ugc', emoji: 'ðŸŽ­', name: 'UGC Ads Creator', tagline: 'AI avatar speaks your brand', cost: 'â‚¹45/video', accent: '#d97706', light: '#fef3c7', border: '#fcd34d' },
-  { id: 'eraser', emoji: 'âœ¨', name: 'Magic Eraser', tagline: 'Remove backgrounds instantly', cost: 'â‚¹2/image', accent: '#059669', light: '#d1fae5', border: '#6ee7b7' },
+  { id: 'generate', emoji: 'Photo', name: 'AI Photo Generator', tagline: 'Exact dress on real model', cost: 'Rs 6/image', accent: '#7c3aed', light: '#ede9fe', border: '#c4b5fd' },
+  { id: 'upscale', emoji: 'Up', name: 'Photo Upscaler 4x', tagline: 'Print-ready quality', cost: 'Rs 2/image', accent: '#0284c7', light: '#e0f2fe', border: '#7dd3fc' },
+  { id: 'video', emoji: 'Vid', name: 'Video Ad Generator', tagline: 'Instagram reel in seconds', cost: 'Rs 4/video', accent: '#db2777', light: '#fce7f3', border: '#f9a8d4' },
+  { id: 'ugc', emoji: 'UGC', name: 'UGC Ads Creator', tagline: 'AI avatar speaks your brand', cost: 'Rs 45/video', accent: '#d97706', light: '#fef3c7', border: '#fcd34d' },
+  { id: 'eraser', emoji: 'FX', name: 'Magic Eraser', tagline: 'Remove backgrounds instantly', cost: 'Rs 2/image', accent: '#059669', light: '#d1fae5', border: '#6ee7b7' },
 ]
 
 const SHOOT_TYPES = [
-  { id: 'front', label: 'ðŸ“¸ Front Standing' },
-  { id: 'onearm', label: 'ðŸ’ƒ One-Arm-Up' },
-  { id: 'neckline', label: 'ðŸ” Neckline Close-Up' },
-  { id: 'sitting-stool', label: 'ðŸª‘ Sitting Stool' },
-  { id: 'sitting-portrait', label: 'ðŸ–¼ Sitting Portrait' },
-  { id: 'reclining', label: 'ðŸ›‹ Reclining Sofa' },
-  { id: 'shoulder', label: 'â†© Over-Shoulder' },
-  { id: 'hand', label: 'âœ‹ Hand Editorial' },
-  { id: 'fabric', label: 'ðŸ§µ Fabric Macro' },
-  { id: 'stitch', label: 'ðŸª¡ Stitch Detail' },
-  { id: 'walking', label: 'ðŸš¶ Walking Natural' },
-  { id: 'back', label: 'ðŸ”„ Back Pose' },
+  { id: 'front', label: 'Front Standing' },
+  { id: 'onearm', label: 'One-Arm-Up' },
+  { id: 'neckline', label: 'Neckline Close-Up' },
+  { id: 'sitting-stool', label: 'Sitting Stool' },
+  { id: 'sitting-portrait', label: 'Sitting Portrait' },
+  { id: 'reclining', label: 'Reclining Sofa' },
+  { id: 'shoulder', label: 'Over-Shoulder' },
+  { id: 'hand', label: 'Hand Editorial' },
+  { id: 'fabric', label: 'Fabric Macro' },
+  { id: 'stitch', label: 'Stitch Detail' },
+  { id: 'walking', label: 'Walking Natural' },
+  { id: 'back', label: 'Back Pose' },
 ]
 
 export default function VizoraStudio() {
@@ -80,9 +80,9 @@ export default function VizoraStudio() {
         if (data.image) setResults([data.image])
         else setError(data.error || 'Background removal failed')
       } else {
-        setError('This tool is coming soon â€” integration in progress')
+        setError('This tool is coming soon - integration in progress')
       }
-    } catch { setError('Network error â€” please try again') }
+    } catch { setError('Network error - please try again') }
     finally { setGenerating(false) }
   }
 
@@ -111,14 +111,14 @@ export default function VizoraStudio() {
             <span style={{ fontWeight: '400', fontSize: '16px', color: '#94a3b8' }}>Studio</span>
           </div>
           <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }} />
-          <span style={{ background: '#ede9fe', color: '#7c3aed', fontSize: '11px', padding: '3px 10px', borderRadius: '99px', fontWeight: '600', border: '1px solid #c4b5fd' }}>AI Creative Suite â€” 5 Tools</span>
+          <span style={{ background: '#ede9fe', color: '#7c3aed', fontSize: '11px', padding: '3px 10px', borderRadius: '99px', fontWeight: '600', border: '1px solid #c4b5fd' }}>AI Creative Suite - 5 Tools</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '99px', padding: '5px 12px' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
             <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>FASHN.ai Live</span>
           </div>
-          <Link href="/admin" target="_blank" style={{ color: '#64748b', fontSize: '12px', textDecoration: 'none', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '6px 14px', borderRadius: '8px', fontWeight: '500' }}>â† Admin</Link>
+          <Link href="/admin" target="_blank" style={{ color: '#64748b', fontSize: '12px', textDecoration: 'none', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '6px 14px', borderRadius: '8px', fontWeight: '500' }}>Back to Admin</Link>
         </div>
       </div>
 
@@ -180,7 +180,7 @@ export default function VizoraStudio() {
             <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: tool.light, border: `1px solid ${tool.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>{tool.emoji}</div>
             <div>
               <p style={{ margin: '0 0 3px', fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>{tool.name}</p>
-              <p style={{ margin: '0', fontSize: '11px', color: '#94a3b8' }}>{tool.tagline} Â· <span style={{ color: tool.accent, fontWeight: '600' }}>{tool.cost}</span></p>
+              <p style={{ margin: '0', fontSize: '11px', color: '#94a3b8' }}>{tool.tagline} · <span style={{ color: tool.accent, fontWeight: '600' }}>{tool.cost}</span></p>
             </div>
           </div>
 
@@ -196,9 +196,9 @@ export default function VizoraStudio() {
               ) : (
                 <div {...getRootProps()} style={{ border: `2px dashed ${isDragActive ? tool.accent : '#cbd5e1'}`, background: isDragActive ? tool.light : '#f8fafc', borderRadius: '12px', padding: '28px 16px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
                   <input {...getInputProps()} />
-                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>ðŸ–¼ï¸</div>
+                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>Upload</div>
                   <p style={{ color: '#64748b', fontSize: '13px', margin: '0 0 4px', fontWeight: '500' }}>{isDragActive ? 'Drop here!' : 'Drag & drop or click to upload'}</p>
-                  <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0' }}>JPG, PNG, WEBP â€” Max 10MB</p>
+                  <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0' }}>JPG, PNG, WEBP - Max 10MB</p>
                 </div>
               )}
             </div>
@@ -208,7 +208,7 @@ export default function VizoraStudio() {
           {activeTool === 'generate' && (
             <>
               <div>
-                <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pose Type â€” 12 Options</p>
+                <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pose Type - 12 Options</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
                   {SHOOT_TYPES.map(type => (
                     <button key={type.id} onClick={() => setShootType(type.id)} style={{ padding: '7px 10px', border: `1.5px solid ${shootType === type.id ? tool.border : '#e2e8f0'}`, background: shootType === type.id ? tool.light : 'white', color: shootType === type.id ? tool.accent : '#64748b', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: shootType === type.id ? '700' : '400', textAlign: 'left', transition: 'all 0.15s' }}>
@@ -216,7 +216,7 @@ export default function VizoraStudio() {
                     </button>
                   ))}
                 </div>
-                {selectedShoot && <p style={{ fontSize: '11px', color: '#7c3aed', margin: '8px 0 0', background: '#ede9fe', padding: '7px 12px', borderRadius: '8px', fontWeight: '500' }}>âœ“ {selectedShoot.label} selected</p>}
+                {selectedShoot && <p style={{ fontSize: '11px', color: '#7c3aed', margin: '8px 0 0', background: '#ede9fe', padding: '7px 12px', borderRadius: '8px', fontWeight: '500' }}>{selectedShoot.label} selected</p>}
               </div>
               <div>
                 <label style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Extra Details (optional)</label>
@@ -235,7 +235,7 @@ export default function VizoraStudio() {
                 ))}
               </div>
               <p style={{ fontSize: '12px', color: '#64748b', margin: '10px 0 0', background: '#f8fafc', padding: '8px 12px', borderRadius: '8px' }}>
-                {scale <= 2 ? '2x â€” Great for WhatsApp & social media' : scale <= 4 ? '4x â€” Perfect for Myntra & e-commerce listings' : '6-8x â€” Print catalogs & large format displays'}
+                {scale <= 2 ? '2x - Great for WhatsApp and social media' : scale <= 4 ? '4x - Perfect for Myntra and e-commerce listings' : '6-8x - Print catalogs and large format displays'}
               </p>
             </div>
           )}
@@ -243,20 +243,20 @@ export default function VizoraStudio() {
           {/* Coming soon */}
           {(activeTool === 'video' || activeTool === 'ugc') && (
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '32px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '40px', marginBottom: '14px' }}>{activeTool === 'video' ? 'ðŸŽ¬' : 'ðŸŽ­'}</div>
+              <div style={{ fontSize: '40px', marginBottom: '14px' }}>{activeTool === 'video' ? 'Vid' : 'UGC'}</div>
               <p style={{ color: '#374151', fontSize: '15px', fontWeight: '700', margin: '0 0 8px' }}>Coming Soon</p>
               <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 20px', lineHeight: '1.7' }}>
-                {activeTool === 'video' ? 'Kling AI + FFmpeg integration\nin progress â€” launching soon!' : 'HeyGen API + ElevenLabs Hindi voice\nintegration in progress â€” launching soon!'}
+                {activeTool === 'video' ? 'Kling AI + FFmpeg integration in progress - launching soon!' : 'HeyGen API + ElevenLabs Hindi voice integration in progress - launching soon!'}
               </p>
               <a href={activeTool === 'video' ? 'https://klingai.com' : 'https://heygen.com'} target="_blank" rel="noopener noreferrer" style={{ color: tool.accent, fontSize: '12px', textDecoration: 'none', background: tool.light, border: `1px solid ${tool.border}`, padding: '7px 16px', borderRadius: '8px', fontWeight: '600' }}>
-                Learn more â†’
+                Learn more
               </a>
             </div>
           )}
 
           {error && (
             <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: '12px', padding: '10px 14px', borderRadius: '10px', lineHeight: '1.6' }}>
-              âš ï¸ {error}
+              Alert: {error}
             </div>
           )}
 
@@ -281,18 +281,18 @@ export default function VizoraStudio() {
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
                   <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                 </svg>
-                Processing... 20â€“40 sec
+                Processing... 20-40 sec
               </>
             ) : (
               <>{tool.emoji} {
-                activeTool === 'generate' ? `Generate â€” ${selectedShoot?.label}` :
+                activeTool === 'generate' ? `Generate - ${selectedShoot?.label}` :
                 activeTool === 'upscale' ? `Upscale ${scale}x` :
                 activeTool === 'eraser' ? 'Remove Background' :
                 activeTool === 'video' ? 'Generate Video Ad' : 'Create UGC Ad'
               }</>
             )}
           </button>
-          <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', margin: '-8px 0 0' }}>{tool.cost} Â· {tool.tagline}</p>
+          <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', margin: '-8px 0 0' }}>{tool.cost} · {tool.tagline}</p>
         </div>
 
         {/* RIGHT â€” Output */}
@@ -300,9 +300,9 @@ export default function VizoraStudio() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
             <div>
               <p style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 2px' }}>Generated Output</p>
-              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0' }}>{tool.name} Â· {tool.cost}</p>
+              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0' }}>{tool.name} · {tool.cost}</p>
             </div>
-            {results.length > 0 && <span style={{ background: '#f0fdf4', color: '#16a34a', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #bbf7d0' }}>âœ“ {results.length} result{results.length > 1 ? 's' : ''} ready</span>}
+            {results.length > 0 && <span style={{ background: '#f0fdf4', color: '#16a34a', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #bbf7d0' }}>{results.length} result{results.length > 1 ? 's' : ''} ready</span>}
           </div>
 
           {results.length === 0 ? (
@@ -312,7 +312,7 @@ export default function VizoraStudio() {
                   <div style={{ width: '60px', height: '60px', border: `4px solid ${tool.light}`, borderTopColor: tool.accent, borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '24px' }} />
                   <p style={{ color: '#374151', fontSize: '16px', fontWeight: '700', margin: '0 0 8px' }}>Generating your result...</p>
                   <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0' }}>FASHN.ai is placing your garment on a real model</p>
-                  <p style={{ color: '#cbd5e1', fontSize: '12px', margin: '6px 0 0' }}>Usually takes 20â€“40 seconds</p>
+                  <p style={{ color: '#cbd5e1', fontSize: '12px', margin: '6px 0 0' }}>Usually takes 20-40 seconds</p>
                 </>
               ) : (
                 <>
@@ -321,10 +321,10 @@ export default function VizoraStudio() {
                   <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 24px' }}>{tool.tagline}</p>
                   <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px 22px', maxWidth: '300px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                     <p style={{ fontSize: '12px', color: '#64748b', margin: '0', lineHeight: '2', textAlign: 'left' }}>
-                      {activeTool === 'generate' && <>ðŸ“¸ Same exact print & colors<br />ðŸ‘— Real human model<br />ðŸŽ¯ 12 professional pose types<br />âš¡ Ready in 20â€“40 seconds</>}
-                      {activeTool === 'upscale' && <>ðŸ” 2x to 8x upscaling<br />ðŸ–¨ï¸ Print-ready quality<br />ðŸ›’ Myntra & catalog ready<br />âœ¨ AI face enhancement</>}
-                      {activeTool === 'eraser' && <>âœ‚ï¸ Instant background removal<br />ðŸ–¼ï¸ Clean PNG transparency<br />ðŸŽ¨ Perfect for listings<br />âš¡ Ready in seconds</>}
-                      {(activeTool === 'video' || activeTool === 'ugc') && <>ðŸš€ Coming soon<br />ðŸ”§ API integration in progress<br />ðŸ“± Instagram reel format<br />ðŸŽ¬ 30-second ad ready</>}
+                      {activeTool === 'generate' && <>Same exact print and colors<br />Real human model<br />12 professional pose types<br />Ready in 20-40 seconds</>}
+                      {activeTool === 'upscale' && <>2x to 8x upscaling<br />Print-ready quality<br />Myntra and catalog ready<br />AI face enhancement</>}
+                      {activeTool === 'eraser' && <>Instant background removal<br />Clean PNG transparency<br />Perfect for listings<br />Ready in seconds</>}
+                      {(activeTool === 'video' || activeTool === 'ugc') && <>Coming soon<br />API integration in progress<br />Instagram reel format<br />30-second ad ready</>}
                     </p>
                   </div>
                 </>
@@ -341,14 +341,14 @@ export default function VizoraStudio() {
                 >
                   <img src={img} alt={`result-${i}`} style={{ width: '100%', display: 'block' }} />
                   <div className="ov" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', opacity: 0, transition: 'opacity 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                    <button onClick={() => download(img, i)} style={{ background: 'white', color: '#0f172a', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 22px', borderRadius: '10px', cursor: 'pointer' }}>â¬‡ Download</button>
+                    <button onClick={() => download(img, i)} style={{ background: 'white', color: '#0f172a', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 22px', borderRadius: '10px', cursor: 'pointer' }}>Download</button>
                     <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('AI fashion shoot: ' + img)}`, '_blank')} style={{ background: '#25d366', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 22px', borderRadius: '10px', cursor: 'pointer' }}>WhatsApp</button>
                   </div>
                 </div>
               ))}
               <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                 <div>
-                  <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', margin: '0 0 2px' }}>âœ“ Ready for catalog!</p>
+                  <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', margin: '0 0 2px' }}>Ready for catalog!</p>
                   <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0' }}>Hover image to download or share</p>
                 </div>
                 <button onClick={generate} style={{ background: tool.light, color: tool.accent, border: `1px solid ${tool.border}`, fontSize: '12px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>Generate Again</button>

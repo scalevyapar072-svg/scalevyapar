@@ -14,6 +14,11 @@ export interface User {
   status?: string
 }
 
+interface PasswordResetTokenPayload {
+  id: string
+  email: string
+}
+
 export async function generateToken(user: User): Promise<string> {
   return await new SignJWT({
     id: user.id,
@@ -41,6 +46,35 @@ export async function verifyToken(token: string): Promise<User | null> {
       phone: payload.phone as string | undefined,
       plan: payload.plan as string | undefined,
       status: payload.status as string | undefined
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function generatePasswordResetToken(payload: PasswordResetTokenPayload): Promise<string> {
+  return await new SignJWT({
+    id: payload.id,
+    email: payload.email,
+    purpose: 'password-reset'
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('30m')
+    .sign(JWT_SECRET)
+}
+
+export async function verifyPasswordResetToken(token: string): Promise<PasswordResetTokenPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET)
+
+    if (payload.purpose !== 'password-reset') {
+      return null
+    }
+
+    return {
+      id: payload.id as string,
+      email: payload.email as string
     }
   } catch {
     return null

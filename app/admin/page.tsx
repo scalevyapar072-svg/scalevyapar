@@ -83,7 +83,11 @@ export default function AdminPanel() {
   const [addingClient, setAddingClient] = useState(false)
   const [clientDraft, setClientDraft] = useState(BLANK_CLIENT)
   const [editingClientId, setEditingClientId] = useState<string | null>(null)
-  const [temporaryPassword, setTemporaryPassword] = useState('')
+  const [generatedCredentials, setGeneratedCredentials] = useState<{
+    clientId: string
+    email: string
+    temporaryPassword: string
+  } | null>(null)
 
   const inp = {
     width: '100%',
@@ -220,6 +224,7 @@ export default function AdminPanel() {
 
   const saveClient = async () => {
     setError('')
+
     if (!clientDraft.name.trim() || !clientDraft.email.trim()) {
       setError('Client name and email are required.')
       return
@@ -229,18 +234,26 @@ export default function AdminPanel() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...clientDraft,
-        moduleIds: []
+        name: clientDraft.name,
+        email: clientDraft.email,
+        phone: clientDraft.phone,
+        plan: clientDraft.plan
       })
     })
 
     const data = await res.json().catch(() => ({ error: 'Unexpected response from server.' }))
+
     if (!res.ok) {
       setError(data.error || 'Failed to create client.')
       return
     }
 
-    setTemporaryPassword(data.temporaryPassword || '')
+    setGeneratedCredentials({
+      clientId: data.user?.id || '',
+      email: data.user?.email || clientDraft.email,
+      temporaryPassword: data.temporaryPassword || ''
+    })
+
     setClientDraft(BLANK_CLIENT)
     setAddingClient(false)
     await fetchAdminData()
@@ -249,7 +262,7 @@ export default function AdminPanel() {
 
   const deleteClient = async (clientId: string) => {
     setError('')
-    const confirmed = window.confirm('Delete this client? Their module assignments will also be removed.')
+    const confirmed = window.confirm('Delete this client? This will also remove their module access.')
     if (!confirmed) {
       return
     }
@@ -449,15 +462,39 @@ export default function AdminPanel() {
           ))}
         </div>
 
-        {temporaryPassword && (
+        {generatedCredentials && (
           <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: '12px', padding: '14px 16px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-            <div>
-              <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: '700', color: '#92400e' }}>Temporary client password generated</p>
-              <p style={{ margin: 0, fontSize: '12px', color: '#a16207' }}>{temporaryPassword}</p>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: '700', color: '#92400e' }}>Client credentials generated</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px' }}>
+                <div style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#a16207', fontWeight: '700' }}>Client ID</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#78350f', wordBreak: 'break-all' }}>{generatedCredentials.clientId}</p>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#a16207', fontWeight: '700' }}>Email</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#78350f', wordBreak: 'break-all' }}>{generatedCredentials.email}</p>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#a16207', fontWeight: '700' }}>Temporary Password</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#78350f', wordBreak: 'break-all' }}>{generatedCredentials.temporaryPassword}</p>
+                </div>
+              </div>
             </div>
-            <button onClick={() => copyText(temporaryPassword, 'temp-password')} style={{ background: '#ca8a04', color: 'white', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
-              {copied === 'temp-password' ? 'Copied' : 'Copy Password'}
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button onClick={() => copyText(generatedCredentials.clientId, 'generated-client-id')} style={{ background: '#ca8a04', color: 'white', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
+                {copied === 'generated-client-id' ? 'Copied ID' : 'Copy ID'}
+              </button>
+              <button onClick={() => copyText(generatedCredentials.email, 'generated-client-email')} style={{ background: '#ca8a04', color: 'white', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
+                {copied === 'generated-client-email' ? 'Copied Email' : 'Copy Email'}
+              </button>
+              <button onClick={() => copyText(generatedCredentials.temporaryPassword, 'generated-client-password')} style={{ background: '#ca8a04', color: 'white', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
+                {copied === 'generated-client-password' ? 'Copied Password' : 'Copy Password'}
+              </button>
+              <button onClick={() => setGeneratedCredentials(null)} style={{ background: 'white', color: '#a16207', border: '1px solid #fcd34d', fontSize: '12px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 
@@ -660,3 +697,6 @@ export default function AdminPanel() {
     </div>
   )
 }
+
+
+

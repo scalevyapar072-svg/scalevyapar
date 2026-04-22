@@ -6,6 +6,7 @@ export interface UserRecord {
   name: string
   email: string
   password: string
+  password_hash: string
   role: 'ADMIN' | 'CLIENT'
   createdAt: string
   phone?: string
@@ -73,6 +74,7 @@ const mapClientRow = (row: {
   name: row.name,
   email: row.email,
   password: row.password_hash,
+  password_hash: row.password_hash,
   role: row.role as 'ADMIN' | 'CLIENT',
   createdAt: row.created_at,
   phone: row.phone || undefined,
@@ -229,6 +231,7 @@ export const createUser = async (
     name,
     email,
     password: hashedPassword,
+    password_hash: hashedPassword,
     role,
     createdAt: new Date().toISOString(),
     status: 'active'
@@ -455,6 +458,7 @@ export const getAllUsersWithModules = async (): Promise<(UserRecord & { modules:
     plan: user.plan,
     status: user.status as 'active' | 'inactive' | undefined,
     password: '',
+    password_hash: '',
     modules: user.assignedModules.length > 0
       ? user.assignedModules.map(moduleRecord => moduleRecord.name).join(', ')
       : 'None'
@@ -569,3 +573,8 @@ export const deleteModuleById = async (id: string): Promise<void> => {
     throw new Error(`Failed to delete module: ${error.message}`)
   }
 }
+
+
+
+
+

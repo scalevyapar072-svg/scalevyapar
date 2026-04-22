@@ -22,7 +22,7 @@ export async function login(email: string, password: string): Promise<AuthResult
       return { success: false, error: 'Invalid credentials' }
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password)
+    const isValidPassword = await bcrypt.compare(password, user.password_hash)
     if (!isValidPassword) {
       return { success: false, error: 'Invalid credentials' }
     }

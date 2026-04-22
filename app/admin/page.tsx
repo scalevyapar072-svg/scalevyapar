@@ -475,10 +475,10 @@ export default function AdminPanel() {
       <div style={{ maxWidth: '1320px', margin: '0 auto', padding: '32px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '28px' }}>
           {[
-            { label: 'Total Modules', value: `${modules.length}`, icon: 'MOD', color: '#7c3aed' },
-            { label: 'Live Modules', value: `${activeModulesCount}`, icon: 'ON', color: '#10b981' },
-            { label: 'Active Clients', value: `${clients.length}`, icon: 'CLI', color: '#0284c7' },
-            { label: 'Connected Assignments', value: `${clients.reduce((count, client) => count + client.assignedModuleIds.length, 0)}`, icon: 'LNK', color: '#f59e0b' }
+            { label: 'Total Modules', value: `${modules.length}`, icon: 'Modules', color: '#7c3aed' },
+            { label: 'Live Modules', value: `${activeModulesCount}`, icon: 'Live', color: '#10b981' },
+            { label: 'Active Clients', value: `${clients.length}`, icon: 'Clients', color: '#0284c7' },
+            { label: 'Connected Assignments', value: `${clients.reduce((count, client) => count + client.assignedModuleIds.length, 0)}`, icon: 'Links', color: '#f59e0b' }
           ].map(card => (
             <div key={card.label} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{ fontSize: '28px' }}>{card.icon}</div>

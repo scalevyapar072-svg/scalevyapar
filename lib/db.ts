@@ -82,6 +82,26 @@ const mapClientRow = (row: {
   status: (row.status as 'active' | 'inactive' | null) || undefined
 })
 
+const getDefaultModuleHref = (slug: string) => {
+  if (slug === 'vizora') return '/vizora'
+  if (slug === 'leads') return '/leads'
+  return '#'
+}
+
+const getDefaultCustomerLink = (slug: string) => {
+  const href = getDefaultModuleHref(slug)
+  if (href === '#') {
+    return ''
+  }
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+
+  return baseUrl ? `${baseUrl}${href}` : ''
+}
+
 const mapModuleRow = (row: {
   id: string
   name: string
@@ -103,8 +123,8 @@ const mapModuleRow = (row: {
   status: (row.status as 'active' | 'coming_soon' | null) || undefined,
   type: row.type || undefined,
   icon: row.icon || undefined,
-  href: row.href || '#',
-  customerLink: row.customer_link || '',
+  href: row.href || getDefaultModuleHref(row.slug),
+  customerLink: row.customer_link || getDefaultCustomerLink(row.slug),
   features: Array.isArray(row.features) ? row.features : [],
   color: row.color || undefined,
   isActive: row.is_active ?? false

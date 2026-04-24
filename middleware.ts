@@ -3,8 +3,15 @@ import { verifyToken } from '@/lib/auth-token'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const isLocalDev =
+    process.env.NODE_ENV !== 'production' &&
+    (request.nextUrl.hostname === '127.0.0.1' || request.nextUrl.hostname === 'localhost')
 
   if (pathname === '/login' || pathname.startsWith('/api/auth')) {
+    return NextResponse.next()
+  }
+
+  if (isLocalDev && pathname.startsWith('/leads')) {
     return NextResponse.next()
   }
 

@@ -72,7 +72,7 @@ export default function LoginPage() {
             backdropFilter: 'blur(10px)',
             border: '1px solid rgba(255,255,255,0.2)'
           }}>
-            <span style={{ color: 'white', fontWeight: '800', fontSize: '20px' }}>SV</span>
+            <span style={{ color: 'white', fontWeight: '800', fontSize: '20px' }}><img src="/logo.png" alt="ScaleVyapar" style={{height: '32px', width: 'auto'}} /></span>
           </div>
 
           <h1 style={{ color: 'white', fontSize: '36px', fontWeight: '800', margin: '0 0 16px 0', lineHeight: 1.2 }}>

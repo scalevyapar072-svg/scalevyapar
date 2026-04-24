@@ -241,7 +241,7 @@ export default function AdminPage() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'white', fontWeight: '800', fontSize: '18px' }}>SV</div>
+          <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'white', fontWeight: '800', fontSize: '18px' }}><img src="/logo.png" alt="ScaleVyapar" style={{height: '32px', width: 'auto'}} /></div>
           <p style={{ color: '#64748b', fontSize: '16px', fontWeight: '500' }}>Loading ScaleVyapar...</p>
         </div>
       </div>
@@ -254,7 +254,7 @@ export default function AdminPage() {
       {/* Header */}
       <div style={{ background: 'white', borderBottom: '1px solid #e2e8f0', padding: '0 32px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', width: '38px', height: '38px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '14px' }}>SV</div>
+          <div style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', width: '38px', height: '38px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '14px' }}><img src="/logo.png" alt="ScaleVyapar" style={{height: '32px', width: 'auto'}} /></div>
           <div>
             <p style={{ color: '#0f172a', fontWeight: '700', fontSize: '16px', margin: 0 }}>ScaleVyapar</p>
             <p style={{ color: '#94a3b8', fontSize: '11px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Admin Panel</p>

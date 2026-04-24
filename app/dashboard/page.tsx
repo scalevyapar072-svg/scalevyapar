@@ -92,7 +92,7 @@ export default function DashboardPage() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e0f2fe', fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '52px', height: '52px', background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'white', fontWeight: '800', fontSize: '18px' }}>SV</div>
+          <div style={{ width: '52px', height: '52px', background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'white', fontWeight: '800', fontSize: '18px' }}><img src="/logo.png" alt="ScaleVyapar" style={{height: '32px', width: 'auto'}} /></div>
           <p style={{ color: '#0369a1', fontSize: '16px', fontWeight: '500' }}>Loading your dashboard...</p>
         </div>
       </div>
@@ -107,7 +107,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div style={{ background: 'white', borderBottom: '1px solid #bae6fd', padding: '0 32px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 4px rgba(14,165,233,0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', width: '38px', height: '38px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '14px' }}>SV</div>
+          <div style={{ background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', width: '38px', height: '38px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '14px' }}><img src="/logo.png" alt="ScaleVyapar" style={{height: '24px', width: 'auto'}} /></div>
           <div>
             <p style={{ color: '#0c4a6e', fontWeight: '700', fontSize: '16px', margin: 0 }}>ScaleVyapar</p>
             <p style={{ color: '#7dd3fc', fontSize: '11px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Business Dashboard</p>

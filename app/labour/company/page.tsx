@@ -60,9 +60,9 @@ export default async function LabourCompanyHomePage() {
           </div>
 
           <div className={styles.card}>
-            <p className={styles.sectionTitle} style={{ fontSize: '26px' }}>Quick company snapshot</p>
+            <p className={styles.sectionTitle} style={{ fontSize: '26px' }}>Executive hiring snapshot</p>
             <p className={styles.textMuted} style={{ marginBottom: '16px' }}>
-              This website is editable from labour admin in simple fields. You can change section order, headings, footer links, pricing text and contact details without coding.
+              This version is designed to feel more premium and business-ready while still staying editable from labour admin in simple fields.
             </p>
 
             <div className={styles.stack} style={{ marginBottom: '18px' }}>
@@ -215,7 +215,7 @@ export default async function LabourCompanyHomePage() {
                   "{item.quote}"
                 </p>
                 <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '14px', fontWeight: '900' }}>{item.name}</p>
-                <p className={styles.textMuted}>{item.role} • {item.company}</p>
+                <p className={styles.textMuted}>{item.role} | {item.company}</p>
               </div>
             ))}
           </div>

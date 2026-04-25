@@ -15,41 +15,45 @@ export function CompanySiteShell({ content, currentPath, children }: Props) {
       <div className={styles.container}>
         <div className={styles.topBar}>{content.header.announcement}</div>
 
-        <header className={styles.siteHeader}>
-          <Link href="/labour/company" className={styles.brandWrap}>
-            <span className={styles.brandBadge} style={{ background: `linear-gradient(135deg, ${content.theme.accentColor}, ${content.theme.highlightColor})` }}>
-              LX
-            </span>
-            <span>
-              <p className={styles.brandName}>{content.theme.brandName}</p>
-              <p className={styles.brandTagline}>{content.theme.brandTagline}</p>
-            </span>
-          </Link>
-
-          <div className={styles.headerActions}>
-            <Link href="/admin/labour/website" className={styles.secondaryButton}>
-              Website Editor
-            </Link>
-            <Link href={content.header.primaryCtaHref} className={styles.primaryButton} style={{ background: content.theme.accentColor, color: '#ffffff', border: '1px solid transparent' }}>
-              {content.header.primaryCtaLabel}
-            </Link>
-          </div>
-        </header>
-
-        <nav className={styles.nav}>
-          {content.header.navItems.map(item => {
-            const isActive = currentPath === item.href
-            return (
-              <Link
-                key={`${item.label}-${item.href}`}
-                href={item.href}
-                className={`${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
-              >
-                {item.label}
+        <div className={styles.masthead}>
+          <div className={styles.headerPanel}>
+            <header className={styles.siteHeader}>
+              <Link href="/labour/company" className={styles.brandWrap}>
+                <span className={styles.brandBadge} style={{ background: `linear-gradient(135deg, ${content.theme.accentColor}, ${content.theme.highlightColor})` }}>
+                  LX
+                </span>
+                <span>
+                  <p className={styles.brandName}>{content.theme.brandName}</p>
+                  <p className={styles.brandTagline}>{content.theme.brandTagline}</p>
+                </span>
               </Link>
-            )
-          })}
-        </nav>
+
+              <div className={styles.headerActions}>
+                <Link href="/admin/labour/website" className={styles.secondaryButton}>
+                  Website Editor
+                </Link>
+                <Link href={content.header.primaryCtaHref} className={styles.primaryButton} style={{ background: `linear-gradient(135deg, ${content.theme.accentColor}, ${content.theme.highlightColor})`, color: '#ffffff', border: '1px solid transparent', boxShadow: '0 14px 28px rgba(15, 23, 42, 0.14)' }}>
+                  {content.header.primaryCtaLabel}
+                </Link>
+              </div>
+            </header>
+
+            <nav className={styles.nav}>
+              {content.header.navItems.map(item => {
+                const isActive = currentPath === item.href
+                return (
+                  <Link
+                    key={`${item.label}-${item.href}`}
+                    href={item.href}
+                    className={`${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+          </div>
+        </div>
 
         <main className={styles.main}>{children}</main>
 

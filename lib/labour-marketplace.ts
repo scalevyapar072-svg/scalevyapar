@@ -2,13 +2,27 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { supabaseAdmin } from './supabase-admin'
 
-export type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts'
+export type LabourEntityType =
+  | 'categories'
+  | 'plans'
+  | 'workers'
+  | 'companies'
+  | 'jobPosts'
+  | 'walletTransactions'
+  | 'rechargeRequests'
 export type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked' | 'rejected'
 export type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 export type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
 export type PlanAudience = 'worker' | 'company'
 export type DemandLevel = 'high' | 'medium' | 'low'
 export type WorkerAvailability = 'available_today' | 'available_this_week' | 'not_available'
+export type WalletEntityType = 'worker' | 'company'
+export type WalletTransactionType = 'registration_fee' | 'wallet_deduction' | 'plan_purchase' | 'wallet_recharge' | 'manual_adjustment'
+export type WalletTransactionDirection = 'credit' | 'debit'
+export type WalletTransactionStatus = 'pending' | 'completed' | 'attention' | 'failed'
+export type RechargeRequestType = 'worker_recharge' | 'company_follow_up'
+export type RechargeRequestPriority = 'high' | 'medium' | 'low'
+export type RechargeRequestStatus = 'open' | 'contacted' | 'resolved' | 'closed'
 
 export interface LabourCategoryRecord {
   id: string
@@ -94,12 +108,47 @@ export interface LabourAuditLogRecord {
   createdAt: string
 }
 
+export interface LabourWalletTransactionRecord {
+  id: string
+  entityType: WalletEntityType
+  entityId: string
+  entityName: string
+  city: string
+  transactionType: WalletTransactionType
+  amount: number
+  direction: WalletTransactionDirection
+  status: WalletTransactionStatus
+  reference: string
+  note: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LabourRechargeRequestRecord {
+  id: string
+  requestType: RechargeRequestType
+  relatedEntityType: WalletEntityType
+  relatedEntityId: string
+  name: string
+  city: string
+  categoryLabel: string
+  statusLabel: string
+  suggestedAmount: number
+  priority: RechargeRequestPriority
+  requestStatus: RechargeRequestStatus
+  note: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface LabourMarketplaceData {
   categories: LabourCategoryRecord[]
   plans: LabourPlanRecord[]
   workers: LabourWorkerRecord[]
   companies: LabourCompanyRecord[]
   jobPosts: LabourJobPostRecord[]
+  walletTransactions: LabourWalletTransactionRecord[]
+  rechargeRequests: LabourRechargeRequestRecord[]
   auditLogs: LabourAuditLogRecord[]
 }
 
@@ -123,6 +172,8 @@ const STORAGE_TABLES = {
   workers: 'labour_workers',
   companies: 'labour_companies',
   jobPosts: 'labour_job_posts',
+  walletTransactions: 'labour_wallet_transactions',
+  rechargeRequests: 'labour_recharge_requests',
   auditLogs: 'labour_audit_logs'
 } as const
 
@@ -304,6 +355,72 @@ const defaultData: LabourMarketplaceData = {
       status: 'draft',
       publishedAt: '2026-04-25',
       expiresAt: '2026-04-28',
+      createdAt: '2026-04-25T00:00:00.000Z',
+      updatedAt: '2026-04-25T00:00:00.000Z'
+    }
+  ],
+  walletTransactions: [
+    {
+      id: 'txn-worker-registration-sajid',
+      entityType: 'worker',
+      entityId: 'worker-sajid',
+      entityName: 'Sajid Ansari',
+      city: 'Surat',
+      transactionType: 'registration_fee',
+      amount: 50,
+      direction: 'credit',
+      status: 'completed',
+      reference: 'worker-sajid',
+      note: 'Initial worker registration and wallet opening fee.',
+      createdAt: '2026-04-25T00:00:00.000Z',
+      updatedAt: '2026-04-25T00:00:00.000Z'
+    },
+    {
+      id: 'txn-company-plan-neelufer',
+      entityType: 'company',
+      entityId: 'company-neelufer',
+      entityName: 'Neelufer Creations',
+      city: 'Surat',
+      transactionType: 'plan_purchase',
+      amount: 300,
+      direction: 'credit',
+      status: 'completed',
+      reference: 'plan-company-stitching',
+      note: 'Priority category plan for stitching karighar hiring.',
+      createdAt: '2026-04-25T00:00:00.000Z',
+      updatedAt: '2026-04-25T00:00:00.000Z'
+    }
+  ],
+  rechargeRequests: [
+    {
+      id: 'request-rahul-recharge',
+      requestType: 'worker_recharge',
+      relatedEntityType: 'worker',
+      relatedEntityId: 'worker-rahul',
+      name: 'Rahul Sahu',
+      city: 'Jaipur',
+      categoryLabel: 'Electrician',
+      statusLabel: 'inactive_wallet_empty',
+      suggestedAmount: 50,
+      priority: 'high',
+      requestStatus: 'open',
+      note: 'Wallet is empty. Follow up for recharge to restore visibility.',
+      createdAt: '2026-04-25T00:00:00.000Z',
+      updatedAt: '2026-04-25T00:00:00.000Z'
+    },
+    {
+      id: 'request-printerhub-followup',
+      requestType: 'company_follow_up',
+      relatedEntityType: 'company',
+      relatedEntityId: 'company-printerhub',
+      name: 'Printer Hub',
+      city: 'Ahmedabad',
+      categoryLabel: 'Printer Labour',
+      statusLabel: 'pending',
+      suggestedAmount: 200,
+      priority: 'high',
+      requestStatus: 'open',
+      note: 'Registration fee and company activation are still pending.',
       createdAt: '2026-04-25T00:00:00.000Z',
       updatedAt: '2026-04-25T00:00:00.000Z'
     }
@@ -495,6 +612,68 @@ const mapJobPostRow = (row: {
   updatedAt: row.updated_at
 })
 
+const mapWalletTransactionRow = (row: {
+  id: string
+  entity_type: string
+  entity_id: string
+  entity_name: string
+  city: string | null
+  transaction_type: string
+  amount: number | null
+  direction: string
+  status: string
+  reference: string | null
+  note: string | null
+  created_at: string
+  updated_at: string
+}): LabourWalletTransactionRecord => ({
+  id: row.id,
+  entityType: row.entity_type as WalletEntityType,
+  entityId: row.entity_id,
+  entityName: row.entity_name,
+  city: row.city || '',
+  transactionType: row.transaction_type as WalletTransactionType,
+  amount: row.amount ?? 0,
+  direction: row.direction as WalletTransactionDirection,
+  status: row.status as WalletTransactionStatus,
+  reference: row.reference || '',
+  note: row.note || '',
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+})
+
+const mapRechargeRequestRow = (row: {
+  id: string
+  request_type: string
+  related_entity_type: string
+  related_entity_id: string
+  name: string
+  city: string | null
+  category_label: string | null
+  status_label: string | null
+  suggested_amount: number | null
+  priority: string
+  request_status: string
+  note: string | null
+  created_at: string
+  updated_at: string
+}): LabourRechargeRequestRecord => ({
+  id: row.id,
+  requestType: row.request_type as RechargeRequestType,
+  relatedEntityType: row.related_entity_type as WalletEntityType,
+  relatedEntityId: row.related_entity_id,
+  name: row.name,
+  city: row.city || '',
+  categoryLabel: row.category_label || '',
+  statusLabel: row.status_label || '',
+  suggestedAmount: row.suggested_amount ?? 0,
+  priority: row.priority as RechargeRequestPriority,
+  requestStatus: row.request_status as RechargeRequestStatus,
+  note: row.note || '',
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+})
+
 const mapAuditLogRow = (row: {
   id: string
   action: string
@@ -653,6 +832,53 @@ const normalizeJobPost = (
   }
 }
 
+const normalizeWalletTransaction = (
+  payload: Partial<LabourWalletTransactionRecord>,
+  existing?: LabourWalletTransactionRecord
+): LabourWalletTransactionRecord => {
+  const now = new Date().toISOString()
+
+  return {
+    id: existing?.id || String(payload.id || createId('txn')),
+    entityType: (payload.entityType || existing?.entityType || 'worker') as WalletEntityType,
+    entityId: String(payload.entityId || existing?.entityId || '').trim(),
+    entityName: String(payload.entityName || existing?.entityName || '').trim(),
+    city: String(payload.city || existing?.city || '').trim(),
+    transactionType: (payload.transactionType || existing?.transactionType || 'wallet_recharge') as WalletTransactionType,
+    amount: toNumber(payload.amount, existing?.amount ?? 0),
+    direction: (payload.direction || existing?.direction || 'credit') as WalletTransactionDirection,
+    status: (payload.status || existing?.status || 'completed') as WalletTransactionStatus,
+    reference: String(payload.reference || existing?.reference || '').trim(),
+    note: String(payload.note || existing?.note || '').trim(),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  }
+}
+
+const normalizeRechargeRequest = (
+  payload: Partial<LabourRechargeRequestRecord>,
+  existing?: LabourRechargeRequestRecord
+): LabourRechargeRequestRecord => {
+  const now = new Date().toISOString()
+
+  return {
+    id: existing?.id || String(payload.id || createId('request')),
+    requestType: (payload.requestType || existing?.requestType || 'worker_recharge') as RechargeRequestType,
+    relatedEntityType: (payload.relatedEntityType || existing?.relatedEntityType || 'worker') as WalletEntityType,
+    relatedEntityId: String(payload.relatedEntityId || existing?.relatedEntityId || '').trim(),
+    name: String(payload.name || existing?.name || '').trim(),
+    city: String(payload.city || existing?.city || '').trim(),
+    categoryLabel: String(payload.categoryLabel || existing?.categoryLabel || '').trim(),
+    statusLabel: String(payload.statusLabel || existing?.statusLabel || '').trim(),
+    suggestedAmount: toNumber(payload.suggestedAmount, existing?.suggestedAmount ?? 0),
+    priority: (payload.priority || existing?.priority || 'medium') as RechargeRequestPriority,
+    requestStatus: (payload.requestStatus || existing?.requestStatus || 'open') as RechargeRequestStatus,
+    note: String(payload.note || existing?.note || '').trim(),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  }
+}
+
 const readJsonData = async (): Promise<LabourMarketplaceData> => {
   await ensureDataFile()
   const raw = await fs.readFile(DATA_FILE_PATH, 'utf8')
@@ -664,6 +890,8 @@ const readJsonData = async (): Promise<LabourMarketplaceData> => {
     workers: parsed.workers || [],
     companies: parsed.companies || [],
     jobPosts: parsed.jobPosts || [],
+    walletTransactions: parsed.walletTransactions || [],
+    rechargeRequests: parsed.rechargeRequests || [],
     auditLogs: parsed.auditLogs || []
   }
 }
@@ -701,6 +929,19 @@ const getStorageBackend = async (): Promise<'supabase' | 'json'> => {
   return error && isMissingSupabaseTableError(error.message) ? 'json' : 'supabase'
 }
 
+const readOptionalSupabaseRows = async <TRow>(tableName: string) => {
+  const result = await supabaseAdmin.from(tableName).select('*').order('created_at', { ascending: false })
+  if (result.error && isMissingSupabaseTableError(result.error.message)) {
+    return [] as TRow[]
+  }
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+
+  return (result.data || []) as TRow[]
+}
+
 const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
   const [
     categoriesResult,
@@ -708,6 +949,8 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
     workersResult,
     companiesResult,
     jobPostsResult,
+    walletTransactionsRows,
+    rechargeRequestsRows,
     auditLogsResult
   ] = await Promise.all([
     supabaseAdmin.from(STORAGE_TABLES.categories).select('*').order('created_at', { ascending: true }),
@@ -715,6 +958,37 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
     supabaseAdmin.from(STORAGE_TABLES.workers).select('*').order('created_at', { ascending: true }),
     supabaseAdmin.from(STORAGE_TABLES.companies).select('*').order('created_at', { ascending: true }),
     supabaseAdmin.from(STORAGE_TABLES.jobPosts).select('*').order('created_at', { ascending: true }),
+    readOptionalSupabaseRows<{
+      id: string
+      entity_type: string
+      entity_id: string
+      entity_name: string
+      city: string | null
+      transaction_type: string
+      amount: number | null
+      direction: string
+      status: string
+      reference: string | null
+      note: string | null
+      created_at: string
+      updated_at: string
+    }>(STORAGE_TABLES.walletTransactions),
+    readOptionalSupabaseRows<{
+      id: string
+      request_type: string
+      related_entity_type: string
+      related_entity_id: string
+      name: string
+      city: string | null
+      category_label: string | null
+      status_label: string | null
+      suggested_amount: number | null
+      priority: string
+      request_status: string
+      note: string | null
+      created_at: string
+      updated_at: string
+    }>(STORAGE_TABLES.rechargeRequests),
     supabaseAdmin.from(STORAGE_TABLES.auditLogs).select('*').order('created_at', { ascending: false })
   ])
 
@@ -737,6 +1011,8 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
     workers: (workersResult.data || []).map(mapWorkerRow),
     companies: (companiesResult.data || []).map(mapCompanyRow),
     jobPosts: (jobPostsResult.data || []).map(mapJobPostRow),
+    walletTransactions: walletTransactionsRows.map(mapWalletTransactionRow),
+    rechargeRequests: rechargeRequestsRows.map(mapRechargeRequestRow),
     auditLogs: (auditLogsResult.data || []).map(mapAuditLogRow)
   }
 }
@@ -816,6 +1092,39 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     updated_at: jobPost.updatedAt
   }))
 
+  const walletTransactionsPayload = data.walletTransactions.map(transaction => ({
+    id: transaction.id,
+    entity_type: transaction.entityType,
+    entity_id: transaction.entityId,
+    entity_name: transaction.entityName,
+    city: transaction.city,
+    transaction_type: transaction.transactionType,
+    amount: transaction.amount,
+    direction: transaction.direction,
+    status: transaction.status,
+    reference: transaction.reference,
+    note: transaction.note,
+    created_at: transaction.createdAt,
+    updated_at: transaction.updatedAt
+  }))
+
+  const rechargeRequestsPayload = data.rechargeRequests.map(request => ({
+    id: request.id,
+    request_type: request.requestType,
+    related_entity_type: request.relatedEntityType,
+    related_entity_id: request.relatedEntityId,
+    name: request.name,
+    city: request.city,
+    category_label: request.categoryLabel,
+    status_label: request.statusLabel,
+    suggested_amount: request.suggestedAmount,
+    priority: request.priority,
+    request_status: request.requestStatus,
+    note: request.note,
+    created_at: request.createdAt,
+    updated_at: request.updatedAt
+  }))
+
   const auditLogsPayload = data.auditLogs.map(log => ({
     id: log.id,
     action: log.action,
@@ -833,6 +1142,14 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     supabaseAdmin.from(STORAGE_TABLES.companies).upsert(companiesPayload, { onConflict: 'id' }),
     supabaseAdmin.from(STORAGE_TABLES.jobPosts).upsert(jobPostsPayload, { onConflict: 'id' })
   ]
+
+  if (walletTransactionsPayload.length > 0) {
+    operations.push(supabaseAdmin.from(STORAGE_TABLES.walletTransactions).upsert(walletTransactionsPayload, { onConflict: 'id' }))
+  }
+
+  if (rechargeRequestsPayload.length > 0) {
+    operations.push(supabaseAdmin.from(STORAGE_TABLES.rechargeRequests).upsert(rechargeRequestsPayload, { onConflict: 'id' }))
+  }
 
   if (auditLogsPayload.length > 0) {
     operations.push(supabaseAdmin.from(STORAGE_TABLES.auditLogs).upsert(auditLogsPayload, { onConflict: 'id' }))
@@ -937,6 +1254,18 @@ export const createLabourEntity = async (
         const record = normalizeJobPost(payload)
         data.jobPosts.unshift(record)
         appendAuditLog(data, 'create', entityType, record.id, `Created job post ${record.title}`, actor)
+        break
+      }
+      case 'walletTransactions': {
+        const record = normalizeWalletTransaction(payload)
+        data.walletTransactions.unshift(record)
+        appendAuditLog(data, 'create', entityType, record.id, `Created wallet transaction ${record.reference || record.entityName}`, actor)
+        break
+      }
+      case 'rechargeRequests': {
+        const record = normalizeRechargeRequest(payload)
+        data.rechargeRequests.unshift(record)
+        appendAuditLog(data, 'create', entityType, record.id, `Created recharge request ${record.name}`, actor)
         break
       }
     }
@@ -1045,6 +1374,49 @@ export const createLabourEntity = async (
       await writeSupabaseAuditLog('create', entityType, record.id, `Created job post ${record.title}`, actor)
       break
     }
+    case 'walletTransactions': {
+      const record = normalizeWalletTransaction(payload)
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.walletTransactions).insert({
+        id: record.id,
+        entity_type: record.entityType,
+        entity_id: record.entityId,
+        entity_name: record.entityName,
+        city: record.city,
+        transaction_type: record.transactionType,
+        amount: record.amount,
+        direction: record.direction,
+        status: record.status,
+        reference: record.reference,
+        note: record.note,
+        created_at: record.createdAt,
+        updated_at: record.updatedAt
+      })
+      if (error) throw new Error(`Failed to create wallet transaction: ${error.message}`)
+      await writeSupabaseAuditLog('create', entityType, record.id, `Created wallet transaction ${record.reference || record.entityName}`, actor)
+      break
+    }
+    case 'rechargeRequests': {
+      const record = normalizeRechargeRequest(payload)
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.rechargeRequests).insert({
+        id: record.id,
+        request_type: record.requestType,
+        related_entity_type: record.relatedEntityType,
+        related_entity_id: record.relatedEntityId,
+        name: record.name,
+        city: record.city,
+        category_label: record.categoryLabel,
+        status_label: record.statusLabel,
+        suggested_amount: record.suggestedAmount,
+        priority: record.priority,
+        request_status: record.requestStatus,
+        note: record.note,
+        created_at: record.createdAt,
+        updated_at: record.updatedAt
+      })
+      if (error) throw new Error(`Failed to create recharge request: ${error.message}`)
+      await writeSupabaseAuditLog('create', entityType, record.id, `Created recharge request ${record.name}`, actor)
+      break
+    }
   }
 
   const supabaseData = await readSupabaseData()
@@ -1100,6 +1472,22 @@ export const updateLabourEntity = async (
         const updated = normalizeJobPost(payload, data.jobPosts[index])
         data.jobPosts[index] = updated
         appendAuditLog(data, 'update', entityType, id, `Updated job post ${updated.title}`, actor)
+        break
+      }
+      case 'walletTransactions': {
+        const index = data.walletTransactions.findIndex(record => record.id === id)
+        if (index === -1) return null
+        const updated = normalizeWalletTransaction(payload, data.walletTransactions[index])
+        data.walletTransactions[index] = updated
+        appendAuditLog(data, 'update', entityType, id, `Updated wallet transaction ${updated.reference || updated.entityName}`, actor)
+        break
+      }
+      case 'rechargeRequests': {
+        const index = data.rechargeRequests.findIndex(record => record.id === id)
+        if (index === -1) return null
+        const updated = normalizeRechargeRequest(payload, data.rechargeRequests[index])
+        data.rechargeRequests[index] = updated
+        appendAuditLog(data, 'update', entityType, id, `Updated recharge request ${updated.name}`, actor)
         break
       }
     }
@@ -1208,6 +1596,49 @@ export const updateLabourEntity = async (
       await writeSupabaseAuditLog('update', entityType, id, `Updated job post ${record.title}`, actor)
       break
     }
+    case 'walletTransactions': {
+      const existing = (await readSupabaseData()).walletTransactions.find(record => record.id === id)
+      if (!existing) return null
+      const record = normalizeWalletTransaction(payload, existing)
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.walletTransactions).update({
+        entity_type: record.entityType,
+        entity_id: record.entityId,
+        entity_name: record.entityName,
+        city: record.city,
+        transaction_type: record.transactionType,
+        amount: record.amount,
+        direction: record.direction,
+        status: record.status,
+        reference: record.reference,
+        note: record.note,
+        updated_at: record.updatedAt
+      }).eq('id', id)
+      if (error) throw new Error(`Failed to update wallet transaction: ${error.message}`)
+      await writeSupabaseAuditLog('update', entityType, id, `Updated wallet transaction ${record.reference || record.entityName}`, actor)
+      break
+    }
+    case 'rechargeRequests': {
+      const existing = (await readSupabaseData()).rechargeRequests.find(record => record.id === id)
+      if (!existing) return null
+      const record = normalizeRechargeRequest(payload, existing)
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.rechargeRequests).update({
+        request_type: record.requestType,
+        related_entity_type: record.relatedEntityType,
+        related_entity_id: record.relatedEntityId,
+        name: record.name,
+        city: record.city,
+        category_label: record.categoryLabel,
+        status_label: record.statusLabel,
+        suggested_amount: record.suggestedAmount,
+        priority: record.priority,
+        request_status: record.requestStatus,
+        note: record.note,
+        updated_at: record.updatedAt
+      }).eq('id', id)
+      if (error) throw new Error(`Failed to update recharge request: ${error.message}`)
+      await writeSupabaseAuditLog('update', entityType, id, `Updated recharge request ${record.name}`, actor)
+      break
+    }
   }
 
   const supabaseData = await readSupabaseData()
@@ -1265,6 +1696,20 @@ export const deleteLabourEntity = async (
         appendAuditLog(data, 'delete', entityType, id, `Deleted job post ${record.title}`, actor)
         break
       }
+      case 'walletTransactions': {
+        const { record, nextItems } = removeById(data.walletTransactions)
+        if (!record) return null
+        data.walletTransactions = nextItems
+        appendAuditLog(data, 'delete', entityType, id, `Deleted wallet transaction ${record.reference || record.entityName}`, actor)
+        break
+      }
+      case 'rechargeRequests': {
+        const { record, nextItems } = removeById(data.rechargeRequests)
+        if (!record) return null
+        data.rechargeRequests = nextItems
+        appendAuditLog(data, 'delete', entityType, id, `Deleted recharge request ${record.name}`, actor)
+        break
+      }
     }
 
     await writeJsonData(data)
@@ -1312,6 +1757,22 @@ export const deleteLabourEntity = async (
       summary = `Deleted job post ${existing.title}`
       const { error } = await supabaseAdmin.from(STORAGE_TABLES.jobPosts).delete().eq('id', id)
       if (error) throw new Error(`Failed to delete labour job post: ${error.message}`)
+      break
+    }
+    case 'walletTransactions': {
+      const existing = (await readSupabaseData()).walletTransactions.find(record => record.id === id)
+      if (!existing) return null
+      summary = `Deleted wallet transaction ${existing.reference || existing.entityName}`
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.walletTransactions).delete().eq('id', id)
+      if (error) throw new Error(`Failed to delete wallet transaction: ${error.message}`)
+      break
+    }
+    case 'rechargeRequests': {
+      const existing = (await readSupabaseData()).rechargeRequests.find(record => record.id === id)
+      if (!existing) return null
+      summary = `Deleted recharge request ${existing.name}`
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.rechargeRequests).delete().eq('id', id)
+      if (error) throw new Error(`Failed to delete recharge request: ${error.message}`)
       break
     }
   }

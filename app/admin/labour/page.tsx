@@ -9,6 +9,13 @@ type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
 type PlanAudience = 'worker' | 'company'
 type WorkerAvailability = 'available_today' | 'available_this_week' | 'not_available'
+type WalletEntityType = 'worker' | 'company'
+type WalletTransactionType = 'registration_fee' | 'wallet_deduction' | 'plan_purchase' | 'wallet_recharge' | 'manual_adjustment'
+type WalletTransactionDirection = 'credit' | 'debit'
+type WalletTransactionStatus = 'pending' | 'completed' | 'attention' | 'failed'
+type RechargeRequestType = 'worker_recharge' | 'company_follow_up'
+type RechargeRequestPriority = 'high' | 'medium' | 'low'
+type RechargeRequestStatus = 'open' | 'contacted' | 'resolved' | 'closed'
 type LabourSection =
   | 'overview'
   | 'workers'
@@ -21,7 +28,7 @@ type LabourSection =
   | 'reports'
   | 'settings'
   | 'auditLogs'
-type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts'
+type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'walletTransactions' | 'rechargeRequests'
 
 type LabourCategory = {
   id: string
@@ -103,6 +110,8 @@ type LabourSnapshot = {
   workers: LabourWorker[]
   companies: LabourCompany[]
   jobPosts: LabourJobPost[]
+  walletTransactions: WalletTransaction[]
+  rechargeRequests: RechargeRequest[]
   auditLogs: AuditLog[]
   stats: {
     activeWorkers: number
@@ -117,27 +126,35 @@ type LabourSnapshot = {
 
 type WalletTransaction = {
   id: string
-  entityType: 'worker' | 'company'
-  transactionType: 'registration_fee' | 'wallet_deduction' | 'plan_purchase'
+  entityType: WalletEntityType
+  entityId: string
+  transactionType: WalletTransactionType
   entityName: string
   city: string
   amount: number
-  direction: 'credit' | 'debit'
-  status: 'completed' | 'attention'
+  direction: WalletTransactionDirection
+  status: WalletTransactionStatus
   reference: string
+  note: string
   createdAt: string
+  updatedAt: string
 }
 
 type RechargeRequest = {
   id: string
-  requestType: 'worker_recharge' | 'company_follow_up'
+  requestType: RechargeRequestType
+  relatedEntityType: WalletEntityType
+  relatedEntityId: string
   name: string
   city: string
   categoryLabel: string
   statusLabel: string
   suggestedAmount: number
-  priority: 'high' | 'medium' | 'low'
+  priority: RechargeRequestPriority
+  requestStatus: RechargeRequestStatus
   note: string
+  createdAt: string
+  updatedAt: string
 }
 
 type CategoryFilters = {
@@ -176,14 +193,16 @@ type JobFilters = {
 
 type WalletFilters = {
   search: string
-  audience: 'all' | 'worker' | 'company'
+  audience: 'all' | WalletEntityType
   transactionType: 'all' | WalletTransaction['transactionType']
+  status: 'all' | WalletTransaction['status']
 }
 
 type RechargeFilters = {
   search: string
-  priority: 'all' | RechargeRequest['priority']
-  type: 'all' | RechargeRequest['requestType']
+  priority: 'all' | RechargeRequestPriority
+  type: 'all' | RechargeRequestType
+  status: 'all' | RechargeRequestStatus
 }
 
 type AuditFilters = {
@@ -268,13 +287,46 @@ const blankJobPost: LabourJobPost = {
   expiresAt: ''
 }
 
+const blankWalletTransaction: WalletTransaction = {
+  id: '',
+  entityType: 'worker',
+  entityId: '',
+  transactionType: 'wallet_recharge',
+  entityName: '',
+  city: '',
+  amount: 0,
+  direction: 'credit',
+  status: 'completed',
+  reference: '',
+  note: '',
+  createdAt: '',
+  updatedAt: ''
+}
+
+const blankRechargeRequest: RechargeRequest = {
+  id: '',
+  requestType: 'worker_recharge',
+  relatedEntityType: 'worker',
+  relatedEntityId: '',
+  name: '',
+  city: '',
+  categoryLabel: '',
+  statusLabel: '',
+  suggestedAmount: 0,
+  priority: 'medium',
+  requestStatus: 'open',
+  note: '',
+  createdAt: '',
+  updatedAt: ''
+}
+
 const blankCategoryFilters: CategoryFilters = { search: '', demand: 'all', activity: 'all' }
 const blankPlanFilters: PlanFilters = { search: '', audience: 'all', categoryId: '', activity: 'all' }
 const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryId: '', visibility: 'all' }
 const blankCompanyFilters: CompanyFilters = { search: '', status: 'all', categoryId: '', fee: 'all' }
 const blankJobFilters: JobFilters = { search: '', status: 'all', categoryId: '', companyId: '' }
-const blankWalletFilters: WalletFilters = { search: '', audience: 'all', transactionType: 'all' }
-const blankRechargeFilters: RechargeFilters = { search: '', priority: 'all', type: 'all' }
+const blankWalletFilters: WalletFilters = { search: '', audience: 'all', transactionType: 'all', status: 'all' }
+const blankRechargeFilters: RechargeFilters = { search: '', priority: 'all', type: 'all', status: 'all' }
 const blankAuditFilters: AuditFilters = { search: '', entityType: 'all' }
 
 const sectionLabels: Record<LabourSection, string> = {
@@ -357,12 +409,16 @@ export default function LabourExchangeAdminPage() {
   const [workerDraft, setWorkerDraft] = useState<LabourWorker>(blankWorker)
   const [companyDraft, setCompanyDraft] = useState<LabourCompany>(blankCompany)
   const [jobPostDraft, setJobPostDraft] = useState<LabourJobPost>(blankJobPost)
+  const [walletTransactionDraft, setWalletTransactionDraft] = useState<WalletTransaction>(blankWalletTransaction)
+  const [rechargeRequestDraft, setRechargeRequestDraft] = useState<RechargeRequest>(blankRechargeRequest)
 
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [editingWorkerId, setEditingWorkerId] = useState<string | null>(null)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [editingJobPostId, setEditingJobPostId] = useState<string | null>(null)
+  const [editingWalletTransactionId, setEditingWalletTransactionId] = useState<string | null>(null)
+  const [editingRechargeRequestId, setEditingRechargeRequestId] = useState<string | null>(null)
 
   const [categoryFilters, setCategoryFilters] = useState<CategoryFilters>(blankCategoryFilters)
   const [planFilters, setPlanFilters] = useState<PlanFilters>(blankPlanFilters)
@@ -524,6 +580,16 @@ export default function LabourExchangeAdminPage() {
     setEditingJobPostId(null)
   }
 
+  const resetWalletTransactionDraft = () => {
+    setWalletTransactionDraft(blankWalletTransaction)
+    setEditingWalletTransactionId(null)
+  }
+
+  const resetRechargeRequestDraft = () => {
+    setRechargeRequestDraft(blankRechargeRequest)
+    setEditingRechargeRequestId(null)
+  }
+
   const openAddForm = (section: LabourSection) => {
     setActiveSection(section)
 
@@ -532,6 +598,8 @@ export default function LabourExchangeAdminPage() {
     if (section === 'workers') resetWorkerDraft()
     if (section === 'companies') resetCompanyDraft()
     if (section === 'jobPosts') resetJobPostDraft()
+    if (section === 'walletTransactions') resetWalletTransactionDraft()
+    if (section === 'rechargeRequests') resetRechargeRequestDraft()
   }
 
   const onMultiSelectChange = (values: string[], nextValue: string) =>
@@ -561,8 +629,25 @@ export default function LabourExchangeAdminPage() {
 
   const getPlanById = (planId: string) => snapshot.plans.find(plan => plan.id === planId)
   const getPlanName = (planId: string) => getPlanById(planId)?.name || planId || 'No plan'
+  const getWorkerById = (workerId: string) => snapshot.workers.find(worker => worker.id === workerId)
   const getCompanyName = (companyId: string) =>
     snapshot.companies.find(company => company.id === companyId)?.companyName || companyId
+  const getCompanyById = (companyId: string) => snapshot.companies.find(company => company.id === companyId)
+  const getEntityName = (entityType: WalletEntityType, entityId: string) =>
+    entityType === 'worker' ? getWorkerById(entityId)?.fullName || '' : getCompanyById(entityId)?.companyName || ''
+  const getEntityCity = (entityType: WalletEntityType, entityId: string) =>
+    entityType === 'worker' ? getWorkerById(entityId)?.city || '' : getCompanyById(entityId)?.city || ''
+  const getEntityCategoryLabel = (entityType: WalletEntityType, entityId: string) => {
+    if (entityType === 'worker') {
+      const worker = getWorkerById(entityId)
+      return worker ? worker.categoryIds.map(getCategoryName).join(', ') : ''
+    }
+
+    const company = getCompanyById(entityId)
+    return company ? company.categoryIds.map(getCategoryName).join(', ') : ''
+  }
+  const getEntityStatusLabel = (entityType: WalletEntityType, entityId: string) =>
+    entityType === 'worker' ? getWorkerById(entityId)?.status || '' : getCompanyById(entityId)?.status || ''
 
   const activeWorkerPlan =
     snapshot.plans.find(plan => plan.audience === 'worker' && plan.isActive) ||
@@ -570,22 +655,20 @@ export default function LabourExchangeAdminPage() {
     null
 
   const expiredJobPostsCount = snapshot.jobPosts.filter(isExpiredJobPost).length
-  const workerRegistrationRevenue = snapshot.workers.length * (activeWorkerPlan?.registrationFee || 0)
-  const workerWalletRevenue = snapshot.workers.reduce((sum, worker) => {
-    const openingWalletCredit = activeWorkerPlan?.walletCredit || 0
-    return sum + Math.max(0, openingWalletCredit - worker.walletBalance)
-  }, 0)
+  const workerRegistrationRevenue = snapshot.walletTransactions
+    .filter(transaction => transaction.entityType === 'worker' && transaction.transactionType === 'registration_fee' && transaction.direction === 'credit')
+    .reduce((sum, transaction) => sum + transaction.amount, 0)
+  const workerWalletRevenue = snapshot.walletTransactions
+    .filter(transaction => transaction.entityType === 'worker' && transaction.transactionType !== 'registration_fee')
+    .reduce((sum, transaction) => sum + (transaction.direction === 'credit' ? transaction.amount : -transaction.amount), 0)
 
-  const companyRegistrationRevenue = snapshot.companies.reduce((sum, company) => {
-    if (!company.registrationFeePaid) return sum
-    const plan = getPlanById(company.activePlan)
-    return sum + (plan?.registrationFee || 0)
-  }, 0)
+  const companyRegistrationRevenue = snapshot.walletTransactions
+    .filter(transaction => transaction.entityType === 'company' && transaction.transactionType === 'registration_fee' && transaction.direction === 'credit')
+    .reduce((sum, transaction) => sum + transaction.amount, 0)
 
-  const companyPlanRevenue = snapshot.companies.reduce((sum, company) => {
-    const plan = getPlanById(company.activePlan)
-    return sum + (plan?.planAmount || 0)
-  }, 0)
+  const companyPlanRevenue = snapshot.walletTransactions
+    .filter(transaction => transaction.entityType === 'company' && transaction.transactionType === 'plan_purchase' && transaction.direction === 'credit')
+    .reduce((sum, transaction) => sum + transaction.amount, 0)
 
   const registrationRevenue = workerRegistrationRevenue + companyRegistrationRevenue
   const walletRevenue = workerWalletRevenue + companyPlanRevenue
@@ -674,126 +757,8 @@ export default function LabourExchangeAdminPage() {
       }))
   ].slice(0, 8)
 
-  const walletTransactions: WalletTransaction[] = [
-    ...snapshot.workers.flatMap(worker => {
-      const transactions: WalletTransaction[] = []
-
-      if (activeWorkerPlan?.registrationFee) {
-        transactions.push({
-          id: `worker-registration-${worker.id}`,
-          entityType: 'worker',
-          transactionType: 'registration_fee',
-          entityName: worker.fullName,
-          city: worker.city,
-          amount: activeWorkerPlan.registrationFee,
-          direction: 'credit',
-          status: 'completed',
-          reference: worker.id,
-          createdAt: new Date().toISOString()
-        })
-      }
-
-      const walletDeduction = Math.max(0, (activeWorkerPlan?.walletCredit || 0) - worker.walletBalance)
-      if (walletDeduction > 0) {
-        transactions.push({
-          id: `worker-deduction-${worker.id}`,
-          entityType: 'worker',
-          transactionType: 'wallet_deduction',
-          entityName: worker.fullName,
-          city: worker.city,
-          amount: walletDeduction,
-          direction: 'debit',
-          status: worker.status === 'inactive_wallet_empty' ? 'attention' : 'completed',
-          reference: worker.id,
-          createdAt: new Date().toISOString()
-        })
-      }
-
-      return transactions
-    }),
-    ...snapshot.companies.flatMap(company => {
-      const plan = getPlanById(company.activePlan)
-      const transactions: WalletTransaction[] = []
-
-      if (company.registrationFeePaid && plan?.registrationFee) {
-        transactions.push({
-          id: `company-registration-${company.id}`,
-          entityType: 'company',
-          transactionType: 'registration_fee',
-          entityName: company.companyName,
-          city: company.city,
-          amount: plan.registrationFee,
-          direction: 'credit',
-          status: 'completed',
-          reference: company.id,
-          createdAt: new Date().toISOString()
-        })
-      }
-
-      if (plan?.planAmount) {
-        transactions.push({
-          id: `company-plan-${company.id}`,
-          entityType: 'company',
-          transactionType: 'plan_purchase',
-          entityName: company.companyName,
-          city: company.city,
-          amount: plan.planAmount,
-          direction: 'credit',
-          status: company.status === 'pending' ? 'attention' : 'completed',
-          reference: company.activePlan || company.id,
-          createdAt: new Date().toISOString()
-        })
-      }
-
-      return transactions
-    })
-  ].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-
-  const rechargeRequests: RechargeRequest[] = [
-    ...snapshot.workers
-      .filter(
-        worker =>
-          worker.status === 'inactive_wallet_empty' ||
-          worker.status === 'inactive_subscription_expired' ||
-          worker.walletBalance <= 5
-      )
-      .map(worker => ({
-        id: `recharge-${worker.id}`,
-        requestType: 'worker_recharge' as const,
-        name: worker.fullName,
-        city: worker.city,
-        categoryLabel: worker.categoryIds.map(getCategoryName).join(', ') || 'Unassigned',
-        statusLabel: worker.status,
-        suggestedAmount: activeWorkerPlan?.planAmount || 50,
-        priority:
-          worker.status === 'inactive_wallet_empty'
-            ? ('high' as const)
-            : worker.status === 'inactive_subscription_expired'
-              ? ('medium' as const)
-              : ('low' as const),
-        note:
-          worker.status === 'inactive_wallet_empty'
-            ? 'Wallet is empty. Recharge is needed to restore visibility.'
-            : worker.status === 'inactive_subscription_expired'
-              ? 'Subscription window ended. Ask the worker to recharge again.'
-              : 'Balance is low and should be topped up before visibility stops.'
-      })),
-    ...snapshot.companies
-      .filter(company => !company.registrationFeePaid || company.status === 'pending')
-      .map(company => ({
-        id: `followup-${company.id}`,
-        requestType: 'company_follow_up' as const,
-        name: company.companyName,
-        city: company.city,
-        categoryLabel: company.categoryIds.map(getCategoryName).join(', ') || 'Unassigned',
-        statusLabel: company.status,
-        suggestedAmount: getPlanById(company.activePlan)?.planAmount || 200,
-        priority: !company.registrationFeePaid ? ('high' as const) : ('medium' as const),
-        note: !company.registrationFeePaid
-          ? 'Registration fee is still pending before the company can post regularly.'
-          : 'Pending company should be activated or moderated by admin.'
-      }))
-  ]
+  const walletTransactions = [...snapshot.walletTransactions].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+  const rechargeRequests = [...snapshot.rechargeRequests].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 
   const filteredCategories = snapshot.categories.filter(category => {
     if (categoryFilters.demand !== 'all' && category.demandLevel !== categoryFilters.demand) return false
@@ -868,6 +833,7 @@ export default function LabourExchangeAdminPage() {
   const filteredWalletTransactions = walletTransactions.filter(transaction => {
     if (walletFilters.audience !== 'all' && transaction.entityType !== walletFilters.audience) return false
     if (walletFilters.transactionType !== 'all' && transaction.transactionType !== walletFilters.transactionType) return false
+    if (walletFilters.status !== 'all' && transaction.status !== walletFilters.status) return false
 
     return matchesSearch(walletFilters.search, [
       transaction.entityName,
@@ -881,12 +847,14 @@ export default function LabourExchangeAdminPage() {
   const filteredRechargeRequests = rechargeRequests.filter(request => {
     if (rechargeFilters.priority !== 'all' && request.priority !== rechargeFilters.priority) return false
     if (rechargeFilters.type !== 'all' && request.requestType !== rechargeFilters.type) return false
+    if (rechargeFilters.status !== 'all' && request.requestStatus !== rechargeFilters.status) return false
 
     return matchesSearch(rechargeFilters.search, [
       request.name,
       request.city,
       request.categoryLabel,
       request.statusLabel,
+      request.requestStatus,
       request.note
     ])
   })
@@ -982,6 +950,21 @@ export default function LabourExchangeAdminPage() {
     if (jobPostDraft.workersNeeded <= 0) return 'Workers needed must be greater than 0.'
     if (jobPostDraft.validityDays <= 0) return 'Validity days must be greater than 0.'
     if (jobPostDraft.wageAmount < 0) return 'Wage amount cannot be negative.'
+    return ''
+  }
+
+  const validateWalletTransaction = () => {
+    if (!walletTransactionDraft.entityId) return 'Select a worker or company for the transaction.'
+    if (walletTransactionDraft.amount <= 0) return 'Transaction amount must be greater than 0.'
+    if (!walletTransactionDraft.reference.trim()) return 'Reference is required for tracking.'
+    return ''
+  }
+
+  const validateRechargeRequest = () => {
+    if (!rechargeRequestDraft.relatedEntityId) return 'Select a worker or company for the request.'
+    if (!rechargeRequestDraft.name.trim()) return 'Request name is required.'
+    if (rechargeRequestDraft.suggestedAmount < 0) return 'Suggested amount cannot be negative.'
+    if (!rechargeRequestDraft.note.trim()) return 'Add a follow-up note for the request.'
     return ''
   }
 
@@ -1100,6 +1083,62 @@ export default function LabourExchangeAdminPage() {
     if (!ok) return
     resetJobPostDraft()
     showSaved('Job post saved')
+  }
+
+  const saveWalletTransaction = async () => {
+    setError('')
+    const validationError = validateWalletTransaction()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    const payload = {
+      ...walletTransactionDraft,
+      entityName: getEntityName(walletTransactionDraft.entityType, walletTransactionDraft.entityId) || walletTransactionDraft.entityName,
+      city: getEntityCity(walletTransactionDraft.entityType, walletTransactionDraft.entityId) || walletTransactionDraft.city
+    }
+
+    const ok = await persistEntity(
+      editingWalletTransactionId ? 'PUT' : 'POST',
+      'walletTransactions',
+      payload,
+      editingWalletTransactionId || undefined
+    )
+
+    if (!ok) return
+    resetWalletTransactionDraft()
+    showSaved('Wallet transaction saved')
+  }
+
+  const saveRechargeRequest = async () => {
+    setError('')
+    const validationError = validateRechargeRequest()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    const relatedEntityType = rechargeRequestDraft.requestType === 'worker_recharge' ? 'worker' : 'company'
+    const payload = {
+      ...rechargeRequestDraft,
+      relatedEntityType,
+      name: getEntityName(relatedEntityType, rechargeRequestDraft.relatedEntityId) || rechargeRequestDraft.name,
+      city: getEntityCity(relatedEntityType, rechargeRequestDraft.relatedEntityId) || rechargeRequestDraft.city,
+      categoryLabel: getEntityCategoryLabel(relatedEntityType, rechargeRequestDraft.relatedEntityId) || rechargeRequestDraft.categoryLabel,
+      statusLabel: getEntityStatusLabel(relatedEntityType, rechargeRequestDraft.relatedEntityId) || rechargeRequestDraft.statusLabel
+    }
+
+    const ok = await persistEntity(
+      editingRechargeRequestId ? 'PUT' : 'POST',
+      'rechargeRequests',
+      payload,
+      editingRechargeRequestId || undefined
+    )
+
+    if (!ok) return
+    resetRechargeRequestDraft()
+    showSaved('Recharge request saved')
   }
 
   return (
@@ -1881,118 +1920,335 @@ export default function LabourExchangeAdminPage() {
         )}
 
         {activeSection === 'walletTransactions' && (
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
-              <div>
-                <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Wallet and transaction ledger</h2>
-                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
-                  Monitor registration collections, worker wallet deductions and company plan purchases in one place.
-                </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>{editingWalletTransactionId ? 'Edit Wallet Transaction' : 'Add Wallet Transaction'}</h2>
+                <button onClick={resetWalletTransactionDraft} style={subtleButtonStyle}>Add More</button>
               </div>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <input placeholder="Search ledger" value={walletFilters.search} onChange={event => setWalletFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
-                <select value={walletFilters.audience} onChange={event => setWalletFilters(current => ({ ...current, audience: event.target.value as WalletFilters['audience'] }))} style={{ ...inputStyle, width: '140px' }}>
-                  <option value="all">All Audience</option>
-                  <option value="worker">Worker</option>
-                  <option value="company">Company</option>
-                </select>
-                <select value={walletFilters.transactionType} onChange={event => setWalletFilters(current => ({ ...current, transactionType: event.target.value as WalletFilters['transactionType'] }))} style={{ ...inputStyle, width: '170px' }}>
-                  <option value="all">All Types</option>
-                  <option value="registration_fee">Registration Fee</option>
-                  <option value="wallet_deduction">Wallet Deduction</option>
-                  <option value="plan_purchase">Plan Purchase</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '14px', marginBottom: '18px' }}>
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
-                <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Wallet Revenue</p>
-                <p style={{ margin: 0, color: '#0f172a', fontWeight: '800', fontSize: '24px' }}>{formatCurrency(walletRevenue)}</p>
-              </div>
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
-                <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Registration Revenue</p>
-                <p style={{ margin: 0, color: '#1d4ed8', fontWeight: '800', fontSize: '24px' }}>{formatCurrency(registrationRevenue)}</p>
-              </div>
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
-                <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current Worker Wallet Balance</p>
-                <p style={{ margin: 0, color: '#059669', fontWeight: '800', fontSize: '24px' }}>{formatCurrency(snapshot.stats.totalWalletBalance)}</p>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gap: '10px' }}>
-              {filteredWalletTransactions.length === 0 ? (
-                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No transactions match the current filters.</p>
-              ) : (
-                filteredWalletTransactions.map(transaction => (
-                  <div key={transaction.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'grid', gridTemplateColumns: '1.4fr 0.7fr 0.7fr 0.6fr 0.8fr', gap: '10px', alignItems: 'center' }}>
-                    <div>
-                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{transaction.entityName}</p>
-                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
-                        {titleCase(transaction.entityType)} | {titleCase(transaction.transactionType)} | {transaction.reference}
-                      </p>
-                    </div>
-                    <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{transaction.city || 'No city'}</p>
-                    <p style={{ margin: 0, color: transaction.direction === 'credit' ? '#0f766e' : '#b45309', fontSize: '13px', fontWeight: '700' }}>
-                      {transaction.direction === 'credit' ? '+' : '-'} {formatCurrency(transaction.amount)}
-                    </p>
-                    <p style={{ margin: 0, color: transaction.status === 'attention' ? '#b45309' : '#2563eb', fontSize: '12px', fontWeight: '700' }}>
-                      {titleCase(transaction.status)}
-                    </p>
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{formatDateTime(transaction.createdAt)}</p>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Entity Type</label>
+                    <select
+                      value={walletTransactionDraft.entityType}
+                      onChange={event => {
+                        const entityType = event.target.value as WalletEntityType
+                        setWalletTransactionDraft(current => ({
+                          ...current,
+                          entityType,
+                          entityId: '',
+                          entityName: '',
+                          city: ''
+                        }))
+                      }}
+                      style={inputStyle}
+                    >
+                      <option value="worker">Worker</option>
+                      <option value="company">Company</option>
+                    </select>
                   </div>
-                ))
-              )}
+                  <div>
+                    <label style={labelStyle}>Entity *</label>
+                    <select
+                      value={walletTransactionDraft.entityId}
+                      onChange={event => {
+                        const entityId = event.target.value
+                        setWalletTransactionDraft(current => ({
+                          ...current,
+                          entityId,
+                          entityName: getEntityName(current.entityType, entityId),
+                          city: getEntityCity(current.entityType, entityId)
+                        }))
+                      }}
+                      style={inputStyle}
+                    >
+                      <option value="">Select {walletTransactionDraft.entityType}</option>
+                      {(walletTransactionDraft.entityType === 'worker' ? snapshot.workers : snapshot.companies).map(entity => (
+                        <option key={entity.id} value={entity.id}>{walletTransactionDraft.entityType === 'worker' ? (entity as LabourWorker).fullName : (entity as LabourCompany).companyName}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Transaction Type</label>
+                    <select value={walletTransactionDraft.transactionType} onChange={event => setWalletTransactionDraft(current => ({ ...current, transactionType: event.target.value as WalletTransactionType }))} style={inputStyle}>
+                      <option value="registration_fee">registration_fee</option>
+                      <option value="wallet_deduction">wallet_deduction</option>
+                      <option value="plan_purchase">plan_purchase</option>
+                      <option value="wallet_recharge">wallet_recharge</option>
+                      <option value="manual_adjustment">manual_adjustment</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Direction</label>
+                    <select value={walletTransactionDraft.direction} onChange={event => setWalletTransactionDraft(current => ({ ...current, direction: event.target.value as WalletTransactionDirection }))} style={inputStyle}>
+                      <option value="credit">credit</option>
+                      <option value="debit">debit</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Amount *</label>
+                    <input type="number" min="0" value={walletTransactionDraft.amount} onChange={event => setWalletTransactionDraft(current => ({ ...current, amount: Number(event.target.value) }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Status</label>
+                    <select value={walletTransactionDraft.status} onChange={event => setWalletTransactionDraft(current => ({ ...current, status: event.target.value as WalletTransactionStatus }))} style={inputStyle}>
+                      <option value="pending">pending</option>
+                      <option value="completed">completed</option>
+                      <option value="attention">attention</option>
+                      <option value="failed">failed</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Reference *</label>
+                  <input value={walletTransactionDraft.reference} onChange={event => setWalletTransactionDraft(current => ({ ...current, reference: event.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Note</label>
+                  <textarea value={walletTransactionDraft.note} onChange={event => setWalletTransactionDraft(current => ({ ...current, note: event.target.value }))} rows={4} style={{ ...inputStyle, resize: 'none' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={saveWalletTransaction} style={primaryButtonStyle}>Save Transaction</button>
+                  <button onClick={resetWalletTransactionDraft} style={subtleButtonStyle}>Reset</button>
+                </div>
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <div>
+                  <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Wallet and transaction ledger</h2>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                    Monitor registration collections, worker wallet deductions and company plan purchases in one place.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input placeholder="Search ledger" value={walletFilters.search} onChange={event => setWalletFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                  <select value={walletFilters.audience} onChange={event => setWalletFilters(current => ({ ...current, audience: event.target.value as WalletFilters['audience'] }))} style={{ ...inputStyle, width: '140px' }}>
+                    <option value="all">All Audience</option>
+                    <option value="worker">Worker</option>
+                    <option value="company">Company</option>
+                  </select>
+                  <select value={walletFilters.transactionType} onChange={event => setWalletFilters(current => ({ ...current, transactionType: event.target.value as WalletFilters['transactionType'] }))} style={{ ...inputStyle, width: '170px' }}>
+                    <option value="all">All Types</option>
+                    <option value="registration_fee">Registration Fee</option>
+                    <option value="wallet_deduction">Wallet Deduction</option>
+                    <option value="plan_purchase">Plan Purchase</option>
+                    <option value="wallet_recharge">Wallet Recharge</option>
+                    <option value="manual_adjustment">Manual Adjustment</option>
+                  </select>
+                  <select value={walletFilters.status} onChange={event => setWalletFilters(current => ({ ...current, status: event.target.value as WalletFilters['status'] }))} style={{ ...inputStyle, width: '140px' }}>
+                    <option value="all">All Status</option>
+                    <option value="pending">pending</option>
+                    <option value="completed">completed</option>
+                    <option value="attention">attention</option>
+                    <option value="failed">failed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '14px', marginBottom: '18px' }}>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
+                  <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Wallet Revenue</p>
+                  <p style={{ margin: 0, color: '#0f172a', fontWeight: '800', fontSize: '24px' }}>{formatCurrency(walletRevenue)}</p>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
+                  <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Registration Revenue</p>
+                  <p style={{ margin: 0, color: '#1d4ed8', fontWeight: '800', fontSize: '24px' }}>{formatCurrency(registrationRevenue)}</p>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
+                  <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current Worker Wallet Balance</p>
+                  <p style={{ margin: 0, color: '#059669', fontWeight: '800', fontSize: '24px' }}>{formatCurrency(snapshot.stats.totalWalletBalance)}</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {filteredWalletTransactions.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No transactions match the current filters.</p>
+                ) : (
+                  filteredWalletTransactions.map(transaction => (
+                    <div key={transaction.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'grid', gridTemplateColumns: '1.25fr 0.65fr 0.65fr 0.6fr 0.75fr 0.5fr', gap: '10px', alignItems: 'center' }}>
+                      <div>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{transaction.entityName}</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                          {titleCase(transaction.entityType)} | {titleCase(transaction.transactionType)} | {transaction.reference}
+                        </p>
+                        <p style={{ margin: '4px 0 0', color: '#475569', fontSize: '12px' }}>{transaction.note || 'No note'}</p>
+                      </div>
+                      <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{transaction.city || 'No city'}</p>
+                      <p style={{ margin: 0, color: transaction.direction === 'credit' ? '#0f766e' : '#b45309', fontSize: '13px', fontWeight: '700' }}>
+                        {transaction.direction === 'credit' ? '+' : '-'} {formatCurrency(transaction.amount)}
+                      </p>
+                      <p style={{ margin: 0, color: transaction.status === 'attention' ? '#b45309' : transaction.status === 'failed' ? '#b91c1c' : '#2563eb', fontSize: '12px', fontWeight: '700' }}>
+                        {titleCase(transaction.status)}
+                      </p>
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{formatDateTime(transaction.createdAt)}</p>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <button onClick={() => { setWalletTransactionDraft(transaction); setEditingWalletTransactionId(transaction.id) }} style={subtleButtonStyle}>Edit</button>
+                        <button onClick={() => void removeEntity('walletTransactions', transaction.id, transaction.reference || transaction.entityName)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}
 
         {activeSection === 'rechargeRequests' && (
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
-              <div>
-                <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Recharge requests and fee follow-up</h2>
-                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
-                  This queue highlights workers who need a recharge and companies that still need payment or activation follow-up.
-                </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>{editingRechargeRequestId ? 'Edit Recharge Request' : 'Add Recharge Request'}</h2>
+                <button onClick={resetRechargeRequestDraft} style={subtleButtonStyle}>Add More</button>
               </div>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <input placeholder="Search requests" value={rechargeFilters.search} onChange={event => setRechargeFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
-                <select value={rechargeFilters.priority} onChange={event => setRechargeFilters(current => ({ ...current, priority: event.target.value as RechargeFilters['priority'] }))} style={{ ...inputStyle, width: '130px' }}>
-                  <option value="all">All Priority</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-                <select value={rechargeFilters.type} onChange={event => setRechargeFilters(current => ({ ...current, type: event.target.value as RechargeFilters['type'] }))} style={{ ...inputStyle, width: '170px' }}>
-                  <option value="all">All Types</option>
-                  <option value="worker_recharge">Worker Recharge</option>
-                  <option value="company_follow_up">Company Follow-up</option>
-                </select>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Request Type</label>
+                    <select
+                      value={rechargeRequestDraft.requestType}
+                      onChange={event => {
+                        const requestType = event.target.value as RechargeRequestType
+                        const relatedEntityType = requestType === 'worker_recharge' ? 'worker' : 'company'
+                        setRechargeRequestDraft(current => ({
+                          ...current,
+                          requestType,
+                          relatedEntityType,
+                          relatedEntityId: '',
+                          name: '',
+                          city: '',
+                          categoryLabel: '',
+                          statusLabel: ''
+                        }))
+                      }}
+                      style={inputStyle}
+                    >
+                      <option value="worker_recharge">worker_recharge</option>
+                      <option value="company_follow_up">company_follow_up</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Related Entity *</label>
+                    <select
+                      value={rechargeRequestDraft.relatedEntityId}
+                      onChange={event => {
+                        const relatedEntityId = event.target.value
+                        const relatedEntityType = rechargeRequestDraft.requestType === 'worker_recharge' ? 'worker' : 'company'
+                        setRechargeRequestDraft(current => ({
+                          ...current,
+                          relatedEntityType,
+                          relatedEntityId,
+                          name: getEntityName(relatedEntityType, relatedEntityId),
+                          city: getEntityCity(relatedEntityType, relatedEntityId),
+                          categoryLabel: getEntityCategoryLabel(relatedEntityType, relatedEntityId),
+                          statusLabel: getEntityStatusLabel(relatedEntityType, relatedEntityId)
+                        }))
+                      }}
+                      style={inputStyle}
+                    >
+                      <option value="">Select {rechargeRequestDraft.requestType === 'worker_recharge' ? 'worker' : 'company'}</option>
+                      {(rechargeRequestDraft.requestType === 'worker_recharge' ? snapshot.workers : snapshot.companies).map(entity => (
+                        <option key={entity.id} value={entity.id}>{rechargeRequestDraft.requestType === 'worker_recharge' ? (entity as LabourWorker).fullName : (entity as LabourCompany).companyName}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Priority</label>
+                    <select value={rechargeRequestDraft.priority} onChange={event => setRechargeRequestDraft(current => ({ ...current, priority: event.target.value as RechargeRequestPriority }))} style={inputStyle}>
+                      <option value="high">high</option>
+                      <option value="medium">medium</option>
+                      <option value="low">low</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Request Status</label>
+                    <select value={rechargeRequestDraft.requestStatus} onChange={event => setRechargeRequestDraft(current => ({ ...current, requestStatus: event.target.value as RechargeRequestStatus }))} style={inputStyle}>
+                      <option value="open">open</option>
+                      <option value="contacted">contacted</option>
+                      <option value="resolved">resolved</option>
+                      <option value="closed">closed</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Suggested Amount</label>
+                  <input type="number" min="0" value={rechargeRequestDraft.suggestedAmount} onChange={event => setRechargeRequestDraft(current => ({ ...current, suggestedAmount: Number(event.target.value) }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Note *</label>
+                  <textarea value={rechargeRequestDraft.note} onChange={event => setRechargeRequestDraft(current => ({ ...current, note: event.target.value }))} rows={4} style={{ ...inputStyle, resize: 'none' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={saveRechargeRequest} style={primaryButtonStyle}>Save Request</button>
+                  <button onClick={resetRechargeRequestDraft} style={subtleButtonStyle}>Reset</button>
+                </div>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gap: '10px' }}>
-              {filteredRechargeRequests.length === 0 ? (
-                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No recharge or follow-up requests match the current filters.</p>
-              ) : (
-                filteredRechargeRequests.map(request => (
-                  <div key={request.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 0.7fr 0.7fr 1.5fr', gap: '10px', alignItems: 'center' }}>
-                    <div>
-                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{request.name}</p>
-                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{titleCase(request.requestType)} | {request.statusLabel}</p>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <div>
+                  <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Recharge requests and fee follow-up</h2>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                    Manage the live queue for worker recharge follow-up and pending company payment calls.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input placeholder="Search requests" value={rechargeFilters.search} onChange={event => setRechargeFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                  <select value={rechargeFilters.priority} onChange={event => setRechargeFilters(current => ({ ...current, priority: event.target.value as RechargeFilters['priority'] }))} style={{ ...inputStyle, width: '130px' }}>
+                    <option value="all">All Priority</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                  <select value={rechargeFilters.type} onChange={event => setRechargeFilters(current => ({ ...current, type: event.target.value as RechargeFilters['type'] }))} style={{ ...inputStyle, width: '170px' }}>
+                    <option value="all">All Types</option>
+                    <option value="worker_recharge">Worker Recharge</option>
+                    <option value="company_follow_up">Company Follow-up</option>
+                  </select>
+                  <select value={rechargeFilters.status} onChange={event => setRechargeFilters(current => ({ ...current, status: event.target.value as RechargeFilters['status'] }))} style={{ ...inputStyle, width: '140px' }}>
+                    <option value="all">All Request Status</option>
+                    <option value="open">open</option>
+                    <option value="contacted">contacted</option>
+                    <option value="resolved">resolved</option>
+                    <option value="closed">closed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {filteredRechargeRequests.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No recharge or follow-up requests match the current filters.</p>
+                ) : (
+                  filteredRechargeRequests.map(request => (
+                    <div key={request.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'grid', gridTemplateColumns: '1.15fr 0.7fr 0.7fr 0.5fr 0.6fr 0.6fr', gap: '10px', alignItems: 'center' }}>
+                      <div>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{request.name}</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{titleCase(request.requestType)} | {request.statusLabel}</p>
+                        <p style={{ margin: '4px 0 0', color: '#475569', fontSize: '12px' }}>{request.note}</p>
+                      </div>
+                      <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{request.city || 'No city'}</p>
+                      <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{request.categoryLabel || 'Unassigned'}</p>
+                      <p style={{ margin: 0, color: request.priority === 'high' ? '#b91c1c' : request.priority === 'medium' ? '#b45309' : '#2563eb', fontSize: '12px', fontWeight: '700' }}>
+                        {titleCase(request.priority)}
+                      </p>
+                      <p style={{ margin: 0, color: '#0f172a', fontSize: '12px', fontWeight: '700' }}>{titleCase(request.requestStatus)}</p>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <button onClick={() => { setRechargeRequestDraft(request); setEditingRechargeRequestId(request.id) }} style={subtleButtonStyle}>Edit</button>
+                        <button onClick={() => void removeEntity('rechargeRequests', request.id, request.name)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+                      </div>
                     </div>
-                    <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{request.city || 'No city'}</p>
-                    <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{request.categoryLabel}</p>
-                    <p style={{ margin: 0, color: request.priority === 'high' ? '#b91c1c' : request.priority === 'medium' ? '#b45309' : '#2563eb', fontSize: '12px', fontWeight: '700' }}>
-                      {titleCase(request.priority)}
-                    </p>
-                    <p style={{ margin: 0, color: '#334155', fontSize: '13px' }}>
-                      {request.note} Suggested amount {formatCurrency(request.suggestedAmount)}
-                    </p>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}

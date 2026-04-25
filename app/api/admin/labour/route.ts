@@ -13,7 +13,9 @@ const isEntityType = (value: unknown): value is LabourEntityType =>
   value === 'plans' ||
   value === 'workers' ||
   value === 'companies' ||
-  value === 'jobPosts'
+  value === 'jobPosts' ||
+  value === 'walletTransactions' ||
+  value === 'rechargeRequests'
 
 export async function GET(request: NextRequest) {
   try {

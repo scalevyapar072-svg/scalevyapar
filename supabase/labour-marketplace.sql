@@ -79,19 +79,63 @@ create table if not exists public.labour_job_posts (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.labour_wallet_transactions (
+  id text primary key,
+  entity_type text not null check (entity_type in ('worker', 'company')),
+  entity_id text not null,
+  entity_name text not null,
+  city text,
+  transaction_type text not null check (transaction_type in ('registration_fee', 'wallet_deduction', 'plan_purchase', 'wallet_recharge', 'manual_adjustment')),
+  amount numeric(10, 2) not null default 0,
+  direction text not null check (direction in ('credit', 'debit')),
+  status text not null default 'completed' check (status in ('pending', 'completed', 'attention', 'failed')),
+  reference text,
+  note text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.labour_recharge_requests (
+  id text primary key,
+  request_type text not null check (request_type in ('worker_recharge', 'company_follow_up')),
+  related_entity_type text not null check (related_entity_type in ('worker', 'company')),
+  related_entity_id text not null,
+  name text not null,
+  city text,
+  category_label text,
+  status_label text,
+  suggested_amount numeric(10, 2) not null default 0,
+  priority text not null default 'medium' check (priority in ('high', 'medium', 'low')),
+  request_status text not null default 'open' check (request_status in ('open', 'contacted', 'resolved', 'closed')),
+  note text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.labour_audit_logs (
   id text primary key,
   action text not null check (action in ('create', 'update', 'delete')),
-  entity_type text not null check (entity_type in ('categories', 'plans', 'workers', 'companies', 'jobPosts')),
+  entity_type text not null check (entity_type in ('categories', 'plans', 'workers', 'companies', 'jobPosts', 'walletTransactions', 'rechargeRequests')),
   entity_id text not null,
   summary text not null,
   actor text not null,
   created_at timestamptz not null default now()
 );
 
+alter table if exists public.labour_audit_logs
+drop constraint if exists labour_audit_logs_entity_type_check;
+
+alter table if exists public.labour_audit_logs
+add constraint labour_audit_logs_entity_type_check
+check (entity_type in ('categories', 'plans', 'workers', 'companies', 'jobPosts', 'walletTransactions', 'rechargeRequests'));
+
 create index if not exists idx_labour_categories_active on public.labour_categories(is_active);
 create index if not exists idx_labour_plans_audience on public.labour_plans(audience);
 create index if not exists idx_labour_workers_status on public.labour_workers(status);
 create index if not exists idx_labour_companies_status on public.labour_companies(status);
 create index if not exists idx_labour_job_posts_status on public.labour_job_posts(status);
+create index if not exists idx_labour_wallet_transactions_created_at on public.labour_wallet_transactions(created_at desc);
+create index if not exists idx_labour_wallet_transactions_entity_type on public.labour_wallet_transactions(entity_type);
+create index if not exists idx_labour_recharge_requests_status on public.labour_recharge_requests(request_status);
+create index if not exists idx_labour_recharge_requests_priority on public.labour_recharge_requests(priority);
 create index if not exists idx_labour_audit_logs_created_at on public.labour_audit_logs(created_at desc);

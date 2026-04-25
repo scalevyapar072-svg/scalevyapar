@@ -163,7 +163,7 @@ export function CompanyIntakeForm({
       )}
 
       <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '14px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
           <div>
             <label style={labelStyle}>Company Name *</label>
             <input value={form.companyName} onChange={event => setForm(current => ({ ...current, companyName: event.target.value }))} style={inputStyle} />
@@ -174,7 +174,7 @@ export function CompanyIntakeForm({
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
           <div>
             <label style={labelStyle}>Mobile *</label>
             <input value={form.mobile} maxLength={10} onChange={event => setForm(current => ({ ...current, mobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
@@ -187,7 +187,7 @@ export function CompanyIntakeForm({
 
         <div>
           <label style={labelStyle}>Labour Categories *</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
             {categories.map(category => (
               <label key={category.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 14px', border: `1px solid ${form.categoryIds.includes(category.id) ? '#0f172a' : '#dbe2ea'}`, borderRadius: '14px', cursor: 'pointer', background: form.categoryIds.includes(category.id) ? '#f8fafc' : '#ffffff' }}>
                 <input type="checkbox" checked={form.categoryIds.includes(category.id)} onChange={() => toggleCategory(category.id)} style={{ marginTop: '3px' }} />
@@ -200,7 +200,7 @@ export function CompanyIntakeForm({
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
           <div>
             <label style={labelStyle}>Plan *</label>
             <select value={form.activePlan} onChange={event => {
@@ -240,7 +240,7 @@ export function CompanyIntakeForm({
           <textarea value={form.jobDescription} onChange={event => setForm(current => ({ ...current, jobDescription: event.target.value }))} rows={4} style={{ ...inputStyle, resize: 'none' }} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px' }}>
           <div>
             <label style={labelStyle}>Workers Needed *</label>
             <input type="number" min="1" value={form.workersNeeded} onChange={event => setForm(current => ({ ...current, workersNeeded: Number(event.target.value) }))} style={inputStyle} />

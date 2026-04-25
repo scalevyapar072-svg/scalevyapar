@@ -4,12 +4,23 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 type DemandLevel = 'high' | 'medium' | 'low'
-type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked'
+type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked' | 'rejected'
 type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
 type PlanAudience = 'worker' | 'company'
 type WorkerAvailability = 'available_today' | 'available_this_week' | 'not_available'
-type LabourSection = 'overview' | 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'auditLogs'
+type LabourSection =
+  | 'overview'
+  | 'workers'
+  | 'companies'
+  | 'categories'
+  | 'jobPosts'
+  | 'plans'
+  | 'walletTransactions'
+  | 'rechargeRequests'
+  | 'reports'
+  | 'settings'
+  | 'auditLogs'
 type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts'
 
 type LabourCategory = {
@@ -104,6 +115,95 @@ type LabourSnapshot = {
   storage: 'supabase' | 'json'
 }
 
+type WalletTransaction = {
+  id: string
+  entityType: 'worker' | 'company'
+  transactionType: 'registration_fee' | 'wallet_deduction' | 'plan_purchase'
+  entityName: string
+  city: string
+  amount: number
+  direction: 'credit' | 'debit'
+  status: 'completed' | 'attention'
+  reference: string
+  createdAt: string
+}
+
+type RechargeRequest = {
+  id: string
+  requestType: 'worker_recharge' | 'company_follow_up'
+  name: string
+  city: string
+  categoryLabel: string
+  statusLabel: string
+  suggestedAmount: number
+  priority: 'high' | 'medium' | 'low'
+  note: string
+}
+
+type CategoryFilters = {
+  search: string
+  demand: 'all' | DemandLevel
+  activity: 'all' | 'active' | 'inactive'
+}
+
+type PlanFilters = {
+  search: string
+  audience: 'all' | PlanAudience
+  categoryId: string
+  activity: 'all' | 'active' | 'inactive'
+}
+
+type WorkerFilters = {
+  search: string
+  status: 'all' | WorkerStatus
+  categoryId: string
+  visibility: 'all' | 'visible' | 'hidden'
+}
+
+type CompanyFilters = {
+  search: string
+  status: 'all' | CompanyStatus
+  categoryId: string
+  fee: 'all' | 'paid' | 'pending'
+}
+
+type JobFilters = {
+  search: string
+  status: 'all' | JobPostStatus
+  categoryId: string
+  companyId: string
+}
+
+type WalletFilters = {
+  search: string
+  audience: 'all' | 'worker' | 'company'
+  transactionType: 'all' | WalletTransaction['transactionType']
+}
+
+type RechargeFilters = {
+  search: string
+  priority: 'all' | RechargeRequest['priority']
+  type: 'all' | RechargeRequest['requestType']
+}
+
+type AuditFilters = {
+  search: string
+  entityType: 'all' | string
+}
+
+const workerStatuses: WorkerStatus[] = [
+  'pending',
+  'active',
+  'inactive_wallet_empty',
+  'inactive_subscription_expired',
+  'blocked',
+  'rejected'
+]
+
+const companyStatuses: CompanyStatus[] = ['pending', 'active', 'inactive', 'blocked']
+const workerAvailabilityOptions: WorkerAvailability[] = ['available_today', 'available_this_week', 'not_available']
+const jobPostStatuses: JobPostStatus[] = ['draft', 'live', 'expired', 'paused']
+
 const blankCategory: LabourCategory = {
   id: '',
   name: '',
@@ -168,6 +268,29 @@ const blankJobPost: LabourJobPost = {
   expiresAt: ''
 }
 
+const blankCategoryFilters: CategoryFilters = { search: '', demand: 'all', activity: 'all' }
+const blankPlanFilters: PlanFilters = { search: '', audience: 'all', categoryId: '', activity: 'all' }
+const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryId: '', visibility: 'all' }
+const blankCompanyFilters: CompanyFilters = { search: '', status: 'all', categoryId: '', fee: 'all' }
+const blankJobFilters: JobFilters = { search: '', status: 'all', categoryId: '', companyId: '' }
+const blankWalletFilters: WalletFilters = { search: '', audience: 'all', transactionType: 'all' }
+const blankRechargeFilters: RechargeFilters = { search: '', priority: 'all', type: 'all' }
+const blankAuditFilters: AuditFilters = { search: '', entityType: 'all' }
+
+const sectionLabels: Record<LabourSection, string> = {
+  overview: 'Dashboard',
+  workers: 'Workers',
+  companies: 'Companies',
+  categories: 'Categories',
+  jobPosts: 'Job Posts',
+  plans: 'Plans',
+  walletTransactions: 'Wallet Transactions',
+  rechargeRequests: 'Recharge Requests',
+  reports: 'Reports',
+  settings: 'Settings',
+  auditLogs: 'Audit Logs'
+}
+
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
 
 const formatDateTime = (value: string) => {
@@ -176,12 +299,51 @@ const formatDateTime = (value: string) => {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
 }
 
+const formatDate = (value: string) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString()
+}
+
 const slugify = (value: string) =>
   value
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+
+const matchesSearch = (search: string, values: Array<string | number | boolean | undefined>) => {
+  const query = search.trim().toLowerCase()
+  if (!query) return true
+
+  return values.some(value => String(value || '').toLowerCase().includes(query))
+}
+
+const isTenDigitMobile = (value: string) => /^\d{10}$/.test(value.trim())
+
+const addDays = (dateValue: string, days: number) => {
+  const date = new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return ''
+  date.setDate(date.getDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+const isExpiredJobPost = (jobPost: LabourJobPost) => {
+  if (jobPost.status === 'expired') return true
+  if (!jobPost.expiresAt) return false
+  const expiresAt = new Date(jobPost.expiresAt)
+  if (Number.isNaN(expiresAt.getTime())) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  expiresAt.setHours(0, 0, 0, 0)
+  return expiresAt < today
+}
+
+const titleCase = (value: string) =>
+  value
+    .split('_')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 
 export default function LabourExchangeAdminPage() {
   const [snapshot, setSnapshot] = useState<LabourSnapshot | null>(null)
@@ -201,6 +363,15 @@ export default function LabourExchangeAdminPage() {
   const [editingWorkerId, setEditingWorkerId] = useState<string | null>(null)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [editingJobPostId, setEditingJobPostId] = useState<string | null>(null)
+
+  const [categoryFilters, setCategoryFilters] = useState<CategoryFilters>(blankCategoryFilters)
+  const [planFilters, setPlanFilters] = useState<PlanFilters>(blankPlanFilters)
+  const [workerFilters, setWorkerFilters] = useState<WorkerFilters>(blankWorkerFilters)
+  const [companyFilters, setCompanyFilters] = useState<CompanyFilters>(blankCompanyFilters)
+  const [jobFilters, setJobFilters] = useState<JobFilters>(blankJobFilters)
+  const [walletFilters, setWalletFilters] = useState<WalletFilters>(blankWalletFilters)
+  const [rechargeFilters, setRechargeFilters] = useState<RechargeFilters>(blankRechargeFilters)
+  const [auditFilters, setAuditFilters] = useState<AuditFilters>(blankAuditFilters)
 
   const inputStyle = {
     width: '100%',
@@ -229,6 +400,27 @@ export default function LabourExchangeAdminPage() {
     borderRadius: '18px',
     padding: '22px',
     boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)'
+  }
+
+  const subtleButtonStyle = {
+    background: '#ffffff',
+    color: '#334155',
+    border: '1px solid #dbe2ea',
+    padding: '10px 14px',
+    borderRadius: '10px',
+    fontSize: '12px',
+    fontWeight: '700' as const,
+    cursor: 'pointer'
+  }
+
+  const primaryButtonStyle = {
+    background: '#0f172a',
+    color: '#ffffff',
+    border: 'none',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontWeight: '700' as const
   }
 
   const fetchSnapshot = async () => {
@@ -307,122 +499,43 @@ export default function LabourExchangeAdminPage() {
     showSaved(`${label} deleted`)
   }
 
-  const saveCategory = async () => {
-    setError('')
-    const payload = {
-      ...categoryDraft,
-      slug: categoryDraft.slug || slugify(categoryDraft.name)
-    }
-
-    if (!payload.name.trim()) {
-      setError('Category name is required.')
-      return
-    }
-
-    const ok = await persistEntity(
-      editingCategoryId ? 'PUT' : 'POST',
-      'categories',
-      payload,
-      editingCategoryId || undefined
-    )
-
-    if (!ok) return
+  const resetCategoryDraft = () => {
     setCategoryDraft(blankCategory)
     setEditingCategoryId(null)
-    showSaved('Category saved')
   }
 
-  const savePlan = async () => {
-    setError('')
-    if (!planDraft.name.trim()) {
-      setError('Plan name is required.')
-      return
-    }
-
-    const ok = await persistEntity(
-      editingPlanId ? 'PUT' : 'POST',
-      'plans',
-      planDraft,
-      editingPlanId || undefined
-    )
-
-    if (!ok) return
+  const resetPlanDraft = () => {
     setPlanDraft(blankPlan)
     setEditingPlanId(null)
-    showSaved('Plan saved')
   }
 
-  const saveWorker = async () => {
-    setError('')
-    if (!workerDraft.fullName.trim() || !workerDraft.mobile.trim()) {
-      setError('Worker name and mobile are required.')
-      return
-    }
-
-    const ok = await persistEntity(
-      editingWorkerId ? 'PUT' : 'POST',
-      'workers',
-      workerDraft,
-      editingWorkerId || undefined
-    )
-
-    if (!ok) return
+  const resetWorkerDraft = () => {
     setWorkerDraft(blankWorker)
     setEditingWorkerId(null)
-    showSaved('Worker saved')
   }
 
-  const saveCompany = async () => {
-    setError('')
-    if (!companyDraft.companyName.trim() || !companyDraft.contactPerson.trim()) {
-      setError('Company name and contact person are required.')
-      return
-    }
-
-    const ok = await persistEntity(
-      editingCompanyId ? 'PUT' : 'POST',
-      'companies',
-      companyDraft,
-      editingCompanyId || undefined
-    )
-
-    if (!ok) return
+  const resetCompanyDraft = () => {
     setCompanyDraft(blankCompany)
     setEditingCompanyId(null)
-    showSaved('Company saved')
   }
 
-  const saveJobPost = async () => {
-    setError('')
-    if (!jobPostDraft.title.trim() || !jobPostDraft.companyId || !jobPostDraft.categoryId) {
-      setError('Job title, company and category are required.')
-      return
-    }
-
-    const ok = await persistEntity(
-      editingJobPostId ? 'PUT' : 'POST',
-      'jobPosts',
-      jobPostDraft,
-      editingJobPostId || undefined
-    )
-
-    if (!ok) return
+  const resetJobPostDraft = () => {
     setJobPostDraft(blankJobPost)
     setEditingJobPostId(null)
-    showSaved('Job post saved')
+  }
+
+  const openAddForm = (section: LabourSection) => {
+    setActiveSection(section)
+
+    if (section === 'categories') resetCategoryDraft()
+    if (section === 'plans') resetPlanDraft()
+    if (section === 'workers') resetWorkerDraft()
+    if (section === 'companies') resetCompanyDraft()
+    if (section === 'jobPosts') resetJobPostDraft()
   }
 
   const onMultiSelectChange = (values: string[], nextValue: string) =>
     values.includes(nextValue) ? values.filter(item => item !== nextValue) : [...values, nextValue]
-
-  const getCategoryName = (categoryId: string) =>
-    snapshot?.categories.find(category => category.id === categoryId)?.name || categoryId
-
-  const getPlanName = (planId: string) =>
-    snapshot?.plans.find(plan => plan.id === planId)?.name || planId
-
-  const getCompanyName = (companyId: string) =>
-    snapshot?.companies.find(company => company.id === companyId)?.companyName || companyId
 
   if (loading) {
     return (
@@ -436,11 +549,557 @@ export default function LabourExchangeAdminPage() {
     return (
       <div style={{ minHeight: '100vh', background: '#f6f8fb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px' }}>
         <p style={{ color: '#b91c1c', fontSize: '14px' }}>{error || 'Unable to load the labour exchange module.'}</p>
-        <button onClick={() => void fetchSnapshot()} style={{ background: '#0f172a', color: '#ffffff', border: 'none', padding: '10px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>
+        <button onClick={() => void fetchSnapshot()} style={primaryButtonStyle}>
           Retry
         </button>
       </div>
     )
+  }
+
+  const getCategoryName = (categoryId: string) =>
+    snapshot.categories.find(category => category.id === categoryId)?.name || categoryId
+
+  const getPlanById = (planId: string) => snapshot.plans.find(plan => plan.id === planId)
+  const getPlanName = (planId: string) => getPlanById(planId)?.name || planId || 'No plan'
+  const getCompanyName = (companyId: string) =>
+    snapshot.companies.find(company => company.id === companyId)?.companyName || companyId
+
+  const activeWorkerPlan =
+    snapshot.plans.find(plan => plan.audience === 'worker' && plan.isActive) ||
+    snapshot.plans.find(plan => plan.audience === 'worker') ||
+    null
+
+  const expiredJobPostsCount = snapshot.jobPosts.filter(isExpiredJobPost).length
+  const workerRegistrationRevenue = snapshot.workers.length * (activeWorkerPlan?.registrationFee || 0)
+  const workerWalletRevenue = snapshot.workers.reduce((sum, worker) => {
+    const openingWalletCredit = activeWorkerPlan?.walletCredit || 0
+    return sum + Math.max(0, openingWalletCredit - worker.walletBalance)
+  }, 0)
+
+  const companyRegistrationRevenue = snapshot.companies.reduce((sum, company) => {
+    if (!company.registrationFeePaid) return sum
+    const plan = getPlanById(company.activePlan)
+    return sum + (plan?.registrationFee || 0)
+  }, 0)
+
+  const companyPlanRevenue = snapshot.companies.reduce((sum, company) => {
+    const plan = getPlanById(company.activePlan)
+    return sum + (plan?.planAmount || 0)
+  }, 0)
+
+  const registrationRevenue = workerRegistrationRevenue + companyRegistrationRevenue
+  const walletRevenue = workerWalletRevenue + companyPlanRevenue
+
+  const categoryDemandRows = snapshot.categories
+    .map(category => {
+      const workersCount = snapshot.workers.filter(worker => worker.categoryIds.includes(category.id)).length
+      const activeWorkersCount = snapshot.workers.filter(
+        worker => worker.categoryIds.includes(category.id) && worker.status === 'active'
+      ).length
+      const companiesCount = snapshot.companies.filter(company => company.categoryIds.includes(category.id)).length
+      const liveJobsCount = snapshot.jobPosts.filter(
+        jobPost => jobPost.categoryId === category.id && jobPost.status === 'live'
+      ).length
+      const expiredJobsCount = snapshot.jobPosts.filter(
+        jobPost => jobPost.categoryId === category.id && isExpiredJobPost(jobPost)
+      ).length
+
+      return {
+        id: category.id,
+        name: category.name,
+        demandLevel: category.demandLevel,
+        workersCount,
+        activeWorkersCount,
+        companiesCount,
+        liveJobsCount,
+        expiredJobsCount,
+        demandScore: liveJobsCount * 3 + companiesCount * 2 + activeWorkersCount
+      }
+    })
+    .sort((left, right) => right.demandScore - left.demandScore || left.name.localeCompare(right.name))
+
+  const workerStatusBreakdown = workerStatuses.map(status => ({
+    status,
+    count: snapshot.workers.filter(worker => worker.status === status).length
+  }))
+
+  const companyStatusBreakdown = companyStatuses.map(status => ({
+    status,
+    count: snapshot.companies.filter(company => company.status === status).length
+  }))
+
+  const jobLifecycleBreakdown = jobPostStatuses.map(status => ({
+    status,
+    count: snapshot.jobPosts.filter(jobPost => jobPost.status === status).length
+  }))
+
+  const moderationQueue = [
+    ...snapshot.workers
+      .filter(worker => worker.status === 'pending' || worker.status === 'blocked' || worker.status === 'rejected')
+      .map(worker => ({
+        id: `worker-${worker.id}`,
+        type: 'Worker',
+        name: worker.fullName,
+        city: worker.city,
+        status: worker.status,
+        note:
+          worker.status === 'pending'
+            ? 'Review profile and wallet setup before activation.'
+            : 'Needs moderation review before being visible in the marketplace.'
+      })),
+    ...snapshot.companies
+      .filter(company => company.status === 'pending' || company.status === 'blocked')
+      .map(company => ({
+        id: `company-${company.id}`,
+        type: 'Company',
+        name: company.companyName,
+        city: company.city,
+        status: company.status,
+        note:
+          company.status === 'pending'
+            ? 'Confirm registration fee and plan before activating.'
+            : 'Company has been blocked and needs admin follow-up.'
+      })),
+    ...snapshot.jobPosts
+      .filter(jobPost => isExpiredJobPost(jobPost) || jobPost.status === 'paused')
+      .map(jobPost => ({
+        id: `job-${jobPost.id}`,
+        type: 'Job Post',
+        name: jobPost.title,
+        city: jobPost.city,
+        status: isExpiredJobPost(jobPost) ? 'expired' : jobPost.status,
+        note: isExpiredJobPost(jobPost)
+          ? 'Posting validity ended and should be renewed or archived.'
+          : 'Paused job post needs review before going live again.'
+      }))
+  ].slice(0, 8)
+
+  const walletTransactions: WalletTransaction[] = [
+    ...snapshot.workers.flatMap(worker => {
+      const transactions: WalletTransaction[] = []
+
+      if (activeWorkerPlan?.registrationFee) {
+        transactions.push({
+          id: `worker-registration-${worker.id}`,
+          entityType: 'worker',
+          transactionType: 'registration_fee',
+          entityName: worker.fullName,
+          city: worker.city,
+          amount: activeWorkerPlan.registrationFee,
+          direction: 'credit',
+          status: 'completed',
+          reference: worker.id,
+          createdAt: new Date().toISOString()
+        })
+      }
+
+      const walletDeduction = Math.max(0, (activeWorkerPlan?.walletCredit || 0) - worker.walletBalance)
+      if (walletDeduction > 0) {
+        transactions.push({
+          id: `worker-deduction-${worker.id}`,
+          entityType: 'worker',
+          transactionType: 'wallet_deduction',
+          entityName: worker.fullName,
+          city: worker.city,
+          amount: walletDeduction,
+          direction: 'debit',
+          status: worker.status === 'inactive_wallet_empty' ? 'attention' : 'completed',
+          reference: worker.id,
+          createdAt: new Date().toISOString()
+        })
+      }
+
+      return transactions
+    }),
+    ...snapshot.companies.flatMap(company => {
+      const plan = getPlanById(company.activePlan)
+      const transactions: WalletTransaction[] = []
+
+      if (company.registrationFeePaid && plan?.registrationFee) {
+        transactions.push({
+          id: `company-registration-${company.id}`,
+          entityType: 'company',
+          transactionType: 'registration_fee',
+          entityName: company.companyName,
+          city: company.city,
+          amount: plan.registrationFee,
+          direction: 'credit',
+          status: 'completed',
+          reference: company.id,
+          createdAt: new Date().toISOString()
+        })
+      }
+
+      if (plan?.planAmount) {
+        transactions.push({
+          id: `company-plan-${company.id}`,
+          entityType: 'company',
+          transactionType: 'plan_purchase',
+          entityName: company.companyName,
+          city: company.city,
+          amount: plan.planAmount,
+          direction: 'credit',
+          status: company.status === 'pending' ? 'attention' : 'completed',
+          reference: company.activePlan || company.id,
+          createdAt: new Date().toISOString()
+        })
+      }
+
+      return transactions
+    })
+  ].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+
+  const rechargeRequests: RechargeRequest[] = [
+    ...snapshot.workers
+      .filter(
+        worker =>
+          worker.status === 'inactive_wallet_empty' ||
+          worker.status === 'inactive_subscription_expired' ||
+          worker.walletBalance <= 5
+      )
+      .map(worker => ({
+        id: `recharge-${worker.id}`,
+        requestType: 'worker_recharge' as const,
+        name: worker.fullName,
+        city: worker.city,
+        categoryLabel: worker.categoryIds.map(getCategoryName).join(', ') || 'Unassigned',
+        statusLabel: worker.status,
+        suggestedAmount: activeWorkerPlan?.planAmount || 50,
+        priority:
+          worker.status === 'inactive_wallet_empty'
+            ? ('high' as const)
+            : worker.status === 'inactive_subscription_expired'
+              ? ('medium' as const)
+              : ('low' as const),
+        note:
+          worker.status === 'inactive_wallet_empty'
+            ? 'Wallet is empty. Recharge is needed to restore visibility.'
+            : worker.status === 'inactive_subscription_expired'
+              ? 'Subscription window ended. Ask the worker to recharge again.'
+              : 'Balance is low and should be topped up before visibility stops.'
+      })),
+    ...snapshot.companies
+      .filter(company => !company.registrationFeePaid || company.status === 'pending')
+      .map(company => ({
+        id: `followup-${company.id}`,
+        requestType: 'company_follow_up' as const,
+        name: company.companyName,
+        city: company.city,
+        categoryLabel: company.categoryIds.map(getCategoryName).join(', ') || 'Unassigned',
+        statusLabel: company.status,
+        suggestedAmount: getPlanById(company.activePlan)?.planAmount || 200,
+        priority: !company.registrationFeePaid ? ('high' as const) : ('medium' as const),
+        note: !company.registrationFeePaid
+          ? 'Registration fee is still pending before the company can post regularly.'
+          : 'Pending company should be activated or moderated by admin.'
+      }))
+  ]
+
+  const filteredCategories = snapshot.categories.filter(category => {
+    if (categoryFilters.demand !== 'all' && category.demandLevel !== categoryFilters.demand) return false
+    if (categoryFilters.activity === 'active' && !category.isActive) return false
+    if (categoryFilters.activity === 'inactive' && category.isActive) return false
+
+    return matchesSearch(categoryFilters.search, [category.name, category.slug, category.description, category.demandLevel])
+  })
+
+  const filteredPlans = snapshot.plans.filter(plan => {
+    if (planFilters.audience !== 'all' && plan.audience !== planFilters.audience) return false
+    if (planFilters.categoryId && (plan.categoryId || '') !== planFilters.categoryId) return false
+    if (planFilters.activity === 'active' && !plan.isActive) return false
+    if (planFilters.activity === 'inactive' && plan.isActive) return false
+
+    return matchesSearch(planFilters.search, [
+      plan.name,
+      plan.description,
+      plan.audience,
+      getCategoryName(plan.categoryId || '')
+    ])
+  })
+
+  const filteredWorkers = snapshot.workers.filter(worker => {
+    if (workerFilters.status !== 'all' && worker.status !== workerFilters.status) return false
+    if (workerFilters.categoryId && !worker.categoryIds.includes(workerFilters.categoryId)) return false
+    if (workerFilters.visibility === 'visible' && !worker.isVisible) return false
+    if (workerFilters.visibility === 'hidden' && worker.isVisible) return false
+
+    return matchesSearch(workerFilters.search, [
+      worker.fullName,
+      worker.mobile,
+      worker.city,
+      worker.status,
+      worker.categoryIds.map(getCategoryName).join(', ')
+    ])
+  })
+
+  const filteredCompanies = snapshot.companies.filter(company => {
+    if (companyFilters.status !== 'all' && company.status !== companyFilters.status) return false
+    if (companyFilters.categoryId && !company.categoryIds.includes(companyFilters.categoryId)) return false
+    if (companyFilters.fee === 'paid' && !company.registrationFeePaid) return false
+    if (companyFilters.fee === 'pending' && company.registrationFeePaid) return false
+
+    return matchesSearch(companyFilters.search, [
+      company.companyName,
+      company.contactPerson,
+      company.mobile,
+      company.city,
+      company.status,
+      company.categoryIds.map(getCategoryName).join(', ')
+    ])
+  })
+
+  const filteredJobPosts = snapshot.jobPosts.filter(jobPost => {
+    const effectiveStatus = isExpiredJobPost(jobPost) ? 'expired' : jobPost.status
+
+    if (jobFilters.status !== 'all' && effectiveStatus !== jobFilters.status) return false
+    if (jobFilters.categoryId && jobPost.categoryId !== jobFilters.categoryId) return false
+    if (jobFilters.companyId && jobPost.companyId !== jobFilters.companyId) return false
+
+    return matchesSearch(jobFilters.search, [
+      jobPost.title,
+      jobPost.description,
+      jobPost.city,
+      getCategoryName(jobPost.categoryId),
+      getCompanyName(jobPost.companyId),
+      effectiveStatus
+    ])
+  })
+
+  const filteredWalletTransactions = walletTransactions.filter(transaction => {
+    if (walletFilters.audience !== 'all' && transaction.entityType !== walletFilters.audience) return false
+    if (walletFilters.transactionType !== 'all' && transaction.transactionType !== walletFilters.transactionType) return false
+
+    return matchesSearch(walletFilters.search, [
+      transaction.entityName,
+      transaction.city,
+      transaction.reference,
+      transaction.transactionType,
+      transaction.entityType
+    ])
+  })
+
+  const filteredRechargeRequests = rechargeRequests.filter(request => {
+    if (rechargeFilters.priority !== 'all' && request.priority !== rechargeFilters.priority) return false
+    if (rechargeFilters.type !== 'all' && request.requestType !== rechargeFilters.type) return false
+
+    return matchesSearch(rechargeFilters.search, [
+      request.name,
+      request.city,
+      request.categoryLabel,
+      request.statusLabel,
+      request.note
+    ])
+  })
+
+  const filteredAuditLogs = snapshot.auditLogs.filter(log => {
+    if (auditFilters.entityType !== 'all' && log.entityType !== auditFilters.entityType) return false
+    return matchesSearch(auditFilters.search, [log.summary, log.entityType, log.entityId, log.actor, log.action])
+  })
+
+  const validateCategory = () => {
+    const name = categoryDraft.name.trim()
+    const slug = slugify(categoryDraft.slug || categoryDraft.name)
+
+    if (!name) return 'Category name is required.'
+    if (!slug) return 'Category slug is required.'
+
+    const duplicateName = snapshot.categories.find(
+      category => category.id !== editingCategoryId && category.name.toLowerCase() === name.toLowerCase()
+    )
+    if (duplicateName) return 'A category with this name already exists.'
+
+    const duplicateSlug = snapshot.categories.find(
+      category => category.id !== editingCategoryId && category.slug.toLowerCase() === slug.toLowerCase()
+    )
+    if (duplicateSlug) return 'A category with this slug already exists.'
+
+    return ''
+  }
+
+  const validatePlan = () => {
+    if (!planDraft.name.trim()) return 'Plan name is required.'
+    if (planDraft.validityDays <= 0) return 'Plan validity must be greater than 0 days.'
+    if (planDraft.registrationFee < 0 || planDraft.walletCredit < 0 || planDraft.planAmount < 0 || planDraft.dailyCharge < 0) {
+      return 'Plan amounts cannot be negative.'
+    }
+
+    if (planDraft.audience === 'worker' && planDraft.dailyCharge <= 0) {
+      return 'Worker plans should have a daily charge.'
+    }
+
+    if (planDraft.audience === 'company' && planDraft.planAmount <= 0) {
+      return 'Company plans should have a plan amount.'
+    }
+
+    const duplicateName = snapshot.plans.find(
+      plan =>
+        plan.id !== editingPlanId &&
+        plan.audience === planDraft.audience &&
+        plan.name.trim().toLowerCase() === planDraft.name.trim().toLowerCase()
+    )
+
+    if (duplicateName) return 'A plan with this name already exists for the selected audience.'
+    return ''
+  }
+
+  const validateWorker = () => {
+    if (!workerDraft.fullName.trim()) return 'Worker name is required.'
+    if (!workerDraft.mobile.trim()) return 'Worker mobile is required.'
+    if (!isTenDigitMobile(workerDraft.mobile)) return 'Worker mobile must be exactly 10 digits.'
+    if (workerDraft.categoryIds.length === 0) return 'Select at least one worker category.'
+    if (workerDraft.experienceYears < 0 || workerDraft.expectedDailyWage < 0 || workerDraft.walletBalance < 0) {
+      return 'Worker experience, wage and wallet balance must be non-negative.'
+    }
+
+    const duplicateMobile = snapshot.workers.find(
+      worker => worker.id !== editingWorkerId && worker.mobile.trim() === workerDraft.mobile.trim()
+    )
+    if (duplicateMobile) return 'Another worker already uses this mobile number.'
+
+    return ''
+  }
+
+  const validateCompany = () => {
+    if (!companyDraft.companyName.trim()) return 'Company name is required.'
+    if (!companyDraft.contactPerson.trim()) return 'Contact person is required.'
+    if (!companyDraft.mobile.trim()) return 'Company mobile is required.'
+    if (!isTenDigitMobile(companyDraft.mobile)) return 'Company mobile must be exactly 10 digits.'
+    if (companyDraft.categoryIds.length === 0) return 'Select at least one company category.'
+    if (companyDraft.status === 'active' && !companyDraft.activePlan) return 'Active companies should have a plan selected.'
+
+    const duplicateMobile = snapshot.companies.find(
+      company => company.id !== editingCompanyId && company.mobile.trim() === companyDraft.mobile.trim()
+    )
+    if (duplicateMobile) return 'Another company already uses this mobile number.'
+
+    return ''
+  }
+
+  const validateJobPost = () => {
+    if (!jobPostDraft.title.trim()) return 'Job title is required.'
+    if (!jobPostDraft.companyId) return 'Company is required.'
+    if (!jobPostDraft.categoryId) return 'Category is required.'
+    if (jobPostDraft.workersNeeded <= 0) return 'Workers needed must be greater than 0.'
+    if (jobPostDraft.validityDays <= 0) return 'Validity days must be greater than 0.'
+    if (jobPostDraft.wageAmount < 0) return 'Wage amount cannot be negative.'
+    return ''
+  }
+
+  const saveCategory = async () => {
+    setError('')
+    const validationError = validateCategory()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    const payload = {
+      ...categoryDraft,
+      slug: slugify(categoryDraft.slug || categoryDraft.name)
+    }
+
+    const ok = await persistEntity(
+      editingCategoryId ? 'PUT' : 'POST',
+      'categories',
+      payload,
+      editingCategoryId || undefined
+    )
+
+    if (!ok) return
+    resetCategoryDraft()
+    showSaved('Category saved')
+  }
+
+  const savePlan = async () => {
+    setError('')
+    const validationError = validatePlan()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    const payload = {
+      ...planDraft,
+      categoryId: planDraft.categoryId || ''
+    }
+
+    const ok = await persistEntity(
+      editingPlanId ? 'PUT' : 'POST',
+      'plans',
+      payload,
+      editingPlanId || undefined
+    )
+
+    if (!ok) return
+    resetPlanDraft()
+    showSaved('Plan saved')
+  }
+
+  const saveWorker = async () => {
+    setError('')
+    const validationError = validateWorker()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    const ok = await persistEntity(
+      editingWorkerId ? 'PUT' : 'POST',
+      'workers',
+      workerDraft,
+      editingWorkerId || undefined
+    )
+
+    if (!ok) return
+    resetWorkerDraft()
+    showSaved('Worker saved')
+  }
+
+  const saveCompany = async () => {
+    setError('')
+    const validationError = validateCompany()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    const ok = await persistEntity(
+      editingCompanyId ? 'PUT' : 'POST',
+      'companies',
+      companyDraft,
+      editingCompanyId || undefined
+    )
+
+    if (!ok) return
+    resetCompanyDraft()
+    showSaved('Company saved')
+  }
+
+  const saveJobPost = async () => {
+    setError('')
+    const validationError = validateJobPost()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    const publishedAt = jobPostDraft.publishedAt || new Date().toISOString().slice(0, 10)
+    const payload = {
+      ...jobPostDraft,
+      publishedAt,
+      expiresAt: jobPostDraft.expiresAt || addDays(publishedAt, jobPostDraft.validityDays)
+    }
+
+    const ok = await persistEntity(
+      editingJobPostId ? 'PUT' : 'POST',
+      'jobPosts',
+      payload,
+      editingJobPostId || undefined
+    )
+
+    if (!ok) return
+    resetJobPostDraft()
+    showSaved('Job post saved')
   }
 
   return (
@@ -451,28 +1110,30 @@ export default function LabourExchangeAdminPage() {
         </div>
       )}
 
-      <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg,#0f172a,#1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: '800' }}>
             LX
           </div>
           <div>
             <p style={{ margin: 0, color: '#0f172a', fontSize: '15px', fontWeight: '700' }}>Labour Exchange</p>
-            <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>Admin control center for workers, companies, plans and job posts</p>
+            <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>
+              Dashboard, worker management, companies, categories, job posts, plans, reports and moderation.
+            </p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <Link href="/admin" style={{ background: '#ffffff', color: '#334155', border: '1px solid #dbe2ea', padding: '9px 14px', borderRadius: '10px', fontSize: '12px', fontWeight: '700', textDecoration: 'none' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <Link href="/admin" style={{ ...subtleButtonStyle, textDecoration: 'none' }}>
             Back To Admin
           </Link>
-          <button onClick={() => void fetchSnapshot()} style={{ background: '#0f172a', color: '#ffffff', border: 'none', padding: '9px 14px', borderRadius: '10px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
+          <button onClick={() => void fetchSnapshot()} style={primaryButtonStyle}>
             Refresh
           </button>
         </div>
       </div>
 
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '28px 32px 40px' }}>
-        <div style={{ ...cardStyle, marginBottom: '20px', padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+      <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '28px 32px 40px' }}>
+        <div style={{ ...cardStyle, marginBottom: '20px', padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <div>
             <p style={{ margin: '0 0 4px', fontSize: '12px', fontWeight: '700', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Storage Mode
@@ -483,38 +1144,28 @@ export default function LabourExchangeAdminPage() {
                 : 'This module is currently using the local JSON fallback because the Supabase labour tables do not exist yet.'}
             </p>
           </div>
-          {snapshot.storage === 'json' && (
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: '0 0 8px', color: '#64748b', fontSize: '12px' }}>
-                Run [labour-marketplace.sql](/C:/Users/neelu/Documents/New%20project/scalevyapar/supabase/labour-marketplace.sql:1) in the Supabase SQL editor, then sync the seed data.
-              </p>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {['categories', 'plans', 'workers', 'companies', 'jobPosts'].map(key => (
               <button
-                onClick={async () => {
-                  setError('')
-                  const response = await fetch('/api/admin/labour/sync', { method: 'POST' })
-                  const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
-                  if (!response.ok) {
-                    setError(data.error || 'Failed to sync labour data to Supabase.')
-                    return
-                  }
-                  replaceSnapshot(data.snapshot)
-                  showSaved('Labour data synced to Supabase')
-                }}
-                style={{ background: '#0f172a', color: '#ffffff', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}
+                key={key}
+                onClick={() => openAddForm(key as LabourSection)}
+                style={subtleButtonStyle}
               >
-                Sync To Supabase
+                Add {sectionLabels[key as LabourSection].slice(0, -1)}
               </button>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '16px', marginBottom: '22px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '16px', marginBottom: '22px' }}>
           {[
             { label: 'Active Workers', value: snapshot.stats.activeWorkers, accent: '#10b981' },
             { label: 'Inactive Workers', value: snapshot.stats.inactiveWorkers, accent: '#f59e0b' },
             { label: 'Active Companies', value: snapshot.stats.activeCompanies, accent: '#2563eb' },
             { label: 'Live Job Posts', value: snapshot.stats.liveJobPosts, accent: '#7c3aed' },
-            { label: 'Wallet Balance', value: formatCurrency(snapshot.stats.totalWalletBalance), accent: '#0f172a' }
+            { label: 'Expired Job Posts', value: expiredJobPostsCount, accent: '#dc2626' },
+            { label: 'Wallet Revenue', value: formatCurrency(walletRevenue), accent: '#0f172a' },
+            { label: 'Registration Revenue', value: formatCurrency(registrationRevenue), accent: '#1d4ed8' }
           ].map(card => (
             <div key={card.label} style={{ ...cardStyle, padding: '18px 20px' }}>
               <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{card.label}</p>
@@ -524,15 +1175,7 @@ export default function LabourExchangeAdminPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '10px', marginBottom: '22px', flexWrap: 'wrap' }}>
-          {[
-            ['overview', 'Overview'],
-            ['categories', 'Categories'],
-            ['plans', 'Plans'],
-            ['workers', 'Workers'],
-            ['companies', 'Companies'],
-            ['jobPosts', 'Job Posts'],
-            ['auditLogs', 'Audit Logs']
-          ].map(([key, label]) => (
+          {Object.entries(sectionLabels).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setActiveSection(key as LabourSection)}
@@ -553,57 +1196,109 @@ export default function LabourExchangeAdminPage() {
         </div>
 
         {activeSection === 'overview' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '20px' }}>
-            <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 10px', color: '#0f172a', fontSize: '20px' }}>Module scope ready for build-out</h2>
-              <p style={{ margin: '0 0 18px', color: '#475569', fontSize: '14px', lineHeight: 1.7 }}>
-                This admin module now gives you an editable control center for labour categories, worker and company plans, worker profiles, company accounts and job posts. Every create, update and delete action is logged in the audit trail below so we can keep financial and operational changes traceable.
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
-                {[
-                  `Categories: ${snapshot.categories.length}`,
-                  `Plans: ${snapshot.plans.length}`,
-                  `Workers: ${snapshot.workers.length}`,
-                  `Companies: ${snapshot.companies.length}`,
-                  `Job Posts: ${snapshot.jobPosts.length}`,
-                  `Audit Logs: ${snapshot.auditLogs.length}`
-                ].map(item => (
-                  <div key={item} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
-                    {item}
-                  </div>
-                ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
+            <div style={{ display: 'grid', gap: '20px' }}>
+              <div style={cardStyle}>
+                <h2 style={{ margin: '0 0 10px', color: '#0f172a', fontSize: '20px' }}>Admin module coverage</h2>
+                <p style={{ margin: '0 0 18px', color: '#475569', fontSize: '14px', lineHeight: 1.7 }}>
+                  This admin module now covers dashboard tracking, worker management, company management, categories, job posts, pricing plans, wallet transaction monitoring, recharge follow-up, reports and moderation.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                  {[
+                    `Categories: ${snapshot.categories.length}`,
+                    `Plans: ${snapshot.plans.length}`,
+                    `Workers: ${snapshot.workers.length}`,
+                    `Companies: ${snapshot.companies.length}`,
+                    `Job Posts: ${snapshot.jobPosts.length}`,
+                    `Wallet Entries: ${walletTransactions.length}`,
+                    `Recharge Follow-ups: ${rechargeRequests.length}`,
+                    `Audit Logs: ${snapshot.auditLogs.length}`
+                  ].map(item => (
+                    <div key={item} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
+                  <h3 style={{ margin: 0, color: '#0f172a', fontSize: '17px' }}>Category-wise demand</h3>
+                  <button onClick={() => setActiveSection('reports')} style={subtleButtonStyle}>Open Reports</button>
+                </div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {categoryDemandRows.map(row => (
+                    <div key={row.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                        <p style={{ margin: 0, color: '#0f172a', fontWeight: '700' }}>{row.name}</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{row.demandLevel} demand</p>
+                      </div>
+                      <p style={{ margin: '8px 0 0', color: '#475569', fontSize: '13px' }}>
+                        Active workers {row.activeWorkersCount} | Total workers {row.workersCount} | Companies {row.companiesCount} | Live jobs {row.liveJobsCount} | Expired jobs {row.expiredJobsCount}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div style={cardStyle}>
-              <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Recent admin activity</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {snapshot.stats.recentAuditLogs.length === 0 ? (
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No changes logged yet. Start editing the data and the audit trail will populate automatically.</p>
-                ) : (
-                  snapshot.stats.recentAuditLogs.map(log => (
-                    <div key={log.id} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
-                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>{log.summary}</p>
-                      <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>{log.actor} • {formatDateTime(log.createdAt)}</p>
-                    </div>
-                  ))
-                )}
+            <div style={{ display: 'grid', gap: '20px' }}>
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
+                  <h3 style={{ margin: 0, color: '#0f172a', fontSize: '17px' }}>Recent admin activity</h3>
+                  <button onClick={() => setActiveSection('auditLogs')} style={subtleButtonStyle}>Open Audit Logs</button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {snapshot.stats.recentAuditLogs.length === 0 ? (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No changes logged yet.</p>
+                  ) : (
+                    snapshot.stats.recentAuditLogs.map(log => (
+                      <div key={log.id} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>{log.summary}</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>{log.actor} | {formatDateTime(log.createdAt)}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
+                  <h3 style={{ margin: 0, color: '#0f172a', fontSize: '17px' }}>Moderation queue</h3>
+                  <button onClick={() => setActiveSection('reports')} style={subtleButtonStyle}>Open Moderation</button>
+                </div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {moderationQueue.length === 0 ? (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Nothing is waiting for moderation right now.</p>
+                  ) : (
+                    moderationQueue.map(item => (
+                      <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>{item.type}: {item.name}</p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px' }}>{item.city || 'No city'} | {titleCase(item.status)}</p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '12px' }}>{item.note}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {activeSection === 'categories' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '390px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>{editingCategoryId ? 'Edit Category' : 'Add Category'}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>{editingCategoryId ? 'Edit Category' : 'Add Category'}</h2>
+                <button onClick={resetCategoryDraft} style={subtleButtonStyle}>Add More</button>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div>
                   <label style={labelStyle}>Category Name *</label>
                   <input value={categoryDraft.name} onChange={event => setCategoryDraft(current => ({ ...current, name: event.target.value, slug: current.slug || slugify(event.target.value) }))} style={inputStyle} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Slug</label>
+                  <label style={labelStyle}>Slug *</label>
                   <input value={categoryDraft.slug} onChange={event => setCategoryDraft(current => ({ ...current, slug: slugify(event.target.value) }))} style={inputStyle} />
                 </div>
                 <div>
@@ -623,37 +1318,60 @@ export default function LabourExchangeAdminPage() {
                   Category is active
                 </label>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={saveCategory} style={{ background: '#0f172a', color: '#ffffff', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Save Category</button>
-                  <button onClick={() => { setCategoryDraft(blankCategory); setEditingCategoryId(null) }} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Reset</button>
+                  <button onClick={saveCategory} style={primaryButtonStyle}>Save Category</button>
+                  <button onClick={resetCategoryDraft} style={subtleButtonStyle}>Reset</button>
                 </div>
               </div>
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>Categories</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Categories</h2>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input placeholder="Search categories" value={categoryFilters.search} onChange={event => setCategoryFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                  <select value={categoryFilters.demand} onChange={event => setCategoryFilters(current => ({ ...current, demand: event.target.value as CategoryFilters['demand'] }))} style={{ ...inputStyle, width: '150px' }}>
+                    <option value="all">All Demand</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                  <select value={categoryFilters.activity} onChange={event => setCategoryFilters(current => ({ ...current, activity: event.target.value as CategoryFilters['activity'] }))} style={{ ...inputStyle, width: '150px' }}>
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
-                {snapshot.categories.map(category => (
-                  <div key={category.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                    <div>
-                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{category.name}</p>
-                      <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>{category.slug} • {category.demandLevel} demand • {category.isActive ? 'Active' : 'Inactive'}</p>
-                      <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{category.description}</p>
+                {filteredCategories.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No categories match the current filters.</p>
+                ) : (
+                  filteredCategories.map(category => (
+                    <div key={category.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                      <div>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{category.name}</p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>{category.slug} | {category.demandLevel} demand | {category.isActive ? 'Active' : 'Inactive'}</p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{category.description || 'No description yet.'}</p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <button onClick={() => { setCategoryDraft(category); setEditingCategoryId(category.id) }} style={subtleButtonStyle}>Edit</button>
+                        <button onClick={() => void removeEntity('categories', category.id, category.name)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <button onClick={() => { setCategoryDraft(category); setEditingCategoryId(category.id) }} style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #dbe2ea', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Edit</button>
-                      <button onClick={() => void removeEntity('categories', category.id, category.name)} style={{ background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Delete</button>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
         )}
 
         {activeSection === 'plans' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>{editingPlanId ? 'Edit Plan' : 'Add Plan'}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>{editingPlanId ? 'Edit Plan' : 'Add Plan'}</h2>
+                <button onClick={resetPlanDraft} style={subtleButtonStyle}>Add More</button>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div>
                   <label style={labelStyle}>Plan Name *</label>
@@ -680,25 +1398,25 @@ export default function LabourExchangeAdminPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>Registration Fee</label>
-                    <input type="number" value={planDraft.registrationFee} onChange={event => setPlanDraft(current => ({ ...current, registrationFee: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="0" value={planDraft.registrationFee} onChange={event => setPlanDraft(current => ({ ...current, registrationFee: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                   <div>
                     <label style={labelStyle}>Wallet Credit</label>
-                    <input type="number" value={planDraft.walletCredit} onChange={event => setPlanDraft(current => ({ ...current, walletCredit: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="0" value={planDraft.walletCredit} onChange={event => setPlanDraft(current => ({ ...current, walletCredit: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>Plan Amount</label>
-                    <input type="number" value={planDraft.planAmount} onChange={event => setPlanDraft(current => ({ ...current, planAmount: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="0" value={planDraft.planAmount} onChange={event => setPlanDraft(current => ({ ...current, planAmount: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                   <div>
                     <label style={labelStyle}>Validity Days</label>
-                    <input type="number" value={planDraft.validityDays} onChange={event => setPlanDraft(current => ({ ...current, validityDays: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="1" value={planDraft.validityDays} onChange={event => setPlanDraft(current => ({ ...current, validityDays: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                   <div>
                     <label style={labelStyle}>Daily Charge</label>
-                    <input type="number" value={planDraft.dailyCharge} onChange={event => setPlanDraft(current => ({ ...current, dailyCharge: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="0" value={planDraft.dailyCharge} onChange={event => setPlanDraft(current => ({ ...current, dailyCharge: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                 </div>
                 <div>
@@ -710,39 +1428,70 @@ export default function LabourExchangeAdminPage() {
                   Plan is active
                 </label>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={savePlan} style={{ background: '#0f172a', color: '#ffffff', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Save Plan</button>
-                  <button onClick={() => { setPlanDraft(blankPlan); setEditingPlanId(null) }} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Reset</button>
+                  <button onClick={savePlan} style={primaryButtonStyle}>Save Plan</button>
+                  <button onClick={resetPlanDraft} style={subtleButtonStyle}>Reset</button>
                 </div>
               </div>
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>Plans</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Plans</h2>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input placeholder="Search plans" value={planFilters.search} onChange={event => setPlanFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                  <select value={planFilters.audience} onChange={event => setPlanFilters(current => ({ ...current, audience: event.target.value as PlanFilters['audience'] }))} style={{ ...inputStyle, width: '130px' }}>
+                    <option value="all">All Audience</option>
+                    <option value="worker">Worker</option>
+                    <option value="company">Company</option>
+                  </select>
+                  <select value={planFilters.categoryId} onChange={event => setPlanFilters(current => ({ ...current, categoryId: event.target.value }))} style={{ ...inputStyle, width: '180px' }}>
+                    <option value="">All Categories</option>
+                    {snapshot.categories.map(category => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
+                  <select value={planFilters.activity} onChange={event => setPlanFilters(current => ({ ...current, activity: event.target.value as PlanFilters['activity'] }))} style={{ ...inputStyle, width: '130px' }}>
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
-                {snapshot.plans.map(plan => (
-                  <div key={plan.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                    <div>
-                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{plan.name}</p>
-                      <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                        {plan.audience} • {formatCurrency(plan.planAmount)} • {plan.validityDays} days • {plan.isActive ? 'Active' : 'Inactive'}
-                      </p>
-                      <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{plan.description || 'No description yet.'}</p>
+                {filteredPlans.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No plans match the current filters.</p>
+                ) : (
+                  filteredPlans.map(plan => (
+                    <div key={plan.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                      <div>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{plan.name}</p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                          {titleCase(plan.audience)} | {getCategoryName(plan.categoryId || '')} | {formatCurrency(plan.planAmount)} | {plan.validityDays} days | {plan.isActive ? 'Active' : 'Inactive'}
+                        </p>
+                        <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>{plan.description || 'No description yet.'}</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                          Registration {formatCurrency(plan.registrationFee)} | Wallet credit {formatCurrency(plan.walletCredit)} | Daily charge {formatCurrency(plan.dailyCharge)}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <button onClick={() => { setPlanDraft({ ...plan, categoryId: plan.categoryId || '' }); setEditingPlanId(plan.id) }} style={subtleButtonStyle}>Edit</button>
+                        <button onClick={() => void removeEntity('plans', plan.id, plan.name)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <button onClick={() => { setPlanDraft(plan); setEditingPlanId(plan.id) }} style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #dbe2ea', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Edit</button>
-                      <button onClick={() => void removeEntity('plans', plan.id, plan.name)} style={{ background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Delete</button>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
         )}
 
         {activeSection === 'workers' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '440px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>{editingWorkerId ? 'Edit Worker' : 'Add Worker'}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>{editingWorkerId ? 'Edit Worker' : 'Add Worker'}</h2>
+                <button onClick={resetWorkerDraft} style={subtleButtonStyle}>Add More</button>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
@@ -751,7 +1500,7 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div>
                     <label style={labelStyle}>Mobile *</label>
-                    <input value={workerDraft.mobile} onChange={event => setWorkerDraft(current => ({ ...current, mobile: event.target.value }))} style={inputStyle} />
+                    <input value={workerDraft.mobile} maxLength={10} onChange={event => setWorkerDraft(current => ({ ...current, mobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -761,41 +1510,39 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div>
                     <label style={labelStyle}>Experience Years</label>
-                    <input type="number" value={workerDraft.experienceYears} onChange={event => setWorkerDraft(current => ({ ...current, experienceYears: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="0" value={workerDraft.experienceYears} onChange={event => setWorkerDraft(current => ({ ...current, experienceYears: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>Expected Daily Wage</label>
-                    <input type="number" value={workerDraft.expectedDailyWage} onChange={event => setWorkerDraft(current => ({ ...current, expectedDailyWage: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="0" value={workerDraft.expectedDailyWage} onChange={event => setWorkerDraft(current => ({ ...current, expectedDailyWage: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                   <div>
                     <label style={labelStyle}>Wallet Balance</label>
-                    <input type="number" value={workerDraft.walletBalance} onChange={event => setWorkerDraft(current => ({ ...current, walletBalance: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="0" value={workerDraft.walletBalance} onChange={event => setWorkerDraft(current => ({ ...current, walletBalance: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>Status</label>
                     <select value={workerDraft.status} onChange={event => setWorkerDraft(current => ({ ...current, status: event.target.value as WorkerStatus }))} style={inputStyle}>
-                      <option value="pending">pending</option>
-                      <option value="active">active</option>
-                      <option value="inactive_wallet_empty">inactive_wallet_empty</option>
-                      <option value="inactive_subscription_expired">inactive_subscription_expired</option>
-                      <option value="blocked">blocked</option>
+                      {workerStatuses.map(status => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
                     <label style={labelStyle}>Availability</label>
                     <select value={workerDraft.availability} onChange={event => setWorkerDraft(current => ({ ...current, availability: event.target.value as WorkerAvailability }))} style={inputStyle}>
-                      <option value="available_today">available_today</option>
-                      <option value="available_this_week">available_this_week</option>
-                      <option value="not_available">not_available</option>
+                      {workerAvailabilityOptions.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
                 <div>
-                  <label style={labelStyle}>Categories</label>
+                  <label style={labelStyle}>Categories *</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     {snapshot.categories.map(category => (
                       <label key={category.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155' }}>
@@ -814,41 +1561,70 @@ export default function LabourExchangeAdminPage() {
                   Worker profile visible to companies
                 </label>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={saveWorker} style={{ background: '#0f172a', color: '#ffffff', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Save Worker</button>
-                  <button onClick={() => { setWorkerDraft(blankWorker); setEditingWorkerId(null) }} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Reset</button>
+                  <button onClick={saveWorker} style={primaryButtonStyle}>Save Worker</button>
+                  <button onClick={resetWorkerDraft} style={subtleButtonStyle}>Reset</button>
                 </div>
               </div>
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>Workers</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Workers</h2>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input placeholder="Search workers" value={workerFilters.search} onChange={event => setWorkerFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                  <select value={workerFilters.status} onChange={event => setWorkerFilters(current => ({ ...current, status: event.target.value as WorkerFilters['status'] }))} style={{ ...inputStyle, width: '210px' }}>
+                    <option value="all">All Status</option>
+                    {workerStatuses.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                  <select value={workerFilters.categoryId} onChange={event => setWorkerFilters(current => ({ ...current, categoryId: event.target.value }))} style={{ ...inputStyle, width: '180px' }}>
+                    <option value="">All Categories</option>
+                    {snapshot.categories.map(category => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
+                  <select value={workerFilters.visibility} onChange={event => setWorkerFilters(current => ({ ...current, visibility: event.target.value as WorkerFilters['visibility'] }))} style={{ ...inputStyle, width: '140px' }}>
+                    <option value="all">All Visibility</option>
+                    <option value="visible">Visible</option>
+                    <option value="hidden">Hidden</option>
+                  </select>
+                </div>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
-                {snapshot.workers.map(worker => (
-                  <div key={worker.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                    <div>
-                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{worker.fullName}</p>
-                      <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                        {worker.mobile} • {worker.city} • {worker.status} • {formatCurrency(worker.walletBalance)}
-                      </p>
-                      <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
-                        Categories: {worker.categoryIds.map(getCategoryName).join(', ') || 'None'} • Wage {formatCurrency(worker.expectedDailyWage)}
-                      </p>
+                {filteredWorkers.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No workers match the current filters.</p>
+                ) : (
+                  filteredWorkers.map(worker => (
+                    <div key={worker.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                      <div>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{worker.fullName}</p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                          {worker.mobile} | {worker.city || 'No city'} | {worker.status} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
+                        </p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                          Categories: {worker.categoryIds.map(getCategoryName).join(', ') || 'None'} | Wage {formatCurrency(worker.expectedDailyWage)} | Availability {worker.availability}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <button onClick={() => { setWorkerDraft(worker); setEditingWorkerId(worker.id) }} style={subtleButtonStyle}>Edit</button>
+                        <button onClick={() => void removeEntity('workers', worker.id, worker.fullName)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <button onClick={() => { setWorkerDraft(worker); setEditingWorkerId(worker.id) }} style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #dbe2ea', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Edit</button>
-                      <button onClick={() => void removeEntity('workers', worker.id, worker.fullName)} style={{ background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Delete</button>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
         )}
 
         {activeSection === 'companies' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '440px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>{editingCompanyId ? 'Edit Company' : 'Add Company'}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>{editingCompanyId ? 'Edit Company' : 'Add Company'}</h2>
+                <button onClick={resetCompanyDraft} style={subtleButtonStyle}>Add More</button>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
@@ -862,8 +1638,8 @@ export default function LabourExchangeAdminPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>Mobile</label>
-                    <input value={companyDraft.mobile} onChange={event => setCompanyDraft(current => ({ ...current, mobile: event.target.value }))} style={inputStyle} />
+                    <label style={labelStyle}>Mobile *</label>
+                    <input value={companyDraft.mobile} maxLength={10} onChange={event => setCompanyDraft(current => ({ ...current, mobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
                   </div>
                   <div>
                     <label style={labelStyle}>City</label>
@@ -871,7 +1647,7 @@ export default function LabourExchangeAdminPage() {
                   </div>
                 </div>
                 <div>
-                  <label style={labelStyle}>Categories</label>
+                  <label style={labelStyle}>Categories *</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     {snapshot.categories.map(category => (
                       <label key={category.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155' }}>
@@ -889,10 +1665,9 @@ export default function LabourExchangeAdminPage() {
                   <div>
                     <label style={labelStyle}>Status</label>
                     <select value={companyDraft.status} onChange={event => setCompanyDraft(current => ({ ...current, status: event.target.value as CompanyStatus }))} style={inputStyle}>
-                      <option value="pending">pending</option>
-                      <option value="active">active</option>
-                      <option value="inactive">inactive</option>
-                      <option value="blocked">blocked</option>
+                      {companyStatuses.map(status => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -910,41 +1685,70 @@ export default function LabourExchangeAdminPage() {
                   Registration fee paid
                 </label>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={saveCompany} style={{ background: '#0f172a', color: '#ffffff', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Save Company</button>
-                  <button onClick={() => { setCompanyDraft(blankCompany); setEditingCompanyId(null) }} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Reset</button>
+                  <button onClick={saveCompany} style={primaryButtonStyle}>Save Company</button>
+                  <button onClick={resetCompanyDraft} style={subtleButtonStyle}>Reset</button>
                 </div>
               </div>
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>Companies</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Companies</h2>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input placeholder="Search companies" value={companyFilters.search} onChange={event => setCompanyFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                  <select value={companyFilters.status} onChange={event => setCompanyFilters(current => ({ ...current, status: event.target.value as CompanyFilters['status'] }))} style={{ ...inputStyle, width: '150px' }}>
+                    <option value="all">All Status</option>
+                    {companyStatuses.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                  <select value={companyFilters.categoryId} onChange={event => setCompanyFilters(current => ({ ...current, categoryId: event.target.value }))} style={{ ...inputStyle, width: '180px' }}>
+                    <option value="">All Categories</option>
+                    {snapshot.categories.map(category => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
+                  <select value={companyFilters.fee} onChange={event => setCompanyFilters(current => ({ ...current, fee: event.target.value as CompanyFilters['fee'] }))} style={{ ...inputStyle, width: '150px' }}>
+                    <option value="all">All Fee Status</option>
+                    <option value="paid">Fee Paid</option>
+                    <option value="pending">Fee Pending</option>
+                  </select>
+                </div>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
-                {snapshot.companies.map(company => (
-                  <div key={company.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                    <div>
-                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{company.companyName}</p>
-                      <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                        {company.contactPerson} • {company.city} • {company.status} • {company.registrationFeePaid ? 'Fee Paid' : 'Fee Pending'}
-                      </p>
-                      <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
-                        Categories: {company.categoryIds.map(getCategoryName).join(', ') || 'None'} • Plan {getPlanName(company.activePlan)}
-                      </p>
+                {filteredCompanies.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No companies match the current filters.</p>
+                ) : (
+                  filteredCompanies.map(company => (
+                    <div key={company.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                      <div>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{company.companyName}</p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                          {company.contactPerson} | {company.city || 'No city'} | {company.status} | {company.registrationFeePaid ? 'Fee paid' : 'Fee pending'}
+                        </p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                          Categories: {company.categoryIds.map(getCategoryName).join(', ') || 'None'} | Plan {getPlanName(company.activePlan)}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <button onClick={() => { setCompanyDraft(company); setEditingCompanyId(company.id) }} style={subtleButtonStyle}>Edit</button>
+                        <button onClick={() => void removeEntity('companies', company.id, company.companyName)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <button onClick={() => { setCompanyDraft(company); setEditingCompanyId(company.id) }} style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #dbe2ea', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Edit</button>
-                      <button onClick={() => void removeEntity('companies', company.id, company.companyName)} style={{ background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Delete</button>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
         )}
 
         {activeSection === 'jobPosts' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '450px 1fr', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '460px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>{editingJobPostId ? 'Edit Job Post' : 'Add Job Post'}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>{editingJobPostId ? 'Edit Job Post' : 'Add Job Post'}</h2>
+                <button onClick={resetJobPostDraft} style={subtleButtonStyle}>Add More</button>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div>
                   <label style={labelStyle}>Job Title *</label>
@@ -981,25 +1785,24 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div>
                     <label style={labelStyle}>Workers Needed</label>
-                    <input type="number" value={jobPostDraft.workersNeeded} onChange={event => setJobPostDraft(current => ({ ...current, workersNeeded: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="1" value={jobPostDraft.workersNeeded} onChange={event => setJobPostDraft(current => ({ ...current, workersNeeded: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>Wage Amount</label>
-                    <input type="number" value={jobPostDraft.wageAmount} onChange={event => setJobPostDraft(current => ({ ...current, wageAmount: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="0" value={jobPostDraft.wageAmount} onChange={event => setJobPostDraft(current => ({ ...current, wageAmount: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                   <div>
                     <label style={labelStyle}>Validity Days</label>
-                    <input type="number" value={jobPostDraft.validityDays} onChange={event => setJobPostDraft(current => ({ ...current, validityDays: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="1" value={jobPostDraft.validityDays} onChange={event => setJobPostDraft(current => ({ ...current, validityDays: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                   <div>
                     <label style={labelStyle}>Status</label>
                     <select value={jobPostDraft.status} onChange={event => setJobPostDraft(current => ({ ...current, status: event.target.value as JobPostStatus }))} style={inputStyle}>
-                      <option value="draft">draft</option>
-                      <option value="live">live</option>
-                      <option value="expired">expired</option>
-                      <option value="paused">paused</option>
+                      {jobPostStatuses.map(status => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -1014,33 +1817,327 @@ export default function LabourExchangeAdminPage() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={saveJobPost} style={{ background: '#0f172a', color: '#ffffff', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Save Job Post</button>
-                  <button onClick={() => { setJobPostDraft(blankJobPost); setEditingJobPostId(null) }} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Reset</button>
+                  <button onClick={saveJobPost} style={primaryButtonStyle}>Save Job Post</button>
+                  <button onClick={resetJobPostDraft} style={subtleButtonStyle}>Reset</button>
                 </div>
               </div>
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>Job Posts</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Job Posts</h2>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input placeholder="Search job posts" value={jobFilters.search} onChange={event => setJobFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                  <select value={jobFilters.status} onChange={event => setJobFilters(current => ({ ...current, status: event.target.value as JobFilters['status'] }))} style={{ ...inputStyle, width: '150px' }}>
+                    <option value="all">All Status</option>
+                    {jobPostStatuses.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                  <select value={jobFilters.categoryId} onChange={event => setJobFilters(current => ({ ...current, categoryId: event.target.value }))} style={{ ...inputStyle, width: '180px' }}>
+                    <option value="">All Categories</option>
+                    {snapshot.categories.map(category => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
+                  <select value={jobFilters.companyId} onChange={event => setJobFilters(current => ({ ...current, companyId: event.target.value }))} style={{ ...inputStyle, width: '180px' }}>
+                    <option value="">All Companies</option>
+                    {snapshot.companies.map(company => (
+                      <option key={company.id} value={company.id}>{company.companyName}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
-                {snapshot.jobPosts.map(jobPost => (
-                  <div key={jobPost.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                {filteredJobPosts.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No job posts match the current filters.</p>
+                ) : (
+                  filteredJobPosts.map(jobPost => {
+                    const effectiveStatus = isExpiredJobPost(jobPost) ? 'expired' : jobPost.status
+
+                    return (
+                      <div key={jobPost.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                        <div>
+                          <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{jobPost.title}</p>
+                          <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                            {getCompanyName(jobPost.companyId)} | {getCategoryName(jobPost.categoryId)} | {jobPost.city || 'No city'} | {effectiveStatus}
+                          </p>
+                          <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>{jobPost.description || 'No description yet.'}</p>
+                          <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                            {jobPost.workersNeeded} workers | {formatCurrency(jobPost.wageAmount)} | {jobPost.validityDays} days | {formatDate(jobPost.publishedAt)} to {formatDate(jobPost.expiresAt)}
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                          <button onClick={() => { setJobPostDraft(jobPost); setEditingJobPostId(jobPost.id) }} style={subtleButtonStyle}>Edit</button>
+                          <button onClick={() => void removeEntity('jobPosts', jobPost.id, jobPost.title)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'walletTransactions' && (
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Wallet and transaction ledger</h2>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                  Monitor registration collections, worker wallet deductions and company plan purchases in one place.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <input placeholder="Search ledger" value={walletFilters.search} onChange={event => setWalletFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                <select value={walletFilters.audience} onChange={event => setWalletFilters(current => ({ ...current, audience: event.target.value as WalletFilters['audience'] }))} style={{ ...inputStyle, width: '140px' }}>
+                  <option value="all">All Audience</option>
+                  <option value="worker">Worker</option>
+                  <option value="company">Company</option>
+                </select>
+                <select value={walletFilters.transactionType} onChange={event => setWalletFilters(current => ({ ...current, transactionType: event.target.value as WalletFilters['transactionType'] }))} style={{ ...inputStyle, width: '170px' }}>
+                  <option value="all">All Types</option>
+                  <option value="registration_fee">Registration Fee</option>
+                  <option value="wallet_deduction">Wallet Deduction</option>
+                  <option value="plan_purchase">Plan Purchase</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '14px', marginBottom: '18px' }}>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
+                <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Wallet Revenue</p>
+                <p style={{ margin: 0, color: '#0f172a', fontWeight: '800', fontSize: '24px' }}>{formatCurrency(walletRevenue)}</p>
+              </div>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
+                <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Registration Revenue</p>
+                <p style={{ margin: 0, color: '#1d4ed8', fontWeight: '800', fontSize: '24px' }}>{formatCurrency(registrationRevenue)}</p>
+              </div>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
+                <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current Worker Wallet Balance</p>
+                <p style={{ margin: 0, color: '#059669', fontWeight: '800', fontSize: '24px' }}>{formatCurrency(snapshot.stats.totalWalletBalance)}</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {filteredWalletTransactions.length === 0 ? (
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No transactions match the current filters.</p>
+              ) : (
+                filteredWalletTransactions.map(transaction => (
+                  <div key={transaction.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'grid', gridTemplateColumns: '1.4fr 0.7fr 0.7fr 0.6fr 0.8fr', gap: '10px', alignItems: 'center' }}>
                     <div>
-                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{jobPost.title}</p>
-                      <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                        {getCompanyName(jobPost.companyId)} • {getCategoryName(jobPost.categoryId)} • {jobPost.city} • {jobPost.status}
-                      </p>
-                      <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>{jobPost.description}</p>
+                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{transaction.entityName}</p>
                       <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
-                        {jobPost.workersNeeded} workers • {formatCurrency(jobPost.wageAmount)} • {jobPost.validityDays} days • {jobPost.publishedAt} to {jobPost.expiresAt}
+                        {titleCase(transaction.entityType)} | {titleCase(transaction.transactionType)} | {transaction.reference}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <button onClick={() => { setJobPostDraft(jobPost); setEditingJobPostId(jobPost.id) }} style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #dbe2ea', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Edit</button>
-                      <button onClick={() => void removeEntity('jobPosts', jobPost.id, jobPost.title)} style={{ background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Delete</button>
-                    </div>
+                    <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{transaction.city || 'No city'}</p>
+                    <p style={{ margin: 0, color: transaction.direction === 'credit' ? '#0f766e' : '#b45309', fontSize: '13px', fontWeight: '700' }}>
+                      {transaction.direction === 'credit' ? '+' : '-'} {formatCurrency(transaction.amount)}
+                    </p>
+                    <p style={{ margin: 0, color: transaction.status === 'attention' ? '#b45309' : '#2563eb', fontSize: '12px', fontWeight: '700' }}>
+                      {titleCase(transaction.status)}
+                    </p>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{formatDateTime(transaction.createdAt)}</p>
                   </div>
-                ))}
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'rechargeRequests' && (
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Recharge requests and fee follow-up</h2>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                  This queue highlights workers who need a recharge and companies that still need payment or activation follow-up.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <input placeholder="Search requests" value={rechargeFilters.search} onChange={event => setRechargeFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                <select value={rechargeFilters.priority} onChange={event => setRechargeFilters(current => ({ ...current, priority: event.target.value as RechargeFilters['priority'] }))} style={{ ...inputStyle, width: '130px' }}>
+                  <option value="all">All Priority</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+                <select value={rechargeFilters.type} onChange={event => setRechargeFilters(current => ({ ...current, type: event.target.value as RechargeFilters['type'] }))} style={{ ...inputStyle, width: '170px' }}>
+                  <option value="all">All Types</option>
+                  <option value="worker_recharge">Worker Recharge</option>
+                  <option value="company_follow_up">Company Follow-up</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {filteredRechargeRequests.length === 0 ? (
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No recharge or follow-up requests match the current filters.</p>
+              ) : (
+                filteredRechargeRequests.map(request => (
+                  <div key={request.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 0.7fr 0.7fr 1.5fr', gap: '10px', alignItems: 'center' }}>
+                    <div>
+                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{request.name}</p>
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{titleCase(request.requestType)} | {request.statusLabel}</p>
+                    </div>
+                    <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{request.city || 'No city'}</p>
+                    <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{request.categoryLabel}</p>
+                    <p style={{ margin: 0, color: request.priority === 'high' ? '#b91c1c' : request.priority === 'medium' ? '#b45309' : '#2563eb', fontSize: '12px', fontWeight: '700' }}>
+                      {titleCase(request.priority)}
+                    </p>
+                    <p style={{ margin: 0, color: '#334155', fontSize: '13px' }}>
+                      {request.note} Suggested amount {formatCurrency(request.suggestedAmount)}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'reports' && (
+          <div style={{ display: 'grid', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '20px' }}>
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Worker status breakdown</h3>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {workerStatusBreakdown.map(item => (
+                    <div key={item.status} style={{ display: 'flex', justifyContent: 'space-between', color: '#334155', fontSize: '13px' }}>
+                      <span>{titleCase(item.status)}</span>
+                      <strong>{item.count}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Company status breakdown</h3>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {companyStatusBreakdown.map(item => (
+                    <div key={item.status} style={{ display: 'flex', justifyContent: 'space-between', color: '#334155', fontSize: '13px' }}>
+                      <span>{titleCase(item.status)}</span>
+                      <strong>{item.count}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Job post lifecycle</h3>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {jobLifecycleBreakdown.map(item => (
+                    <div key={item.status} style={{ display: 'flex', justifyContent: 'space-between', color: '#334155', fontSize: '13px' }}>
+                      <span>{titleCase(item.status)}</span>
+                      <strong>{item.count}</strong>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155', fontSize: '13px' }}>
+                    <span>Expired by date</span>
+                    <strong>{expiredJobPostsCount}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Category performance</h3>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {categoryDemandRows.map(row => (
+                    <div key={row.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                        <p style={{ margin: 0, color: '#0f172a', fontWeight: '700' }}>{row.name}</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>Demand score {row.demandScore}</p>
+                      </div>
+                      <p style={{ margin: '8px 0 0', color: '#475569', fontSize: '13px' }}>
+                        Active workers {row.activeWorkersCount} | Live jobs {row.liveJobsCount} | Companies {row.companiesCount} | Expired jobs {row.expiredJobsCount}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Moderation queue</h3>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {moderationQueue.length === 0 ? (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No moderation items right now.</p>
+                  ) : (
+                    moderationQueue.map(item => (
+                      <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>{item.type}: {item.name}</p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px' }}>{item.city || 'No city'} | {titleCase(item.status)}</p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '12px' }}>{item.note}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'settings' && (
+          <div style={{ display: 'grid', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '20px' }}>
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Worker status model</h3>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {workerStatuses.map(status => (
+                    <div key={status} style={{ display: 'flex', justifyContent: 'space-between', color: '#334155', fontSize: '13px' }}>
+                      <span>{titleCase(status)}</span>
+                      <strong>{snapshot.workers.filter(worker => worker.status === status).length}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Company status model</h3>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {companyStatuses.map(status => (
+                    <div key={status} style={{ display: 'flex', justifyContent: 'space-between', color: '#334155', fontSize: '13px' }}>
+                      <span>{titleCase(status)}</span>
+                      <strong>{snapshot.companies.filter(company => company.status === status).length}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Operational pricing rules</h3>
+                <div style={{ display: 'grid', gap: '8px', color: '#334155', fontSize: '13px' }}>
+                  <div>Worker registration revenue: {formatCurrency(workerRegistrationRevenue)}</div>
+                  <div>Worker wallet revenue: {formatCurrency(workerWalletRevenue)}</div>
+                  <div>Company registration revenue: {formatCurrency(companyRegistrationRevenue)}</div>
+                  <div>Company plan revenue: {formatCurrency(companyPlanRevenue)}</div>
+                  <div>Current wallet balance: {formatCurrency(snapshot.stats.totalWalletBalance)}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                    <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
+                      Open {sectionLabels[section]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Admin guidance</h3>
+                <div style={{ display: 'grid', gap: '10px', color: '#475569', fontSize: '13px', lineHeight: 1.7 }}>
+                  <p style={{ margin: 0 }}>Use Categories to add new labour types like stitching karighar, embroidery worker, electrician, printer labour, constructor labour or machine setup staff.</p>
+                  <p style={{ margin: 0 }}>Use Plans to edit registration fees, wallet credits, daily deduction values and company posting plans.</p>
+                  <p style={{ margin: 0 }}>Use Workers and Companies to moderate visibility, block bad actors, activate pending records and manage assigned categories.</p>
+                  <p style={{ margin: 0 }}>Use Reports and Wallet Transactions to review category demand, fee recovery, expired job posts and follow-up queues.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -1048,16 +2145,27 @@ export default function LabourExchangeAdminPage() {
 
         {activeSection === 'auditLogs' && (
           <div style={cardStyle}>
-            <h2 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '18px' }}>Audit Logs</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+              <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Audit Logs</h2>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <input placeholder="Search logs" value={auditFilters.search} onChange={event => setAuditFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                <select value={auditFilters.entityType} onChange={event => setAuditFilters(current => ({ ...current, entityType: event.target.value }))} style={{ ...inputStyle, width: '170px' }}>
+                  <option value="all">All Entities</option>
+                  {Array.from(new Set(snapshot.auditLogs.map(log => log.entityType))).map(entityType => (
+                    <option key={entityType} value={entityType}>{entityType}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div style={{ display: 'grid', gap: '10px' }}>
-              {snapshot.auditLogs.length === 0 ? (
-                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No audit logs yet.</p>
+              {filteredAuditLogs.length === 0 ? (
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No audit logs match the current filters.</p>
               ) : (
-                snapshot.auditLogs.map(log => (
+                filteredAuditLogs.map(log => (
                   <div key={log.id} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', gap: '14px' }}>
                     <div>
                       <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>{log.summary}</p>
-                      <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>{log.action.toUpperCase()} • {log.entityType} • {log.entityId}</p>
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>{log.action.toUpperCase()} | {log.entityType} | {log.entityId}</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <p style={{ margin: '0 0 4px', color: '#334155', fontSize: '12px', fontWeight: '600' }}>{log.actor}</p>

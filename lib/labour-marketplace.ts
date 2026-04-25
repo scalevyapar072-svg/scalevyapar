@@ -3,7 +3,7 @@ import path from 'path'
 import { supabaseAdmin } from './supabase-admin'
 
 export type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts'
-export type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked'
+export type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked' | 'rejected'
 export type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 export type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
 export type PlanAudience = 'worker' | 'company'

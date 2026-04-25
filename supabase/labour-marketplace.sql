@@ -33,13 +33,20 @@ create table if not exists public.labour_workers (
   experience_years numeric(6, 2) not null default 0,
   expected_daily_wage numeric(10, 2) not null default 0,
   wallet_balance numeric(10, 2) not null default 0,
-  status text not null default 'pending' check (status in ('pending', 'active', 'inactive_wallet_empty', 'inactive_subscription_expired', 'blocked')),
+  status text not null default 'pending' check (status in ('pending', 'active', 'inactive_wallet_empty', 'inactive_subscription_expired', 'blocked', 'rejected')),
   availability text not null default 'available_today' check (availability in ('available_today', 'available_this_week', 'not_available')),
   is_visible boolean not null default true,
   category_ids text[] not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.labour_workers
+drop constraint if exists labour_workers_status_check;
+
+alter table if exists public.labour_workers
+add constraint labour_workers_status_check
+check (status in ('pending', 'active', 'inactive_wallet_empty', 'inactive_subscription_expired', 'blocked', 'rejected'));
 
 create table if not exists public.labour_companies (
   id text primary key,

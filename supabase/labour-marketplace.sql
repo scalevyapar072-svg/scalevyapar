@@ -30,6 +30,7 @@ create table if not exists public.labour_workers (
   full_name text not null,
   mobile text not null unique,
   city text,
+  skills text[] not null default '{}',
   experience_years numeric(6, 2) not null default 0,
   expected_daily_wage numeric(10, 2) not null default 0,
   wallet_balance numeric(10, 2) not null default 0,
@@ -120,6 +121,17 @@ create table if not exists public.labour_website_content (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.labour_worker_auth_sessions (
+  id text primary key,
+  mobile text not null,
+  worker_id text not null,
+  otp_code text not null,
+  expires_at timestamptz not null,
+  is_verified boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.labour_audit_logs (
   id text primary key,
   action text not null check (action in ('create', 'update', 'delete')),
@@ -147,4 +159,5 @@ create index if not exists idx_labour_wallet_transactions_entity_type on public.
 create index if not exists idx_labour_recharge_requests_status on public.labour_recharge_requests(request_status);
 create index if not exists idx_labour_recharge_requests_priority on public.labour_recharge_requests(priority);
 create index if not exists idx_labour_website_content_page_key on public.labour_website_content(page_key);
+create index if not exists idx_labour_worker_auth_sessions_mobile on public.labour_worker_auth_sessions(mobile);
 create index if not exists idx_labour_audit_logs_created_at on public.labour_audit_logs(created_at desc);

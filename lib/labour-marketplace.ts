@@ -56,6 +56,7 @@ export interface LabourWorkerRecord {
   fullName: string
   mobile: string
   city: string
+  skills: string[]
   experienceYears: number
   expectedDailyWage: number
   walletBalance: number
@@ -271,6 +272,7 @@ const defaultData: LabourMarketplaceData = {
       fullName: 'Sajid Ansari',
       mobile: '9876543210',
       city: 'Surat',
+      skills: ['Ladies kurti stitching', 'Machine handling', 'Finishing'],
       experienceYears: 6,
       expectedDailyWage: 950,
       walletBalance: 40,
@@ -286,6 +288,7 @@ const defaultData: LabourMarketplaceData = {
       fullName: 'Rahul Sahu',
       mobile: '9812345678',
       city: 'Jaipur',
+      skills: ['Site wiring', 'Repair work'],
       experienceYears: 3,
       expectedDailyWage: 800,
       walletBalance: 0,
@@ -529,6 +532,7 @@ const mapWorkerRow = (row: {
   full_name: string
   mobile: string
   city: string | null
+  skills: string[] | null
   experience_years: number | null
   expected_daily_wage: number | null
   wallet_balance: number | null
@@ -543,6 +547,7 @@ const mapWorkerRow = (row: {
   fullName: row.full_name,
   mobile: row.mobile,
   city: row.city || '',
+  skills: row.skills || [],
   experienceYears: row.experience_years ?? 0,
   expectedDailyWage: row.expected_daily_wage ?? 0,
   walletBalance: row.wallet_balance ?? 0,
@@ -763,6 +768,7 @@ const normalizeWorker = (
     fullName: String(payload.fullName || existing?.fullName || '').trim(),
     mobile: String(payload.mobile || existing?.mobile || '').trim(),
     city: String(payload.city || existing?.city || '').trim(),
+    skills: toStringArray(payload.skills || existing?.skills || []),
     experienceYears: toNumber(payload.experienceYears, existing?.experienceYears ?? 0),
     expectedDailyWage: toNumber(payload.expectedDailyWage, existing?.expectedDailyWage ?? 0),
     walletBalance: toNumber(payload.walletBalance, existing?.walletBalance ?? 0),
@@ -1050,6 +1056,7 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     full_name: worker.fullName,
     mobile: worker.mobile,
     city: worker.city,
+    skills: worker.skills,
     experience_years: worker.experienceYears,
     expected_daily_wage: worker.expectedDailyWage,
     wallet_balance: worker.walletBalance,
@@ -1319,6 +1326,7 @@ export const createLabourEntity = async (
         full_name: record.fullName,
         mobile: record.mobile,
         city: record.city,
+        skills: record.skills,
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
         wallet_balance: record.walletBalance,
@@ -1542,6 +1550,7 @@ export const updateLabourEntity = async (
         full_name: record.fullName,
         mobile: record.mobile,
         city: record.city,
+        skills: record.skills,
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
         wallet_balance: record.walletBalance,

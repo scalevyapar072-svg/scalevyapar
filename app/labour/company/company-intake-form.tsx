@@ -22,6 +22,10 @@ type PlanOption = {
 type Props = {
   categories: CategoryOption[]
   plans: PlanOption[]
+  heading?: string
+  description?: string
+  submitLabel?: string
+  accentColor?: string
 }
 
 type FormState = {
@@ -56,7 +60,14 @@ const initialState: FormState = {
 
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
 
-export function CompanyIntakeForm({ categories, plans }: Props) {
+export function CompanyIntakeForm({
+  categories,
+  plans,
+  heading = 'Post Your Labour Requirement',
+  description = 'Submit your company details and first hiring requirement. We will review the enquiry, activate your company profile, and publish the requirement.',
+  submitLabel = 'Submit Company Requirement',
+  accentColor = '#0f172a'
+}: Props) {
   const [form, setForm] = useState<FormState>(initialState)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -133,9 +144,9 @@ export function CompanyIntakeForm({ categories, plans }: Props) {
   return (
     <div style={{ background: '#ffffff', border: '1px solid #dbe2ea', borderRadius: '24px', padding: '24px', boxShadow: '0 16px 40px rgba(15, 23, 42, 0.08)' }}>
       <div style={{ marginBottom: '18px' }}>
-        <p style={{ margin: '0 0 6px', color: '#0f172a', fontWeight: '800', fontSize: '20px' }}>Post Your Labour Requirement</p>
+        <p style={{ margin: '0 0 6px', color: '#0f172a', fontWeight: '800', fontSize: '20px' }}>{heading}</p>
         <p style={{ margin: 0, color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
-          Submit your company details and first hiring requirement. We will review the enquiry, activate your company profile, and publish the requirement.
+          {description}
         </p>
       </div>
 
@@ -244,8 +255,8 @@ export function CompanyIntakeForm({ categories, plans }: Props) {
           </div>
         </div>
 
-        <button type="submit" disabled={submitting} style={{ background: submitting ? '#94a3b8' : '#0f172a', color: '#ffffff', border: 'none', borderRadius: '14px', padding: '14px 18px', fontSize: '14px', fontWeight: '800', cursor: submitting ? 'not-allowed' : 'pointer' }}>
-          {submitting ? 'Submitting Requirement...' : 'Submit Company Requirement'}
+        <button type="submit" disabled={submitting} style={{ background: submitting ? '#94a3b8' : accentColor, color: '#ffffff', border: 'none', borderRadius: '14px', padding: '14px 18px', fontSize: '14px', fontWeight: '800', cursor: submitting ? 'not-allowed' : 'pointer' }}>
+          {submitting ? 'Submitting Requirement...' : submitLabel}
         </button>
       </form>
     </div>

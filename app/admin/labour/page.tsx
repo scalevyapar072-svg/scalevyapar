@@ -1193,6 +1193,9 @@ export default function LabourExchangeAdminPage() {
                 Add {sectionLabels[key as LabourSection].slice(0, -1)}
               </button>
             ))}
+            <a href="/admin/labour/website" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+              Edit Website
+            </a>
           </div>
         </div>
 
@@ -2393,6 +2396,25 @@ export default function LabourExchangeAdminPage() {
                   <p style={{ margin: 0 }}>Use Plans to edit registration fees, wallet credits, daily deduction values and company posting plans.</p>
                   <p style={{ margin: 0 }}>Use Workers and Companies to moderate visibility, block bad actors, activate pending records and manage assigned categories.</p>
                   <p style={{ margin: 0 }}>Use Reports and Wallet Transactions to review category demand, fee recovery, expired job posts and follow-up queues.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '17px' }}>Editable company website</h3>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px', lineHeight: 1.7 }}>
+                    Manage the public labour company website layout, content blocks, FAQs, CTAs and section order from the website editor.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <a href="/admin/labour/website" style={{ ...primaryButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                    Open Website Editor
+                  </a>
+                  <a href="/labour/company" target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                    Preview Website
+                  </a>
                 </div>
               </div>
             </div>

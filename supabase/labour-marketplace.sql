@@ -112,6 +112,14 @@ create table if not exists public.labour_recharge_requests (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.labour_website_content (
+  id text primary key,
+  page_key text not null unique,
+  title text not null,
+  content_json jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.labour_audit_logs (
   id text primary key,
   action text not null check (action in ('create', 'update', 'delete')),
@@ -138,4 +146,5 @@ create index if not exists idx_labour_wallet_transactions_created_at on public.l
 create index if not exists idx_labour_wallet_transactions_entity_type on public.labour_wallet_transactions(entity_type);
 create index if not exists idx_labour_recharge_requests_status on public.labour_recharge_requests(request_status);
 create index if not exists idx_labour_recharge_requests_priority on public.labour_recharge_requests(priority);
+create index if not exists idx_labour_website_content_page_key on public.labour_website_content(page_key);
 create index if not exists idx_labour_audit_logs_created_at on public.labour_audit_logs(created_at desc);

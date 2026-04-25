@@ -1,0 +1,90 @@
+create table if not exists public.labour_categories (
+  id text primary key,
+  name text not null,
+  slug text not null unique,
+  description text,
+  demand_level text not null default 'medium' check (demand_level in ('high', 'medium', 'low')),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.labour_plans (
+  id text primary key,
+  audience text not null check (audience in ('worker', 'company')),
+  name text not null,
+  category_id text references public.labour_categories(id) on delete set null,
+  registration_fee numeric(10, 2) not null default 0,
+  wallet_credit numeric(10, 2) not null default 0,
+  plan_amount numeric(10, 2) not null default 0,
+  validity_days integer not null default 0,
+  daily_charge numeric(10, 2) not null default 0,
+  description text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.labour_workers (
+  id text primary key,
+  full_name text not null,
+  mobile text not null unique,
+  city text,
+  experience_years numeric(6, 2) not null default 0,
+  expected_daily_wage numeric(10, 2) not null default 0,
+  wallet_balance numeric(10, 2) not null default 0,
+  status text not null default 'pending' check (status in ('pending', 'active', 'inactive_wallet_empty', 'inactive_subscription_expired', 'blocked')),
+  availability text not null default 'available_today' check (availability in ('available_today', 'available_this_week', 'not_available')),
+  is_visible boolean not null default true,
+  category_ids text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.labour_companies (
+  id text primary key,
+  company_name text not null,
+  contact_person text not null,
+  mobile text not null unique,
+  city text,
+  category_ids text[] not null default '{}',
+  status text not null default 'pending' check (status in ('pending', 'active', 'inactive', 'blocked')),
+  registration_fee_paid boolean not null default false,
+  active_plan text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.labour_job_posts (
+  id text primary key,
+  company_id text not null references public.labour_companies(id) on delete cascade,
+  category_id text not null references public.labour_categories(id) on delete restrict,
+  title text not null,
+  description text,
+  city text,
+  workers_needed integer not null default 1,
+  wage_amount numeric(10, 2) not null default 0,
+  validity_days integer not null default 3,
+  status text not null default 'draft' check (status in ('draft', 'live', 'expired', 'paused')),
+  published_at date,
+  expires_at date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.labour_audit_logs (
+  id text primary key,
+  action text not null check (action in ('create', 'update', 'delete')),
+  entity_type text not null check (entity_type in ('categories', 'plans', 'workers', 'companies', 'jobPosts')),
+  entity_id text not null,
+  summary text not null,
+  actor text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_labour_categories_active on public.labour_categories(is_active);
+create index if not exists idx_labour_plans_audience on public.labour_plans(audience);
+create index if not exists idx_labour_workers_status on public.labour_workers(status);
+create index if not exists idx_labour_companies_status on public.labour_companies(status);
+create index if not exists idx_labour_job_posts_status on public.labour_job_posts(status);
+create index if not exists idx_labour_audit_logs_created_at on public.labour_audit_logs(created_at desc);

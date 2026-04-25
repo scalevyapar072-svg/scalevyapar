@@ -465,6 +465,9 @@ export default function AdminPanel() {
           <span style={{ background: '#f8fafc', color: '#334155', fontSize: '11px', padding: '4px 10px', borderRadius: '99px', border: '1px solid #e2e8f0', fontWeight: '600' }}>Admin Panel</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Link href="/admin/labour" style={{ background: '#0f172a', color: '#ffffff', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', textDecoration: 'none' }}>
+            Labour Exchange
+          </Link>
           <span style={{ color: '#64748b', fontSize: '13px' }}>admin@scalevyapar.com</span>
           <button onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login' }} style={{ background: '#ffffff', color: '#334155', border: '1px solid #dbe2ea', fontSize: '12px', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
             Logout

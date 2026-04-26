@@ -22,6 +22,7 @@ const OTP_DATA_FILE_PATH = path.join(process.cwd(), 'data', 'labour-worker-auth.
 const OTP_TABLE_NAME = 'labour_worker_auth_sessions'
 const OTP_EXPIRY_MINUTES = 10
 const DEV_OTP_CODE = process.env.LABOUR_WORKER_STATIC_OTP || '123456'
+const ALLOW_STATELESS_DEMO_OTP = DEV_OTP_CODE.trim().length > 0
 
 type WorkerAuthSession = {
   id: string
@@ -135,6 +136,8 @@ const readJsonOtpStore = async (): Promise<WorkerAuthStore> => {
 const writeJsonOtpStore = async (store: WorkerAuthStore) => {
   await fs.writeFile(OTP_DATA_FILE_PATH, JSON.stringify(store, null, 2), 'utf8')
 }
+
+const supportsStatelessDemoOtp = () => ALLOW_STATELESS_DEMO_OTP
 
 const isMissingSupabaseTableError = (message: string | undefined) =>
   typeof message === 'string' && (
@@ -457,7 +460,13 @@ export const requestWorkerOtp = async (mobile: string) => {
 
   const filtered = sessions.filter(session => session.mobile !== normalizedMobile)
   filtered.unshift(nextSession)
-  await writeOtpSessions(filtered, storage)
+  try {
+    await writeOtpSessions(filtered, storage)
+  } catch (error) {
+    if (!supportsStatelessDemoOtp()) {
+      throw error
+    }
+  }
 
   return {
     workerId: worker.id,
@@ -470,6 +479,26 @@ export const requestWorkerOtp = async (mobile: string) => {
 
 export const verifyWorkerOtpCode = async (mobile: string, otpCode: string) => {
   const normalizedMobile = sanitizeMobile(mobile)
+
+  if (supportsStatelessDemoOtp() && String(otpCode).trim() === DEV_OTP_CODE) {
+    const snapshot = await getLabourMarketplaceSnapshot()
+    const worker = findWorkerByMobile(snapshot, normalizedMobile)
+    if (!worker) {
+      throw new Error('Worker account not found. Request OTP again.')
+    }
+
+    const token = await generateWorkerAppToken({
+      workerId: worker.id,
+      mobile: worker.mobile,
+      role: 'WORKER_APP'
+    })
+
+    return {
+      token,
+      workerId: worker.id
+    }
+  }
+
   const { sessions, storage } = await readOtpSessions()
   const session = sessions.find(item => item.mobile === normalizedMobile)
 

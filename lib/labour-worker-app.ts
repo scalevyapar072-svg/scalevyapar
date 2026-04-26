@@ -4,15 +4,19 @@ import { jwtVerify, SignJWT } from 'jose'
 import {
   createLabourEntity,
   createLabourEntity as createLabourRecord,
+  deleteLabourEntity,
   getLabourMarketplaceSnapshot,
+  LabourJobApplicationRecord,
   LabourCategoryRecord,
   LabourCompanyRecord,
   LabourJobPostRecord,
   LabourMarketplaceSnapshot,
   LabourPlanRecord,
   LabourRechargeRequestRecord,
+  LabourSavedJobRecord,
   LabourWalletTransactionRecord,
   LabourWorkerRecord,
+  LabourWorkerNotificationRecord,
   updateLabourEntity
 } from './labour-marketplace'
 import { supabaseAdmin } from './supabase-admin'
@@ -95,6 +99,22 @@ export type WorkerAppFeedItem = {
   publishedAt: string
   expiresAt: string
   matchReason: string
+  hasApplied: boolean
+  applicationStatus: string | null
+  isSaved: boolean
+  appliedAt: string | null
+}
+
+export type WorkerAppNotification = {
+  id: string
+  type: string
+  title: string
+  message: string
+  relatedJobPostId: string | null
+  relatedCompanyId: string | null
+  isRead: boolean
+  priority: string
+  createdAt: string
 }
 
 export type WorkerAppDashboard = {
@@ -102,6 +122,8 @@ export type WorkerAppDashboard = {
   wallet: WorkerAppWalletSummary
   activation: WorkerAppActivationSummary
   feed: WorkerAppFeedItem[]
+  notifications: WorkerAppNotification[]
+  unreadNotificationCount: number
   availableCategories: Array<{
     id: string
     name: string
@@ -321,11 +343,25 @@ const toWorkerWalletSummary = (
   }
 }
 
+const toWorkerNotification = (notification: LabourWorkerNotificationRecord): WorkerAppNotification => ({
+  id: notification.id,
+  type: notification.type,
+  title: notification.title,
+  message: notification.message,
+  relatedJobPostId: notification.relatedJobPostId || null,
+  relatedCompanyId: notification.relatedCompanyId || null,
+  isRead: notification.isRead,
+  priority: notification.priority,
+  createdAt: notification.createdAt
+})
+
 const buildWorkerFeed = (
   worker: LabourWorkerRecord,
   companies: LabourCompanyRecord[],
   jobPosts: LabourJobPostRecord[],
   categories: LabourCategoryRecord[],
+  applications: LabourJobApplicationRecord[],
+  savedJobs: LabourSavedJobRecord[],
   activation: WorkerAppActivationSummary
 ): WorkerAppFeedItem[] => {
   const matchingPosts = jobPosts
@@ -334,6 +370,8 @@ const buildWorkerFeed = (
       const company = companies.find(item => item.id === jobPost.companyId)
       const categoryName = categories.find(category => category.id === jobPost.categoryId)?.name || jobPost.categoryId
       const cityMatch = worker.city && jobPost.city && worker.city.toLowerCase() === jobPost.city.toLowerCase()
+      const application = applications.find(item => item.jobPostId === jobPost.id)
+      const savedJob = savedJobs.find(item => item.jobPostId === jobPost.id)
 
       return {
         id: jobPost.id,
@@ -350,15 +388,42 @@ const buildWorkerFeed = (
         companyMobile: activation.canViewCompanyDetails ? company?.mobile || null : null,
         publishedAt: jobPost.publishedAt,
         expiresAt: jobPost.expiresAt,
-        matchReason: cityMatch ? 'Strong match in your city and category' : 'Category match for your worker profile'
+        matchReason: cityMatch ? 'Strong match in your city and category' : 'Category match for your worker profile',
+        hasApplied: Boolean(application),
+        applicationStatus: application?.status || null,
+        isSaved: Boolean(savedJob),
+        appliedAt: application?.appliedAt || null
       } satisfies WorkerAppFeedItem
     })
 
   return matchingPosts.sort((left, right) => {
     const leftCity = left.city.toLowerCase() === worker.city.toLowerCase() ? 1 : 0
     const rightCity = right.city.toLowerCase() === worker.city.toLowerCase() ? 1 : 0
+    const applicationBoost = Number(right.hasApplied) - Number(left.hasApplied)
+    if (applicationBoost !== 0) {
+      return applicationBoost
+    }
     return rightCity - leftCity
   })
+}
+
+const createWorkerNotification = async (
+  workerId: string,
+  payload: Pick<LabourWorkerNotificationRecord, 'type' | 'title' | 'message' | 'priority'> & {
+    relatedJobPostId?: string
+    relatedCompanyId?: string
+  }
+) => {
+  await createLabourEntity('workerNotifications', {
+    workerId,
+    type: payload.type,
+    title: payload.title,
+    message: payload.message,
+    priority: payload.priority,
+    relatedJobPostId: payload.relatedJobPostId,
+    relatedCompanyId: payload.relatedCompanyId,
+    isRead: false
+  }, 'worker-app')
 }
 
 const findWorkerByMobile = (snapshot: LabourMarketplaceSnapshot, mobile: string) =>
@@ -547,12 +612,29 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
   const walletTransactions = snapshot.walletTransactions
     .filter(transaction => transaction.entityType === 'worker' && transaction.entityId === worker.id)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+  const applications = snapshot.jobApplications
+    .filter(application => application.workerId === worker.id)
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+  const savedJobs = snapshot.savedJobs.filter(savedJob => savedJob.workerId === worker.id)
+  const notifications = snapshot.workerNotifications
+    .filter(notification => notification.workerId === worker.id)
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 
   return {
     profile: toWorkerProfile(worker, snapshot.categories),
     wallet: toWorkerWalletSummary(worker, walletTransactions, workerPlan),
     activation,
-    feed: buildWorkerFeed(worker, snapshot.companies, snapshot.jobPosts, snapshot.categories, activation),
+    feed: buildWorkerFeed(
+      worker,
+      snapshot.companies,
+      snapshot.jobPosts,
+      snapshot.categories,
+      applications,
+      savedJobs,
+      activation
+    ),
+    notifications: notifications.map(toWorkerNotification),
+    unreadNotificationCount: notifications.filter(notification => !notification.isRead).length,
     availableCategories: snapshot.categories
       .filter(category => category.isActive)
       .map(category => ({ id: category.id, name: category.name })),
@@ -629,6 +711,115 @@ export const createWorkerRechargeRequest = async (workerId: string, note?: strin
     requestStatus: 'open',
     note: note || 'Recharge requested from worker app.'
   }, 'worker-app')
+
+  return getWorkerAppDashboard(workerId)
+}
+
+export const applyToWorkerJob = async (workerId: string, jobPostId: string, note?: string) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const worker = findWorkerById(snapshot, workerId)
+  if (!worker) {
+    throw new Error('Worker account not found.')
+  }
+
+  const jobPost = snapshot.jobPosts.find(job => job.id === jobPostId && job.status === 'live')
+  if (!jobPost) {
+    throw new Error('Job post not found or no longer live.')
+  }
+
+  const activation = deriveActivationSummary(worker, getWorkerPlan(snapshot.plans))
+  if (!activation.canViewCompanyDetails) {
+    throw new Error('Recharge and keep your worker access active before applying to jobs.')
+  }
+
+  if (!worker.categoryIds.includes(jobPost.categoryId)) {
+    throw new Error('This job does not match your current labour category profile.')
+  }
+
+  const existingApplication = snapshot.jobApplications.find(
+    application => application.workerId === workerId && application.jobPostId === jobPostId
+  )
+
+  if (existingApplication) {
+    return getWorkerAppDashboard(workerId)
+  }
+
+  const company = snapshot.companies.find(item => item.id === jobPost.companyId)
+  await createLabourEntity('jobApplications', {
+    workerId,
+    jobPostId,
+    companyId: jobPost.companyId,
+    status: 'submitted',
+    note: note || '',
+    appliedAt: new Date().toISOString()
+  }, 'worker-app')
+
+  await createWorkerNotification(workerId, {
+    type: 'application_submitted',
+    title: 'Application sent',
+    message: `You applied for ${jobPost.title}${company ? ` at ${company.companyName}` : ''}.`,
+    priority: 'medium',
+    relatedJobPostId: jobPost.id,
+    relatedCompanyId: company?.id
+  })
+
+  return getWorkerAppDashboard(workerId)
+}
+
+export const toggleWorkerSavedJob = async (workerId: string, jobPostId: string) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const worker = findWorkerById(snapshot, workerId)
+  if (!worker) {
+    throw new Error('Worker account not found.')
+  }
+
+  const jobPost = snapshot.jobPosts.find(job => job.id === jobPostId)
+  if (!jobPost) {
+    throw new Error('Job post not found.')
+  }
+
+  const existing = snapshot.savedJobs.find(savedJob => savedJob.workerId === workerId && savedJob.jobPostId === jobPostId)
+
+  if (existing) {
+    await deleteLabourEntity('savedJobs', existing.id, 'worker-app')
+    return getWorkerAppDashboard(workerId)
+  }
+
+  await createLabourEntity('savedJobs', {
+    workerId,
+    jobPostId
+  }, 'worker-app')
+
+  await createWorkerNotification(workerId, {
+    type: 'job_saved',
+    title: 'Job saved',
+    message: `${jobPost.title} was added to your shortlist for quick follow-up.`,
+    priority: 'low',
+    relatedJobPostId: jobPost.id,
+    relatedCompanyId: jobPost.companyId
+  })
+
+  return getWorkerAppDashboard(workerId)
+}
+
+export const markWorkerNotificationsRead = async (workerId: string, notificationIds?: string[]) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const worker = findWorkerById(snapshot, workerId)
+  if (!worker) {
+    throw new Error('Worker account not found.')
+  }
+
+  const targetIds = new Set(notificationIds && notificationIds.length > 0
+    ? notificationIds
+    : snapshot.workerNotifications
+        .filter(notification => notification.workerId === workerId && !notification.isRead)
+        .map(notification => notification.id))
+
+  for (const notification of snapshot.workerNotifications) {
+    if (notification.workerId === workerId && targetIds.has(notification.id) && !notification.isRead) {
+      await updateLabourEntity('workerNotifications', notification.id, { isRead: true }, 'worker-app')
+    }
+  }
 
   return getWorkerAppDashboard(workerId)
 }

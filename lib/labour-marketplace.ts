@@ -8,6 +8,9 @@ export type LabourEntityType =
   | 'workers'
   | 'companies'
   | 'jobPosts'
+  | 'jobApplications'
+  | 'savedJobs'
+  | 'workerNotifications'
   | 'walletTransactions'
   | 'rechargeRequests'
 export type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked' | 'rejected'
@@ -23,6 +26,9 @@ export type WalletTransactionStatus = 'pending' | 'completed' | 'attention' | 'f
 export type RechargeRequestType = 'worker_recharge' | 'company_follow_up'
 export type RechargeRequestPriority = 'high' | 'medium' | 'low'
 export type RechargeRequestStatus = 'open' | 'contacted' | 'resolved' | 'closed'
+export type JobApplicationStatus = 'submitted' | 'reviewed' | 'shortlisted' | 'rejected' | 'hired'
+export type WorkerNotificationType = 'application_submitted' | 'job_saved' | 'application_status' | 'wallet_reminder'
+export type WorkerNotificationPriority = 'high' | 'medium' | 'low'
 
 export interface LabourCategoryRecord {
   id: string
@@ -99,6 +105,40 @@ export interface LabourJobPostRecord {
   updatedAt: string
 }
 
+export interface LabourJobApplicationRecord {
+  id: string
+  workerId: string
+  jobPostId: string
+  companyId: string
+  status: JobApplicationStatus
+  note: string
+  appliedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LabourSavedJobRecord {
+  id: string
+  workerId: string
+  jobPostId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LabourWorkerNotificationRecord {
+  id: string
+  workerId: string
+  type: WorkerNotificationType
+  title: string
+  message: string
+  relatedJobPostId?: string
+  relatedCompanyId?: string
+  isRead: boolean
+  priority: WorkerNotificationPriority
+  createdAt: string
+  updatedAt: string
+}
+
 export interface LabourAuditLogRecord {
   id: string
   action: 'create' | 'update' | 'delete'
@@ -148,6 +188,9 @@ export interface LabourMarketplaceData {
   workers: LabourWorkerRecord[]
   companies: LabourCompanyRecord[]
   jobPosts: LabourJobPostRecord[]
+  jobApplications: LabourJobApplicationRecord[]
+  savedJobs: LabourSavedJobRecord[]
+  workerNotifications: LabourWorkerNotificationRecord[]
   walletTransactions: LabourWalletTransactionRecord[]
   rechargeRequests: LabourRechargeRequestRecord[]
   auditLogs: LabourAuditLogRecord[]
@@ -173,6 +216,9 @@ const STORAGE_TABLES = {
   workers: 'labour_workers',
   companies: 'labour_companies',
   jobPosts: 'labour_job_posts',
+  jobApplications: 'labour_job_applications',
+  savedJobs: 'labour_saved_jobs',
+  workerNotifications: 'labour_worker_notifications',
   walletTransactions: 'labour_wallet_transactions',
   rechargeRequests: 'labour_recharge_requests',
   auditLogs: 'labour_audit_logs'
@@ -358,6 +404,31 @@ const defaultData: LabourMarketplaceData = {
       status: 'draft',
       publishedAt: '2026-04-25',
       expiresAt: '2026-04-28',
+      createdAt: '2026-04-25T00:00:00.000Z',
+      updatedAt: '2026-04-25T00:00:00.000Z'
+    }
+  ],
+  jobApplications: [],
+  savedJobs: [
+    {
+      id: 'saved-job-sajid',
+      workerId: 'worker-sajid',
+      jobPostId: 'job-neelufer-stitching',
+      createdAt: '2026-04-25T00:00:00.000Z',
+      updatedAt: '2026-04-25T00:00:00.000Z'
+    }
+  ],
+  workerNotifications: [
+    {
+      id: 'notify-sajid-wallet',
+      workerId: 'worker-sajid',
+      type: 'wallet_reminder',
+      title: 'Worker access is active',
+      message: 'Your wallet is active. Keep balance above zero to keep company details unlocked.',
+      relatedJobPostId: 'job-neelufer-stitching',
+      relatedCompanyId: 'company-neelufer',
+      isRead: false,
+      priority: 'medium',
       createdAt: '2026-04-25T00:00:00.000Z',
       updatedAt: '2026-04-25T00:00:00.000Z'
     }
@@ -617,6 +688,68 @@ const mapJobPostRow = (row: {
   updatedAt: row.updated_at
 })
 
+const mapJobApplicationRow = (row: {
+  id: string
+  worker_id: string
+  job_post_id: string
+  company_id: string
+  status: string | null
+  note: string | null
+  applied_at: string | null
+  created_at: string
+  updated_at: string
+}): LabourJobApplicationRecord => ({
+  id: row.id,
+  workerId: row.worker_id,
+  jobPostId: row.job_post_id,
+  companyId: row.company_id,
+  status: (row.status as JobApplicationStatus | null) || 'submitted',
+  note: row.note || '',
+  appliedAt: row.applied_at || row.created_at,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+})
+
+const mapSavedJobRow = (row: {
+  id: string
+  worker_id: string
+  job_post_id: string
+  created_at: string
+  updated_at: string
+}): LabourSavedJobRecord => ({
+  id: row.id,
+  workerId: row.worker_id,
+  jobPostId: row.job_post_id,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+})
+
+const mapWorkerNotificationRow = (row: {
+  id: string
+  worker_id: string
+  type: string
+  title: string
+  message: string
+  related_job_post_id: string | null
+  related_company_id: string | null
+  is_read: boolean | null
+  priority: string | null
+  created_at: string
+  updated_at: string
+}): LabourWorkerNotificationRecord => ({
+  id: row.id,
+  workerId: row.worker_id,
+  type: (row.type as WorkerNotificationType | null) || 'wallet_reminder',
+  title: row.title,
+  message: row.message,
+  relatedJobPostId: row.related_job_post_id || undefined,
+  relatedCompanyId: row.related_company_id || undefined,
+  isRead: row.is_read ?? false,
+  priority: (row.priority as WorkerNotificationPriority | null) || 'medium',
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+})
+
 const mapWalletTransactionRow = (row: {
   id: string
   entity_type: string
@@ -838,6 +971,58 @@ const normalizeJobPost = (
   }
 }
 
+const normalizeJobApplication = (
+  payload: Partial<LabourJobApplicationRecord>,
+  existing?: LabourJobApplicationRecord
+): LabourJobApplicationRecord => {
+  const now = new Date().toISOString()
+  return {
+    id: existing?.id || String(payload.id || createId('application')),
+    workerId: String(payload.workerId || existing?.workerId || '').trim(),
+    jobPostId: String(payload.jobPostId || existing?.jobPostId || '').trim(),
+    companyId: String(payload.companyId || existing?.companyId || '').trim(),
+    status: (payload.status || existing?.status || 'submitted') as JobApplicationStatus,
+    note: String(payload.note || existing?.note || '').trim(),
+    appliedAt: String(payload.appliedAt || existing?.appliedAt || now),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  }
+}
+
+const normalizeSavedJob = (
+  payload: Partial<LabourSavedJobRecord>,
+  existing?: LabourSavedJobRecord
+): LabourSavedJobRecord => {
+  const now = new Date().toISOString()
+  return {
+    id: existing?.id || String(payload.id || createId('saved-job')),
+    workerId: String(payload.workerId || existing?.workerId || '').trim(),
+    jobPostId: String(payload.jobPostId || existing?.jobPostId || '').trim(),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  }
+}
+
+const normalizeWorkerNotification = (
+  payload: Partial<LabourWorkerNotificationRecord>,
+  existing?: LabourWorkerNotificationRecord
+): LabourWorkerNotificationRecord => {
+  const now = new Date().toISOString()
+  return {
+    id: existing?.id || String(payload.id || createId('notification')),
+    workerId: String(payload.workerId || existing?.workerId || '').trim(),
+    type: (payload.type || existing?.type || 'wallet_reminder') as WorkerNotificationType,
+    title: String(payload.title || existing?.title || '').trim(),
+    message: String(payload.message || existing?.message || '').trim(),
+    relatedJobPostId: payload.relatedJobPostId || existing?.relatedJobPostId || undefined,
+    relatedCompanyId: payload.relatedCompanyId || existing?.relatedCompanyId || undefined,
+    isRead: toBoolean(payload.isRead, existing?.isRead ?? false),
+    priority: (payload.priority || existing?.priority || 'medium') as WorkerNotificationPriority,
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  }
+}
+
 const normalizeWalletTransaction = (
   payload: Partial<LabourWalletTransactionRecord>,
   existing?: LabourWalletTransactionRecord
@@ -896,6 +1081,9 @@ const readJsonData = async (): Promise<LabourMarketplaceData> => {
     workers: parsed.workers || [],
     companies: parsed.companies || [],
     jobPosts: parsed.jobPosts || [],
+    jobApplications: parsed.jobApplications || [],
+    savedJobs: parsed.savedJobs || [],
+    workerNotifications: parsed.workerNotifications || [],
     walletTransactions: parsed.walletTransactions || [],
     rechargeRequests: parsed.rechargeRequests || [],
     auditLogs: parsed.auditLogs || []
@@ -955,6 +1143,9 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
     workersResult,
     companiesResult,
     jobPostsResult,
+    jobApplicationsRows,
+    savedJobsRows,
+    workerNotificationsRows,
     walletTransactionsRows,
     rechargeRequestsRows,
     auditLogsResult
@@ -964,6 +1155,37 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
     supabaseAdmin.from(STORAGE_TABLES.workers).select('*').order('created_at', { ascending: true }),
     supabaseAdmin.from(STORAGE_TABLES.companies).select('*').order('created_at', { ascending: true }),
     supabaseAdmin.from(STORAGE_TABLES.jobPosts).select('*').order('created_at', { ascending: true }),
+    readOptionalSupabaseRows<{
+      id: string
+      worker_id: string
+      job_post_id: string
+      company_id: string
+      status: string | null
+      note: string | null
+      applied_at: string | null
+      created_at: string
+      updated_at: string
+    }>(STORAGE_TABLES.jobApplications),
+    readOptionalSupabaseRows<{
+      id: string
+      worker_id: string
+      job_post_id: string
+      created_at: string
+      updated_at: string
+    }>(STORAGE_TABLES.savedJobs),
+    readOptionalSupabaseRows<{
+      id: string
+      worker_id: string
+      type: string
+      title: string
+      message: string
+      related_job_post_id: string | null
+      related_company_id: string | null
+      is_read: boolean | null
+      priority: string | null
+      created_at: string
+      updated_at: string
+    }>(STORAGE_TABLES.workerNotifications),
     readOptionalSupabaseRows<{
       id: string
       entity_type: string
@@ -1017,6 +1239,9 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
     workers: (workersResult.data || []).map(mapWorkerRow),
     companies: (companiesResult.data || []).map(mapCompanyRow),
     jobPosts: (jobPostsResult.data || []).map(mapJobPostRow),
+    jobApplications: jobApplicationsRows.map(mapJobApplicationRow),
+    savedJobs: savedJobsRows.map(mapSavedJobRow),
+    workerNotifications: workerNotificationsRows.map(mapWorkerNotificationRow),
     walletTransactions: walletTransactionsRows.map(mapWalletTransactionRow),
     rechargeRequests: rechargeRequestsRows.map(mapRechargeRequestRow),
     auditLogs: (auditLogsResult.data || []).map(mapAuditLogRow)
@@ -1099,6 +1324,40 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     updated_at: jobPost.updatedAt
   }))
 
+  const jobApplicationsPayload = data.jobApplications.map(application => ({
+    id: application.id,
+    worker_id: application.workerId,
+    job_post_id: application.jobPostId,
+    company_id: application.companyId,
+    status: application.status,
+    note: application.note,
+    applied_at: application.appliedAt,
+    created_at: application.createdAt,
+    updated_at: application.updatedAt
+  }))
+
+  const savedJobsPayload = data.savedJobs.map(savedJob => ({
+    id: savedJob.id,
+    worker_id: savedJob.workerId,
+    job_post_id: savedJob.jobPostId,
+    created_at: savedJob.createdAt,
+    updated_at: savedJob.updatedAt
+  }))
+
+  const workerNotificationsPayload = data.workerNotifications.map(notification => ({
+    id: notification.id,
+    worker_id: notification.workerId,
+    type: notification.type,
+    title: notification.title,
+    message: notification.message,
+    related_job_post_id: notification.relatedJobPostId || null,
+    related_company_id: notification.relatedCompanyId || null,
+    is_read: notification.isRead,
+    priority: notification.priority,
+    created_at: notification.createdAt,
+    updated_at: notification.updatedAt
+  }))
+
   const walletTransactionsPayload = data.walletTransactions.map(transaction => ({
     id: transaction.id,
     entity_type: transaction.entityType,
@@ -1149,6 +1408,18 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     supabaseAdmin.from(STORAGE_TABLES.companies).upsert(companiesPayload, { onConflict: 'id' }),
     supabaseAdmin.from(STORAGE_TABLES.jobPosts).upsert(jobPostsPayload, { onConflict: 'id' })
   ]
+
+  if (jobApplicationsPayload.length > 0) {
+    operations.push(supabaseAdmin.from(STORAGE_TABLES.jobApplications).upsert(jobApplicationsPayload, { onConflict: 'id' }))
+  }
+
+  if (savedJobsPayload.length > 0) {
+    operations.push(supabaseAdmin.from(STORAGE_TABLES.savedJobs).upsert(savedJobsPayload, { onConflict: 'id' }))
+  }
+
+  if (workerNotificationsPayload.length > 0) {
+    operations.push(supabaseAdmin.from(STORAGE_TABLES.workerNotifications).upsert(workerNotificationsPayload, { onConflict: 'id' }))
+  }
 
   if (walletTransactionsPayload.length > 0) {
     operations.push(supabaseAdmin.from(STORAGE_TABLES.walletTransactions).upsert(walletTransactionsPayload, { onConflict: 'id' }))
@@ -1261,6 +1532,24 @@ export const createLabourEntity = async (
         const record = normalizeJobPost(payload)
         data.jobPosts.unshift(record)
         appendAuditLog(data, 'create', entityType, record.id, `Created job post ${record.title}`, actor)
+        break
+      }
+      case 'jobApplications': {
+        const record = normalizeJobApplication(payload)
+        data.jobApplications.unshift(record)
+        appendAuditLog(data, 'create', entityType, record.id, `Created job application ${record.jobPostId}`, actor)
+        break
+      }
+      case 'savedJobs': {
+        const record = normalizeSavedJob(payload)
+        data.savedJobs.unshift(record)
+        appendAuditLog(data, 'create', entityType, record.id, `Created saved job ${record.jobPostId}`, actor)
+        break
+      }
+      case 'workerNotifications': {
+        const record = normalizeWorkerNotification(payload)
+        data.workerNotifications.unshift(record)
+        appendAuditLog(data, 'create', entityType, record.id, `Created notification ${record.title}`, actor)
         break
       }
       case 'walletTransactions': {
@@ -1382,6 +1671,55 @@ export const createLabourEntity = async (
       await writeSupabaseAuditLog('create', entityType, record.id, `Created job post ${record.title}`, actor)
       break
     }
+    case 'jobApplications': {
+      const record = normalizeJobApplication(payload)
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.jobApplications).insert({
+        id: record.id,
+        worker_id: record.workerId,
+        job_post_id: record.jobPostId,
+        company_id: record.companyId,
+        status: record.status,
+        note: record.note,
+        applied_at: record.appliedAt,
+        created_at: record.createdAt,
+        updated_at: record.updatedAt
+      })
+      if (error) throw new Error(`Failed to create labour job application: ${error.message}`)
+      await writeSupabaseAuditLog('create', entityType, record.id, `Created job application ${record.jobPostId}`, actor)
+      break
+    }
+    case 'savedJobs': {
+      const record = normalizeSavedJob(payload)
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.savedJobs).insert({
+        id: record.id,
+        worker_id: record.workerId,
+        job_post_id: record.jobPostId,
+        created_at: record.createdAt,
+        updated_at: record.updatedAt
+      })
+      if (error) throw new Error(`Failed to create saved job: ${error.message}`)
+      await writeSupabaseAuditLog('create', entityType, record.id, `Created saved job ${record.jobPostId}`, actor)
+      break
+    }
+    case 'workerNotifications': {
+      const record = normalizeWorkerNotification(payload)
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.workerNotifications).insert({
+        id: record.id,
+        worker_id: record.workerId,
+        type: record.type,
+        title: record.title,
+        message: record.message,
+        related_job_post_id: record.relatedJobPostId || null,
+        related_company_id: record.relatedCompanyId || null,
+        is_read: record.isRead,
+        priority: record.priority,
+        created_at: record.createdAt,
+        updated_at: record.updatedAt
+      })
+      if (error) throw new Error(`Failed to create worker notification: ${error.message}`)
+      await writeSupabaseAuditLog('create', entityType, record.id, `Created notification ${record.title}`, actor)
+      break
+    }
     case 'walletTransactions': {
       const record = normalizeWalletTransaction(payload)
       const { error } = await supabaseAdmin.from(STORAGE_TABLES.walletTransactions).insert({
@@ -1480,6 +1818,30 @@ export const updateLabourEntity = async (
         const updated = normalizeJobPost(payload, data.jobPosts[index])
         data.jobPosts[index] = updated
         appendAuditLog(data, 'update', entityType, id, `Updated job post ${updated.title}`, actor)
+        break
+      }
+      case 'jobApplications': {
+        const index = data.jobApplications.findIndex(record => record.id === id)
+        if (index === -1) return null
+        const updated = normalizeJobApplication(payload, data.jobApplications[index])
+        data.jobApplications[index] = updated
+        appendAuditLog(data, 'update', entityType, id, `Updated job application ${updated.jobPostId}`, actor)
+        break
+      }
+      case 'savedJobs': {
+        const index = data.savedJobs.findIndex(record => record.id === id)
+        if (index === -1) return null
+        const updated = normalizeSavedJob(payload, data.savedJobs[index])
+        data.savedJobs[index] = updated
+        appendAuditLog(data, 'update', entityType, id, `Updated saved job ${updated.jobPostId}`, actor)
+        break
+      }
+      case 'workerNotifications': {
+        const index = data.workerNotifications.findIndex(record => record.id === id)
+        if (index === -1) return null
+        const updated = normalizeWorkerNotification(payload, data.workerNotifications[index])
+        data.workerNotifications[index] = updated
+        appendAuditLog(data, 'update', entityType, id, `Updated notification ${updated.title}`, actor)
         break
       }
       case 'walletTransactions': {
@@ -1605,6 +1967,55 @@ export const updateLabourEntity = async (
       await writeSupabaseAuditLog('update', entityType, id, `Updated job post ${record.title}`, actor)
       break
     }
+    case 'jobApplications': {
+      const existing = (await readSupabaseData()).jobApplications.find(record => record.id === id)
+      if (!existing) return null
+      const record = normalizeJobApplication(payload, existing)
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.jobApplications).update({
+        worker_id: record.workerId,
+        job_post_id: record.jobPostId,
+        company_id: record.companyId,
+        status: record.status,
+        note: record.note,
+        applied_at: record.appliedAt,
+        updated_at: record.updatedAt
+      }).eq('id', id)
+      if (error) throw new Error(`Failed to update labour job application: ${error.message}`)
+      await writeSupabaseAuditLog('update', entityType, id, `Updated job application ${record.jobPostId}`, actor)
+      break
+    }
+    case 'savedJobs': {
+      const existing = (await readSupabaseData()).savedJobs.find(record => record.id === id)
+      if (!existing) return null
+      const record = normalizeSavedJob(payload, existing)
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.savedJobs).update({
+        worker_id: record.workerId,
+        job_post_id: record.jobPostId,
+        updated_at: record.updatedAt
+      }).eq('id', id)
+      if (error) throw new Error(`Failed to update saved job: ${error.message}`)
+      await writeSupabaseAuditLog('update', entityType, id, `Updated saved job ${record.jobPostId}`, actor)
+      break
+    }
+    case 'workerNotifications': {
+      const existing = (await readSupabaseData()).workerNotifications.find(record => record.id === id)
+      if (!existing) return null
+      const record = normalizeWorkerNotification(payload, existing)
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.workerNotifications).update({
+        worker_id: record.workerId,
+        type: record.type,
+        title: record.title,
+        message: record.message,
+        related_job_post_id: record.relatedJobPostId || null,
+        related_company_id: record.relatedCompanyId || null,
+        is_read: record.isRead,
+        priority: record.priority,
+        updated_at: record.updatedAt
+      }).eq('id', id)
+      if (error) throw new Error(`Failed to update worker notification: ${error.message}`)
+      await writeSupabaseAuditLog('update', entityType, id, `Updated notification ${record.title}`, actor)
+      break
+    }
     case 'walletTransactions': {
       const existing = (await readSupabaseData()).walletTransactions.find(record => record.id === id)
       if (!existing) return null
@@ -1705,6 +2116,27 @@ export const deleteLabourEntity = async (
         appendAuditLog(data, 'delete', entityType, id, `Deleted job post ${record.title}`, actor)
         break
       }
+      case 'jobApplications': {
+        const { record, nextItems } = removeById(data.jobApplications)
+        if (!record) return null
+        data.jobApplications = nextItems
+        appendAuditLog(data, 'delete', entityType, id, `Deleted job application ${record.jobPostId}`, actor)
+        break
+      }
+      case 'savedJobs': {
+        const { record, nextItems } = removeById(data.savedJobs)
+        if (!record) return null
+        data.savedJobs = nextItems
+        appendAuditLog(data, 'delete', entityType, id, `Deleted saved job ${record.jobPostId}`, actor)
+        break
+      }
+      case 'workerNotifications': {
+        const { record, nextItems } = removeById(data.workerNotifications)
+        if (!record) return null
+        data.workerNotifications = nextItems
+        appendAuditLog(data, 'delete', entityType, id, `Deleted notification ${record.title}`, actor)
+        break
+      }
       case 'walletTransactions': {
         const { record, nextItems } = removeById(data.walletTransactions)
         if (!record) return null
@@ -1766,6 +2198,30 @@ export const deleteLabourEntity = async (
       summary = `Deleted job post ${existing.title}`
       const { error } = await supabaseAdmin.from(STORAGE_TABLES.jobPosts).delete().eq('id', id)
       if (error) throw new Error(`Failed to delete labour job post: ${error.message}`)
+      break
+    }
+    case 'jobApplications': {
+      const existing = (await readSupabaseData()).jobApplications.find(record => record.id === id)
+      if (!existing) return null
+      summary = `Deleted job application ${existing.jobPostId}`
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.jobApplications).delete().eq('id', id)
+      if (error) throw new Error(`Failed to delete labour job application: ${error.message}`)
+      break
+    }
+    case 'savedJobs': {
+      const existing = (await readSupabaseData()).savedJobs.find(record => record.id === id)
+      if (!existing) return null
+      summary = `Deleted saved job ${existing.jobPostId}`
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.savedJobs).delete().eq('id', id)
+      if (error) throw new Error(`Failed to delete saved job: ${error.message}`)
+      break
+    }
+    case 'workerNotifications': {
+      const existing = (await readSupabaseData()).workerNotifications.find(record => record.id === id)
+      if (!existing) return null
+      summary = `Deleted notification ${existing.title}`
+      const { error } = await supabaseAdmin.from(STORAGE_TABLES.workerNotifications).delete().eq('id', id)
+      if (error) throw new Error(`Failed to delete worker notification: ${error.message}`)
       break
     }
     case 'walletTransactions': {

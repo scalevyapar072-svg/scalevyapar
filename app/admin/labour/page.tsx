@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked' | 'rejected'
+type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
+type WorkerKycFilter = 'all' | 'not_submitted' | 'ready_for_review' | 'approved' | 'rejected'
 type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
 type PlanAudience = 'worker' | 'company'
@@ -58,6 +60,7 @@ type LabourWorker = {
   fullName: string
   mobile: string
   city: string
+  profilePhotoPath: string
   experienceYears: number
   expectedDailyWage: number
   walletBalance: number
@@ -65,6 +68,10 @@ type LabourWorker = {
   availability: WorkerAvailability
   isVisible: boolean
   categoryIds: string[]
+  identityProofType: WorkerIdentityProofType
+  identityProofNumber: string
+  identityProofPath: string
+  registrationCompletedAt: string
 }
 
 type LabourCompany = {
@@ -175,6 +182,7 @@ type WorkerFilters = {
   status: 'all' | WorkerStatus
   categoryId: string
   visibility: 'all' | 'visible' | 'hidden'
+  kyc: WorkerKycFilter
 }
 
 type CompanyFilters = {
@@ -251,13 +259,18 @@ const blankWorker: LabourWorker = {
   fullName: '',
   mobile: '',
   city: '',
+  profilePhotoPath: '',
   experienceYears: 0,
   expectedDailyWage: 0,
   walletBalance: 0,
   status: 'pending',
   availability: 'available_today',
   isVisible: true,
-  categoryIds: []
+  categoryIds: [],
+  identityProofType: '',
+  identityProofNumber: '',
+  identityProofPath: '',
+  registrationCompletedAt: ''
 }
 
 const blankCompany: LabourCompany = {
@@ -322,7 +335,7 @@ const blankRechargeRequest: RechargeRequest = {
 
 const blankCategoryFilters: CategoryFilters = { search: '', demand: 'all', activity: 'all' }
 const blankPlanFilters: PlanFilters = { search: '', audience: 'all', categoryId: '', activity: 'all' }
-const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryId: '', visibility: 'all' }
+const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryId: '', visibility: 'all', kyc: 'all' }
 const blankCompanyFilters: CompanyFilters = { search: '', status: 'all', categoryId: '', fee: 'all' }
 const blankJobFilters: JobFilters = { search: '', status: 'all', categoryId: '', companyId: '' }
 const blankWalletFilters: WalletFilters = { search: '', audience: 'all', transactionType: 'all', status: 'all' }
@@ -415,6 +428,7 @@ export default function LabourExchangeAdminPage() {
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [editingWorkerId, setEditingWorkerId] = useState<string | null>(null)
+  const [selectedWorkerReviewId, setSelectedWorkerReviewId] = useState<string | null>(null)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [editingJobPostId, setEditingJobPostId] = useState<string | null>(null)
   const [editingWalletTransactionId, setEditingWalletTransactionId] = useState<string | null>(null)
@@ -635,6 +649,38 @@ export default function LabourExchangeAdminPage() {
   const getCompanyById = (companyId: string) => snapshot.companies.find(company => company.id === companyId)
   const getEntityName = (entityType: WalletEntityType, entityId: string) =>
     entityType === 'worker' ? getWorkerById(entityId)?.fullName || '' : getCompanyById(entityId)?.companyName || ''
+  const formatIdentityProofType = (value: WorkerIdentityProofType) => {
+    if (!value) return 'Not provided'
+    return value.replace(/_/g, ' ').replace(/\b\w/g, character => character.toUpperCase())
+  }
+  const isWorkerKycSubmitted = (worker: LabourWorker) =>
+    Boolean(worker.profilePhotoPath.trim()) &&
+    Boolean(worker.identityProofType) &&
+    Boolean(worker.identityProofNumber.trim()) &&
+    Boolean(worker.identityProofPath.trim()) &&
+    Boolean(worker.registrationCompletedAt.trim())
+  const getWorkerKycState = (worker: LabourWorker): Exclude<WorkerKycFilter, 'all'> => {
+    if (!isWorkerKycSubmitted(worker)) return 'not_submitted'
+    if (worker.status === 'rejected') return 'rejected'
+    if (worker.status === 'pending') return 'ready_for_review'
+    return 'approved'
+  }
+  const getWorkerKycLabel = (worker: LabourWorker) => {
+    const state = getWorkerKycState(worker)
+    if (state === 'not_submitted') return 'KYC not submitted'
+    if (state === 'ready_for_review') return 'Ready for review'
+    if (state === 'rejected') return 'KYC rejected'
+    return 'KYC approved'
+  }
+  const getWorkerKycTone = (worker: LabourWorker) => {
+    const state = getWorkerKycState(worker)
+    if (state === 'ready_for_review') return { background: '#fff7ed', color: '#c2410c', border: '#fdba74' }
+    if (state === 'approved') return { background: '#ecfdf5', color: '#047857', border: '#86efac' }
+    if (state === 'rejected') return { background: '#fff1f2', color: '#be123c', border: '#fda4af' }
+    return { background: '#f8fafc', color: '#475569', border: '#cbd5e1' }
+  }
+  const getWorkerDocumentHref = (storagePath: string) =>
+    storagePath.trim() ? `/api/admin/labour/worker-file?path=${encodeURIComponent(storagePath.trim())}` : ''
   const getEntityCity = (entityType: WalletEntityType, entityId: string) =>
     entityType === 'worker' ? getWorkerById(entityId)?.city || '' : getCompanyById(entityId)?.city || ''
   const getEntityCategoryLabel = (entityType: WalletEntityType, entityId: string) => {
@@ -787,15 +833,23 @@ export default function LabourExchangeAdminPage() {
     if (workerFilters.categoryId && !worker.categoryIds.includes(workerFilters.categoryId)) return false
     if (workerFilters.visibility === 'visible' && !worker.isVisible) return false
     if (workerFilters.visibility === 'hidden' && worker.isVisible) return false
+    if (workerFilters.kyc !== 'all' && getWorkerKycState(worker) !== workerFilters.kyc) return false
 
     return matchesSearch(workerFilters.search, [
       worker.fullName,
       worker.mobile,
       worker.city,
       worker.status,
+      getWorkerKycLabel(worker),
+      formatIdentityProofType(worker.identityProofType),
       worker.categoryIds.map(getCategoryName).join(', ')
     ])
   })
+  const selectedWorkerReview =
+    filteredWorkers.find(worker => worker.id === selectedWorkerReviewId) ||
+    filteredWorkers.find(worker => getWorkerKycState(worker) === 'ready_for_review') ||
+    filteredWorkers[0] ||
+    null
 
   const filteredCompanies = snapshot.companies.filter(company => {
     if (companyFilters.status !== 'all' && company.status !== companyFilters.status) return false
@@ -1036,6 +1090,38 @@ export default function LabourExchangeAdminPage() {
     if (!ok) return
     resetWorkerDraft()
     showSaved('Worker saved')
+  }
+
+  const reviewWorkerKyc = async (worker: LabourWorker, decision: 'approve' | 'reject') => {
+    setError('')
+    if (!isWorkerKycSubmitted(worker)) {
+      setError('Worker has not submitted the full KYC set yet.')
+      return
+    }
+
+    const nextStatus: WorkerStatus =
+      decision === 'approve'
+        ? worker.walletBalance > 0
+          ? 'active'
+          : 'inactive_wallet_empty'
+        : 'rejected'
+    const nextVisibility = decision === 'approve' ? worker.walletBalance > 0 : false
+
+    const ok = await persistEntity('PUT', 'workers', {
+      status: nextStatus,
+      isVisible: nextVisibility
+    }, worker.id)
+
+    if (!ok) return
+
+    setSelectedWorkerReviewId(worker.id)
+    showSaved(
+      decision === 'approve'
+        ? worker.walletBalance > 0
+          ? `${worker.fullName} approved and activated`
+          : `${worker.fullName} approved. Wallet recharge is still needed for activation`
+        : `${worker.fullName} KYC rejected`
+    )
   }
 
   const saveCompany = async () => {
@@ -1609,51 +1695,162 @@ export default function LabourExchangeAdminPage() {
               </div>
             </div>
 
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Workers</h2>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <input placeholder="Search workers" value={workerFilters.search} onChange={event => setWorkerFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
-                  <select value={workerFilters.status} onChange={event => setWorkerFilters(current => ({ ...current, status: event.target.value as WorkerFilters['status'] }))} style={{ ...inputStyle, width: '210px' }}>
-                    <option value="all">All Status</option>
-                    {workerStatuses.map(status => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </select>
-                  <select value={workerFilters.categoryId} onChange={event => setWorkerFilters(current => ({ ...current, categoryId: event.target.value }))} style={{ ...inputStyle, width: '180px' }}>
-                    <option value="">All Categories</option>
-                    {snapshot.categories.map(category => (
-                      <option key={category.id} value={category.id}>{category.name}</option>
-                    ))}
-                  </select>
-                  <select value={workerFilters.visibility} onChange={event => setWorkerFilters(current => ({ ...current, visibility: event.target.value as WorkerFilters['visibility'] }))} style={{ ...inputStyle, width: '140px' }}>
-                    <option value="all">All Visibility</option>
-                    <option value="visible">Visible</option>
-                    <option value="hidden">Hidden</option>
-                  </select>
+            <div style={{ display: 'grid', gap: '20px' }}>
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                  <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Workers</h2>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <input placeholder="Search workers" value={workerFilters.search} onChange={event => setWorkerFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                    <select value={workerFilters.status} onChange={event => setWorkerFilters(current => ({ ...current, status: event.target.value as WorkerFilters['status'] }))} style={{ ...inputStyle, width: '210px' }}>
+                      <option value="all">All Status</option>
+                      {workerStatuses.map(status => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                    <select value={workerFilters.categoryId} onChange={event => setWorkerFilters(current => ({ ...current, categoryId: event.target.value }))} style={{ ...inputStyle, width: '180px' }}>
+                      <option value="">All Categories</option>
+                      {snapshot.categories.map(category => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
+                    </select>
+                    <select value={workerFilters.visibility} onChange={event => setWorkerFilters(current => ({ ...current, visibility: event.target.value as WorkerFilters['visibility'] }))} style={{ ...inputStyle, width: '140px' }}>
+                      <option value="all">All Visibility</option>
+                      <option value="visible">Visible</option>
+                      <option value="hidden">Hidden</option>
+                    </select>
+                    <select value={workerFilters.kyc} onChange={event => setWorkerFilters(current => ({ ...current, kyc: event.target.value as WorkerFilters['kyc'] }))} style={{ ...inputStyle, width: '170px' }}>
+                      <option value="all">All KYC States</option>
+                      <option value="not_submitted">Not Submitted</option>
+                      <option value="ready_for_review">Ready for Review</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {filteredWorkers.length === 0 ? (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No workers match the current filters.</p>
+                  ) : (
+                    filteredWorkers.map(worker => {
+                      const kycTone = getWorkerKycTone(worker)
+                      return (
+                        <div key={worker.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                              <p style={{ margin: 0, color: '#0f172a', fontWeight: '700' }}>{worker.fullName}</p>
+                              <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '999px', padding: '5px 9px', background: kycTone.background, color: kycTone.color, border: `1px solid ${kycTone.border}` }}>
+                                {getWorkerKycLabel(worker)}
+                              </span>
+                            </div>
+                            <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                              {worker.mobile} | {worker.city || 'No city'} | {worker.status} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
+                            </p>
+                            <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                              Categories: {worker.categoryIds.map(getCategoryName).join(', ') || 'None'} | Wage {formatCurrency(worker.expectedDailyWage)} | Availability {worker.availability}
+                            </p>
+                            <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                              Proof: {formatIdentityProofType(worker.identityProofType)} {worker.identityProofNumber ? `| ${worker.identityProofNumber}` : '| No proof number'}
+                            </p>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setSelectedWorkerReviewId(worker.id)} style={subtleButtonStyle}>Review KYC</button>
+                            <button onClick={() => { setWorkerDraft(worker); setEditingWorkerId(worker.id) }} style={subtleButtonStyle}>Edit</button>
+                            <button onClick={() => void removeEntity('workers', worker.id, worker.fullName)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
                 </div>
               </div>
-              <div style={{ display: 'grid', gap: '12px' }}>
-                {filteredWorkers.length === 0 ? (
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No workers match the current filters.</p>
+
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                  <div>
+                    <h2 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px' }}>Worker KYC Review</h2>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                      Review uploaded profile photos and identity proof documents, then approve or reject the worker account.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <span style={{ ...subtleButtonStyle, cursor: 'default' }}>
+                      Ready {snapshot.workers.filter(worker => getWorkerKycState(worker) === 'ready_for_review').length}
+                    </span>
+                    <span style={{ ...subtleButtonStyle, cursor: 'default' }}>
+                      Rejected {snapshot.workers.filter(worker => getWorkerKycState(worker) === 'rejected').length}
+                    </span>
+                  </div>
+                </div>
+
+                {!selectedWorkerReview ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Choose a worker from the list to review KYC details.</p>
                 ) : (
-                  filteredWorkers.map(worker => (
-                    <div key={worker.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                      <div>
-                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{worker.fullName}</p>
-                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                          {worker.mobile} | {worker.city || 'No city'} | {worker.status} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
-                        </p>
-                        <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
-                          Categories: {worker.categoryIds.map(getCategoryName).join(', ') || 'None'} | Wage {formatCurrency(worker.expectedDailyWage)} | Availability {worker.availability}
-                        </p>
+                  <div style={{ display: 'grid', gap: '16px' }}>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                        <div>
+                          <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px', fontWeight: '800' }}>{selectedWorkerReview.fullName || 'Unnamed worker'}</p>
+                          <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '13px' }}>
+                            {selectedWorkerReview.mobile} | {selectedWorkerReview.city || 'No city'} | {selectedWorkerReview.categoryIds.map(getCategoryName).join(', ') || 'No categories'}
+                          </p>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                            Registered {selectedWorkerReview.registrationCompletedAt ? new Date(selectedWorkerReview.registrationCompletedAt).toLocaleString() : 'Not completed yet'}
+                          </p>
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: '800', borderRadius: '999px', padding: '8px 12px', background: getWorkerKycTone(selectedWorkerReview).background, color: getWorkerKycTone(selectedWorkerReview).color, border: `1px solid ${getWorkerKycTone(selectedWorkerReview).border}`, alignSelf: 'flex-start' }}>
+                          {getWorkerKycLabel(selectedWorkerReview)}
+                        </span>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                        <button onClick={() => { setWorkerDraft(worker); setEditingWorkerId(worker.id) }} style={subtleButtonStyle}>Edit</button>
-                        <button onClick={() => void removeEntity('workers', worker.id, worker.fullName)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                        <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
+                          <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Profile Photo</p>
+                          <p style={{ margin: '0 0 10px', color: '#64748b', fontSize: '12px', wordBreak: 'break-word' }}>
+                            {selectedWorkerReview.profilePhotoPath || 'No profile photo uploaded yet.'}
+                          </p>
+                          {selectedWorkerReview.profilePhotoPath ? (
+                            <a href={getWorkerDocumentHref(selectedWorkerReview.profilePhotoPath)} target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex' }}>
+                              Open Photo
+                            </a>
+                          ) : (
+                            <span style={{ color: '#94a3b8', fontSize: '12px' }}>Waiting for upload</span>
+                          )}
+                        </div>
+
+                        <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
+                          <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Identity Proof</p>
+                          <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                            {formatIdentityProofType(selectedWorkerReview.identityProofType)}
+                          </p>
+                          <p style={{ margin: '0 0 10px', color: '#64748b', fontSize: '12px' }}>
+                            {selectedWorkerReview.identityProofNumber || 'No proof number provided'}
+                          </p>
+                          <p style={{ margin: '0 0 10px', color: '#64748b', fontSize: '12px', wordBreak: 'break-word' }}>
+                            {selectedWorkerReview.identityProofPath || 'No document uploaded yet.'}
+                          </p>
+                          {selectedWorkerReview.identityProofPath ? (
+                            <a href={getWorkerDocumentHref(selectedWorkerReview.identityProofPath)} target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex' }}>
+                              Open Document
+                            </a>
+                          ) : (
+                            <span style={{ color: '#94a3b8', fontSize: '12px' }}>Waiting for upload</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <button onClick={() => void reviewWorkerKyc(selectedWorkerReview, 'approve')} style={primaryButtonStyle}>
+                          Approve KYC
+                        </button>
+                        <button onClick={() => void reviewWorkerKyc(selectedWorkerReview, 'reject')} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>
+                          Reject KYC
+                        </button>
+                        <button onClick={() => { setWorkerDraft(selectedWorkerReview); setEditingWorkerId(selectedWorkerReview.id) }} style={subtleButtonStyle}>
+                          Open in Worker Editor
+                        </button>
                       </div>
                     </div>
-                  ))
+                  </div>
                 )}
               </div>
             </div>

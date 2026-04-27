@@ -1,6 +1,7 @@
 import { CompanySiteShell } from '../company-site-shell'
 import styles from '../company-site.module.css'
 import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { CompanyPanelClient } from '../panel/company-panel-client'
 
 export default async function LabourCompanySigninPage() {
   const { content } = await getLabourCompanyWebsiteContent()
@@ -38,17 +39,7 @@ export default async function LabourCompanySigninPage() {
 
       <section className={styles.splitGrid}>
         <div className={styles.formBox}>
-          <p style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '24px', fontWeight: '900' }}>Company login access</p>
-          <p className={styles.textMuted} style={{ marginBottom: '18px' }}>
-            This page is designed like an employer sign-in page. Use it as the branded access point for existing company users.
-          </p>
-          <div className={styles.stack}>
-            <input placeholder="Registered email or mobile" style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }} />
-            <input placeholder="Password" type="password" style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }} />
-            <a href={content.signinPage.primaryCtaHref} className={styles.primaryButton} style={{ background: content.theme.accentColor, color: '#ffffff', border: '1px solid transparent' }}>
-              Continue to login
-            </a>
-          </div>
+          <CompanyPanelClient signinMode />
         </div>
 
         <div className={styles.card}>

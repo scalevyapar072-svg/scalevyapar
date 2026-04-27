@@ -5,10 +5,33 @@ export const runtime = 'nodejs'
 
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
+  'image/jpg',
   'image/png',
   'image/webp',
+  'image/heic',
+  'image/heif',
   'application/pdf'
 ])
+
+const ALLOWED_EXTENSIONS = new Map([
+  ['jpg', 'image/jpeg'],
+  ['jpeg', 'image/jpeg'],
+  ['png', 'image/png'],
+  ['webp', 'image/webp'],
+  ['heic', 'image/heic'],
+  ['heif', 'image/heif'],
+  ['pdf', 'application/pdf']
+])
+
+const resolveUploadContentType = (file: File) => {
+  const reportedType = String(file.type || '').trim().toLowerCase()
+  if (ALLOWED_MIME_TYPES.has(reportedType)) {
+    return reportedType
+  }
+
+  const extension = file.name.split('.').pop()?.trim().toLowerCase() || ''
+  return ALLOWED_EXTENSIONS.get(extension) || ''
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,15 +48,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Upload file is required.' }, { status: 400 })
     }
 
-    if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      return NextResponse.json({ error: 'Only JPG, PNG, WEBP, or PDF files are allowed.' }, { status: 400 })
+    const contentType = resolveUploadContentType(file)
+    if (!contentType) {
+      return NextResponse.json({ error: 'Only JPG, JPEG, PNG, WEBP, HEIC, HEIF, or PDF files are allowed.' }, { status: 400 })
     }
 
     const bytes = Buffer.from(await file.arrayBuffer())
     const uploaded = await uploadWorkerRegistrationAsset(auth.workerId, {
       documentKind,
       fileName: file.name,
-      contentType: file.type,
+      contentType,
       bytes
     })
 

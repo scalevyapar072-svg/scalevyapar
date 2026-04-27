@@ -271,7 +271,7 @@ export default function DashboardPage() {
                     </p>
                     <h3 style={{ color: '#1e293b', fontSize: '15px', fontWeight: '700', marginBottom: '14px' }}>What you will be able to do:</h3>
                     <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '24px' }}>
-                      {getFeatures(activeModuleData.slug).map((feature, idx) => (
+                      {getFeatures(activeModuleData.slug).map((feature: string, idx: number) => (
                         <div key={idx} className="feature-chip">
                           <div style={{ width: '28px', height: '28px', background: '#374655', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '13px', flexShrink: 0 }}>✓</div>
                           <span style={{ color: '#374655', fontSize: '14px', fontWeight: '500' }}>{feature}</span>

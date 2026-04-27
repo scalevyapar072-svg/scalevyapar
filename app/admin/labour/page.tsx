@@ -26,13 +26,14 @@ type LabourSection =
   | 'categories'
   | 'jobPosts'
   | 'jobApplications'
+  | 'savedJobs'
   | 'plans'
   | 'walletTransactions'
   | 'rechargeRequests'
   | 'reports'
   | 'settings'
   | 'auditLogs'
-type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'jobApplications' | 'walletTransactions' | 'rechargeRequests'
+type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'jobApplications' | 'savedJobs' | 'walletTransactions' | 'rechargeRequests'
 
 type LabourCategory = {
   id: string
@@ -115,6 +116,14 @@ type LabourJobApplication = {
   updatedAt: string
 }
 
+type LabourSavedJob = {
+  id: string
+  workerId: string
+  jobPostId: string
+  createdAt: string
+  updatedAt: string
+}
+
 type AuditLog = {
   id: string
   action: string
@@ -132,6 +141,7 @@ type LabourSnapshot = {
   companies: LabourCompany[]
   jobPosts: LabourJobPost[]
   jobApplications: LabourJobApplication[]
+  savedJobs: LabourSavedJob[]
   walletTransactions: WalletTransaction[]
   rechargeRequests: RechargeRequest[]
   auditLogs: AuditLog[]
@@ -217,6 +227,12 @@ type JobFilters = {
 type JobApplicationFilters = {
   search: string
   status: 'all' | JobApplicationStatus
+  companyId: string
+  jobPostId: string
+}
+
+type SavedJobFilters = {
+  search: string
   companyId: string
   jobPostId: string
 }
@@ -362,6 +378,7 @@ const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryI
 const blankCompanyFilters: CompanyFilters = { search: '', status: 'all', categoryId: '', fee: 'all' }
 const blankJobFilters: JobFilters = { search: '', status: 'all', categoryId: '', companyId: '' }
 const blankJobApplicationFilters: JobApplicationFilters = { search: '', status: 'all', companyId: '', jobPostId: '' }
+const blankSavedJobFilters: SavedJobFilters = { search: '', companyId: '', jobPostId: '' }
 const blankWalletFilters: WalletFilters = { search: '', audience: 'all', transactionType: 'all', status: 'all' }
 const blankRechargeFilters: RechargeFilters = { search: '', priority: 'all', type: 'all', status: 'all' }
 const blankAuditFilters: AuditFilters = { search: '', entityType: 'all' }
@@ -373,6 +390,7 @@ const sectionLabels: Record<LabourSection, string> = {
   categories: 'Categories',
   jobPosts: 'Job Posts',
   jobApplications: 'Job Applications',
+  savedJobs: 'Saved Jobs',
   plans: 'Plans',
   walletTransactions: 'Wallet Transactions',
   rechargeRequests: 'Recharge Requests',
@@ -455,6 +473,7 @@ export default function LabourExchangeAdminPage() {
   const [editingWorkerId, setEditingWorkerId] = useState<string | null>(null)
   const [selectedWorkerReviewId, setSelectedWorkerReviewId] = useState<string | null>(null)
   const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string | null>(null)
+  const [selectedSavedJobId, setSelectedSavedJobId] = useState<string | null>(null)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [editingJobPostId, setEditingJobPostId] = useState<string | null>(null)
   const [editingWalletTransactionId, setEditingWalletTransactionId] = useState<string | null>(null)
@@ -466,6 +485,7 @@ export default function LabourExchangeAdminPage() {
   const [companyFilters, setCompanyFilters] = useState<CompanyFilters>(blankCompanyFilters)
   const [jobFilters, setJobFilters] = useState<JobFilters>(blankJobFilters)
   const [jobApplicationFilters, setJobApplicationFilters] = useState<JobApplicationFilters>(blankJobApplicationFilters)
+  const [savedJobFilters, setSavedJobFilters] = useState<SavedJobFilters>(blankSavedJobFilters)
   const [walletFilters, setWalletFilters] = useState<WalletFilters>(blankWalletFilters)
   const [rechargeFilters, setRechargeFilters] = useState<RechargeFilters>(blankRechargeFilters)
   const [auditFilters, setAuditFilters] = useState<AuditFilters>(blankAuditFilters)
@@ -935,6 +955,27 @@ export default function LabourExchangeAdminPage() {
     filteredJobApplications.find(application => application.id === selectedJobApplicationId) ||
     filteredJobApplications.find(application => application.status === 'submitted') ||
     filteredJobApplications[0] ||
+    null
+  const filteredSavedJobs = snapshot.savedJobs.filter(savedJob => {
+    const worker = getWorkerById(savedJob.workerId)
+    const jobPost = getJobPostById(savedJob.jobPostId)
+    const company = jobPost ? getCompanyById(jobPost.companyId) : null
+
+    if (savedJobFilters.companyId && company?.id !== savedJobFilters.companyId) return false
+    if (savedJobFilters.jobPostId && savedJob.jobPostId !== savedJobFilters.jobPostId) return false
+
+    return matchesSearch(savedJobFilters.search, [
+      worker?.fullName || '',
+      worker?.mobile || '',
+      worker?.city || '',
+      jobPost?.title || '',
+      jobPost?.city || '',
+      company?.companyName || ''
+    ])
+  })
+  const selectedSavedJob =
+    filteredSavedJobs.find(savedJob => savedJob.id === selectedSavedJobId) ||
+    filteredSavedJobs[0] ||
     null
 
   const filteredWalletTransactions = walletTransactions.filter(transaction => {
@@ -1410,6 +1451,7 @@ export default function LabourExchangeAdminPage() {
                     `Companies: ${snapshot.companies.length}`,
                     `Job Posts: ${snapshot.jobPosts.length}`,
                     `Applications: ${snapshot.jobApplications.length}`,
+                    `Saved Jobs: ${snapshot.savedJobs.length}`,
                     `Wallet Entries: ${walletTransactions.length}`,
                     `Recharge Follow-ups: ${rechargeRequests.length}`,
                     `Audit Logs: ${snapshot.auditLogs.length}`
@@ -2359,6 +2401,147 @@ export default function LabourExchangeAdminPage() {
           </div>
         )}
 
+        {activeSection === 'savedJobs' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Saved Jobs Monitoring</h2>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input
+                    placeholder="Search saved jobs"
+                    value={savedJobFilters.search}
+                    onChange={event => setSavedJobFilters(current => ({ ...current, search: event.target.value }))}
+                    style={{ ...inputStyle, width: '220px' }}
+                  />
+                  <select
+                    value={savedJobFilters.companyId}
+                    onChange={event => setSavedJobFilters(current => ({ ...current, companyId: event.target.value }))}
+                    style={{ ...inputStyle, width: '180px' }}
+                  >
+                    <option value="">All Companies</option>
+                    {snapshot.companies.map(company => (
+                      <option key={company.id} value={company.id}>{company.companyName}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={savedJobFilters.jobPostId}
+                    onChange={event => setSavedJobFilters(current => ({ ...current, jobPostId: event.target.value }))}
+                    style={{ ...inputStyle, width: '210px' }}
+                  >
+                    <option value="">All Job Posts</option>
+                    {snapshot.jobPosts.map(jobPost => (
+                      <option key={jobPost.id} value={jobPost.id}>{jobPost.title}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {filteredSavedJobs.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No saved jobs match the current filters.</p>
+                ) : (
+                  filteredSavedJobs.map(savedJob => {
+                    const worker = getWorkerById(savedJob.workerId)
+                    const jobPost = getJobPostById(savedJob.jobPostId)
+                    const company = jobPost ? getCompanyById(jobPost.companyId) : null
+
+                    return (
+                      <div key={savedJob.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                        <div>
+                          <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{worker?.fullName || 'Unknown worker'}</p>
+                          <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                            {jobPost?.title || 'Unknown job'} | {company?.companyName || 'Unknown company'} | {worker?.mobile || 'No mobile'}
+                          </p>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                            Saved on {formatDate(savedJob.createdAt)} {jobPost?.city ? `| ${jobPost.city}` : ''}
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <button onClick={() => setSelectedSavedJobId(savedJob.id)} style={subtleButtonStyle}>Review</button>
+                          <button onClick={() => void removeEntity('savedJobs', savedJob.id, `${worker?.fullName || 'Worker'} saved job`)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <div style={{ marginBottom: '14px' }}>
+                <h2 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px' }}>Saved Job Detail</h2>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                  Track which roles workers are bookmarking most often before they apply.
+                </p>
+              </div>
+
+              {!selectedSavedJob ? (
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Choose a saved-job record from the list to review it.</p>
+              ) : (
+                <div style={{ display: 'grid', gap: '16px' }}>
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                      <div>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px', fontWeight: '800' }}>
+                          {getWorkerById(selectedSavedJob.workerId)?.fullName || 'Unknown worker'}
+                        </p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '13px' }}>
+                          {getJobPostById(selectedSavedJob.jobPostId)?.title || 'Unknown job'} | {getCompanyById(getJobPostById(selectedSavedJob.jobPostId)?.companyId || '')?.companyName || 'Unknown company'}
+                        </p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                          Saved {formatDate(selectedSavedJob.createdAt)}
+                        </p>
+                      </div>
+                      <span style={{ fontSize: '12px', fontWeight: '800', borderRadius: '999px', padding: '8px 12px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', alignSelf: 'flex-start' }}>
+                        Shortlisted by worker
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
+                        <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Worker</p>
+                        <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                          Mobile: {getWorkerById(selectedSavedJob.workerId)?.mobile || 'Not available'}
+                        </p>
+                        <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                          City: {getWorkerById(selectedSavedJob.workerId)?.city || 'Not available'}
+                        </p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                          Status: {getWorkerById(selectedSavedJob.workerId)?.status || 'Unknown'}
+                        </p>
+                      </div>
+
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
+                        <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Job</p>
+                        <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                          Wage: {formatCurrency(getJobPostById(selectedSavedJob.jobPostId)?.wageAmount || 0)}
+                        </p>
+                        <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                          Workers needed: {getJobPostById(selectedSavedJob.jobPostId)?.workersNeeded || 0}
+                        </p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                          City: {getJobPostById(selectedSavedJob.jobPostId)?.city || 'Not available'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <button onClick={() => setSelectedSavedJobId(null)} style={subtleButtonStyle}>
+                        Clear selection
+                      </button>
+                      <button onClick={() => void removeEntity('savedJobs', selectedSavedJob.id, `${getWorkerById(selectedSavedJob.workerId)?.fullName || 'Worker'} saved job`)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>
+                        Remove Saved Record
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeSection === 'walletTransactions' && (
           <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
@@ -2818,7 +3001,7 @@ export default function LabourExchangeAdminPage() {
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
                     <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
                       Open {sectionLabels[section]}
                     </button>

@@ -15,6 +15,7 @@ const isEntityType = (value: unknown): value is LabourEntityType =>
   value === 'companies' ||
   value === 'jobPosts' ||
   value === 'jobApplications' ||
+  value === 'savedJobs' ||
   value === 'walletTransactions' ||
   value === 'rechargeRequests'
 

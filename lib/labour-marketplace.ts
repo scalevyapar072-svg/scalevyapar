@@ -14,6 +14,7 @@ export type LabourEntityType =
   | 'walletTransactions'
   | 'rechargeRequests'
 export type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked' | 'rejected'
+export type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
 export type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 export type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
 export type PlanAudience = 'worker' | 'company'
@@ -62,6 +63,7 @@ export interface LabourWorkerRecord {
   fullName: string
   mobile: string
   city: string
+  profilePhotoPath: string
   skills: string[]
   experienceYears: number
   expectedDailyWage: number
@@ -70,6 +72,10 @@ export interface LabourWorkerRecord {
   availability: WorkerAvailability
   isVisible: boolean
   categoryIds: string[]
+  identityProofType: WorkerIdentityProofType
+  identityProofNumber: string
+  identityProofPath: string
+  registrationCompletedAt: string
   createdAt: string
   updatedAt: string
 }
@@ -318,6 +324,7 @@ const defaultData: LabourMarketplaceData = {
       fullName: 'Sajid Ansari',
       mobile: '9876543210',
       city: 'Surat',
+      profilePhotoPath: 'workers/worker-sajid/profile-photo-demo.jpg',
       skills: ['Ladies kurti stitching', 'Machine handling', 'Finishing'],
       experienceYears: 6,
       expectedDailyWage: 950,
@@ -326,6 +333,10 @@ const defaultData: LabourMarketplaceData = {
       availability: 'available_today',
       isVisible: true,
       categoryIds: ['cat-stitching', 'cat-embroidery'],
+      identityProofType: 'aadhaar',
+      identityProofNumber: 'XXXX-XXXX-4321',
+      identityProofPath: 'workers/worker-sajid/identity-proof-demo.pdf',
+      registrationCompletedAt: '2026-04-25T00:00:00.000Z',
       createdAt: '2026-04-25T00:00:00.000Z',
       updatedAt: '2026-04-25T00:00:00.000Z'
     },
@@ -334,6 +345,7 @@ const defaultData: LabourMarketplaceData = {
       fullName: 'Rahul Sahu',
       mobile: '9812345678',
       city: 'Jaipur',
+      profilePhotoPath: 'workers/worker-rahul/profile-photo-demo.jpg',
       skills: ['Site wiring', 'Repair work'],
       experienceYears: 3,
       expectedDailyWage: 800,
@@ -342,6 +354,10 @@ const defaultData: LabourMarketplaceData = {
       availability: 'available_this_week',
       isVisible: false,
       categoryIds: ['cat-electrician'],
+      identityProofType: 'voter_id',
+      identityProofNumber: 'VOTER-9812',
+      identityProofPath: 'workers/worker-rahul/identity-proof-demo.pdf',
+      registrationCompletedAt: '2026-04-25T00:00:00.000Z',
       createdAt: '2026-04-25T00:00:00.000Z',
       updatedAt: '2026-04-25T00:00:00.000Z'
     }
@@ -603,6 +619,7 @@ const mapWorkerRow = (row: {
   full_name: string
   mobile: string
   city: string | null
+  profile_photo_path: string | null
   skills: string[] | null
   experience_years: number | null
   expected_daily_wage: number | null
@@ -611,6 +628,10 @@ const mapWorkerRow = (row: {
   availability: string | null
   is_visible: boolean | null
   category_ids: string[] | null
+  identity_proof_type: string | null
+  identity_proof_number: string | null
+  identity_proof_path: string | null
+  registration_completed_at: string | null
   created_at: string
   updated_at: string
 }): LabourWorkerRecord => ({
@@ -618,6 +639,7 @@ const mapWorkerRow = (row: {
   fullName: row.full_name,
   mobile: row.mobile,
   city: row.city || '',
+  profilePhotoPath: row.profile_photo_path || '',
   skills: row.skills || [],
   experienceYears: row.experience_years ?? 0,
   expectedDailyWage: row.expected_daily_wage ?? 0,
@@ -626,6 +648,10 @@ const mapWorkerRow = (row: {
   availability: (row.availability as WorkerAvailability | null) || 'available_today',
   isVisible: row.is_visible ?? true,
   categoryIds: row.category_ids || [],
+  identityProofType: (row.identity_proof_type as WorkerIdentityProofType | null) || '',
+  identityProofNumber: row.identity_proof_number || '',
+  identityProofPath: row.identity_proof_path || '',
+  registrationCompletedAt: row.registration_completed_at || '',
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })
@@ -901,6 +927,7 @@ const normalizeWorker = (
     fullName: String(payload.fullName || existing?.fullName || '').trim(),
     mobile: String(payload.mobile || existing?.mobile || '').trim(),
     city: String(payload.city || existing?.city || '').trim(),
+    profilePhotoPath: String(payload.profilePhotoPath || existing?.profilePhotoPath || '').trim(),
     skills: toStringArray(payload.skills || existing?.skills || []),
     experienceYears: toNumber(payload.experienceYears, existing?.experienceYears ?? 0),
     expectedDailyWage: toNumber(payload.expectedDailyWage, existing?.expectedDailyWage ?? 0),
@@ -909,6 +936,10 @@ const normalizeWorker = (
     availability: (payload.availability || existing?.availability || 'available_today') as WorkerAvailability,
     isVisible: toBoolean(payload.isVisible, existing?.isVisible ?? true),
     categoryIds: toStringArray(payload.categoryIds || existing?.categoryIds || []),
+    identityProofType: (payload.identityProofType || existing?.identityProofType || '') as WorkerIdentityProofType,
+    identityProofNumber: String(payload.identityProofNumber || existing?.identityProofNumber || '').trim(),
+    identityProofPath: String(payload.identityProofPath || existing?.identityProofPath || '').trim(),
+    registrationCompletedAt: String(payload.registrationCompletedAt || existing?.registrationCompletedAt || '').trim(),
     createdAt: existing?.createdAt || now,
     updatedAt: now
   }
@@ -1281,6 +1312,7 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     full_name: worker.fullName,
     mobile: worker.mobile,
     city: worker.city,
+    profile_photo_path: worker.profilePhotoPath,
     skills: worker.skills,
     experience_years: worker.experienceYears,
     expected_daily_wage: worker.expectedDailyWage,
@@ -1289,6 +1321,10 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     availability: worker.availability,
     is_visible: worker.isVisible,
     category_ids: worker.categoryIds,
+    identity_proof_type: worker.identityProofType,
+    identity_proof_number: worker.identityProofNumber,
+    identity_proof_path: worker.identityProofPath,
+    registration_completed_at: worker.registrationCompletedAt || null,
     created_at: worker.createdAt,
     updated_at: worker.updatedAt
   }))
@@ -1615,6 +1651,7 @@ export const createLabourEntity = async (
         full_name: record.fullName,
         mobile: record.mobile,
         city: record.city,
+        profile_photo_path: record.profilePhotoPath,
         skills: record.skills,
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
@@ -1623,6 +1660,10 @@ export const createLabourEntity = async (
         availability: record.availability,
         is_visible: record.isVisible,
         category_ids: record.categoryIds,
+        identity_proof_type: record.identityProofType,
+        identity_proof_number: record.identityProofNumber,
+        identity_proof_path: record.identityProofPath,
+        registration_completed_at: record.registrationCompletedAt || null,
         created_at: record.createdAt,
         updated_at: record.updatedAt
       })
@@ -1912,6 +1953,7 @@ export const updateLabourEntity = async (
         full_name: record.fullName,
         mobile: record.mobile,
         city: record.city,
+        profile_photo_path: record.profilePhotoPath,
         skills: record.skills,
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
@@ -1920,6 +1962,10 @@ export const updateLabourEntity = async (
         availability: record.availability,
         is_visible: record.isVisible,
         category_ids: record.categoryIds,
+        identity_proof_type: record.identityProofType,
+        identity_proof_number: record.identityProofNumber,
+        identity_proof_path: record.identityProofPath,
+        registration_completed_at: record.registrationCompletedAt || null,
         updated_at: record.updatedAt
       }).eq('id', id)
       if (error) throw new Error(`Failed to update labour worker: ${error.message}`)

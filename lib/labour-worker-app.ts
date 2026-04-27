@@ -17,8 +17,10 @@ import {
   LabourWalletTransactionRecord,
   LabourWorkerRecord,
   LabourWorkerNotificationRecord,
+  WorkerIdentityProofType,
   updateLabourEntity
 } from './labour-marketplace'
+import { sendWorkerPushNotification } from './labour-worker-push'
 import { supabaseAdmin } from './supabase-admin'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
@@ -27,6 +29,7 @@ const OTP_TABLE_NAME = 'labour_worker_auth_sessions'
 const OTP_EXPIRY_MINUTES = 10
 const DEV_OTP_CODE = process.env.LABOUR_WORKER_STATIC_OTP || '123456'
 const ALLOW_STATELESS_DEMO_OTP = DEV_OTP_CODE.trim().length > 0
+const WORKER_UPLOAD_BUCKET = 'labour-worker-files'
 
 type WorkerAuthSession = {
   id: string
@@ -54,6 +57,7 @@ export type WorkerAppProfile = {
   fullName: string
   mobile: string
   city: string
+  profilePhotoPath: string
   categoryIds: string[]
   categoryLabels: string[]
   skills: string[]
@@ -63,6 +67,25 @@ export type WorkerAppProfile = {
   walletBalance: number
   status: string
   isVisible: boolean
+  identityProofType: WorkerIdentityProofType
+  identityProofNumber: string
+  identityProofPath: string
+  isRegistrationComplete: boolean
+  registrationCompletedAt: string
+}
+
+export type WorkerRegistrationPayload = {
+  fullName: string
+  city: string
+  categoryIds: string[]
+  skills: string[]
+  experienceYears: number
+  expectedDailyWage: number
+  availability: string
+  profilePhotoPath: string
+  identityProofType: WorkerIdentityProofType
+  identityProofNumber: string
+  identityProofPath: string
 }
 
 export type WorkerAppWalletSummary = {
@@ -239,11 +262,97 @@ const writeOtpSessions = async (sessions: WorkerAuthSession[], storage: 'supabas
 const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 const sanitizeMobile = (mobile: string) => mobile.replace(/\D/g, '').slice(-10)
+const sanitizeFileName = (fileName: string) =>
+  fileName
+    .toLowerCase()
+    .replace(/[^a-z0-9.\-_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+const normalizeIdentityProofType = (value: unknown): WorkerIdentityProofType => {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'aadhaar' || normalized === 'pan' || normalized === 'voter_id' || normalized === 'driving_license' || normalized === 'other') {
+    return normalized
+  }
+
+  return ''
+}
 
 const isWorkerProfileComplete = (worker: LabourWorkerRecord) =>
   Boolean(worker.fullName.trim()) &&
   Boolean(worker.city.trim()) &&
   worker.categoryIds.length > 0
+
+const isWorkerRegistrationComplete = (worker: LabourWorkerRecord) =>
+  isWorkerProfileComplete(worker) &&
+  Boolean(worker.profilePhotoPath.trim()) &&
+  Boolean(worker.identityProofType) &&
+  Boolean(worker.identityProofNumber.trim()) &&
+  Boolean(worker.identityProofPath.trim())
+
+const deriveWorkerStatus = (worker: LabourWorkerRecord): LabourWorkerRecord['status'] => {
+  if (worker.status === 'blocked' || worker.status === 'rejected') {
+    return worker.status
+  }
+
+  if (!isWorkerRegistrationComplete(worker)) {
+    return 'pending'
+  }
+
+  if (worker.status === 'pending') {
+    return 'pending'
+  }
+
+  if (worker.walletBalance <= 0) {
+    return 'inactive_wallet_empty'
+  }
+
+  return 'active'
+}
+
+const ensureWorkerUploadBucket = async () => {
+  const { data: buckets, error } = await supabaseAdmin.storage.listBuckets()
+  if (error) {
+    throw new Error(`Failed to access worker upload storage: ${error.message}`)
+  }
+
+  if ((buckets || []).some(bucket => bucket.name === WORKER_UPLOAD_BUCKET)) {
+    return
+  }
+
+  const { error: createError } = await supabaseAdmin.storage.createBucket(WORKER_UPLOAD_BUCKET, {
+    public: false,
+    fileSizeLimit: '10MB'
+  })
+
+  if (createError && !createError.message.toLowerCase().includes('already')) {
+    throw new Error(`Failed to create worker upload bucket: ${createError.message}`)
+  }
+}
+
+const assertWorkerRegistrationPayload = (payload: WorkerRegistrationPayload) => {
+  if (!payload.fullName.trim()) {
+    throw new Error('Full name is required.')
+  }
+  if (!payload.city.trim()) {
+    throw new Error('City is required.')
+  }
+  if (!payload.categoryIds.length) {
+    throw new Error('Select at least one category.')
+  }
+  if (!payload.profilePhotoPath.trim()) {
+    throw new Error('Profile photo upload is required.')
+  }
+  if (!payload.identityProofType) {
+    throw new Error('Identity proof type is required.')
+  }
+  if (!payload.identityProofNumber.trim()) {
+    throw new Error('Identity proof number is required.')
+  }
+  if (!payload.identityProofPath.trim()) {
+    throw new Error('Identity proof upload is required.')
+  }
+}
 
 const getWorkerPlan = (plans: LabourPlanRecord[]) =>
   plans.find(plan => plan.audience === 'worker' && plan.isActive) || null
@@ -271,14 +380,25 @@ const deriveActivationSummary = (worker: LabourWorkerRecord, workerPlan: LabourP
     }
   }
 
-  if (!isWorkerProfileComplete(worker)) {
+  if (!isWorkerRegistrationComplete(worker)) {
     return {
       isActive: false,
       canViewCompanyDetails: false,
       status: worker.status,
-      headline: 'Complete your profile',
-      description: 'Add name, city and category so companies can match your work profile properly.',
-      recommendedAction: 'Complete profile'
+      headline: 'Complete your registration',
+      description: 'Upload your photo, identity proof, and work details so your worker account can be submitted for approval.',
+      recommendedAction: 'Finish registration'
+    }
+  }
+
+  if (worker.status === 'pending') {
+    return {
+      isActive: false,
+      canViewCompanyDetails: false,
+      status: worker.status,
+      headline: 'Registration under review',
+      description: 'Your worker account was submitted successfully and is waiting for admin verification.',
+      recommendedAction: 'Wait for approval'
     }
   }
 
@@ -310,6 +430,7 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   fullName: worker.fullName,
   mobile: worker.mobile,
   city: worker.city,
+  profilePhotoPath: worker.profilePhotoPath,
   categoryIds: worker.categoryIds,
   categoryLabels: worker.categoryIds
     .map(categoryId => categories.find(category => category.id === categoryId)?.name)
@@ -320,7 +441,12 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   availability: worker.availability,
   walletBalance: worker.walletBalance,
   status: worker.status,
-  isVisible: worker.isVisible
+  isVisible: worker.isVisible,
+  identityProofType: worker.identityProofType,
+  identityProofNumber: worker.identityProofNumber,
+  identityProofPath: worker.identityProofPath,
+  isRegistrationComplete: isWorkerRegistrationComplete(worker),
+  registrationCompletedAt: worker.registrationCompletedAt
 })
 
 const toWorkerWalletSummary = (
@@ -414,7 +540,9 @@ const createWorkerNotification = async (
     relatedCompanyId?: string
   }
 ) => {
+  const notificationId = createId('notification')
   await createLabourEntity('workerNotifications', {
+    id: notificationId,
     workerId,
     type: payload.type,
     title: payload.title,
@@ -424,6 +552,21 @@ const createWorkerNotification = async (
     relatedCompanyId: payload.relatedCompanyId,
     isRead: false
   }, 'worker-app')
+
+  await sendWorkerPushNotification({
+    workerId,
+    title: payload.title,
+    body: payload.message,
+    priority: payload.priority,
+    data: {
+      type: payload.type,
+      notificationId,
+      relatedJobPostId: payload.relatedJobPostId,
+      relatedCompanyId: payload.relatedCompanyId
+    }
+  }).catch(error => {
+    console.error('Failed to deliver worker push notification', error)
+  })
 }
 
 const findWorkerByMobile = (snapshot: LabourMarketplaceSnapshot, mobile: string) =>
@@ -444,6 +587,7 @@ const ensureWorkerExists = async (mobile: string) => {
     fullName: '',
     mobile: normalizedMobile,
     city: '',
+    profilePhotoPath: '',
     skills: [],
     experienceYears: 0,
     expectedDailyWage: 0,
@@ -451,7 +595,11 @@ const ensureWorkerExists = async (mobile: string) => {
     status: 'pending',
     availability: 'available_today',
     isVisible: false,
-    categoryIds: []
+    categoryIds: [],
+    identityProofType: '',
+    identityProofNumber: '',
+    identityProofPath: '',
+    registrationCompletedAt: ''
   }, 'worker-app')
 
   const worker = findWorkerByMobile(created, normalizedMobile)
@@ -649,6 +797,99 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
   }
 }
 
+export const uploadWorkerRegistrationAsset = async (
+  workerId: string,
+  payload: {
+    documentKind: 'profile_photo' | 'identity_proof'
+    fileName: string
+    contentType: string
+    bytes: Buffer
+  }
+) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const worker = findWorkerById(snapshot, workerId)
+  if (!worker) {
+    throw new Error('Worker account not found.')
+  }
+
+  if (!payload.bytes.length) {
+    throw new Error('Uploaded file is empty.')
+  }
+
+  const safeFileName = sanitizeFileName(payload.fileName || `${payload.documentKind}.bin`) || `${payload.documentKind}.bin`
+  const extension = safeFileName.includes('.') ? safeFileName.split('.').pop() : 'bin'
+  const storagePath = `workers/${workerId}/${payload.documentKind}-${Date.now()}.${extension}`
+
+  await ensureWorkerUploadBucket()
+  const { error } = await supabaseAdmin.storage.from(WORKER_UPLOAD_BUCKET).upload(storagePath, payload.bytes, {
+    contentType: payload.contentType,
+    upsert: true
+  })
+
+  if (error) {
+    throw new Error(`Failed to upload worker document: ${error.message}`)
+  }
+
+  return {
+    storagePath,
+    bucket: WORKER_UPLOAD_BUCKET,
+    fileName: safeFileName
+  }
+}
+
+export const completeWorkerAppRegistration = async (
+  workerId: string,
+  payload: WorkerRegistrationPayload
+) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const existing = findWorkerById(snapshot, workerId)
+  if (!existing) {
+    throw new Error('Worker account not found.')
+  }
+
+  const nextWorker: LabourWorkerRecord = {
+    ...existing,
+    fullName: payload.fullName.trim(),
+    city: payload.city.trim(),
+    categoryIds: payload.categoryIds,
+    skills: payload.skills,
+    experienceYears: payload.experienceYears,
+    expectedDailyWage: payload.expectedDailyWage,
+    availability: payload.availability as LabourWorkerRecord['availability'],
+    profilePhotoPath: payload.profilePhotoPath.trim(),
+    identityProofType: normalizeIdentityProofType(payload.identityProofType),
+    identityProofNumber: payload.identityProofNumber.trim(),
+    identityProofPath: payload.identityProofPath.trim(),
+    registrationCompletedAt: existing.registrationCompletedAt || new Date().toISOString()
+  }
+
+  assertWorkerRegistrationPayload({
+    ...payload,
+    identityProofType: nextWorker.identityProofType
+  })
+
+  const nextStatus = deriveWorkerStatus(nextWorker)
+
+  await updateLabourEntity('workers', workerId, {
+    fullName: nextWorker.fullName,
+    city: nextWorker.city,
+    categoryIds: nextWorker.categoryIds,
+    skills: nextWorker.skills,
+    experienceYears: nextWorker.experienceYears,
+    expectedDailyWage: nextWorker.expectedDailyWage,
+    availability: nextWorker.availability,
+    profilePhotoPath: nextWorker.profilePhotoPath,
+    identityProofType: nextWorker.identityProofType,
+    identityProofNumber: nextWorker.identityProofNumber,
+    identityProofPath: nextWorker.identityProofPath,
+    registrationCompletedAt: nextWorker.registrationCompletedAt,
+    isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active',
+    status: nextStatus
+  }, 'worker-app')
+
+  return getWorkerAppDashboard(workerId)
+}
+
 export const updateWorkerAppProfile = async (
   workerId: string,
   payload: Partial<Pick<WorkerAppProfile, 'fullName' | 'city' | 'categoryIds' | 'skills' | 'experienceYears' | 'expectedDailyWage' | 'availability'>>
@@ -659,27 +900,27 @@ export const updateWorkerAppProfile = async (
     throw new Error('Worker account not found.')
   }
 
-  const nextStatus =
-    existing.status === 'blocked' || existing.status === 'rejected'
-      ? existing.status
-      : existing.walletBalance <= 0
-        ? 'inactive_wallet_empty'
-        : 'active'
-
-  await updateLabourEntity('workers', workerId, {
+  const mergedWorker: LabourWorkerRecord = {
+    ...existing,
     fullName: payload.fullName ?? existing.fullName,
     city: payload.city ?? existing.city,
     categoryIds: payload.categoryIds ?? existing.categoryIds,
     skills: payload.skills ?? existing.skills,
     experienceYears: payload.experienceYears ?? existing.experienceYears,
     expectedDailyWage: payload.expectedDailyWage ?? existing.expectedDailyWage,
-    availability: payload.availability ?? existing.availability,
-    isVisible: isWorkerProfileComplete({
-      ...existing,
-      fullName: payload.fullName ?? existing.fullName,
-      city: payload.city ?? existing.city,
-      categoryIds: payload.categoryIds ?? existing.categoryIds
-    }) && nextStatus === 'active',
+    availability: (payload.availability ?? existing.availability) as LabourWorkerRecord['availability']
+  }
+  const nextStatus = deriveWorkerStatus(mergedWorker)
+
+  await updateLabourEntity('workers', workerId, {
+    fullName: mergedWorker.fullName,
+    city: mergedWorker.city,
+    categoryIds: mergedWorker.categoryIds,
+    skills: mergedWorker.skills,
+    experienceYears: mergedWorker.experienceYears,
+    expectedDailyWage: mergedWorker.expectedDailyWage,
+    availability: mergedWorker.availability,
+    isVisible: isWorkerRegistrationComplete(mergedWorker) && nextStatus === 'active',
     status: nextStatus
   }, 'worker-app')
 

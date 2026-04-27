@@ -30,6 +30,7 @@ create table if not exists public.labour_workers (
   full_name text not null,
   mobile text not null unique,
   city text,
+  profile_photo_path text not null default '',
   skills text[] not null default '{}',
   experience_years numeric(6, 2) not null default 0,
   expected_daily_wage numeric(10, 2) not null default 0,
@@ -38,9 +39,35 @@ create table if not exists public.labour_workers (
   availability text not null default 'available_today' check (availability in ('available_today', 'available_this_week', 'not_available')),
   is_visible boolean not null default true,
   category_ids text[] not null default '{}',
+  identity_proof_type text not null default '' check (identity_proof_type in ('', 'aadhaar', 'pan', 'voter_id', 'driving_license', 'other')),
+  identity_proof_number text not null default '',
+  identity_proof_path text not null default '',
+  registration_completed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.labour_workers
+add column if not exists profile_photo_path text not null default '';
+
+alter table if exists public.labour_workers
+add column if not exists identity_proof_type text not null default '';
+
+alter table if exists public.labour_workers
+add column if not exists identity_proof_number text not null default '';
+
+alter table if exists public.labour_workers
+add column if not exists identity_proof_path text not null default '';
+
+alter table if exists public.labour_workers
+add column if not exists registration_completed_at timestamptz;
+
+alter table if exists public.labour_workers
+drop constraint if exists labour_workers_identity_proof_type_check;
+
+alter table if exists public.labour_workers
+add constraint labour_workers_identity_proof_type_check
+check (identity_proof_type in ('', 'aadhaar', 'pan', 'voter_id', 'driving_license', 'other'));
 
 alter table if exists public.labour_workers
 drop constraint if exists labour_workers_status_check;
@@ -110,6 +137,19 @@ create table if not exists public.labour_worker_notifications (
   related_company_id text references public.labour_companies(id) on delete set null,
   is_read boolean not null default false,
   priority text not null default 'medium' check (priority in ('high', 'medium', 'low')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.labour_worker_device_tokens (
+  id text primary key,
+  worker_id text not null references public.labour_workers(id) on delete cascade,
+  fcm_token text not null unique,
+  locale text not null default 'hi',
+  platform text not null default 'android',
+  device_label text,
+  is_active boolean not null default true,
+  last_seen_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -194,6 +234,8 @@ create index if not exists idx_labour_saved_jobs_worker_id on public.labour_save
 create index if not exists idx_labour_saved_jobs_job_post_id on public.labour_saved_jobs(job_post_id);
 create index if not exists idx_labour_worker_notifications_worker_id on public.labour_worker_notifications(worker_id);
 create index if not exists idx_labour_worker_notifications_is_read on public.labour_worker_notifications(is_read);
+create index if not exists idx_labour_worker_device_tokens_worker_id on public.labour_worker_device_tokens(worker_id);
+create index if not exists idx_labour_worker_device_tokens_active on public.labour_worker_device_tokens(is_active);
 create index if not exists idx_labour_wallet_transactions_created_at on public.labour_wallet_transactions(created_at desc);
 create index if not exists idx_labour_wallet_transactions_entity_type on public.labour_wallet_transactions(entity_type);
 create index if not exists idx_labour_recharge_requests_status on public.labour_recharge_requests(request_status);

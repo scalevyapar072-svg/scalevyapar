@@ -111,4 +111,71 @@ class WorkerApiService {
 
     return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
   }
+
+  Future<WorkerDashboardModel> applyToJob(
+    String token, {
+    required String jobPostId,
+    String? note,
+  }) async {
+    final response = await _client.post(
+      _uri('/api/labour/worker/applications'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'jobPostId': jobPostId,
+        'note': note,
+      }),
+    );
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode >= 400) {
+      throw Exception(data['error'] ?? 'Failed to apply to job');
+    }
+
+    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+  }
+
+  Future<WorkerDashboardModel> toggleSavedJob(
+    String token, {
+    required String jobPostId,
+  }) async {
+    final response = await _client.post(
+      _uri('/api/labour/worker/saved-jobs'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'jobPostId': jobPostId}),
+    );
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode >= 400) {
+      throw Exception(data['error'] ?? 'Failed to update saved jobs');
+    }
+
+    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+  }
+
+  Future<WorkerDashboardModel> markNotificationsRead(
+    String token, {
+    List<String>? notificationIds,
+  }) async {
+    final response = await _client.post(
+      _uri('/api/labour/worker/notifications'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'notificationIds': notificationIds}),
+    );
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode >= 400) {
+      throw Exception(data['error'] ?? 'Failed to update notifications');
+    }
+
+    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+  }
 }

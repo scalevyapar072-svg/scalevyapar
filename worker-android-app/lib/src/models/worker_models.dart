@@ -176,6 +176,10 @@ class WorkerFeedItemModel {
   final String publishedAt;
   final String expiresAt;
   final String matchReason;
+  final bool hasApplied;
+  final String? applicationStatus;
+  final bool isSaved;
+  final String? appliedAt;
 
   WorkerFeedItemModel({
     required this.id,
@@ -193,6 +197,10 @@ class WorkerFeedItemModel {
     required this.publishedAt,
     required this.expiresAt,
     required this.matchReason,
+    required this.hasApplied,
+    required this.applicationStatus,
+    required this.isSaved,
+    required this.appliedAt,
   });
 
   factory WorkerFeedItemModel.fromJson(Map<String, dynamic> json) {
@@ -212,6 +220,48 @@ class WorkerFeedItemModel {
       publishedAt: json['publishedAt'] as String? ?? '',
       expiresAt: json['expiresAt'] as String? ?? '',
       matchReason: json['matchReason'] as String? ?? '',
+      hasApplied: json['hasApplied'] as bool? ?? false,
+      applicationStatus: json['applicationStatus'] as String?,
+      isSaved: json['isSaved'] as bool? ?? false,
+      appliedAt: json['appliedAt'] as String?,
+    );
+  }
+}
+
+class WorkerNotificationModel {
+  final String id;
+  final String type;
+  final String title;
+  final String message;
+  final String? relatedJobPostId;
+  final String? relatedCompanyId;
+  final bool isRead;
+  final String priority;
+  final String createdAt;
+
+  WorkerNotificationModel({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.message,
+    required this.relatedJobPostId,
+    required this.relatedCompanyId,
+    required this.isRead,
+    required this.priority,
+    required this.createdAt,
+  });
+
+  factory WorkerNotificationModel.fromJson(Map<String, dynamic> json) {
+    return WorkerNotificationModel(
+      id: json['id'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+      relatedJobPostId: json['relatedJobPostId'] as String?,
+      relatedCompanyId: json['relatedCompanyId'] as String?,
+      isRead: json['isRead'] as bool? ?? false,
+      priority: json['priority'] as String? ?? 'medium',
+      createdAt: json['createdAt'] as String? ?? '',
     );
   }
 }
@@ -250,6 +300,8 @@ class WorkerDashboardModel {
   final WorkerWalletSummaryModel wallet;
   final WorkerActivationSummaryModel activation;
   final List<WorkerFeedItemModel> feed;
+  final List<WorkerNotificationModel> notifications;
+  final int unreadNotificationCount;
   final List<WorkerCategoryOption> availableCategories;
   final WorkerPlanModel? workerPlan;
 
@@ -258,6 +310,8 @@ class WorkerDashboardModel {
     required this.wallet,
     required this.activation,
     required this.feed,
+    required this.notifications,
+    required this.unreadNotificationCount,
     required this.availableCategories,
     required this.workerPlan,
   });
@@ -270,6 +324,10 @@ class WorkerDashboardModel {
       feed: ((json['feed'] as List?) ?? [])
           .map((item) => WorkerFeedItemModel.fromJson(item as Map<String, dynamic>))
           .toList(),
+      notifications: ((json['notifications'] as List?) ?? [])
+          .map((item) => WorkerNotificationModel.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      unreadNotificationCount: json['unreadNotificationCount'] as int? ?? 0,
       availableCategories: ((json['availableCategories'] as List?) ?? [])
           .map((item) => WorkerCategoryOption.fromJson(item as Map<String, dynamic>))
           .toList(),

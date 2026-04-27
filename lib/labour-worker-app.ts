@@ -533,12 +533,13 @@ const buildWorkerFeed = (
   })
 }
 
-const createWorkerNotification = async (
+export const createWorkerNotification = async (
   workerId: string,
   payload: Pick<LabourWorkerNotificationRecord, 'type' | 'title' | 'message' | 'priority'> & {
     relatedJobPostId?: string
     relatedCompanyId?: string
-  }
+  },
+  actor = 'worker-app'
 ) => {
   const notificationId = createId('notification')
   await createLabourEntity('workerNotifications', {
@@ -551,7 +552,7 @@ const createWorkerNotification = async (
     relatedJobPostId: payload.relatedJobPostId,
     relatedCompanyId: payload.relatedCompanyId,
     isRead: false
-  }, 'worker-app')
+  }, actor)
 
   await sendWorkerPushNotification({
     workerId,
@@ -566,6 +567,38 @@ const createWorkerNotification = async (
     }
   }).catch(error => {
     console.error('Failed to deliver worker push notification', error)
+  })
+}
+
+export const resendWorkerNotification = async (notificationId: string, actor = 'admin') => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const notification = snapshot.workerNotifications.find(record => record.id === notificationId)
+  if (!notification) {
+    throw new Error('Worker notification not found.')
+  }
+
+  const worker = findWorkerById(snapshot, notification.workerId)
+  if (!worker) {
+    throw new Error('Worker account not found for this notification.')
+  }
+
+  if (notification.isRead) {
+    await updateLabourEntity('workerNotifications', notification.id, { isRead: false }, actor)
+  }
+
+  await sendWorkerPushNotification({
+    workerId: notification.workerId,
+    title: notification.title,
+    body: notification.message,
+    priority: notification.priority,
+    data: {
+      type: notification.type,
+      notificationId: notification.id,
+      relatedJobPostId: notification.relatedJobPostId,
+      relatedCompanyId: notification.relatedCompanyId
+    }
+  }).catch(error => {
+    console.error('Failed to re-deliver worker push notification', error)
   })
 }
 

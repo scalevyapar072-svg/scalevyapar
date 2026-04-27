@@ -10,6 +10,8 @@ type WorkerKycFilter = 'all' | 'not_submitted' | 'ready_for_review' | 'approved'
 type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
 type JobApplicationStatus = 'submitted' | 'reviewed' | 'shortlisted' | 'rejected' | 'hired'
+type WorkerNotificationType = 'application_submitted' | 'job_saved' | 'application_status' | 'wallet_reminder'
+type WorkerNotificationPriority = 'high' | 'medium' | 'low'
 type PlanAudience = 'worker' | 'company'
 type WorkerAvailability = 'available_today' | 'available_this_week' | 'not_available'
 type WalletEntityType = 'worker' | 'company'
@@ -27,13 +29,14 @@ type LabourSection =
   | 'jobPosts'
   | 'jobApplications'
   | 'savedJobs'
+  | 'workerNotifications'
   | 'plans'
   | 'walletTransactions'
   | 'rechargeRequests'
   | 'reports'
   | 'settings'
   | 'auditLogs'
-type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'jobApplications' | 'savedJobs' | 'walletTransactions' | 'rechargeRequests'
+type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'jobApplications' | 'savedJobs' | 'workerNotifications' | 'walletTransactions' | 'rechargeRequests'
 
 type LabourCategory = {
   id: string
@@ -124,6 +127,20 @@ type LabourSavedJob = {
   updatedAt: string
 }
 
+type LabourWorkerNotification = {
+  id: string
+  workerId: string
+  type: WorkerNotificationType
+  title: string
+  message: string
+  relatedJobPostId?: string
+  relatedCompanyId?: string
+  isRead: boolean
+  priority: WorkerNotificationPriority
+  createdAt: string
+  updatedAt: string
+}
+
 type AuditLog = {
   id: string
   action: string
@@ -142,6 +159,7 @@ type LabourSnapshot = {
   jobPosts: LabourJobPost[]
   jobApplications: LabourJobApplication[]
   savedJobs: LabourSavedJob[]
+  workerNotifications: LabourWorkerNotification[]
   walletTransactions: WalletTransaction[]
   rechargeRequests: RechargeRequest[]
   auditLogs: AuditLog[]
@@ -237,6 +255,24 @@ type SavedJobFilters = {
   jobPostId: string
 }
 
+type WorkerNotificationFilters = {
+  search: string
+  workerId: string
+  type: 'all' | WorkerNotificationType
+  priority: 'all' | WorkerNotificationPriority
+  readState: 'all' | 'read' | 'unread'
+}
+
+type WorkerNotificationDraft = {
+  workerId: string
+  type: WorkerNotificationType
+  title: string
+  message: string
+  priority: WorkerNotificationPriority
+  relatedJobPostId: string
+  relatedCompanyId: string
+}
+
 type WalletFilters = {
   search: string
   audience: 'all' | WalletEntityType
@@ -269,6 +305,8 @@ const companyStatuses: CompanyStatus[] = ['pending', 'active', 'inactive', 'bloc
 const workerAvailabilityOptions: WorkerAvailability[] = ['available_today', 'available_this_week', 'not_available']
 const jobPostStatuses: JobPostStatus[] = ['draft', 'live', 'expired', 'paused']
 const jobApplicationStatuses: JobApplicationStatus[] = ['submitted', 'reviewed', 'shortlisted', 'rejected', 'hired']
+const workerNotificationTypes: WorkerNotificationType[] = ['application_submitted', 'job_saved', 'application_status', 'wallet_reminder']
+const workerNotificationPriorities: WorkerNotificationPriority[] = ['high', 'medium', 'low']
 
 const blankCategory: LabourCategory = {
   id: '',
@@ -372,6 +410,16 @@ const blankRechargeRequest: RechargeRequest = {
   updatedAt: ''
 }
 
+const blankWorkerNotificationDraft: WorkerNotificationDraft = {
+  workerId: '',
+  type: 'wallet_reminder',
+  title: '',
+  message: '',
+  priority: 'medium',
+  relatedJobPostId: '',
+  relatedCompanyId: ''
+}
+
 const blankCategoryFilters: CategoryFilters = { search: '', demand: 'all', activity: 'all' }
 const blankPlanFilters: PlanFilters = { search: '', audience: 'all', categoryId: '', activity: 'all' }
 const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryId: '', visibility: 'all', kyc: 'all' }
@@ -379,6 +427,7 @@ const blankCompanyFilters: CompanyFilters = { search: '', status: 'all', categor
 const blankJobFilters: JobFilters = { search: '', status: 'all', categoryId: '', companyId: '' }
 const blankJobApplicationFilters: JobApplicationFilters = { search: '', status: 'all', companyId: '', jobPostId: '' }
 const blankSavedJobFilters: SavedJobFilters = { search: '', companyId: '', jobPostId: '' }
+const blankWorkerNotificationFilters: WorkerNotificationFilters = { search: '', workerId: '', type: 'all', priority: 'all', readState: 'all' }
 const blankWalletFilters: WalletFilters = { search: '', audience: 'all', transactionType: 'all', status: 'all' }
 const blankRechargeFilters: RechargeFilters = { search: '', priority: 'all', type: 'all', status: 'all' }
 const blankAuditFilters: AuditFilters = { search: '', entityType: 'all' }
@@ -391,6 +440,7 @@ const sectionLabels: Record<LabourSection, string> = {
   jobPosts: 'Job Posts',
   jobApplications: 'Job Applications',
   savedJobs: 'Saved Jobs',
+  workerNotifications: 'Worker Notifications',
   plans: 'Plans',
   walletTransactions: 'Wallet Transactions',
   rechargeRequests: 'Recharge Requests',
@@ -453,6 +503,12 @@ const titleCase = (value: string) =>
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
 
+const getNotificationPriorityTone = (priority: WorkerNotificationPriority) => {
+  if (priority === 'high') return { background: '#fff1f2', color: '#b91c1c', border: '#fecdd3' }
+  if (priority === 'medium') return { background: '#fff7ed', color: '#c2410c', border: '#fdba74' }
+  return { background: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' }
+}
+
 export default function LabourExchangeAdminPage() {
   const [snapshot, setSnapshot] = useState<LabourSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
@@ -465,6 +521,7 @@ export default function LabourExchangeAdminPage() {
   const [workerDraft, setWorkerDraft] = useState<LabourWorker>(blankWorker)
   const [companyDraft, setCompanyDraft] = useState<LabourCompany>(blankCompany)
   const [jobPostDraft, setJobPostDraft] = useState<LabourJobPost>(blankJobPost)
+  const [workerNotificationDraft, setWorkerNotificationDraft] = useState<WorkerNotificationDraft>(blankWorkerNotificationDraft)
   const [walletTransactionDraft, setWalletTransactionDraft] = useState<WalletTransaction>(blankWalletTransaction)
   const [rechargeRequestDraft, setRechargeRequestDraft] = useState<RechargeRequest>(blankRechargeRequest)
 
@@ -474,6 +531,7 @@ export default function LabourExchangeAdminPage() {
   const [selectedWorkerReviewId, setSelectedWorkerReviewId] = useState<string | null>(null)
   const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string | null>(null)
   const [selectedSavedJobId, setSelectedSavedJobId] = useState<string | null>(null)
+  const [selectedWorkerNotificationId, setSelectedWorkerNotificationId] = useState<string | null>(null)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [editingJobPostId, setEditingJobPostId] = useState<string | null>(null)
   const [editingWalletTransactionId, setEditingWalletTransactionId] = useState<string | null>(null)
@@ -486,6 +544,7 @@ export default function LabourExchangeAdminPage() {
   const [jobFilters, setJobFilters] = useState<JobFilters>(blankJobFilters)
   const [jobApplicationFilters, setJobApplicationFilters] = useState<JobApplicationFilters>(blankJobApplicationFilters)
   const [savedJobFilters, setSavedJobFilters] = useState<SavedJobFilters>(blankSavedJobFilters)
+  const [workerNotificationFilters, setWorkerNotificationFilters] = useState<WorkerNotificationFilters>(blankWorkerNotificationFilters)
   const [walletFilters, setWalletFilters] = useState<WalletFilters>(blankWalletFilters)
   const [rechargeFilters, setRechargeFilters] = useState<RechargeFilters>(blankRechargeFilters)
   const [auditFilters, setAuditFilters] = useState<AuditFilters>(blankAuditFilters)
@@ -641,6 +700,10 @@ export default function LabourExchangeAdminPage() {
     setEditingJobPostId(null)
   }
 
+  const resetWorkerNotificationDraft = () => {
+    setWorkerNotificationDraft(blankWorkerNotificationDraft)
+  }
+
   const resetWalletTransactionDraft = () => {
     setWalletTransactionDraft(blankWalletTransaction)
     setEditingWalletTransactionId(null)
@@ -659,6 +722,7 @@ export default function LabourExchangeAdminPage() {
     if (section === 'workers') resetWorkerDraft()
     if (section === 'companies') resetCompanyDraft()
     if (section === 'jobPosts') resetJobPostDraft()
+    if (section === 'workerNotifications') resetWorkerNotificationDraft()
     if (section === 'walletTransactions') resetWalletTransactionDraft()
     if (section === 'rechargeRequests') resetRechargeRequestDraft()
   }
@@ -977,6 +1041,34 @@ export default function LabourExchangeAdminPage() {
     filteredSavedJobs.find(savedJob => savedJob.id === selectedSavedJobId) ||
     filteredSavedJobs[0] ||
     null
+  const filteredWorkerNotifications = snapshot.workerNotifications.filter(notification => {
+    if (workerNotificationFilters.workerId && notification.workerId !== workerNotificationFilters.workerId) return false
+    if (workerNotificationFilters.type !== 'all' && notification.type !== workerNotificationFilters.type) return false
+    if (workerNotificationFilters.priority !== 'all' && notification.priority !== workerNotificationFilters.priority) return false
+    if (workerNotificationFilters.readState === 'read' && !notification.isRead) return false
+    if (workerNotificationFilters.readState === 'unread' && notification.isRead) return false
+
+    const worker = getWorkerById(notification.workerId)
+    const jobPost = notification.relatedJobPostId ? getJobPostById(notification.relatedJobPostId) : null
+    const company = notification.relatedCompanyId ? getCompanyById(notification.relatedCompanyId) : null
+
+    return matchesSearch(workerNotificationFilters.search, [
+      worker?.fullName || '',
+      worker?.mobile || '',
+      worker?.city || '',
+      notification.title,
+      notification.message,
+      notification.type,
+      notification.priority,
+      company?.companyName || '',
+      jobPost?.title || ''
+    ])
+  })
+  const selectedWorkerNotification =
+    filteredWorkerNotifications.find(notification => notification.id === selectedWorkerNotificationId) ||
+    filteredWorkerNotifications.find(notification => !notification.isRead) ||
+    filteredWorkerNotifications[0] ||
+    null
 
   const filteredWalletTransactions = walletTransactions.filter(transaction => {
     if (walletFilters.audience !== 'all' && transaction.entityType !== walletFilters.audience) return false
@@ -1235,6 +1327,77 @@ export default function LabourExchangeAdminPage() {
     showSaved('Application updated')
   }
 
+  const sendWorkerNotification = async () => {
+    setError('')
+    if (!workerNotificationDraft.workerId) {
+      setError('Choose a worker for the notification.')
+      return
+    }
+
+    if (!workerNotificationDraft.title.trim()) {
+      setError('Notification title is required.')
+      return
+    }
+
+    if (!workerNotificationDraft.message.trim()) {
+      setError('Notification message is required.')
+      return
+    }
+
+    const response = await fetch('/api/admin/labour/worker-notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...workerNotificationDraft,
+        relatedCompanyId:
+          workerNotificationDraft.relatedCompanyId ||
+          getJobPostById(workerNotificationDraft.relatedJobPostId)?.companyId ||
+          ''
+      })
+    })
+
+    const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+    if (!response.ok) {
+      setError(data.error || 'Failed to send worker notification.')
+      return
+    }
+
+    replaceSnapshot(data.snapshot)
+    setSelectedWorkerNotificationId(null)
+    resetWorkerNotificationDraft()
+    showSaved('Worker notification sent')
+  }
+
+  const resendSelectedWorkerNotification = async (notification: LabourWorkerNotification) => {
+    setError('')
+    const response = await fetch('/api/admin/labour/worker-notifications', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: notification.id })
+    })
+
+    const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+    if (!response.ok) {
+      setError(data.error || 'Failed to resend worker notification.')
+      return
+    }
+
+    replaceSnapshot(data.snapshot)
+    setSelectedWorkerNotificationId(notification.id)
+    showSaved('Push notification resent')
+  }
+
+  const toggleWorkerNotificationReadState = async (
+    notification: LabourWorkerNotification,
+    isRead: boolean
+  ) => {
+    setError('')
+    const ok = await persistEntity('PUT', 'workerNotifications', { isRead }, notification.id)
+    if (!ok) return
+    setSelectedWorkerNotificationId(notification.id)
+    showSaved(isRead ? 'Notification marked read' : 'Notification marked unread')
+  }
+
   const saveCompany = async () => {
     setError('')
     const validationError = validateCompany()
@@ -1381,7 +1544,7 @@ export default function LabourExchangeAdminPage() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            {['categories', 'plans', 'workers', 'companies', 'jobPosts'].map(key => (
+            {['categories', 'plans', 'workers', 'companies', 'jobPosts', 'workerNotifications'].map(key => (
               <button
                 key={key}
                 onClick={() => openAddForm(key as LabourSection)}
@@ -1404,6 +1567,7 @@ export default function LabourExchangeAdminPage() {
             { label: 'Live Job Posts', value: snapshot.stats.liveJobPosts, accent: '#7c3aed' },
             { label: 'Expired Job Posts', value: expiredJobPostsCount, accent: '#dc2626' },
             { label: 'Applications', value: snapshot.jobApplications.length, accent: '#0f766e' },
+            { label: 'Unread Alerts', value: snapshot.workerNotifications.filter(notification => !notification.isRead).length, accent: '#b45309' },
             { label: 'Wallet Revenue', value: formatCurrency(walletRevenue), accent: '#0f172a' },
             { label: 'Registration Revenue', value: formatCurrency(registrationRevenue), accent: '#1d4ed8' }
           ].map(card => (
@@ -1452,6 +1616,7 @@ export default function LabourExchangeAdminPage() {
                     `Job Posts: ${snapshot.jobPosts.length}`,
                     `Applications: ${snapshot.jobApplications.length}`,
                     `Saved Jobs: ${snapshot.savedJobs.length}`,
+                    `Worker Alerts: ${snapshot.workerNotifications.length}`,
                     `Wallet Entries: ${walletTransactions.length}`,
                     `Recharge Follow-ups: ${rechargeRequests.length}`,
                     `Audit Logs: ${snapshot.auditLogs.length}`
@@ -2542,6 +2707,330 @@ export default function LabourExchangeAdminPage() {
           </div>
         )}
 
+        {activeSection === 'workerNotifications' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Worker Notifications</h2>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input
+                    placeholder="Search alerts"
+                    value={workerNotificationFilters.search}
+                    onChange={event => setWorkerNotificationFilters(current => ({ ...current, search: event.target.value }))}
+                    style={{ ...inputStyle, width: '210px' }}
+                  />
+                  <select
+                    value={workerNotificationFilters.workerId}
+                    onChange={event => setWorkerNotificationFilters(current => ({ ...current, workerId: event.target.value }))}
+                    style={{ ...inputStyle, width: '180px' }}
+                  >
+                    <option value="">All Workers</option>
+                    {snapshot.workers.map(worker => (
+                      <option key={worker.id} value={worker.id}>{worker.fullName || worker.mobile}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={workerNotificationFilters.type}
+                    onChange={event => setWorkerNotificationFilters(current => ({ ...current, type: event.target.value as WorkerNotificationFilters['type'] }))}
+                    style={{ ...inputStyle, width: '190px' }}
+                  >
+                    <option value="all">All Types</option>
+                    {workerNotificationTypes.map(type => (
+                      <option key={type} value={type}>{titleCase(type)}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={workerNotificationFilters.priority}
+                    onChange={event => setWorkerNotificationFilters(current => ({ ...current, priority: event.target.value as WorkerNotificationFilters['priority'] }))}
+                    style={{ ...inputStyle, width: '160px' }}
+                  >
+                    <option value="all">All Priorities</option>
+                    {workerNotificationPriorities.map(priority => (
+                      <option key={priority} value={priority}>{titleCase(priority)}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={workerNotificationFilters.readState}
+                    onChange={event => setWorkerNotificationFilters(current => ({ ...current, readState: event.target.value as WorkerNotificationFilters['readState'] }))}
+                    style={{ ...inputStyle, width: '150px' }}
+                  >
+                    <option value="all">All States</option>
+                    <option value="unread">Unread</option>
+                    <option value="read">Read</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {filteredWorkerNotifications.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No worker notifications match the current filters.</p>
+                ) : (
+                  filteredWorkerNotifications.map(notification => {
+                    const worker = getWorkerById(notification.workerId)
+                    const jobPost = notification.relatedJobPostId ? getJobPostById(notification.relatedJobPostId) : null
+                    const company = notification.relatedCompanyId ? getCompanyById(notification.relatedCompanyId) : null
+                    const priorityTone = getNotificationPriorityTone(notification.priority)
+
+                    return (
+                      <div key={notification.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                        <div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4px' }}>
+                            <p style={{ margin: 0, color: '#0f172a', fontWeight: '700' }}>{notification.title}</p>
+                            <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '999px', padding: '5px 9px', background: priorityTone.background, color: priorityTone.color, border: `1px solid ${priorityTone.border}` }}>
+                              {titleCase(notification.priority)}
+                            </span>
+                            <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '999px', padding: '5px 9px', background: notification.isRead ? '#f8fafc' : '#ecfdf5', color: notification.isRead ? '#475569' : '#047857', border: `1px solid ${notification.isRead ? '#cbd5e1' : '#86efac'}` }}>
+                              {notification.isRead ? 'Read' : 'Unread'}
+                            </span>
+                          </div>
+                          <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                            {worker?.fullName || 'Unknown worker'} | {worker?.mobile || 'No mobile'} | {titleCase(notification.type)}
+                          </p>
+                          <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>
+                            {notification.message}
+                          </p>
+                          <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                            {formatDateTime(notification.createdAt)}
+                            {jobPost?.title ? ` | ${jobPost.title}` : ''}
+                            {company?.companyName ? ` | ${company.companyName}` : ''}
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <button onClick={() => setSelectedWorkerNotificationId(notification.id)} style={subtleButtonStyle}>Review</button>
+                          <button onClick={() => void resendSelectedWorkerNotification(notification)} style={subtleButtonStyle}>Resend</button>
+                          <button onClick={() => void removeEntity('workerNotifications', notification.id, `${notification.title} notification`)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: '20px' }}>
+              <div style={cardStyle}>
+                <div style={{ marginBottom: '14px' }}>
+                  <h2 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px' }}>Notification Review</h2>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                    Open past alerts, resend push notifications, and change read state without leaving the labour admin.
+                  </p>
+                </div>
+
+                {!selectedWorkerNotification ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Choose a notification from the list to review it.</p>
+                ) : (
+                  <div style={{ display: 'grid', gap: '16px' }}>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                        <div>
+                          <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px', fontWeight: '800' }}>
+                            {selectedWorkerNotification.title}
+                          </p>
+                          <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '13px' }}>
+                            {getWorkerById(selectedWorkerNotification.workerId)?.fullName || 'Unknown worker'} | {titleCase(selectedWorkerNotification.type)}
+                          </p>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                            Created {formatDateTime(selectedWorkerNotification.createdAt)} | Updated {formatDateTime(selectedWorkerNotification.updatedAt)}
+                          </p>
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: '800', borderRadius: '999px', padding: '8px 12px', background: getNotificationPriorityTone(selectedWorkerNotification.priority).background, color: getNotificationPriorityTone(selectedWorkerNotification.priority).color, border: `1px solid ${getNotificationPriorityTone(selectedWorkerNotification.priority).border}`, alignSelf: 'flex-start' }}>
+                          {titleCase(selectedWorkerNotification.priority)}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                        <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
+                          <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Worker</p>
+                          <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                            Name: {getWorkerById(selectedWorkerNotification.workerId)?.fullName || 'Unknown worker'}
+                          </p>
+                          <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                            Mobile: {getWorkerById(selectedWorkerNotification.workerId)?.mobile || 'Not available'}
+                          </p>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                            City: {getWorkerById(selectedWorkerNotification.workerId)?.city || 'Not available'}
+                          </p>
+                        </div>
+
+                        <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
+                          <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Linked Context</p>
+                          <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                            Job: {getJobPostById(selectedWorkerNotification.relatedJobPostId || '')?.title || 'Not linked'}
+                          </p>
+                          <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                            Company: {getCompanyById(selectedWorkerNotification.relatedCompanyId || '')?.companyName || 'Not linked'}
+                          </p>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                            State: {selectedWorkerNotification.isRead ? 'Read by worker app' : 'Unread in worker app'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
+                        <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Message</p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px', whiteSpace: 'pre-wrap' }}>
+                          {selectedWorkerNotification.message}
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <button onClick={() => void resendSelectedWorkerNotification(selectedWorkerNotification)} style={primaryButtonStyle}>
+                          Resend Push
+                        </button>
+                        <button onClick={() => void toggleWorkerNotificationReadState(selectedWorkerNotification, !selectedWorkerNotification.isRead)} style={subtleButtonStyle}>
+                          Mark as {selectedWorkerNotification.isRead ? 'Unread' : 'Read'}
+                        </button>
+                        <button onClick={() => setSelectedWorkerNotificationId(null)} style={subtleButtonStyle}>
+                          Clear selection
+                        </button>
+                        <button onClick={() => void removeEntity('workerNotifications', selectedWorkerNotification.id, `${selectedWorkerNotification.title} notification`)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>
+                          Delete Notification
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                  <div>
+                    <h2 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px' }}>Compose Worker Alert</h2>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                      Send a new in-app plus push notification to a worker when you need manual follow-up.
+                    </p>
+                  </div>
+                  <button onClick={resetWorkerNotificationDraft} style={subtleButtonStyle}>Reset form</button>
+                </div>
+
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Worker</label>
+                    <select
+                      value={workerNotificationDraft.workerId}
+                      onChange={event => setWorkerNotificationDraft(current => ({ ...current, workerId: event.target.value }))}
+                      style={inputStyle}
+                    >
+                      <option value="">Select worker</option>
+                      {snapshot.workers.map(worker => (
+                        <option key={worker.id} value={worker.id}>{worker.fullName || worker.mobile} ({worker.mobile})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Type</label>
+                      <select
+                        value={workerNotificationDraft.type}
+                        onChange={event => setWorkerNotificationDraft(current => ({ ...current, type: event.target.value as WorkerNotificationType }))}
+                        style={inputStyle}
+                      >
+                        {workerNotificationTypes.map(type => (
+                          <option key={type} value={type}>{titleCase(type)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Priority</label>
+                      <select
+                        value={workerNotificationDraft.priority}
+                        onChange={event => setWorkerNotificationDraft(current => ({ ...current, priority: event.target.value as WorkerNotificationPriority }))}
+                        style={inputStyle}
+                      >
+                        {workerNotificationPriorities.map(priority => (
+                          <option key={priority} value={priority}>{titleCase(priority)}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>Title</label>
+                    <input
+                      value={workerNotificationDraft.title}
+                      onChange={event => setWorkerNotificationDraft(current => ({ ...current, title: event.target.value }))}
+                      placeholder="Example: Application update"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>Message</label>
+                    <textarea
+                      value={workerNotificationDraft.message}
+                      onChange={event => setWorkerNotificationDraft(current => ({ ...current, message: event.target.value }))}
+                      placeholder="Write the worker-facing alert message"
+                      style={{ ...inputStyle, minHeight: '110px', resize: 'vertical' as const }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Related Job Post</label>
+                      <select
+                        value={workerNotificationDraft.relatedJobPostId}
+                        onChange={event => {
+                          const nextJobPostId = event.target.value
+                          setWorkerNotificationDraft(current => ({
+                            ...current,
+                            relatedJobPostId: nextJobPostId,
+                            relatedCompanyId: nextJobPostId ? getJobPostById(nextJobPostId)?.companyId || '' : current.relatedCompanyId
+                          }))
+                        }}
+                        style={inputStyle}
+                      >
+                        <option value="">No linked job</option>
+                        {snapshot.jobPosts.map(jobPost => (
+                          <option key={jobPost.id} value={jobPost.id}>{jobPost.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Related Company</label>
+                      <select
+                        value={workerNotificationDraft.relatedCompanyId}
+                        onChange={event => setWorkerNotificationDraft(current => ({ ...current, relatedCompanyId: event.target.value }))}
+                        style={inputStyle}
+                      >
+                        <option value="">No linked company</option>
+                        {snapshot.companies.map(company => (
+                          <option key={company.id} value={company.id}>{company.companyName}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button onClick={() => void sendWorkerNotification()} style={primaryButtonStyle}>
+                      Send Notification
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!selectedWorkerNotification) return
+                        setWorkerNotificationDraft({
+                          workerId: selectedWorkerNotification.workerId,
+                          type: selectedWorkerNotification.type,
+                          title: selectedWorkerNotification.title,
+                          message: selectedWorkerNotification.message,
+                          priority: selectedWorkerNotification.priority,
+                          relatedJobPostId: selectedWorkerNotification.relatedJobPostId || '',
+                          relatedCompanyId: selectedWorkerNotification.relatedCompanyId || ''
+                        })
+                      }}
+                      style={subtleButtonStyle}
+                    >
+                      Use Selected Alert
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeSection === 'walletTransactions' && (
           <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
@@ -3001,7 +3490,7 @@ export default function LabourExchangeAdminPage() {
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
                     <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
                       Open {sectionLabels[section]}
                     </button>

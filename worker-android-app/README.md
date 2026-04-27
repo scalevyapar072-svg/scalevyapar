@@ -5,10 +5,10 @@ This is the Flutter MVP for the worker-side Android app.
 Current MVP flow:
 
 - mobile number login with OTP
-- worker dashboard
-- matching job feed
-- wallet balance and deduction visibility
-- recharge request button
+- session bootstrap and auto-login when a worker token already exists
+- worker dashboard with activation banner and quick stats
+- matching job feed with search and unlocked-only filter
+- wallet balance, daily deduction visibility, and recharge request note
 - profile edit with name, city, categories, skills, experience, wage, availability
 - company details locked unless worker access is active
 
@@ -27,6 +27,16 @@ flutter create .
 flutter pub get
 flutter run
 ```
+
+If you want to run against production backend, the app already points to:
+
+```text
+https://scalevyapar.vercel.app
+```
+
+That base URL is set in:
+
+`lib/src/config/api_config.dart`
 
 ## Demo login for current seeded backend
 

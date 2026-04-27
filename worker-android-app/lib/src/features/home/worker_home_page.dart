@@ -1,8 +1,14 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+import '../../app.dart';
+import '../../localization/worker_localizations.dart';
 import '../../models/worker_models.dart';
 import '../../services/session_store.dart';
 import '../../services/worker_api_service.dart';
+import '../../services/worker_push_service.dart';
 import '../auth/otp_login_page.dart';
 
 class WorkerHomePage extends StatefulWidget {
@@ -25,6 +31,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   final _rechargeNoteController = TextEditingController();
 
   late String _token;
+  StreamSubscription<RemoteMessage>? _pushMessagesSubscription;
   WorkerDashboardModel? _dashboard;
   bool _loading = false;
   String _error = '';
@@ -39,6 +46,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     super.initState();
     _token = widget.initialToken;
     _dashboard = widget.initialDashboard;
+    _attachPushNotifications();
     if (_dashboard == null) {
       _loadDashboard();
     }
@@ -46,8 +54,19 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
 
   @override
   void dispose() {
+    _pushMessagesSubscription?.cancel();
     _rechargeNoteController.dispose();
     super.dispose();
+  }
+
+  Future<void> _attachPushNotifications() async {
+    await WorkerPushService.instance.attachWorkerSession(_token);
+    _pushMessagesSubscription = WorkerPushService.instance.messages.listen((_) {
+      if (!mounted) {
+        return;
+      }
+      _loadDashboard();
+    });
   }
 
   Future<void> _loadDashboard() async {
@@ -71,6 +90,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   Future<void> _logout() async {
+    await WorkerPushService.instance.detachWorkerSession(_token);
     await _sessionStore.clear();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -88,6 +108,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     required double expectedDailyWage,
     required String availability,
   }) async {
+    final l10n = WorkerLocalizations.of(context);
     setState(() => _loading = true);
     try {
       final dashboard = await _apiService.updateProfile(
@@ -103,7 +124,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       if (!mounted) return;
       setState(() => _dashboard = dashboard);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully.')),
+        SnackBar(content: Text(l10n.profileUpdatedSuccessfully)),
       );
     } catch (error) {
       if (!mounted) return;
@@ -118,6 +139,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   Future<void> _requestRecharge() async {
+    final l10n = WorkerLocalizations.of(context);
     setState(() => _loading = true);
     try {
       final dashboard = await _apiService.createRechargeRequest(
@@ -128,7 +150,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       setState(() => _dashboard = dashboard);
       _rechargeNoteController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Recharge request sent to admin.')),
+        SnackBar(content: Text(l10n.rechargeRequestSent)),
       );
     } catch (error) {
       if (!mounted) return;
@@ -143,6 +165,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   Future<void> _applyToJob(String jobPostId) async {
+    final l10n = WorkerLocalizations.of(context);
     setState(() => _jobActionId = jobPostId);
     try {
       final dashboard = await _apiService.applyToJob(
@@ -152,7 +175,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       if (!mounted) return;
       setState(() => _dashboard = dashboard);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Application sent successfully.')),
+        SnackBar(content: Text(l10n.applicationSentSuccess)),
       );
     } catch (error) {
       if (!mounted) return;
@@ -225,22 +248,24 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   @override
   Widget build(BuildContext context) {
     final dashboard = _dashboard;
+    final l10n = WorkerLocalizations.of(context);
+    final languageScope = WorkerLanguageScope.of(context);
 
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 76,
         title: dashboard == null
-            ? const Text('ScaleVyapar Worker')
+            ? Text(l10n.appTitle)
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'ScaleVyapar Worker',
+                  Text(
+                    l10n.appTitle,
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Welcome, ${dashboard.profile.fullName}',
+                    l10n.welcomeUser(dashboard.profile.fullName),
                     style: const TextStyle(
                       color: Color(0xFF64748B),
                       fontSize: 13,
@@ -250,6 +275,10 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                 ],
               ),
         actions: [
+          TextButton(
+            onPressed: languageScope.toggleLocale,
+            child: Text(l10n.switchLanguage),
+          ),
           if (dashboard != null)
             IconButton(
               onPressed: () => setState(() => _selectedIndex = 3),
@@ -302,14 +331,14 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _error.isEmpty ? 'Loading dashboard...' : _error,
+                            _error.isEmpty ? l10n.loadingDashboard : _error,
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 12),
                           if (!_loading)
                             FilledButton(
                               onPressed: _loadDashboard,
-                              child: const Text('Try Again'),
+                              child: Text(l10n.tryAgain),
                             ),
                         ],
                       ),
@@ -363,26 +392,26 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) => setState(() => _selectedIndex = index),
-        destinations: const [
+        destinations: [
           NavigationDestination(
             icon: Icon(Icons.work_outline_rounded),
             selectedIcon: Icon(Icons.work_rounded),
-            label: 'Feed',
+            label: l10n.feed,
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-            label: 'Wallet',
+            label: l10n.wallet,
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline_rounded),
             selectedIcon: Icon(Icons.person_rounded),
-            label: 'Profile',
+            label: l10n.profile,
           ),
           NavigationDestination(
             icon: Icon(Icons.notifications_none_rounded),
             selectedIcon: Icon(Icons.notifications_rounded),
-            label: 'Alerts',
+            label: l10n.alerts,
           ),
         ],
       ),
@@ -403,6 +432,7 @@ class _TopSummarySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final profile = dashboard.profile;
     final activation = dashboard.activation;
+    final l10n = WorkerLocalizations.of(context);
 
     return Container(
       width: double.infinity,
@@ -438,7 +468,9 @@ class _TopSummarySection extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            profile.city.isEmpty ? 'Set your city' : profile.city,
+                            profile.city.isEmpty
+                                ? (l10n.isHindi ? 'अपना शहर जोड़ें' : 'Set your city')
+                                : profile.city,
                             style: const TextStyle(
                               color: Color(0xFFD7E4FF),
                               fontWeight: FontWeight.w700,
@@ -446,7 +478,7 @@ class _TopSummarySection extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            activation.headline,
+                            _activationHeadline(l10n, activation),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 22,
@@ -456,7 +488,7 @@ class _TopSummarySection extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            activation.description,
+                            _activationDescription(l10n, activation),
                             style: const TextStyle(
                               color: Color(0xFFE6EEFF),
                               height: 1.6,
@@ -475,15 +507,15 @@ class _TopSummarySection extends StatelessWidget {
                   runSpacing: 10,
                   children: [
                     _SummaryChip(
-                      label: 'Wallet',
+                      label: l10n.wallet,
                       value: 'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}',
                     ),
                     _SummaryChip(
-                      label: 'Jobs',
-                      value: '$visibleJobsCount unlocked',
+                      label: l10n.jobs,
+                      value: l10n.unlockedJobsCount(visibleJobsCount),
                     ),
                     _SummaryChip(
-                      label: 'Wage',
+                      label: l10n.wage,
                       value: 'Rs ${profile.expectedDailyWage.toStringAsFixed(0)}',
                     ),
                   ],
@@ -496,14 +528,14 @@ class _TopSummarySection extends StatelessWidget {
             children: [
               Expanded(
                 child: _MiniStatCard(
-                  label: 'Daily deduction',
+                  label: l10n.dailyDeduction,
                   value: 'Rs ${dashboard.wallet.dailyCharge.toStringAsFixed(0)}',
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _MiniStatCard(
-                  label: 'Estimated days left',
+                  label: l10n.estimatedDaysLeft,
                   value: '${dashboard.wallet.estimatedDaysRemaining}',
                 ),
               ),
@@ -540,6 +572,7 @@ class _FeedTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = WorkerLocalizations.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       children: [
@@ -549,22 +582,22 @@ class _FeedTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Matching job feed',
+                Text(
+                  l10n.matchingJobFeedTitle,
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Jobs are matched using your city, categories, and active worker status.',
-                  style: TextStyle(color: Color(0xFF64748B), height: 1.5),
+                Text(
+                  l10n.matchingJobFeedSubtitle,
+                  style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
                 ),
                 const SizedBox(height: 14),
                 TextField(
                   onChanged: onQueryChanged,
-                  decoration: const InputDecoration(
-                    labelText: 'Search jobs',
-                    hintText: 'Search by title, city, or category',
-                    prefixIcon: Icon(Icons.search_rounded),
+                  decoration: InputDecoration(
+                    labelText: l10n.searchJobs,
+                    hintText: l10n.searchJobsHint,
+                    prefixIcon: const Icon(Icons.search_rounded),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -572,8 +605,8 @@ class _FeedTab extends StatelessWidget {
                   value: showUnlockedOnly,
                   contentPadding: EdgeInsets.zero,
                   onChanged: onToggleUnlockedOnly,
-                  title: const Text('Show only unlocked company details'),
-                  subtitle: const Text('Useful when your account is active and you want direct contacts.'),
+                  title: Text(l10n.showUnlockedCompanyDetails),
+                  subtitle: Text(l10n.unlockedCompanyDetailsSubtitle),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -589,12 +622,12 @@ class _FeedTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         if (feed.isEmpty)
-          const Card(
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(22),
+              padding: const EdgeInsets.all(22),
               child: Text(
-                'No jobs match the current filters. Try clearing your search or keeping your worker profile active.',
-                style: TextStyle(color: Color(0xFF475569), height: 1.6),
+                l10n.noJobsMatchMessage,
+                style: const TextStyle(color: Color(0xFF475569), height: 1.6),
               ),
             ),
           )
@@ -622,7 +655,7 @@ class _FeedTab extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  '${item.city} | Expires ${_shortDate(item.expiresAt)}',
+                                  '${item.city} | ${l10n.isHindi ? 'समाप्ति' : 'Expires'} ${_shortDate(context, item.expiresAt)}',
                                   style: const TextStyle(color: Color(0xFF64748B)),
                                 ),
                               ],
@@ -637,7 +670,7 @@ class _FeedTab extends StatelessWidget {
                                 icon: Icon(
                                   item.isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
                                 ),
-                                tooltip: item.isSaved ? 'Remove from shortlist' : 'Save job',
+                                tooltip: item.isSaved ? l10n.removeFromShortlist : l10n.saveJob,
                               ),
                               const SizedBox(height: 8),
                               Container(
@@ -670,12 +703,14 @@ class _FeedTab extends StatelessWidget {
                         runSpacing: 8,
                         children: [
                           _chip(item.categoryName),
-                          _chip('${item.workersNeeded} workers needed'),
-                          _chip(item.matchReason),
-                          if (item.isSaved) _chip('Saved', fill: const Color(0xFFF0FDF4)),
+                          _chip(l10n.workersNeeded(item.workersNeeded)),
+                          _chip(l10n.localizeMatchReason(item.matchReason)),
+                          if (item.isSaved) _chip(l10n.saved, fill: const Color(0xFFF0FDF4)),
                           if (item.hasApplied)
                             _chip(
-                              'Applied${item.applicationStatus == null ? '' : ' • ${_prettyText(item.applicationStatus!)}'}',
+                              item.applicationStatus == null
+                                  ? l10n.appliedWithoutStatus
+                                  : l10n.appliedStatusLabel(item.applicationStatus!),
                               fill: const Color(0xFFEFF6FF),
                             ),
                         ],
@@ -689,10 +724,10 @@ class _FeedTab extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             child: Text(
                               actionLoading
-                                  ? 'Working...'
+                                  ? l10n.working
                                   : item.hasApplied
-                                      ? 'Application sent'
-                                      : 'Apply to job',
+                                      ? l10n.applicationSent
+                                      : l10n.applyToJob,
                             ),
                           ),
                         ),
@@ -709,9 +744,9 @@ class _FeedTab extends StatelessWidget {
                           ),
                         ),
                         child: item.companyLocked
-                            ? const Text(
-                                'Company details are locked. Recharge and keep the worker account active to unlock direct company contact.',
-                                style: TextStyle(
+                            ? Text(
+                                l10n.companyLockedMessage,
+                                style: const TextStyle(
                                   color: Color(0xFF92400E),
                                   fontWeight: FontWeight.w700,
                                   height: 1.6,
@@ -723,15 +758,15 @@ class _FeedTab extends StatelessWidget {
                                   Text(item.companyName, style: const TextStyle(fontWeight: FontWeight.w800)),
                                   const SizedBox(height: 6),
                                   Text(
-                                    'Contact person: ${item.contactPerson ?? '-'}',
+                                    l10n.contactPerson(item.contactPerson ?? '-'),
                                     style: const TextStyle(color: Color(0xFF475569)),
                                   ),
                                   Text(
-                                    'Mobile: ${item.companyMobile ?? '-'}',
+                                    l10n.companyMobile(item.companyMobile ?? '-'),
                                     style: const TextStyle(color: Color(0xFF475569)),
                                   ),
                                   Text(
-                                    'Company city: ${item.companyCity}',
+                                    l10n.companyCity(item.companyCity),
                                     style: const TextStyle(color: Color(0xFF475569)),
                                   ),
                                 ],
@@ -779,6 +814,7 @@ class _NotificationsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unreadCount = notifications.where((item) => !item.isRead).length;
+    final l10n = WorkerLocalizations.of(context);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -789,15 +825,15 @@ class _NotificationsTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Worker notifications',
+                Text(
+                  l10n.notificationsTitle,
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   unreadCount == 0
-                      ? 'You are fully caught up. New job actions and account updates will appear here.'
-                      : '$unreadCount unread update${unreadCount == 1 ? '' : 's'} waiting for you.',
+                      ? l10n.allCaughtUpMessage
+                      : l10n.unreadNotifications(unreadCount),
                   style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
                 ),
                 const SizedBox(height: 14),
@@ -807,7 +843,7 @@ class _NotificationsTab extends StatelessWidget {
                     onPressed: loading || unreadCount == 0 ? null : onMarkAllRead,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(loading ? 'Updating...' : 'Mark all as read'),
+                      child: Text(loading ? l10n.updating : l10n.markAllAsRead),
                     ),
                   ),
                 ),
@@ -817,12 +853,12 @@ class _NotificationsTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         if (notifications.isEmpty)
-          const Card(
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(22),
+              padding: const EdgeInsets.all(22),
               child: Text(
-                'No notifications yet. Once you save jobs or apply, updates will start showing here.',
-                style: TextStyle(color: Color(0xFF475569), height: 1.6),
+                l10n.notificationsEmpty,
+                style: const TextStyle(color: Color(0xFF475569), height: 1.6),
               ),
             ),
           )
@@ -845,7 +881,7 @@ class _NotificationsTab extends StatelessWidget {
                   ),
                 ),
                 title: Text(
-                  notification.title,
+                  l10n.localizeNotificationTitle(notification.type, notification.title),
                   style: TextStyle(
                     fontWeight: notification.isRead ? FontWeight.w700 : FontWeight.w900,
                   ),
@@ -853,7 +889,7 @@ class _NotificationsTab extends StatelessWidget {
                 subtitle: Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    '${notification.message}\n${_shortDate(notification.createdAt)} • ${_prettyText(notification.priority)} priority',
+                    '${l10n.localizeNotificationMessage(type: notification.type, message: notification.message)}\n${_shortDate(context, notification.createdAt)} - ${_prettyText(context, notification.priority)} ${l10n.isHindi ? 'प्राथमिकता' : 'priority'}',
                     style: const TextStyle(height: 1.5),
                   ),
                 ),
@@ -861,7 +897,7 @@ class _NotificationsTab extends StatelessWidget {
                     ? null
                     : TextButton(
                         onPressed: loading ? null : () => onMarkRead(notification.id),
-                        child: const Text('Mark read'),
+                        child: Text(l10n.markRead),
                       ),
               ),
             ),
@@ -886,6 +922,7 @@ class _WalletTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = WorkerLocalizations.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       children: [
@@ -895,14 +932,14 @@ class _WalletTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Wallet & activation',
+                Text(
+                  l10n.walletActivation,
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Your wallet balance decides whether you can keep viewing company details and stay visible to employers.',
-                  style: TextStyle(color: Color(0xFF64748B), height: 1.5),
+                Text(
+                  l10n.walletActivationSubtitle,
+                  style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
                 ),
                 const SizedBox(height: 18),
                 Container(
@@ -917,9 +954,9 @@ class _WalletTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Current balance',
-                        style: TextStyle(color: Color(0xFFD7E4FF)),
+                      Text(
+                        l10n.currentBalance,
+                        style: const TextStyle(color: Color(0xFFD7E4FF)),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -932,7 +969,7 @@ class _WalletTab extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        dashboard.wallet.visibilityRule,
+                        _walletVisibilityRule(l10n, dashboard),
                         style: const TextStyle(color: Color(0xFFE6EEFF), height: 1.6),
                       ),
                     ],
@@ -943,14 +980,14 @@ class _WalletTab extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _MiniStatCard(
-                        label: 'Daily deduction',
+                        label: l10n.dailyDeduction,
                         value: 'Rs ${dashboard.wallet.dailyCharge.toStringAsFixed(0)}',
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _MiniStatCard(
-                        label: 'Estimated active days',
+                        label: l10n.estimatedActiveDays,
                         value: '${dashboard.wallet.estimatedDaysRemaining}',
                       ),
                     ),
@@ -960,10 +997,10 @@ class _WalletTab extends StatelessWidget {
                 TextField(
                   controller: rechargeNoteController,
                   maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Recharge note for admin',
-                    hintText: 'Example: Need Rs 100 recharge for 20 more days',
-                    prefixIcon: Icon(Icons.note_alt_outlined),
+                  decoration: InputDecoration(
+                    labelText: l10n.rechargeNoteForAdmin,
+                    hintText: l10n.rechargeNoteHint,
+                    prefixIcon: const Icon(Icons.note_alt_outlined),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -973,7 +1010,7 @@ class _WalletTab extends StatelessWidget {
                     onPressed: loading ? null : onRequestRecharge,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(loading ? 'Sending request...' : 'Request Recharge'),
+                      child: Text(loading ? l10n.sendingRequest : l10n.requestRecharge),
                     ),
                   ),
                 ),
@@ -982,9 +1019,9 @@ class _WalletTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Recharge & deduction history',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        Text(
+          l10n.rechargeHistory,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 12),
         ...dashboard.wallet.transactions.map(
@@ -992,7 +1029,7 @@ class _WalletTab extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              title: Text(_prettyText(transaction.transactionType)),
+              title: Text(_prettyText(context, transaction.transactionType)),
               subtitle: Text(
                 transaction.note.isEmpty ? transaction.reference : transaction.note,
               ),
@@ -1011,7 +1048,7 @@ class _WalletTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${_prettyText(transaction.status)} | ${_shortDate(transaction.createdAt)}',
+                    '${_prettyText(context, transaction.status)} | ${_shortDate(context, transaction.createdAt)}',
                     style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                 ],
@@ -1116,16 +1153,17 @@ class _ProfileTabState extends State<_ProfileTab> {
   }
 
   void _submit() {
+    final l10n = WorkerLocalizations.of(context);
     if (_nameController.text.trim().isEmpty) {
-      _showMessage('Full name is required.');
+      _showMessage(l10n.fullNameRequired);
       return;
     }
     if (_cityController.text.trim().isEmpty) {
-      _showMessage('City is required.');
+      _showMessage(l10n.cityRequired);
       return;
     }
     if (_selectedCategories.isEmpty) {
-      _showMessage('Select at least one category.');
+      _showMessage(l10n.categoryRequired);
       return;
     }
     widget.onSave(
@@ -1150,6 +1188,7 @@ class _ProfileTabState extends State<_ProfileTab> {
   @override
   Widget build(BuildContext context) {
     final profile = widget.dashboard.profile;
+    final l10n = WorkerLocalizations.of(context);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -1160,29 +1199,29 @@ class _ProfileTabState extends State<_ProfileTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Worker profile',
+                Text(
+                  l10n.workerProfile,
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Keep these details updated so the app matches you with the right company requirements.',
-                  style: TextStyle(color: Color(0xFF64748B), height: 1.5),
+                Text(
+                  l10n.workerProfileSubtitle,
+                  style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
                 ),
                 const SizedBox(height: 18),
                 Row(
                   children: [
                     Expanded(
                       child: _ProfileInfoTile(
-                        label: 'Mobile',
+                        label: l10n.mobile,
                         value: profile.mobile,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _ProfileInfoTile(
-                        label: 'Status',
-                        value: _prettyText(profile.status),
+                        label: l10n.isHindi ? 'स्थिति' : 'Status',
+                        value: _prettyText(context, profile.status),
                       ),
                     ),
                   ],
@@ -1190,17 +1229,17 @@ class _ProfileTabState extends State<_ProfileTab> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: Icon(Icons.person_outline_rounded),
+                  decoration: InputDecoration(
+                    labelText: l10n.fullName,
+                    prefixIcon: const Icon(Icons.person_outline_rounded),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _cityController,
-                  decoration: const InputDecoration(
-                    labelText: 'City',
-                    prefixIcon: Icon(Icons.location_city_outlined),
+                  decoration: InputDecoration(
+                    labelText: l10n.city,
+                    prefixIcon: const Icon(Icons.location_city_outlined),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1210,9 +1249,9 @@ class _ProfileTabState extends State<_ProfileTab> {
                       child: TextField(
                         controller: _experienceController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Experience (years)',
-                          prefixIcon: Icon(Icons.workspace_premium_outlined),
+                        decoration: InputDecoration(
+                          labelText: l10n.experienceYears,
+                          prefixIcon: const Icon(Icons.workspace_premium_outlined),
                         ),
                       ),
                     ),
@@ -1221,9 +1260,9 @@ class _ProfileTabState extends State<_ProfileTab> {
                       child: TextField(
                         controller: _wageController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Expected daily wage',
-                          prefixIcon: Icon(Icons.currency_rupee_rounded),
+                        decoration: InputDecoration(
+                          labelText: l10n.expectedDailyWage,
+                          prefixIcon: const Icon(Icons.currency_rupee_rounded),
                         ),
                       ),
                     ),
@@ -1233,14 +1272,14 @@ class _ProfileTabState extends State<_ProfileTab> {
                 TextField(
                   controller: _skillsController,
                   maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Skills',
-                    hintText: 'Example: overlock, cutting, zari, finishing',
-                    prefixIcon: Icon(Icons.build_circle_outlined),
+                  decoration: InputDecoration(
+                    labelText: l10n.skills,
+                    hintText: l10n.skillsHint,
+                    prefixIcon: const Icon(Icons.build_circle_outlined),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Categories', style: TextStyle(fontWeight: FontWeight.w800)),
+                Text(l10n.categories, style: const TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -1265,19 +1304,19 @@ class _ProfileTabState extends State<_ProfileTab> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: _availability,
-                  items: const [
-                    DropdownMenuItem(value: 'available_today', child: Text('Available today')),
-                    DropdownMenuItem(value: 'available_this_week', child: Text('Available this week')),
-                    DropdownMenuItem(value: 'not_available', child: Text('Not available')),
+                  items: [
+                    DropdownMenuItem(value: 'available_today', child: Text(l10n.availableToday)),
+                    DropdownMenuItem(value: 'available_this_week', child: Text(l10n.availableThisWeek)),
+                    DropdownMenuItem(value: 'not_available', child: Text(l10n.notAvailable)),
                   ],
                   onChanged: (value) {
                     if (value != null) {
                       setState(() => _availability = value);
                     }
                   },
-                  decoration: const InputDecoration(
-                    labelText: 'Availability',
-                    prefixIcon: Icon(Icons.event_available_rounded),
+                  decoration: InputDecoration(
+                    labelText: l10n.availability,
+                    prefixIcon: const Icon(Icons.event_available_rounded),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -1287,7 +1326,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                     onPressed: widget.loading ? null : _submit,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(widget.loading ? 'Saving...' : 'Save Profile'),
+                      child: Text(widget.loading ? l10n.saving : l10n.saveProfile),
                     ),
                   ),
                 ),
@@ -1393,7 +1432,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        _prettyText(status),
+        _prettyText(context, status),
         style: TextStyle(
           color: palette.$2,
           fontWeight: FontWeight.w800,
@@ -1440,18 +1479,17 @@ class _ProfileInfoTile extends StatelessWidget {
   }
 }
 
-String _prettyText(String value) {
-  return value
-      .replaceAll('_', ' ')
-      .split(' ')
-      .where((part) => part.isNotEmpty)
-      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
-      .join(' ');
+String _prettyText(BuildContext context, String value) {
+  return WorkerLocalizations.of(context).prettyValue(value);
 }
 
-String _shortDate(String value) {
+String _shortDate(BuildContext context, String value) {
   final parsed = DateTime.tryParse(value);
   if (parsed == null) return value;
+  final l10n = WorkerLocalizations.of(context);
+  if (l10n.isHindi) {
+    return '${parsed.day}/${parsed.month}';
+  }
   final month = switch (parsed.month) {
     1 => 'Jan',
     2 => 'Feb',
@@ -1467,4 +1505,46 @@ String _shortDate(String value) {
     _ => 'Dec',
   };
   return '${parsed.day} $month';
+}
+
+String _activationHeadline(WorkerLocalizations l10n, WorkerActivationSummaryModel activation) {
+  if (!l10n.isHindi) {
+    return activation.headline;
+  }
+
+  return switch (activation.status) {
+    'active' => 'वर्कर एक्सेस सक्रिय है',
+    'inactive_wallet_empty' => 'वॉलेट रिचार्ज की जरूरत है',
+    'inactive_subscription_expired' => 'एक्सेस दोबारा सक्रिय करें',
+    'blocked' => 'वर्कर एक्सेस ब्लॉक है',
+    'rejected' => 'प्रोफ़ाइल अस्वीकृत है',
+    _ => 'वर्कर प्रोफ़ाइल अपडेट करें',
+  };
+}
+
+String _activationDescription(WorkerLocalizations l10n, WorkerActivationSummaryModel activation) {
+  if (!l10n.isHindi) {
+    return activation.description;
+  }
+
+  return switch (activation.status) {
+    'active' => 'आपका वॉलेट सक्रिय है। दैनिक कटौती के बाद भी कंपनी डिटेल्स खुली रहेंगी।',
+    'inactive_wallet_empty' => 'वॉलेट बैलेंस कम है। रिचार्ज करके कंपनी डिटेल्स और विजिबिलिटी फिर से चालू करें।',
+    'inactive_subscription_expired' => 'एक्सेस अवधि खत्म हो गई है। रिचार्ज करके दोबारा सक्रिय करें।',
+    'blocked' => 'एडमिन ने इस प्रोफ़ाइल को रोका है। सहायता के लिए एडमिन से संपर्क करें।',
+    'rejected' => 'प्रोफ़ाइल को समीक्षा के बाद स्वीकार नहीं किया गया। जानकारी अपडेट करें।',
+    _ => 'बेहतर मैच पाने के लिए अपनी जानकारी और वॉलेट स्थिति अपडेट रखें।',
+  };
+}
+
+String _walletVisibilityRule(WorkerLocalizations l10n, WorkerDashboardModel dashboard) {
+  if (!l10n.isHindi) {
+    return dashboard.wallet.visibilityRule;
+  }
+
+  if (dashboard.activation.isActive) {
+    return 'एक्सेस सक्रिय रहने तक आपकी प्रोफ़ाइल दिखाई देगी और कंपनी संपर्क उपलब्ध रहेंगे।';
+  }
+
+  return 'वॉलेट बैलेंस और सक्रिय स्थिति के आधार पर कंपनी डिटेल्स और विजिबिलिटी नियंत्रित होती है।';
 }

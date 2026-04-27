@@ -20,6 +20,7 @@ class WorkerProfileModel {
   final String fullName;
   final String mobile;
   final String city;
+  final String profilePhotoPath;
   final List<String> categoryIds;
   final List<String> categoryLabels;
   final List<String> skills;
@@ -29,12 +30,18 @@ class WorkerProfileModel {
   final double walletBalance;
   final String status;
   final bool isVisible;
+  final String identityProofType;
+  final String identityProofNumber;
+  final String identityProofPath;
+  final bool isRegistrationComplete;
+  final String registrationCompletedAt;
 
   WorkerProfileModel({
     required this.id,
     required this.fullName,
     required this.mobile,
     required this.city,
+    required this.profilePhotoPath,
     required this.categoryIds,
     required this.categoryLabels,
     required this.skills,
@@ -44,6 +51,11 @@ class WorkerProfileModel {
     required this.walletBalance,
     required this.status,
     required this.isVisible,
+    required this.identityProofType,
+    required this.identityProofNumber,
+    required this.identityProofPath,
+    required this.isRegistrationComplete,
+    required this.registrationCompletedAt,
   });
 
   factory WorkerProfileModel.fromJson(Map<String, dynamic> json) {
@@ -52,6 +64,7 @@ class WorkerProfileModel {
       fullName: json['fullName'] as String? ?? '',
       mobile: json['mobile'] as String? ?? '',
       city: json['city'] as String? ?? '',
+      profilePhotoPath: json['profilePhotoPath'] as String? ?? '',
       categoryIds: ((json['categoryIds'] as List?) ?? []).map((item) => item.toString()).toList(),
       categoryLabels: ((json['categoryLabels'] as List?) ?? []).map((item) => item.toString()).toList(),
       skills: ((json['skills'] as List?) ?? []).map((item) => item.toString()).toList(),
@@ -61,6 +74,11 @@ class WorkerProfileModel {
       walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 0,
       status: json['status'] as String? ?? 'pending',
       isVisible: json['isVisible'] as bool? ?? false,
+      identityProofType: json['identityProofType'] as String? ?? '',
+      identityProofNumber: json['identityProofNumber'] as String? ?? '',
+      identityProofPath: json['identityProofPath'] as String? ?? '',
+      isRegistrationComplete: json['isRegistrationComplete'] as bool? ?? false,
+      registrationCompletedAt: json['registrationCompletedAt'] as String? ?? '',
     );
   }
 }

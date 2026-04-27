@@ -1,5 +1,10 @@
-import 'src/app.dart';
+import 'package:flutter/material.dart';
 
-void main() {
+import 'src/app.dart';
+import 'src/services/worker_push_service.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await WorkerPushService.instance.bootstrap();
   runApp(const WorkerApp());
 }

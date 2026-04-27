@@ -9,6 +9,7 @@ type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_li
 type WorkerKycFilter = 'all' | 'not_submitted' | 'ready_for_review' | 'approved' | 'rejected'
 type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
+type JobApplicationStatus = 'submitted' | 'reviewed' | 'shortlisted' | 'rejected' | 'hired'
 type PlanAudience = 'worker' | 'company'
 type WorkerAvailability = 'available_today' | 'available_this_week' | 'not_available'
 type WalletEntityType = 'worker' | 'company'
@@ -24,13 +25,14 @@ type LabourSection =
   | 'companies'
   | 'categories'
   | 'jobPosts'
+  | 'jobApplications'
   | 'plans'
   | 'walletTransactions'
   | 'rechargeRequests'
   | 'reports'
   | 'settings'
   | 'auditLogs'
-type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'walletTransactions' | 'rechargeRequests'
+type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'jobApplications' | 'walletTransactions' | 'rechargeRequests'
 
 type LabourCategory = {
   id: string
@@ -101,6 +103,18 @@ type LabourJobPost = {
   expiresAt: string
 }
 
+type LabourJobApplication = {
+  id: string
+  workerId: string
+  jobPostId: string
+  companyId: string
+  status: JobApplicationStatus
+  note: string
+  appliedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
 type AuditLog = {
   id: string
   action: string
@@ -117,6 +131,7 @@ type LabourSnapshot = {
   workers: LabourWorker[]
   companies: LabourCompany[]
   jobPosts: LabourJobPost[]
+  jobApplications: LabourJobApplication[]
   walletTransactions: WalletTransaction[]
   rechargeRequests: RechargeRequest[]
   auditLogs: AuditLog[]
@@ -199,6 +214,13 @@ type JobFilters = {
   companyId: string
 }
 
+type JobApplicationFilters = {
+  search: string
+  status: 'all' | JobApplicationStatus
+  companyId: string
+  jobPostId: string
+}
+
 type WalletFilters = {
   search: string
   audience: 'all' | WalletEntityType
@@ -230,6 +252,7 @@ const workerStatuses: WorkerStatus[] = [
 const companyStatuses: CompanyStatus[] = ['pending', 'active', 'inactive', 'blocked']
 const workerAvailabilityOptions: WorkerAvailability[] = ['available_today', 'available_this_week', 'not_available']
 const jobPostStatuses: JobPostStatus[] = ['draft', 'live', 'expired', 'paused']
+const jobApplicationStatuses: JobApplicationStatus[] = ['submitted', 'reviewed', 'shortlisted', 'rejected', 'hired']
 
 const blankCategory: LabourCategory = {
   id: '',
@@ -338,6 +361,7 @@ const blankPlanFilters: PlanFilters = { search: '', audience: 'all', categoryId:
 const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryId: '', visibility: 'all', kyc: 'all' }
 const blankCompanyFilters: CompanyFilters = { search: '', status: 'all', categoryId: '', fee: 'all' }
 const blankJobFilters: JobFilters = { search: '', status: 'all', categoryId: '', companyId: '' }
+const blankJobApplicationFilters: JobApplicationFilters = { search: '', status: 'all', companyId: '', jobPostId: '' }
 const blankWalletFilters: WalletFilters = { search: '', audience: 'all', transactionType: 'all', status: 'all' }
 const blankRechargeFilters: RechargeFilters = { search: '', priority: 'all', type: 'all', status: 'all' }
 const blankAuditFilters: AuditFilters = { search: '', entityType: 'all' }
@@ -348,6 +372,7 @@ const sectionLabels: Record<LabourSection, string> = {
   companies: 'Companies',
   categories: 'Categories',
   jobPosts: 'Job Posts',
+  jobApplications: 'Job Applications',
   plans: 'Plans',
   walletTransactions: 'Wallet Transactions',
   rechargeRequests: 'Recharge Requests',
@@ -429,6 +454,7 @@ export default function LabourExchangeAdminPage() {
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [editingWorkerId, setEditingWorkerId] = useState<string | null>(null)
   const [selectedWorkerReviewId, setSelectedWorkerReviewId] = useState<string | null>(null)
+  const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string | null>(null)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [editingJobPostId, setEditingJobPostId] = useState<string | null>(null)
   const [editingWalletTransactionId, setEditingWalletTransactionId] = useState<string | null>(null)
@@ -439,6 +465,7 @@ export default function LabourExchangeAdminPage() {
   const [workerFilters, setWorkerFilters] = useState<WorkerFilters>(blankWorkerFilters)
   const [companyFilters, setCompanyFilters] = useState<CompanyFilters>(blankCompanyFilters)
   const [jobFilters, setJobFilters] = useState<JobFilters>(blankJobFilters)
+  const [jobApplicationFilters, setJobApplicationFilters] = useState<JobApplicationFilters>(blankJobApplicationFilters)
   const [walletFilters, setWalletFilters] = useState<WalletFilters>(blankWalletFilters)
   const [rechargeFilters, setRechargeFilters] = useState<RechargeFilters>(blankRechargeFilters)
   const [auditFilters, setAuditFilters] = useState<AuditFilters>(blankAuditFilters)
@@ -681,6 +708,7 @@ export default function LabourExchangeAdminPage() {
   }
   const getWorkerDocumentHref = (storagePath: string) =>
     storagePath.trim() ? `/api/admin/labour/worker-file?path=${encodeURIComponent(storagePath.trim())}` : ''
+  const getJobPostById = (jobPostId: string) => snapshot.jobPosts.find(jobPost => jobPost.id === jobPostId)
   const getEntityCity = (entityType: WalletEntityType, entityId: string) =>
     entityType === 'worker' ? getWorkerById(entityId)?.city || '' : getCompanyById(entityId)?.city || ''
   const getEntityCategoryLabel = (entityType: WalletEntityType, entityId: string) => {
@@ -883,6 +911,31 @@ export default function LabourExchangeAdminPage() {
       effectiveStatus
     ])
   })
+  const filteredJobApplications = snapshot.jobApplications.filter(application => {
+    if (jobApplicationFilters.status !== 'all' && application.status !== jobApplicationFilters.status) return false
+    if (jobApplicationFilters.companyId && application.companyId !== jobApplicationFilters.companyId) return false
+    if (jobApplicationFilters.jobPostId && application.jobPostId !== jobApplicationFilters.jobPostId) return false
+
+    const worker = getWorkerById(application.workerId)
+    const company = getCompanyById(application.companyId)
+    const jobPost = getJobPostById(application.jobPostId)
+
+    return matchesSearch(jobApplicationFilters.search, [
+      worker?.fullName || '',
+      worker?.mobile || '',
+      company?.companyName || '',
+      company?.contactPerson || '',
+      jobPost?.title || '',
+      jobPost?.city || '',
+      application.status,
+      application.note
+    ])
+  })
+  const selectedJobApplication =
+    filteredJobApplications.find(application => application.id === selectedJobApplicationId) ||
+    filteredJobApplications.find(application => application.status === 'submitted') ||
+    filteredJobApplications[0] ||
+    null
 
   const filteredWalletTransactions = walletTransactions.filter(transaction => {
     if (walletFilters.audience !== 'all' && transaction.entityType !== walletFilters.audience) return false
@@ -1124,6 +1177,23 @@ export default function LabourExchangeAdminPage() {
     )
   }
 
+  const updateJobApplicationStatus = async (
+    application: LabourJobApplication,
+    status: JobApplicationStatus,
+    note?: string
+  ) => {
+    setError('')
+    const ok = await persistEntity('PUT', 'jobApplications', {
+      status,
+      note: typeof note === 'string' ? note : application.note
+    }, application.id)
+
+    if (!ok) return
+
+    setSelectedJobApplicationId(application.id)
+    showSaved('Application updated')
+  }
+
   const saveCompany = async () => {
     setError('')
     const validationError = validateCompany()
@@ -1292,6 +1362,7 @@ export default function LabourExchangeAdminPage() {
             { label: 'Active Companies', value: snapshot.stats.activeCompanies, accent: '#2563eb' },
             { label: 'Live Job Posts', value: snapshot.stats.liveJobPosts, accent: '#7c3aed' },
             { label: 'Expired Job Posts', value: expiredJobPostsCount, accent: '#dc2626' },
+            { label: 'Applications', value: snapshot.jobApplications.length, accent: '#0f766e' },
             { label: 'Wallet Revenue', value: formatCurrency(walletRevenue), accent: '#0f172a' },
             { label: 'Registration Revenue', value: formatCurrency(registrationRevenue), accent: '#1d4ed8' }
           ].map(card => (
@@ -1338,6 +1409,7 @@ export default function LabourExchangeAdminPage() {
                     `Workers: ${snapshot.workers.length}`,
                     `Companies: ${snapshot.companies.length}`,
                     `Job Posts: ${snapshot.jobPosts.length}`,
+                    `Applications: ${snapshot.jobApplications.length}`,
                     `Wallet Entries: ${walletTransactions.length}`,
                     `Recharge Follow-ups: ${rechargeRequests.length}`,
                     `Audit Logs: ${snapshot.auditLogs.length}`
@@ -2119,6 +2191,174 @@ export default function LabourExchangeAdminPage() {
           </div>
         )}
 
+        {activeSection === 'jobApplications' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Job Applications</h2>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input
+                    placeholder="Search applications"
+                    value={jobApplicationFilters.search}
+                    onChange={event => setJobApplicationFilters(current => ({ ...current, search: event.target.value }))}
+                    style={{ ...inputStyle, width: '220px' }}
+                  />
+                  <select
+                    value={jobApplicationFilters.status}
+                    onChange={event => setJobApplicationFilters(current => ({ ...current, status: event.target.value as JobApplicationFilters['status'] }))}
+                    style={{ ...inputStyle, width: '170px' }}
+                  >
+                    <option value="all">All Statuses</option>
+                    {jobApplicationStatuses.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={jobApplicationFilters.companyId}
+                    onChange={event => setJobApplicationFilters(current => ({ ...current, companyId: event.target.value }))}
+                    style={{ ...inputStyle, width: '180px' }}
+                  >
+                    <option value="">All Companies</option>
+                    {snapshot.companies.map(company => (
+                      <option key={company.id} value={company.id}>{company.companyName}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={jobApplicationFilters.jobPostId}
+                    onChange={event => setJobApplicationFilters(current => ({ ...current, jobPostId: event.target.value }))}
+                    style={{ ...inputStyle, width: '200px' }}
+                  >
+                    <option value="">All Job Posts</option>
+                    {snapshot.jobPosts.map(jobPost => (
+                      <option key={jobPost.id} value={jobPost.id}>{jobPost.title}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {filteredJobApplications.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No job applications match the current filters.</p>
+                ) : (
+                  filteredJobApplications.map(application => {
+                    const worker = getWorkerById(application.workerId)
+                    const jobPost = getJobPostById(application.jobPostId)
+                    const company = getCompanyById(application.companyId)
+                    return (
+                      <div key={application.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                        <div>
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4px' }}>
+                            <p style={{ margin: 0, color: '#0f172a', fontWeight: '700' }}>{worker?.fullName || 'Unknown worker'}</p>
+                            <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '999px', padding: '5px 9px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+                              {titleCase(application.status)}
+                            </span>
+                          </div>
+                          <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                            {jobPost?.title || 'Unknown job'} | {company?.companyName || 'Unknown company'} | {worker?.mobile || 'No mobile'}
+                          </p>
+                          <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>
+                            Applied {formatDate(application.appliedAt)} {jobPost?.city ? `| ${jobPost.city}` : ''}
+                          </p>
+                          <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                            {application.note || 'No application note added yet.'}
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <button onClick={() => setSelectedJobApplicationId(application.id)} style={subtleButtonStyle}>Review</button>
+                          <button onClick={() => void removeEntity('jobApplications', application.id, `${worker?.fullName || 'Application'} application`)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <div style={{ marginBottom: '14px' }}>
+                <h2 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px' }}>Application Review</h2>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                  Review incoming worker applications, update the hiring status, and keep the full submission visible in one place.
+                </p>
+              </div>
+
+              {!selectedJobApplication ? (
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Choose an application from the list to review it.</p>
+              ) : (
+                <div style={{ display: 'grid', gap: '16px' }}>
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                      <div>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px', fontWeight: '800' }}>
+                          {getWorkerById(selectedJobApplication.workerId)?.fullName || 'Unknown worker'}
+                        </p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '13px' }}>
+                          {getJobPostById(selectedJobApplication.jobPostId)?.title || 'Unknown job'} | {getCompanyById(selectedJobApplication.companyId)?.companyName || 'Unknown company'}
+                        </p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                          Applied {formatDate(selectedJobApplication.appliedAt)} | Last updated {formatDate(selectedJobApplication.updatedAt)}
+                        </p>
+                      </div>
+                      <span style={{ fontSize: '12px', fontWeight: '800', borderRadius: '999px', padding: '8px 12px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', alignSelf: 'flex-start' }}>
+                        {titleCase(selectedJobApplication.status)}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
+                        <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Worker Details</p>
+                        <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                          Mobile: {getWorkerById(selectedJobApplication.workerId)?.mobile || 'Not available'}
+                        </p>
+                        <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                          City: {getWorkerById(selectedJobApplication.workerId)?.city || 'Not available'}
+                        </p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                          Worker status: {getWorkerById(selectedJobApplication.workerId)?.status || 'Unknown'}
+                        </p>
+                      </div>
+
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
+                        <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Job Details</p>
+                        <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                          Wage: {formatCurrency(getJobPostById(selectedJobApplication.jobPostId)?.wageAmount || 0)}
+                        </p>
+                        <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                          Workers needed: {getJobPostById(selectedJobApplication.jobPostId)?.workersNeeded || 0}
+                        </p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                          City: {getJobPostById(selectedJobApplication.jobPostId)?.city || 'Not available'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
+                      <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Application Note</p>
+                      <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                        {selectedJobApplication.note || 'No note added by the worker.'}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      {jobApplicationStatuses.map(status => (
+                        <button
+                          key={status}
+                          onClick={() => void updateJobApplicationStatus(selectedJobApplication, status)}
+                          style={status === selectedJobApplication.status ? primaryButtonStyle : subtleButtonStyle}
+                        >
+                          Mark {titleCase(status)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeSection === 'walletTransactions' && (
           <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
@@ -2578,7 +2818,7 @@ export default function LabourExchangeAdminPage() {
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
                     <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
                       Open {sectionLabels[section]}
                     </button>

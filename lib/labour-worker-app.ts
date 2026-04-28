@@ -491,13 +491,27 @@ const buildWorkerFeed = (
   activation: WorkerAppActivationSummary
 ): WorkerAppFeedItem[] => {
   const matchingPosts = jobPosts
-    .filter(jobPost => jobPost.status === 'live' && worker.categoryIds.includes(jobPost.categoryId))
+    .filter(jobPost => {
+      if (jobPost.status !== 'live') {
+        return false
+      }
+      const company = companies.find(item => item.id === jobPost.companyId)
+      return company?.status === 'active'
+    })
     .map(jobPost => {
       const company = companies.find(item => item.id === jobPost.companyId)
       const categoryName = categories.find(category => category.id === jobPost.categoryId)?.name || jobPost.categoryId
+      const categoryMatch = worker.categoryIds.includes(jobPost.categoryId)
       const cityMatch = worker.city && jobPost.city && worker.city.toLowerCase() === jobPost.city.toLowerCase()
       const application = applications.find(item => item.jobPostId === jobPost.id)
       const savedJob = savedJobs.find(item => item.jobPostId === jobPost.id)
+      const matchReason = categoryMatch
+        ? cityMatch
+          ? 'Strong match in your city and category'
+          : 'Category match for your worker profile'
+        : cityMatch
+          ? 'Available in your city'
+          : 'Open job from an active company'
 
       return {
         id: jobPost.id,
@@ -514,7 +528,7 @@ const buildWorkerFeed = (
         companyMobile: activation.canViewCompanyDetails ? company?.mobile || null : null,
         publishedAt: jobPost.publishedAt,
         expiresAt: jobPost.expiresAt,
-        matchReason: cityMatch ? 'Strong match in your city and category' : 'Category match for your worker profile',
+        matchReason,
         hasApplied: Boolean(application),
         applicationStatus: application?.status || null,
         isSaved: Boolean(savedJob),
@@ -523,13 +537,31 @@ const buildWorkerFeed = (
     })
 
   return matchingPosts.sort((left, right) => {
-    const leftCity = left.city.toLowerCase() === worker.city.toLowerCase() ? 1 : 0
-    const rightCity = right.city.toLowerCase() === worker.city.toLowerCase() ? 1 : 0
     const applicationBoost = Number(right.hasApplied) - Number(left.hasApplied)
     if (applicationBoost !== 0) {
       return applicationBoost
     }
-    return rightCity - leftCity
+
+    const scoreMatch = (item: WorkerAppFeedItem) => {
+      const normalized = item.matchReason.toLowerCase()
+      if (normalized.includes('strong match')) {
+        return 3
+      }
+      if (normalized.includes('category match')) {
+        return 2
+      }
+      if (normalized.includes('your city')) {
+        return 1
+      }
+      return 0
+    }
+
+    const matchBoost = scoreMatch(right) - scoreMatch(left)
+    if (matchBoost !== 0) {
+      return matchBoost
+    }
+
+    return Date.parse(right.publishedAt) - Date.parse(left.publishedAt)
   })
 }
 
@@ -1001,13 +1033,14 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     throw new Error('Job post not found or no longer live.')
   }
 
+  const company = snapshot.companies.find(item => item.id === jobPost.companyId)
+  if (!company || company.status !== 'active') {
+    throw new Error('This job is not available from an active company anymore.')
+  }
+
   const activation = deriveActivationSummary(worker, getWorkerPlan(snapshot.plans))
   if (!activation.canViewCompanyDetails) {
     throw new Error('Recharge and keep your worker access active before applying to jobs.')
-  }
-
-  if (!worker.categoryIds.includes(jobPost.categoryId)) {
-    throw new Error('This job does not match your current labour category profile.')
   }
 
   const existingApplication = snapshot.jobApplications.find(
@@ -1018,7 +1051,6 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     return getWorkerAppDashboard(workerId)
   }
 
-  const company = snapshot.companies.find(item => item.id === jobPost.companyId)
   await createLabourEntity('jobApplications', {
     workerId,
     jobPostId,

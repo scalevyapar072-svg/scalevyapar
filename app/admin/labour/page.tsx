@@ -657,6 +657,7 @@ export default function LabourExchangeAdminPage() {
   const [editingWorkerId, setEditingWorkerId] = useState<string | null>(null)
   const [selectedWorkerReviewId, setSelectedWorkerReviewId] = useState<string | null>(null)
   const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string | null>(null)
+  const [selectedCompanyAuditId, setSelectedCompanyAuditId] = useState<string | null>(null)
   const [selectedSavedJobId, setSelectedSavedJobId] = useState<string | null>(null)
   const [selectedWorkerNotificationId, setSelectedWorkerNotificationId] = useState<string | null>(null)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
@@ -1194,6 +1195,48 @@ export default function LabourExchangeAdminPage() {
     filteredJobApplications.find(application => application.status === 'submitted') ||
     filteredJobApplications[0] ||
     null
+  const companyApplicationAuditRows = snapshot.companies
+    .map(company => {
+      const applications = snapshot.jobApplications.filter(application => application.companyId === company.id)
+      const companyJobPosts = snapshot.jobPosts.filter(jobPost => jobPost.companyId === company.id)
+      const latestActivity = applications
+        .slice()
+        .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())[0] || null
+
+      return {
+        company,
+        applications,
+        submittedCount: applications.filter(application => application.status === 'submitted').length,
+        reviewedCount: applications.filter(application => application.status === 'reviewed').length,
+        shortlistedCount: applications.filter(application => application.status === 'shortlisted').length,
+        rejectedCount: applications.filter(application => application.status === 'rejected').length,
+        hiredCount: applications.filter(application => application.status === 'hired').length,
+        liveJobsCount: companyJobPosts.filter(jobPost => !isExpiredJobPost(jobPost) && jobPost.status === 'live').length,
+        latestActivity
+      }
+    })
+    .filter(row => row.applications.length > 0)
+    .sort((left, right) => {
+      if (right.submittedCount !== left.submittedCount) return right.submittedCount - left.submittedCount
+      return right.applications.length - left.applications.length
+    })
+  const selectedCompanyAudit =
+    companyApplicationAuditRows.find(row => row.company.id === selectedCompanyAuditId) ||
+    companyApplicationAuditRows.find(row => row.company.id === jobApplicationFilters.companyId) ||
+    (selectedJobApplication ? companyApplicationAuditRows.find(row => row.company.id === selectedJobApplication.companyId) : null) ||
+    companyApplicationAuditRows[0] ||
+    null
+  const selectedCompanyAuditApplications = selectedCompanyAudit
+    ? filteredJobApplications
+      .filter(application => application.companyId === selectedCompanyAudit.company.id)
+      .slice()
+      .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+    : []
+  const recentCompanyActionRows = snapshot.jobApplications
+    .filter(application => application.status !== 'submitted')
+    .slice()
+    .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+    .slice(0, 8)
   const filteredSavedJobs = snapshot.savedJobs.filter(savedJob => {
     const worker = getWorkerById(savedJob.workerId)
     const jobPost = getJobPostById(savedJob.jobPostId)
@@ -2748,6 +2791,73 @@ export default function LabourExchangeAdminPage() {
         {activeSection === 'jobApplications' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
             <div style={cardStyle}>
+              <div style={{ marginBottom: '18px', display: 'grid', gap: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <div>
+                    <h2 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px' }}>Company Application Audit</h2>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                      Audit how each company is handling worker applications from one central admin queue.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <span style={{ padding: '8px 12px', borderRadius: '999px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '12px', fontWeight: '700' }}>
+                      Pending company action: {snapshot.jobApplications.filter(application => application.status === 'submitted').length}
+                    </span>
+                    <span style={{ padding: '8px 12px', borderRadius: '999px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontSize: '12px', fontWeight: '700' }}>
+                      Active company pipelines: {companyApplicationAuditRows.length}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px' }}>
+                  {[
+                    { label: 'Submitted', value: snapshot.jobApplications.filter(application => application.status === 'submitted').length, accent: '#c2410c' },
+                    { label: 'Reviewed', value: snapshot.jobApplications.filter(application => application.status === 'reviewed').length, accent: '#1d4ed8' },
+                    { label: 'Shortlisted', value: snapshot.jobApplications.filter(application => application.status === 'shortlisted').length, accent: '#047857' },
+                    { label: 'Hired', value: snapshot.jobApplications.filter(application => application.status === 'hired').length, accent: '#7c3aed' }
+                  ].map(card => (
+                    <div key={card.label} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
+                      <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{card.label}</p>
+                      <p style={{ margin: 0, fontSize: '24px', color: card.accent, fontWeight: '800' }}>{card.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {companyApplicationAuditRows.length === 0 ? (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No company applications are available for audit yet.</p>
+                  ) : (
+                    companyApplicationAuditRows.slice(0, 6).map(row => (
+                      <div key={row.company.id} style={{ border: selectedCompanyAudit?.company.id === row.company.id ? '1px solid #93c5fd' : '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: selectedCompanyAudit?.company.id === row.company.id ? '#eff6ff' : '#fff', display: 'flex', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap' }}>
+                        <div>
+                          <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '800' }}>{row.company.companyName}</p>
+                          <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                            {row.company.contactPerson} | {row.company.mobile} | {row.company.city || 'No city'}
+                          </p>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                            {row.applications.length} applications | {row.submittedCount} pending | {row.shortlistedCount} shortlisted | {row.hiredCount} hired
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                          <button
+                            onClick={() => {
+                              setSelectedCompanyAuditId(row.company.id)
+                              setJobApplicationFilters(current => ({ ...current, companyId: row.company.id }))
+                            }}
+                            style={subtleButtonStyle}
+                          >
+                            Audit Company
+                          </button>
+                          <a href="/labour/company/panel" target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                            Open Company Panel
+                          </a>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
                 <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Job Applications</h2>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -2838,6 +2948,64 @@ export default function LabourExchangeAdminPage() {
                 </p>
               </div>
 
+              {selectedCompanyAudit ? (
+                <div style={{ border: '1px solid #dbeafe', borderRadius: '14px', padding: '16px', background: '#f8fbff', marginBottom: '16px', display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <div>
+                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '17px', fontWeight: '800' }}>{selectedCompanyAudit.company.companyName}</p>
+                      <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                        {selectedCompanyAudit.company.contactPerson} | {selectedCompanyAudit.company.mobile} | {selectedCompanyAudit.company.city || 'No city'}
+                      </p>
+                      <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                        Company status: {titleCase(selectedCompanyAudit.company.status)} | Live jobs: {selectedCompanyAudit.liveJobsCount}
+                      </p>
+                    </div>
+                    <span style={{ fontSize: '12px', fontWeight: '800', borderRadius: '999px', padding: '8px 12px', background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74', alignSelf: 'flex-start' }}>
+                      {selectedCompanyAudit.submittedCount} pending company action
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '10px' }}>
+                    {[
+                      { label: 'Submitted', value: selectedCompanyAudit.submittedCount },
+                      { label: 'Reviewed', value: selectedCompanyAudit.reviewedCount },
+                      { label: 'Shortlisted', value: selectedCompanyAudit.shortlistedCount },
+                      { label: 'Rejected', value: selectedCompanyAudit.rejectedCount },
+                      { label: 'Hired', value: selectedCompanyAudit.hiredCount }
+                    ].map(item => (
+                      <div key={item.label} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px 12px', background: '#fff' }}>
+                        <p style={{ margin: '0 0 4px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase' }}>{item.label}</p>
+                        <p style={{ margin: 0, color: '#0f172a', fontSize: '18px', fontWeight: '800' }}>{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>Recent company-side review activity</p>
+                    {selectedCompanyAuditApplications.length === 0 ? (
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>No applications match the current company filter.</p>
+                    ) : (
+                      selectedCompanyAuditApplications.slice(0, 5).map(application => {
+                        const worker = getWorkerById(application.workerId)
+                        const jobPost = getJobPostById(application.jobPostId)
+                        return (
+                          <button
+                            key={application.id}
+                            onClick={() => setSelectedJobApplicationId(application.id)}
+                            style={{ ...subtleButtonStyle, textAlign: 'left', justifyContent: 'space-between', display: 'flex', gap: '12px' }}
+                          >
+                            <span>
+                              {worker?.fullName || 'Unknown worker'} | {jobPost?.title || 'Unknown job'}
+                            </span>
+                            <span style={{ color: '#64748b', fontSize: '12px' }}>{titleCase(application.status)}</span>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
               {!selectedJobApplication ? (
                 <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Choose an application from the list to review it.</p>
               ) : (
@@ -2895,6 +3063,22 @@ export default function LabourExchangeAdminPage() {
                       </p>
                     </div>
 
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
+                      <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Company Audit Context</p>
+                      <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                        Company status: {getCompanyById(selectedJobApplication.companyId)?.status || 'Unknown'}
+                      </p>
+                      <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                        Contact person: {getCompanyById(selectedJobApplication.companyId)?.contactPerson || 'Not available'}
+                      </p>
+                      <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                        Company mobile: {getCompanyById(selectedJobApplication.companyId)?.mobile || 'Not available'}
+                      </p>
+                      <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
+                        Open from company panel to compare this worker against the rest of that company pipeline.
+                      </p>
+                    </div>
+
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       {jobApplicationStatuses.map(status => (
                         <button
@@ -2905,10 +3089,41 @@ export default function LabourExchangeAdminPage() {
                           Mark {titleCase(status)}
                         </button>
                       ))}
+                      <a href="/labour/company/panel" target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                        Open Company Panel
+                      </a>
                     </div>
                   </div>
                 </div>
               )}
+
+              <div style={{ marginTop: '18px', borderTop: '1px solid #e2e8f0', paddingTop: '16px', display: 'grid', gap: '10px' }}>
+                <h3 style={{ margin: 0, color: '#0f172a', fontSize: '15px' }}>Recent company actions across all companies</h3>
+                {recentCompanyActionRows.length === 0 ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No reviewed company activity yet.</p>
+                ) : (
+                  recentCompanyActionRows.map(application => {
+                    const worker = getWorkerById(application.workerId)
+                    const company = getCompanyById(application.companyId)
+                    const jobPost = getJobPostById(application.jobPostId)
+                    return (
+                      <button
+                        key={application.id}
+                        onClick={() => {
+                          setSelectedJobApplicationId(application.id)
+                          setSelectedCompanyAuditId(application.companyId)
+                        }}
+                        style={{ ...subtleButtonStyle, textAlign: 'left', justifyContent: 'space-between', display: 'flex', gap: '12px' }}
+                      >
+                        <span>
+                          {company?.companyName || 'Unknown company'} moved {worker?.fullName || 'worker'} on {jobPost?.title || 'job'}
+                        </span>
+                        <span style={{ color: '#64748b', fontSize: '12px' }}>{titleCase(application.status)} | {formatDate(application.updatedAt)}</span>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
             </div>
           </div>
         )}

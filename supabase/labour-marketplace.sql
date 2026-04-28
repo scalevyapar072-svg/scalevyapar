@@ -195,6 +195,12 @@ create table if not exists public.labour_website_content (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.labour_admin_settings (
+  id text primary key,
+  settings_json jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.labour_worker_auth_sessions (
   id text primary key,
   mobile text not null,
@@ -241,5 +247,6 @@ create index if not exists idx_labour_wallet_transactions_entity_type on public.
 create index if not exists idx_labour_recharge_requests_status on public.labour_recharge_requests(request_status);
 create index if not exists idx_labour_recharge_requests_priority on public.labour_recharge_requests(priority);
 create index if not exists idx_labour_website_content_page_key on public.labour_website_content(page_key);
+create index if not exists idx_labour_admin_settings_updated_at on public.labour_admin_settings(updated_at desc);
 create index if not exists idx_labour_worker_auth_sessions_mobile on public.labour_worker_auth_sessions(mobile);
 create index if not exists idx_labour_audit_logs_created_at on public.labour_audit_logs(created_at desc);

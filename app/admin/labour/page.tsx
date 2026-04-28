@@ -292,6 +292,53 @@ type AuditFilters = {
   entityType: 'all' | string
 }
 
+type LabourAdminSettings = {
+  notificationTemplates: {
+    applicationSubmittedTitle: string
+    applicationSubmittedMessage: string
+    shortlistedTitle: string
+    shortlistedMessage: string
+    rejectedTitle: string
+    rejectedMessage: string
+    walletReminderTitle: string
+    walletReminderMessage: string
+    adminBroadcastTitle: string
+    adminBroadcastMessage: string
+  }
+  uploadRules: {
+    maxPhotoSizeMb: number
+    maxDocumentSizeMb: number
+    allowedPhotoExtensions: string[]
+    allowedDocumentExtensions: string[]
+    requireIdentityDocumentUpload: boolean
+  }
+  kycRules: {
+    requireProfilePhoto: boolean
+    requireIdentityNumber: boolean
+    manualReviewRequired: boolean
+    autoRejectBlurredPhoto: boolean
+    reviewReminderHours: number
+    allowedProofTypes: string[]
+  }
+  feeRules: {
+    defaultWorkerRegistrationFee: number
+    defaultWorkerDailyDeduction: number
+    minimumWalletRecharge: number
+    defaultCompanyRegistrationFee: number
+    defaultCompanyPlanAmount: number
+    followUpCreditThreshold: number
+  }
+  automationControls: {
+    autoHideInactiveWorkers: boolean
+    autoPauseExpiredJobs: boolean
+    sendWalletReminderPush: boolean
+    sendApplicationStatusPush: boolean
+    autoCreateRechargeFollowUps: boolean
+    autoEscalatePendingKyc: boolean
+    pendingKycEscalationHours: number
+  }
+}
+
 const workerStatuses: WorkerStatus[] = [
   'pending',
   'active',
@@ -303,6 +350,7 @@ const workerStatuses: WorkerStatus[] = [
 
 const companyStatuses: CompanyStatus[] = ['pending', 'active', 'inactive', 'blocked']
 const workerAvailabilityOptions: WorkerAvailability[] = ['available_today', 'available_this_week', 'not_available']
+const workerIdentityProofOptions: Array<Exclude<WorkerIdentityProofType, ''>> = ['aadhaar', 'pan', 'voter_id', 'driving_license', 'other']
 const jobPostStatuses: JobPostStatus[] = ['draft', 'live', 'expired', 'paused']
 const jobApplicationStatuses: JobApplicationStatus[] = ['submitted', 'reviewed', 'shortlisted', 'rejected', 'hired']
 const workerNotificationTypes: WorkerNotificationType[] = ['application_submitted', 'job_saved', 'application_status', 'wallet_reminder']
@@ -420,6 +468,53 @@ const blankWorkerNotificationDraft: WorkerNotificationDraft = {
   relatedCompanyId: ''
 }
 
+const blankLabourAdminSettings: LabourAdminSettings = {
+  notificationTemplates: {
+    applicationSubmittedTitle: 'Application received',
+    applicationSubmittedMessage: 'Your application for {{job_title}} has been submitted successfully.',
+    shortlistedTitle: 'You are shortlisted',
+    shortlistedMessage: 'You have been shortlisted for {{job_title}}. Keep your phone active for the next step.',
+    rejectedTitle: 'Application update',
+    rejectedMessage: 'Your application for {{job_title}} was not selected this time.',
+    walletReminderTitle: 'Wallet recharge needed',
+    walletReminderMessage: 'Your wallet is low. Recharge soon to keep company details unlocked.',
+    adminBroadcastTitle: 'Important update',
+    adminBroadcastMessage: 'Admin shared a new update for active workers.'
+  },
+  uploadRules: {
+    maxPhotoSizeMb: 4,
+    maxDocumentSizeMb: 8,
+    allowedPhotoExtensions: ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'],
+    allowedDocumentExtensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+    requireIdentityDocumentUpload: true
+  },
+  kycRules: {
+    requireProfilePhoto: true,
+    requireIdentityNumber: true,
+    manualReviewRequired: true,
+    autoRejectBlurredPhoto: false,
+    reviewReminderHours: 12,
+    allowedProofTypes: ['aadhaar', 'pan', 'voter_id', 'driving_license', 'other']
+  },
+  feeRules: {
+    defaultWorkerRegistrationFee: 49,
+    defaultWorkerDailyDeduction: 5,
+    minimumWalletRecharge: 50,
+    defaultCompanyRegistrationFee: 199,
+    defaultCompanyPlanAmount: 999,
+    followUpCreditThreshold: 100
+  },
+  automationControls: {
+    autoHideInactiveWorkers: true,
+    autoPauseExpiredJobs: true,
+    sendWalletReminderPush: true,
+    sendApplicationStatusPush: true,
+    autoCreateRechargeFollowUps: true,
+    autoEscalatePendingKyc: true,
+    pendingKycEscalationHours: 24
+  }
+}
+
 const blankCategoryFilters: CategoryFilters = { search: '', demand: 'all', activity: 'all' }
 const blankPlanFilters: PlanFilters = { search: '', audience: 'all', categoryId: '', activity: 'all' }
 const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryId: '', visibility: 'all', kyc: 'all' }
@@ -532,9 +627,18 @@ const createCsvContent = (rows: Array<Record<string, unknown>>) => {
   return lines.join('\n')
 }
 
+const parseCommaSeparatedList = (value: string) =>
+  value
+    .split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean)
+
 export default function LabourExchangeAdminPage() {
   const [snapshot, setSnapshot] = useState<LabourSnapshot | null>(null)
+  const [settingsDraft, setSettingsDraft] = useState<LabourAdminSettings>(blankLabourAdminSettings)
+  const [settingsStorage, setSettingsStorage] = useState<'supabase' | 'json'>('json')
   const [loading, setLoading] = useState(true)
+  const [settingsLoading, setSettingsLoading] = useState(true)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
   const [activeSection, setActiveSection] = useState<LabourSection>('overview')
@@ -641,8 +745,28 @@ export default function LabourExchangeAdminPage() {
     }
   }
 
+  const fetchSettings = async () => {
+    setSettingsLoading(true)
+
+    try {
+      const response = await fetch('/api/admin/labour/settings', { cache: 'no-store' })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to load labour admin settings.')
+      }
+
+      setSettingsDraft(data.settings || blankLabourAdminSettings)
+      setSettingsStorage(data.storage === 'supabase' ? 'supabase' : 'json')
+    } catch {
+      setError(current => current || 'Unable to load labour admin settings right now.')
+    } finally {
+      setSettingsLoading(false)
+    }
+  }
+
   useEffect(() => {
     void fetchSnapshot()
+    void fetchSettings()
   }, [])
 
   const showSaved = (message: string) => {
@@ -653,6 +777,33 @@ export default function LabourExchangeAdminPage() {
   const replaceSnapshot = (nextSnapshot: LabourSnapshot) => {
     setSnapshot(nextSnapshot)
     setError('')
+  }
+
+  const saveSettings = async () => {
+    setError('')
+    setSettingsLoading(true)
+
+    try {
+      const response = await fetch('/api/admin/labour/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: settingsDraft })
+      })
+
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        setError(data.error || 'Failed to save labour admin settings.')
+        return
+      }
+
+      setSettingsDraft(data.settings || blankLabourAdminSettings)
+      setSettingsStorage(data.storage === 'supabase' ? 'supabase' : 'json')
+      showSaved('Labour admin settings updated.')
+    } catch {
+      setError('Failed to save labour admin settings.')
+    } finally {
+      setSettingsLoading(false)
+    }
   }
 
   const persistEntity = async (
@@ -1133,6 +1284,17 @@ export default function LabourExchangeAdminPage() {
   const savedJobConversionRate = snapshot.savedJobs.length === 0
     ? 0
     : Math.round((snapshot.jobApplications.length / snapshot.savedJobs.length) * 100)
+  const enabledAutomationCount = Object.entries(settingsDraft.automationControls)
+    .filter(([key, value]) => key !== 'pendingKycEscalationHours' && value === true)
+    .length
+  const pendingKycReviewCount = snapshot.workers.filter(
+    worker =>
+      worker.registrationCompletedAt &&
+      worker.identityProofType &&
+      worker.identityProofNumber &&
+      worker.identityProofPath &&
+      worker.status === 'pending'
+  ).length
   const categoryReportRows = categoryDemandRows.map(row => ({
     category: row.name,
     demandLevel: row.demandLevel,
@@ -3740,83 +3902,219 @@ export default function LabourExchangeAdminPage() {
 
         {activeSection === 'settings' && (
           <div style={{ display: 'grid', gap: '20px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div>
+                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '20px' }}>Operations Settings</h2>
+                <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: '13px', lineHeight: 1.7 }}>
+                  Control worker notifications, upload validation, KYC review rules, fee defaults, and automation behavior from one panel.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ padding: '8px 12px', borderRadius: '999px', background: settingsStorage === 'supabase' ? '#dcfce7' : '#e0f2fe', color: settingsStorage === 'supabase' ? '#166534' : '#075985', fontSize: '12px', fontWeight: '700' }}>
+                  {settingsStorage === 'supabase' ? 'Live Supabase storage' : 'JSON fallback storage'}
+                </span>
+                <button onClick={() => void saveSettings()} disabled={settingsLoading} style={primaryButtonStyle}>
+                  {settingsLoading ? 'Loading...' : 'Save Settings'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px' }}>
+              {[
+                { label: 'Enabled Automations', value: `${enabledAutomationCount}/6`, accent: '#1d4ed8' },
+                { label: 'Pending KYC Review', value: pendingKycReviewCount, accent: '#c2410c' },
+                { label: 'Min Wallet Recharge', value: formatCurrency(settingsDraft.feeRules.minimumWalletRecharge), accent: '#0f766e' },
+                { label: 'Upload Limits', value: `${settingsDraft.uploadRules.maxPhotoSizeMb}MB / ${settingsDraft.uploadRules.maxDocumentSizeMb}MB`, accent: '#7c3aed' }
+              ].map(card => (
+                <div key={card.label} style={{ ...cardStyle, padding: '18px 20px' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{card.label}</p>
+                  <p style={{ margin: 0, fontSize: '22px', color: card.accent, fontWeight: '800' }}>{card.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div style={cardStyle}>
-                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Worker status model</h3>
-                <div style={{ display: 'grid', gap: '8px' }}>
-                  {workerStatuses.map(status => (
-                    <div key={status} style={{ display: 'flex', justifyContent: 'space-between', color: '#334155', fontSize: '13px' }}>
-                      <span>{titleCase(status)}</span>
-                      <strong>{snapshot.workers.filter(worker => worker.status === status).length}</strong>
-                    </div>
-                  ))}
+                <h3 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '17px' }}>Notification templates</h3>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <input value={settingsDraft.notificationTemplates.applicationSubmittedTitle} onChange={event => setSettingsDraft(current => ({ ...current, notificationTemplates: { ...current.notificationTemplates, applicationSubmittedTitle: event.target.value } }))} placeholder="Application submitted title" style={inputStyle} />
+                    <input value={settingsDraft.notificationTemplates.shortlistedTitle} onChange={event => setSettingsDraft(current => ({ ...current, notificationTemplates: { ...current.notificationTemplates, shortlistedTitle: event.target.value } }))} placeholder="Shortlisted title" style={inputStyle} />
+                  </div>
+                  <textarea value={settingsDraft.notificationTemplates.applicationSubmittedMessage} onChange={event => setSettingsDraft(current => ({ ...current, notificationTemplates: { ...current.notificationTemplates, applicationSubmittedMessage: event.target.value } }))} placeholder="Application submitted message" rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                  <textarea value={settingsDraft.notificationTemplates.shortlistedMessage} onChange={event => setSettingsDraft(current => ({ ...current, notificationTemplates: { ...current.notificationTemplates, shortlistedMessage: event.target.value } }))} placeholder="Shortlisted message" rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <input value={settingsDraft.notificationTemplates.rejectedTitle} onChange={event => setSettingsDraft(current => ({ ...current, notificationTemplates: { ...current.notificationTemplates, rejectedTitle: event.target.value } }))} placeholder="Rejected title" style={inputStyle} />
+                    <input value={settingsDraft.notificationTemplates.walletReminderTitle} onChange={event => setSettingsDraft(current => ({ ...current, notificationTemplates: { ...current.notificationTemplates, walletReminderTitle: event.target.value } }))} placeholder="Wallet reminder title" style={inputStyle} />
+                  </div>
+                  <textarea value={settingsDraft.notificationTemplates.rejectedMessage} onChange={event => setSettingsDraft(current => ({ ...current, notificationTemplates: { ...current.notificationTemplates, rejectedMessage: event.target.value } }))} placeholder="Rejected message" rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                  <textarea value={settingsDraft.notificationTemplates.walletReminderMessage} onChange={event => setSettingsDraft(current => ({ ...current, notificationTemplates: { ...current.notificationTemplates, walletReminderMessage: event.target.value } }))} placeholder="Wallet reminder message" rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <input value={settingsDraft.notificationTemplates.adminBroadcastTitle} onChange={event => setSettingsDraft(current => ({ ...current, notificationTemplates: { ...current.notificationTemplates, adminBroadcastTitle: event.target.value } }))} placeholder="Admin broadcast title" style={inputStyle} />
+                    <textarea value={settingsDraft.notificationTemplates.adminBroadcastMessage} onChange={event => setSettingsDraft(current => ({ ...current, notificationTemplates: { ...current.notificationTemplates, adminBroadcastMessage: event.target.value } }))} placeholder="Admin broadcast message" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+                  </div>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>Use variables like <code>{'{{job_title}}'}</code> and <code>{'{{company_name}}'}</code> in templates for worker-facing alerts.</p>
                 </div>
               </div>
 
               <div style={cardStyle}>
-                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Company status model</h3>
-                <div style={{ display: 'grid', gap: '8px' }}>
-                  {companyStatuses.map(status => (
-                    <div key={status} style={{ display: 'flex', justifyContent: 'space-between', color: '#334155', fontSize: '13px' }}>
-                      <span>{titleCase(status)}</span>
-                      <strong>{snapshot.companies.filter(company => company.status === status).length}</strong>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={cardStyle}>
-                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Operational pricing rules</h3>
-                <div style={{ display: 'grid', gap: '8px', color: '#334155', fontSize: '13px' }}>
-                  <div>Worker registration revenue: {formatCurrency(workerRegistrationRevenue)}</div>
-                  <div>Worker wallet revenue: {formatCurrency(workerWalletRevenue)}</div>
-                  <div>Company registration revenue: {formatCurrency(companyRegistrationRevenue)}</div>
-                  <div>Company plan revenue: {formatCurrency(companyPlanRevenue)}</div>
-                  <div>Current wallet balance: {formatCurrency(snapshot.stats.totalWalletBalance)}</div>
+                <h3 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '17px' }}>Upload rules</h3>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <input type="number" min={1} value={settingsDraft.uploadRules.maxPhotoSizeMb} onChange={event => setSettingsDraft(current => ({ ...current, uploadRules: { ...current.uploadRules, maxPhotoSizeMb: Number(event.target.value || 0) } }))} placeholder="Max photo size (MB)" style={inputStyle} />
+                    <input type="number" min={1} value={settingsDraft.uploadRules.maxDocumentSizeMb} onChange={event => setSettingsDraft(current => ({ ...current, uploadRules: { ...current.uploadRules, maxDocumentSizeMb: Number(event.target.value || 0) } }))} placeholder="Max document size (MB)" style={inputStyle} />
+                  </div>
+                  <input value={settingsDraft.uploadRules.allowedPhotoExtensions.join(', ')} onChange={event => setSettingsDraft(current => ({ ...current, uploadRules: { ...current.uploadRules, allowedPhotoExtensions: parseCommaSeparatedList(event.target.value) } }))} placeholder="Photo formats: jpg, png, webp" style={inputStyle} />
+                  <input value={settingsDraft.uploadRules.allowedDocumentExtensions.join(', ')} onChange={event => setSettingsDraft(current => ({ ...current, uploadRules: { ...current.uploadRules, allowedDocumentExtensions: parseCommaSeparatedList(event.target.value) } }))} placeholder="Document formats: jpg, png, pdf" style={inputStyle} />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.uploadRules.requireIdentityDocumentUpload} onChange={event => setSettingsDraft(current => ({ ...current, uploadRules: { ...current.uploadRules, requireIdentityDocumentUpload: event.target.checked } }))} />
+                    Require identity document upload before worker registration can finish
+                  </label>
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', background: '#f8fafc' }}>
+                    <p style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>Current live validation summary</p>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                      Photos: {settingsDraft.uploadRules.allowedPhotoExtensions.join(', ')} up to {settingsDraft.uploadRules.maxPhotoSizeMb}MB. Documents: {settingsDraft.uploadRules.allowedDocumentExtensions.join(', ')} up to {settingsDraft.uploadRules.maxDocumentSizeMb}MB.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div style={cardStyle}>
-                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
-                    <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
-                      Open {sectionLabels[section]}
-                    </button>
-                  ))}
+                <h3 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '17px' }}>KYC rules</h3>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.kycRules.requireProfilePhoto} onChange={event => setSettingsDraft(current => ({ ...current, kycRules: { ...current.kycRules, requireProfilePhoto: event.target.checked } }))} />
+                    Require profile photo for new worker accounts
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.kycRules.requireIdentityNumber} onChange={event => setSettingsDraft(current => ({ ...current, kycRules: { ...current.kycRules, requireIdentityNumber: event.target.checked } }))} />
+                    Require identity number field before submit
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.kycRules.manualReviewRequired} onChange={event => setSettingsDraft(current => ({ ...current, kycRules: { ...current.kycRules, manualReviewRequired: event.target.checked } }))} />
+                    Keep KYC on manual admin review before worker becomes fully active
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.kycRules.autoRejectBlurredPhoto} onChange={event => setSettingsDraft(current => ({ ...current, kycRules: { ...current.kycRules, autoRejectBlurredPhoto: event.target.checked } }))} />
+                    Auto-reject obviously low-quality photo submissions
+                  </label>
+                  <input type="number" min={1} value={settingsDraft.kycRules.reviewReminderHours} onChange={event => setSettingsDraft(current => ({ ...current, kycRules: { ...current.kycRules, reviewReminderHours: Number(event.target.value || 0) } }))} placeholder="KYC review reminder hours" style={inputStyle} />
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>Allowed proof types</p>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      {workerIdentityProofOptions.map(proofType => {
+                        const selected = settingsDraft.kycRules.allowedProofTypes.includes(proofType)
+                        return (
+                          <label key={proofType} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: '999px', border: selected ? '1px solid #1d4ed8' : '1px solid #cbd5e1', background: selected ? '#eff6ff' : '#fff', color: selected ? '#1d4ed8' : '#334155', fontSize: '12px', fontWeight: '700' }}>
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={event => setSettingsDraft(current => ({
+                                ...current,
+                                kycRules: {
+                                  ...current.kycRules,
+                                  allowedProofTypes: event.target.checked
+                                    ? [...current.kycRules.allowedProofTypes, proofType]
+                                    : current.kycRules.allowedProofTypes.filter(item => item !== proofType)
+                                }
+                              }))}
+                            />
+                            {titleCase(proofType)}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div style={cardStyle}>
-                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Admin guidance</h3>
-                <div style={{ display: 'grid', gap: '10px', color: '#475569', fontSize: '13px', lineHeight: 1.7 }}>
-                  <p style={{ margin: 0 }}>Use Categories to add new labour types like stitching karighar, embroidery worker, electrician, printer labour, constructor labour or machine setup staff.</p>
-                  <p style={{ margin: 0 }}>Use Plans to edit registration fees, wallet credits, daily deduction values and company posting plans.</p>
-                  <p style={{ margin: 0 }}>Use Workers and Companies to moderate visibility, block bad actors, activate pending records and manage assigned categories.</p>
-                  <p style={{ margin: 0 }}>Use Reports and Wallet Transactions to review category demand, fee recovery, expired job posts and follow-up queues.</p>
+                <h3 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '17px' }}>Fee defaults and ops thresholds</h3>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <input type="number" min={0} value={settingsDraft.feeRules.defaultWorkerRegistrationFee} onChange={event => setSettingsDraft(current => ({ ...current, feeRules: { ...current.feeRules, defaultWorkerRegistrationFee: Number(event.target.value || 0) } }))} placeholder="Worker registration fee" style={inputStyle} />
+                    <input type="number" min={0} value={settingsDraft.feeRules.defaultWorkerDailyDeduction} onChange={event => setSettingsDraft(current => ({ ...current, feeRules: { ...current.feeRules, defaultWorkerDailyDeduction: Number(event.target.value || 0) } }))} placeholder="Worker daily deduction" style={inputStyle} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <input type="number" min={0} value={settingsDraft.feeRules.minimumWalletRecharge} onChange={event => setSettingsDraft(current => ({ ...current, feeRules: { ...current.feeRules, minimumWalletRecharge: Number(event.target.value || 0) } }))} placeholder="Minimum wallet recharge" style={inputStyle} />
+                    <input type="number" min={0} value={settingsDraft.feeRules.followUpCreditThreshold} onChange={event => setSettingsDraft(current => ({ ...current, feeRules: { ...current.feeRules, followUpCreditThreshold: Number(event.target.value || 0) } }))} placeholder="Follow-up credit threshold" style={inputStyle} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <input type="number" min={0} value={settingsDraft.feeRules.defaultCompanyRegistrationFee} onChange={event => setSettingsDraft(current => ({ ...current, feeRules: { ...current.feeRules, defaultCompanyRegistrationFee: Number(event.target.value || 0) } }))} placeholder="Company registration fee" style={inputStyle} />
+                    <input type="number" min={0} value={settingsDraft.feeRules.defaultCompanyPlanAmount} onChange={event => setSettingsDraft(current => ({ ...current, feeRules: { ...current.feeRules, defaultCompanyPlanAmount: Number(event.target.value || 0) } }))} placeholder="Default company plan amount" style={inputStyle} />
+                  </div>
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', background: '#f8fafc', display: 'grid', gap: '6px', color: '#334155', fontSize: '12px' }}>
+                    <div>Worker registration revenue so far: {formatCurrency(workerRegistrationRevenue)}</div>
+                    <div>Company registration revenue so far: {formatCurrency(companyRegistrationRevenue)}</div>
+                    <div>Wallet balance live now: {formatCurrency(snapshot.stats.totalWalletBalance)}</div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <div>
-                  <h3 style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '17px' }}>Editable company website</h3>
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px', lineHeight: 1.7 }}>
-                    Manage the public labour company website layout, content blocks, FAQs, CTAs and section order from the website editor.
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <a href="/admin/labour/website" style={{ ...primaryButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-                    Open Website Editor
-                  </a>
-                  <a href="/labour/company" target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-                    Preview Website
-                  </a>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 14px', color: '#0f172a', fontSize: '17px' }}>Automation controls</h3>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.automationControls.autoHideInactiveWorkers} onChange={event => setSettingsDraft(current => ({ ...current, automationControls: { ...current.automationControls, autoHideInactiveWorkers: event.target.checked } }))} />
+                    Hide workers automatically when account becomes inactive
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.automationControls.autoPauseExpiredJobs} onChange={event => setSettingsDraft(current => ({ ...current, automationControls: { ...current.automationControls, autoPauseExpiredJobs: event.target.checked } }))} />
+                    Pause or expire jobs automatically when validity ends
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.automationControls.sendWalletReminderPush} onChange={event => setSettingsDraft(current => ({ ...current, automationControls: { ...current.automationControls, sendWalletReminderPush: event.target.checked } }))} />
+                    Send wallet reminder push notifications
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.automationControls.sendApplicationStatusPush} onChange={event => setSettingsDraft(current => ({ ...current, automationControls: { ...current.automationControls, sendApplicationStatusPush: event.target.checked } }))} />
+                    Send application status push notifications
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.automationControls.autoCreateRechargeFollowUps} onChange={event => setSettingsDraft(current => ({ ...current, automationControls: { ...current.automationControls, autoCreateRechargeFollowUps: event.target.checked } }))} />
+                    Auto-create recharge follow-up requests
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={settingsDraft.automationControls.autoEscalatePendingKyc} onChange={event => setSettingsDraft(current => ({ ...current, automationControls: { ...current.automationControls, autoEscalatePendingKyc: event.target.checked } }))} />
+                    Escalate pending KYC reviews automatically
+                  </label>
+                  <input type="number" min={1} value={settingsDraft.automationControls.pendingKycEscalationHours} onChange={event => setSettingsDraft(current => ({ ...current, automationControls: { ...current.automationControls, pendingKycEscalationHours: Number(event.target.value || 0) } }))} placeholder="Pending KYC escalation hours" style={inputStyle} />
                 </div>
               </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation and linked tools</h3>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+                    {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                      <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
+                        Open {sectionLabels[section]}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <a href="/admin/labour/website" style={{ ...primaryButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                      Open Website Editor
+                    </a>
+                    <a href="/labour/company" target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                      Preview Website
+                    </a>
+                  </div>
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', background: '#f8fafc', color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                    Save settings here before editing related plans, worker review logic, or push templates. This panel is meant for operational defaults, while Plans, Workers, Notifications, and Reports remain execution modules.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => void saveSettings()} disabled={settingsLoading} style={primaryButtonStyle}>
+                {settingsLoading ? 'Loading...' : 'Save Settings'}
+              </button>
             </div>
           </div>
         )}

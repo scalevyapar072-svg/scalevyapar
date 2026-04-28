@@ -1,172 +1,364 @@
-'use client'
-import { useState } from 'react'
+﻿'use client'
+import { useState, useCallback } from 'react'
+import { useDropzone } from 'react-dropzone'
 import Link from 'next/link'
 
-const tools = [
-  {
-    id: 'generate',
-    name: 'AI Photo Generator',
-    description: 'Upload product photo and get a professional studio model shoot in 2 minutes.',
-    icon: '🖼️',
-    href: '/vizora/generate',
-    cost: '₹0.25 / image',
-    badge: 'Most Used',
-    color: '#7c3aed',
-  },
-  {
-    id: 'upscale',
-    name: 'Photo Upscaler 4x',
-    description: 'Upscale to print-ready 4096px — perfect for Myntra and export catalogs.',
-    icon: '🔍',
-    href: '/vizora/upscale',
-    cost: '₹0.02 / image',
-    badge: 'High Margin',
-    color: '#0284c7',
-  },
-  {
-    id: 'video',
-    name: 'Video Ad Generator',
-    description: 'Turn product photo into a 30-second Instagram reel ready to run as ad.',
-    icon: '🎬',
-    href: '/vizora/video',
-    cost: '₹4 / video',
-    badge: 'Popular',
-    color: '#db2777',
-  },
-  {
-    id: 'ugc',
-    name: 'UGC Ads Creator',
-    description: 'AI avatar speaks about your product in Hindi or English — viral UGC ads.',
-    icon: '🎭',
-    href: '/vizora/ugc',
-    cost: '₹45 / video',
-    badge: 'New',
-    color: '#d97706',
-  },
-  {
-    id: 'eraser',
-    name: 'Magic Eraser',
-    description: 'Remove backgrounds, erase objects, generative fill — just like Canva.',
-    icon: '✨',
-    href: '/vizora/eraser',
-    cost: '₹1.5 / erase',
-    badge: 'Client Fav',
-    color: '#059669',
-  },
+const TOOLS = [
+  { id: 'generate', emoji: 'Photo', name: 'AI Photo Generator', tagline: 'Exact dress on real model', cost: 'Rs 6/image', accent: '#7c3aed', light: '#ede9fe', border: '#c4b5fd' },
+  { id: 'upscale', emoji: 'Up', name: 'Photo Upscaler 4x', tagline: 'Print-ready quality', cost: 'Rs 2/image', accent: '#0284c7', light: '#e0f2fe', border: '#7dd3fc' },
+  { id: 'video', emoji: 'Vid', name: 'Video Ad Generator', tagline: 'Instagram reel in seconds', cost: 'Rs 4/video', accent: '#db2777', light: '#fce7f3', border: '#f9a8d4' },
+  { id: 'ugc', emoji: 'UGC', name: 'UGC Ads Creator', tagline: 'AI avatar speaks your brand', cost: 'Rs 45/video', accent: '#d97706', light: '#fef3c7', border: '#fcd34d' },
+  { id: 'eraser', emoji: 'FX', name: 'Magic Eraser', tagline: 'Remove backgrounds instantly', cost: 'Rs 2/image', accent: '#059669', light: '#d1fae5', border: '#6ee7b7' },
 ]
 
-export default function VizoraPage() {
-  const credits = { images: 200, videos: 25, ugc: 5, erases: 150 }
+const SHOOT_TYPES = [
+  { id: 'front', label: 'Front Standing' },
+  { id: 'onearm', label: 'One-Arm-Up' },
+  { id: 'neckline', label: 'Neckline Close-Up' },
+  { id: 'sitting-stool', label: 'Sitting Stool' },
+  { id: 'sitting-portrait', label: 'Sitting Portrait' },
+  { id: 'reclining', label: 'Reclining Sofa' },
+  { id: 'shoulder', label: 'Over-Shoulder' },
+  { id: 'hand', label: 'Hand Editorial' },
+  { id: 'fabric', label: 'Fabric Macro' },
+  { id: 'stitch', label: 'Stitch Detail' },
+  { id: 'walking', label: 'Walking Natural' },
+  { id: 'back', label: 'Back Pose' },
+]
+
+export default function VizoraStudio() {
+  const [activeTool, setActiveTool] = useState('generate')
+  const [image, setImage] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [results, setResults] = useState<string[]>([])
+  const [error, setError] = useState('')
+  const [shootType, setShootType] = useState('front')
+  const [extra, setExtra] = useState('')
+  const [scale, setScale] = useState(4)
+
+  const tool = TOOLS.find(t => t.id === activeTool)!
+
+  const onDrop = useCallback((files: File[]) => {
+    const reader = new FileReader()
+    reader.onload = e => { setImage(e.target?.result as string); setResults([]); setError('') }
+    reader.readAsDataURL(files[0])
+  }, [])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop, accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] }, maxFiles: 1,
+  })
+
+  const generate = async () => {
+    if (!image && activeTool !== 'video' && activeTool !== 'ugc') { setError('Please upload a photo first'); return }
+    setGenerating(true); setError(''); setResults([])
+    try {
+      if (activeTool === 'generate') {
+        const res = await fetch('/api/vizora/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image, shootType, extra }),
+        })
+        const data = await res.json()
+        if (data.images) setResults(Array.isArray(data.images) ? data.images : [data.images])
+        else setError(data.error || 'Generation failed')
+      } else if (activeTool === 'upscale') {
+        const res = await fetch('/api/vizora/upscale', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl: image, scale }),
+        })
+        const data = await res.json()
+        if (data.upscaledUrl) setResults([data.upscaledUrl])
+        else setError(data.error || 'Upscaling failed')
+      } else if (activeTool === 'eraser') {
+        const res = await fetch('/api/vizora/remove-bg', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image }),
+        })
+        const data = await res.json()
+        if (data.image) setResults([data.image])
+        else setError(data.error || 'Background removal failed')
+      } else {
+        setError('This tool is coming soon - integration in progress')
+      }
+    } catch { setError('Network error - please try again') }
+    finally { setGenerating(false) }
+  }
+
+  const download = (url: string, i: number) => {
+    const a = document.createElement('a'); a.href = url; a.download = `vizora-${activeTool}-${i + 1}.png`; a.click()
+  }
+
+  const selectedShoot = SHOOT_TYPES.find(s => s.id === shootType)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', color: '#0f172a' }}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+      `}</style>
 
-      {/* Navbar */}
-      <div style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Top bar */}
+      <div style={{ height: '56px', background: 'white', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', padding: '0 24px', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <Link href="/admin" style={{ color: '#64748b', fontSize: '13px', textDecoration: 'none' }}>
-            ← Admin
-          </Link>
-          <span style={{ color: '#1e293b' }}>|</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', color: 'white', fontSize: '14px' }}>V</div>
-            <span style={{ color: 'white', fontSize: '16px', fontWeight: '600' }}>Vizora</span>
-            <span style={{ background: '#3730a320', color: '#a78bfa', fontSize: '11px', padding: '2px 10px', borderRadius: '99px', border: '1px solid #7c3aed40', fontWeight: '500' }}>AI Creative Studio</span>
+          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '14px', color: 'white' }}>V</div>
+          <div>
+            <span style={{ fontWeight: '700', fontSize: '16px', color: '#0f172a' }}>Vizora </span>
+            <span style={{ fontWeight: '400', fontSize: '16px', color: '#94a3b8' }}>Studio</span>
           </div>
+          <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }} />
+          <span style={{ background: '#ede9fe', color: '#7c3aed', fontSize: '11px', padding: '3px 10px', borderRadius: '99px', fontWeight: '600', border: '1px solid #c4b5fd' }}>AI Creative Suite - 5 Tools</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981' }}></div>
-            <span style={{ color: '#94a3b8', fontSize: '12px' }}>{credits.images} image credits left</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '99px', padding: '5px 12px' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+            <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>FASHN.ai Live</span>
           </div>
-          <button style={{ background: '#7c3aed', color: 'white', border: 'none', fontSize: '13px', padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>
-            Upgrade Plan
-          </button>
+          <Link href="/admin" target="_blank" style={{ color: '#64748b', fontSize: '12px', textDecoration: 'none', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '6px 14px', borderRadius: '8px', fontWeight: '500' }}>Back to Admin</Link>
         </div>
       </div>
 
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '44px 28px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '230px 320px 1fr', minHeight: 'calc(100vh - 56px)' }}>
 
-        {/* Hero */}
-        <div style={{ textAlign: 'center', marginBottom: '44px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#ede9fe', border: '1px solid #c4b5fd', color: '#7c3aed', fontSize: '12px', padding: '5px 16px', borderRadius: '99px', marginBottom: '18px', fontWeight: '600' }}>
-            ✦ AI Creative Suite — All tools in one place
-          </div>
-          <h1 style={{ fontSize: '38px', fontWeight: '700', color: '#0f172a', margin: '0 0 14px', letterSpacing: '-1px', lineHeight: '1.1' }}>
-            Welcome to{' '}
-            <span style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Vizora
-            </span>
-          </h1>
-          <p style={{ color: '#64748b', fontSize: '17px', maxWidth: '540px', margin: '0 auto', lineHeight: '1.6' }}>
-            Generate professional product photos, video ads and UGC content — powered by AI. Built for Indian fashion sellers.
-          </p>
-        </div>
-
-        {/* Credits */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '36px' }}>
-          {[
-            { label: 'Image Credits', value: credits.images, max: 200, color: '#7c3aed' },
-            { label: 'Video Credits', value: credits.videos, max: 25, color: '#db2777' },
-            { label: 'UGC Credits', value: credits.ugc, max: 5, color: '#d97706' },
-            { label: 'Erase Credits', value: credits.erases, max: 150, color: '#059669' },
-          ].map((c) => (
-            <div key={c.label} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '18px' }}>
-              <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: '600' }}>{c.label}</p>
-              <p style={{ fontSize: '28px', fontWeight: '700', color: '#0f172a', margin: '0 0 10px' }}>{c.value}</p>
-              <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, (c.value / c.max) * 100)}%`, background: c.color, borderRadius: '2px', transition: 'width 0.5s' }}></div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Tools */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '18px', marginBottom: '36px' }}>
-          {tools.map((tool) => (
-            <Link key={tool.id} href={tool.href} style={{ textDecoration: 'none' }}>
-              <div
-                style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '18px', overflow: 'hidden', cursor: 'pointer', transition: 'all 0.2s' }}
-                onMouseEnter={e => { const d = e.currentTarget as HTMLDivElement; d.style.transform = 'translateY(-3px)'; d.style.boxShadow = '0 12px 32px rgba(0,0,0,0.1)'; d.style.borderColor = tool.color + '60' }}
-                onMouseLeave={e => { const d = e.currentTarget as HTMLDivElement; d.style.transform = ''; d.style.boxShadow = ''; d.style.borderColor = '#e2e8f0' }}
-              >
-                <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', padding: '22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '32px' }}>{tool.icon}</span>
-                    <span style={{ background: tool.color + '25', color: tool.color, fontSize: '10px', padding: '3px 10px', borderRadius: '99px', fontWeight: '700', border: `1px solid ${tool.color}50` }}>
-                      {tool.badge}
-                    </span>
-                  </div>
-                  <h3 style={{ color: 'white', fontSize: '15px', fontWeight: '600', margin: '0 0 7px' }}>{tool.name}</h3>
-                  <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0', lineHeight: '1.6' }}>{tool.description}</p>
+        {/* LEFT â€” Tool selector */}
+        <div style={{ background: 'white', borderRight: '1px solid #e2e8f0', padding: '20px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <p style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700', margin: '0 0 12px 4px' }}>Choose Tool</p>
+          {TOOLS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => { setActiveTool(t.id); setResults([]); setError('') }}
+              style={{
+                width: '100%', padding: '12px 14px',
+                border: `1.5px solid ${activeTool === t.id ? t.border : '#f1f5f9'}`,
+                background: activeTool === t.id ? t.light : '#fafafa',
+                borderRadius: '12px', cursor: 'pointer', textAlign: 'left',
+                transition: 'all 0.15s',
+                boxShadow: activeTool === t.id ? `0 2px 8px ${t.accent}20` : 'none',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: activeTool === t.id ? t.accent : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', flexShrink: 0, transition: 'all 0.15s' }}>
+                  {t.emoji}
                 </div>
-                <div style={{ padding: '14px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>API cost: {tool.cost}</span>
-                  <span style={{ color: tool.color, fontSize: '13px', fontWeight: '600' }}>Open →</span>
+                <div>
+                  <p style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: '700', color: activeTool === t.id ? t.accent : '#374151' }}>{t.name}</p>
+                  <p style={{ margin: '0', fontSize: '10px', color: '#94a3b8' }}>{t.cost}</p>
                 </div>
               </div>
-            </Link>
+            </button>
           ))}
-        </div>
 
-        {/* Stats */}
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '18px', padding: '28px' }}>
-          <p style={{ fontSize: '12px', fontWeight: '700', color: '#94a3b8', margin: '0 0 20px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>This Month</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '28px' }}>
+          {/* Credits */}
+          <div style={{ marginTop: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
+            <p style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700', margin: '0 0 10px' }}>API Credits</p>
             {[
-              { label: 'Photos Generated', value: '0' },
-              { label: 'Videos Created', value: '0' },
-              { label: 'Backgrounds Removed', value: '0' },
-              { label: 'Saved vs Photographer', value: '₹0' },
-            ].map((s) => (
-              <div key={s.label}>
-                <p style={{ fontSize: '32px', fontWeight: '700', color: '#0f172a', margin: '0' }}>{s.value}</p>
-                <p style={{ fontSize: '12px', color: '#94a3b8', margin: '6px 0 0' }}>{s.label}</p>
+              { label: 'FASHN.ai', value: '~95 left', color: '#7c3aed', bar: 95 },
+              { label: 'Replicate', value: '$9.50', color: '#0284c7', bar: 95 },
+            ].map(c => (
+              <div key={c.label} style={{ marginBottom: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>{c.label}</span>
+                  <span style={{ fontSize: '11px', color: c.color, fontWeight: '700' }}>{c.value}</span>
+                </div>
+                <div style={{ height: '3px', background: '#e2e8f0', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${c.bar}%`, background: c.color, borderRadius: '2px' }} />
+                </div>
               </div>
             ))}
           </div>
+        </div>
+
+        {/* MIDDLE â€” Settings */}
+        <div style={{ background: '#fdfdfe', borderRight: '1px solid #e2e8f0', padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+
+          {/* Tool header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '18px', borderBottom: '1px solid #f1f5f9' }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: tool.light, border: `1px solid ${tool.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>{tool.emoji}</div>
+            <div>
+              <p style={{ margin: '0 0 3px', fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>{tool.name}</p>
+              <p style={{ margin: '0', fontSize: '11px', color: '#94a3b8' }}>{tool.tagline} · <span style={{ color: tool.accent, fontWeight: '600' }}>{tool.cost}</span></p>
+            </div>
+          </div>
+
+          {/* Upload */}
+          {activeTool !== 'video' && activeTool !== 'ugc' && (
+            <div>
+              <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Upload Photo</p>
+              {image ? (
+                <div style={{ position: 'relative' }}>
+                  <img src={image} alt="upload" style={{ width: '100%', borderRadius: '12px', maxHeight: '200px', objectFit: 'cover', display: 'block', border: '1px solid #e2e8f0' }} />
+                  <button onClick={() => { setImage(null); setResults([]) }} style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(255,255,255,0.9)', color: '#374151', border: '1px solid #e2e8f0', fontSize: '11px', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', backdropFilter: 'blur(4px)' }}>Change</button>
+                </div>
+              ) : (
+                <div {...getRootProps()} style={{ border: `2px dashed ${isDragActive ? tool.accent : '#cbd5e1'}`, background: isDragActive ? tool.light : '#f8fafc', borderRadius: '12px', padding: '28px 16px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
+                  <input {...getInputProps()} />
+                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>Upload</div>
+                  <p style={{ color: '#64748b', fontSize: '13px', margin: '0 0 4px', fontWeight: '500' }}>{isDragActive ? 'Drop here!' : 'Drag & drop or click to upload'}</p>
+                  <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0' }}>JPG, PNG, WEBP - Max 10MB</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Pose selector */}
+          {activeTool === 'generate' && (
+            <>
+              <div>
+                <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pose Type - 12 Options</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+                  {SHOOT_TYPES.map(type => (
+                    <button key={type.id} onClick={() => setShootType(type.id)} style={{ padding: '7px 10px', border: `1.5px solid ${shootType === type.id ? tool.border : '#e2e8f0'}`, background: shootType === type.id ? tool.light : 'white', color: shootType === type.id ? tool.accent : '#64748b', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: shootType === type.id ? '700' : '400', textAlign: 'left', transition: 'all 0.15s' }}>
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+                {selectedShoot && <p style={{ fontSize: '11px', color: '#7c3aed', margin: '8px 0 0', background: '#ede9fe', padding: '7px 12px', borderRadius: '8px', fontWeight: '500' }}>{selectedShoot.label} selected</p>}
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Extra Details (optional)</label>
+                <textarea value={extra} onChange={e => setExtra(e.target.value)} placeholder="e.g. gold jewelry, white background, fair skin Indian model..." style={{ width: '100%', background: 'white', border: '1px solid #e2e8f0', color: '#0f172a', fontSize: '12px', padding: '10px 12px', borderRadius: '10px', outline: 'none', height: '68px', resize: 'none', fontFamily: 'inherit' }} />
+              </div>
+            </>
+          )}
+
+          {/* Upscale settings */}
+          {activeTool === 'upscale' && (
+            <div>
+              <p style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Scale Factor</p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[2, 4, 6, 8].map(s => (
+                  <button key={s} onClick={() => setScale(s)} style={{ flex: 1, padding: '10px', border: `2px solid ${scale === s ? tool.border : '#e2e8f0'}`, background: scale === s ? tool.light : 'white', color: scale === s ? tool.accent : '#64748b', borderRadius: '10px', cursor: 'pointer', fontSize: '15px', fontWeight: '700', transition: 'all 0.15s' }}>{s}x</button>
+                ))}
+              </div>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: '10px 0 0', background: '#f8fafc', padding: '8px 12px', borderRadius: '8px' }}>
+                {scale <= 2 ? '2x - Great for WhatsApp and social media' : scale <= 4 ? '4x - Perfect for Myntra and e-commerce listings' : '6-8x - Print catalogs and large format displays'}
+              </p>
+            </div>
+          )}
+
+          {/* Coming soon */}
+          {(activeTool === 'video' || activeTool === 'ugc') && (
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '32px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '40px', marginBottom: '14px' }}>{activeTool === 'video' ? 'Vid' : 'UGC'}</div>
+              <p style={{ color: '#374151', fontSize: '15px', fontWeight: '700', margin: '0 0 8px' }}>Coming Soon</p>
+              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 20px', lineHeight: '1.7' }}>
+                {activeTool === 'video' ? 'Kling AI + FFmpeg integration in progress - launching soon!' : 'HeyGen API + ElevenLabs Hindi voice integration in progress - launching soon!'}
+              </p>
+              <a href={activeTool === 'video' ? 'https://klingai.com' : 'https://heygen.com'} target="_blank" rel="noopener noreferrer" style={{ color: tool.accent, fontSize: '12px', textDecoration: 'none', background: tool.light, border: `1px solid ${tool.border}`, padding: '7px 16px', borderRadius: '8px', fontWeight: '600' }}>
+                Learn more
+              </a>
+            </div>
+          )}
+
+          {error && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: '12px', padding: '10px 14px', borderRadius: '10px', lineHeight: '1.6' }}>
+              Alert: {error}
+            </div>
+          )}
+
+          {/* Generate button */}
+          <button
+            onClick={generate}
+            disabled={generating || ((!image) && activeTool !== 'video' && activeTool !== 'ugc')}
+            style={{
+              width: '100%', padding: '14px',
+              background: generating || (!image && activeTool !== 'video' && activeTool !== 'ugc') ? '#f1f5f9' : tool.accent,
+              color: generating || (!image && activeTool !== 'video' && activeTool !== 'ugc') ? '#94a3b8' : 'white',
+              border: 'none', fontSize: '14px', fontWeight: '700', borderRadius: '12px',
+              cursor: generating || (!image && activeTool !== 'video' && activeTool !== 'ugc') ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              boxShadow: !generating && (image || activeTool === 'video' || activeTool === 'ugc') ? `0 4px 16px ${tool.accent}40` : 'none',
+              transition: 'all 0.2s',
+            }}
+          >
+            {generating ? (
+              <>
+                <svg style={{ animation: 'spin 1s linear infinite', width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
+                  <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+                Processing... 20-40 sec
+              </>
+            ) : (
+              <>{tool.emoji} {
+                activeTool === 'generate' ? `Generate - ${selectedShoot?.label}` :
+                activeTool === 'upscale' ? `Upscale ${scale}x` :
+                activeTool === 'eraser' ? 'Remove Background' :
+                activeTool === 'video' ? 'Generate Video Ad' : 'Create UGC Ad'
+              }</>
+            )}
+          </button>
+          <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', margin: '-8px 0 0' }}>{tool.cost} · {tool.tagline}</p>
+        </div>
+
+        {/* RIGHT â€” Output */}
+        <div style={{ background: '#f8fafc', padding: '24px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
+            <div>
+              <p style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 2px' }}>Generated Output</p>
+              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0' }}>{tool.name} · {tool.cost}</p>
+            </div>
+            {results.length > 0 && <span style={{ background: '#f0fdf4', color: '#16a34a', fontSize: '12px', padding: '4px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #bbf7d0' }}>{results.length} result{results.length > 1 ? 's' : ''} ready</span>}
+          </div>
+
+          {results.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 200px)', textAlign: 'center' }}>
+              {generating ? (
+                <>
+                  <div style={{ width: '60px', height: '60px', border: `4px solid ${tool.light}`, borderTopColor: tool.accent, borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '24px' }} />
+                  <p style={{ color: '#374151', fontSize: '16px', fontWeight: '700', margin: '0 0 8px' }}>Generating your result...</p>
+                  <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0' }}>FASHN.ai is placing your garment on a real model</p>
+                  <p style={{ color: '#cbd5e1', fontSize: '12px', margin: '6px 0 0' }}>Usually takes 20-40 seconds</p>
+                </>
+              ) : (
+                <>
+                  <div style={{ width: '80px', height: '80px', borderRadius: '20px', background: tool.light, border: `1px solid ${tool.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', marginBottom: '20px' }}>{tool.emoji}</div>
+                  <p style={{ color: '#374151', fontSize: '15px', fontWeight: '600', margin: '0 0 8px' }}>{image ? 'Click Generate to start' : 'Upload a photo to begin'}</p>
+                  <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 24px' }}>{tool.tagline}</p>
+                  <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px 22px', maxWidth: '300px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: '0', lineHeight: '2', textAlign: 'left' }}>
+                      {activeTool === 'generate' && <>Same exact print and colors<br />Real human model<br />12 professional pose types<br />Ready in 20-40 seconds</>}
+                      {activeTool === 'upscale' && <>2x to 8x upscaling<br />Print-ready quality<br />Myntra and catalog ready<br />AI face enhancement</>}
+                      {activeTool === 'eraser' && <>Instant background removal<br />Clean PNG transparency<br />Perfect for listings<br />Ready in seconds</>}
+                      {(activeTool === 'video' || activeTool === 'ugc') && <>Coming soon<br />API integration in progress<br />Instagram reel format<br />30-second ad ready</>}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div>
+              {results.map((img, i) => (
+                <div
+                  key={i}
+                  style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', marginBottom: '14px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', background: 'white' }}
+                  onMouseEnter={e => { (e.currentTarget.querySelector('.ov') as HTMLElement).style.opacity = '1' }}
+                  onMouseLeave={e => { (e.currentTarget.querySelector('.ov') as HTMLElement).style.opacity = '0' }}
+                >
+                  <img src={img} alt={`result-${i}`} style={{ width: '100%', display: 'block' }} />
+                  <div className="ov" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', opacity: 0, transition: 'opacity 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <button onClick={() => download(img, i)} style={{ background: 'white', color: '#0f172a', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 22px', borderRadius: '10px', cursor: 'pointer' }}>Download</button>
+                    <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('AI fashion shoot: ' + img)}`, '_blank')} style={{ background: '#25d366', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 22px', borderRadius: '10px', cursor: 'pointer' }}>WhatsApp</button>
+                  </div>
+                </div>
+              ))}
+              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <div>
+                  <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', margin: '0 0 2px' }}>Ready for catalog!</p>
+                  <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0' }}>Hover image to download or share</p>
+                </div>
+                <button onClick={generate} style={{ background: tool.light, color: tool.accent, border: `1px solid ${tool.border}`, fontSize: '12px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>Generate Again</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
+
+

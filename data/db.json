@@ -4,7 +4,7 @@
       "id": "admin-1776342803704-zlfwbgvd3",
       "name": "Scale Vyapar",
       "email": "admin@scalevyapar.com",
-      "password": "$2b$10$b.Jb6or5h4xqtO9HbbALDurPfrur1Yn6CqxpXQL9CpVZwIsUuf9ki",
+      "password": "$2b$10$.RYeEjZOWX0LoltPNPOHOuCPhlh8vovXfMSJnsFRQNLnZkVP.xW2S",
       "role": "ADMIN",
       "createdAt": "2026-04-16T12:33:23.704Z"
     },
@@ -12,7 +12,7 @@
       "id": "client-1776346123958-g7l955z69",
       "name": "Neelufer Creations",
       "email": "neelufercreation@gmail.com",
-      "password": "$2b$10$DhNAFi4Knpjulvv2x0qHWeirkchG2AZhTKux1sxSJFvJkzhR2rNy6",
+      "password": "$2b$10$jZj7JxwLxdq70V8D4UflVeKc0Y83GqNMriN.CLRTEYXwU4YkPiRLG",
       "role": "CLIENT",
       "createdAt": "2026-04-16T13:28:43.958Z"
     }
@@ -49,37 +49,84 @@
       "name": "Botbee",
       "slug": "ChatBot",
       "description": "erhtyjjtgref"
+    },
+    {
+      "id": "mod-vizora",
+      "name": "Vizora",
+      "slug": "vizora",
+      "isActive": true,
+      "href": "/vizora",
+      "status": "active",
+      "customerLink": "https://scalevyapar.vercel.app/vizora",
+      "description": "AI-powered photo, video and ad creation — exact dress on real model, 12 pose types",
+      "features": [
+        "AI Photo Generation",
+        "Photo Upscaler 4x",
+        "Video Ad Generator",
+        "UGC Ads Creator",
+        "Magic Eraser"
+      ]
+    },
+    {
+      "id": "mod-crm",
+      "name": "CRM Module",
+      "slug": "crm",
+      "isActive": false
+    },
+    {
+      "id": "mod-inventory",
+      "name": "Inventory Module",
+      "slug": "inventory",
+      "isActive": false
+    },
+    {
+      "id": "mod-whatsapp",
+      "name": "WhatsApp Module",
+      "slug": "whatsapp",
+      "isActive": false
+    },
+    {
+      "id": "mod-leads",
+      "name": "Lead Generation",
+      "slug": "leads",
+      "isActive": false
+    },
+    {
+      "id": "mod-shopify",
+      "name": "Shopify / Website",
+      "slug": "shopify",
+      "isActive": false
     }
   ],
   "userModules": [
     {
       "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-1",
+      "moduleId": "mod-vizora",
       "isEnabled": true
     },
     {
       "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-2",
+      "moduleId": "mod-crm",
       "isEnabled": true
     },
     {
       "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-3",
+      "moduleId": "mod-inventory",
       "isEnabled": true
     },
     {
       "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-4",
+      "moduleId": "mod-whatsapp",
       "isEnabled": true
     },
     {
       "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-1776360268307-h1tvsnfgp",
+      "moduleId": "mod-leads",
       "isEnabled": true
     },
     {
       "userId": "client-1776346123958-g7l955z69",
-      "moduleId": "mod-1776513914800",
+      "moduleId": "mod-shopify",
       "isEnabled": true
     }
   ]

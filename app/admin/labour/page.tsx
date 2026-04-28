@@ -509,6 +509,29 @@ const getNotificationPriorityTone = (priority: WorkerNotificationPriority) => {
   return { background: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' }
 }
 
+const escapeCsvCell = (value: unknown) => {
+  const normalized = String(value ?? '')
+  if (normalized.includes('"') || normalized.includes(',') || normalized.includes('\n')) {
+    return `"${normalized.replace(/"/g, '""')}"`
+  }
+  return normalized
+}
+
+const createCsvContent = (rows: Array<Record<string, unknown>>) => {
+  if (rows.length === 0) return 'No data available'
+  const headers = Array.from(rows.reduce((set, row) => {
+    Object.keys(row).forEach(key => set.add(key))
+    return set
+  }, new Set<string>()))
+
+  const lines = [
+    headers.join(','),
+    ...rows.map(row => headers.map(header => escapeCsvCell(row[header])).join(','))
+  ]
+
+  return lines.join('\n')
+}
+
 export default function LabourExchangeAdminPage() {
   const [snapshot, setSnapshot] = useState<LabourSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1103,6 +1126,168 @@ export default function LabourExchangeAdminPage() {
     if (auditFilters.entityType !== 'all' && log.entityType !== auditFilters.entityType) return false
     return matchesSearch(auditFilters.search, [log.summary, log.entityType, log.entityId, log.actor, log.action])
   })
+  const unreadWorkerNotificationsCount = snapshot.workerNotifications.filter(notification => !notification.isRead).length
+  const pendingWorkerKycCount = snapshot.workers.filter(worker => getWorkerKycState(worker) === 'ready_for_review').length
+  const pendingCompanyApprovalsCount = snapshot.companies.filter(company => company.status === 'pending').length
+  const openRechargeRequestsCount = rechargeRequests.filter(request => request.requestStatus === 'open').length
+  const savedJobConversionRate = snapshot.savedJobs.length === 0
+    ? 0
+    : Math.round((snapshot.jobApplications.length / snapshot.savedJobs.length) * 100)
+  const categoryReportRows = categoryDemandRows.map(row => ({
+    category: row.name,
+    demandLevel: row.demandLevel,
+    activeWorkers: row.activeWorkersCount,
+    totalWorkers: row.workersCount,
+    companies: row.companiesCount,
+    liveJobs: row.liveJobsCount,
+    expiredJobs: row.expiredJobsCount,
+    demandScore: row.demandScore
+  }))
+  const cityKeys = Array.from(new Set([
+    ...snapshot.jobPosts.map(jobPost => jobPost.city.trim() || 'Unknown'),
+    ...snapshot.workers.map(worker => worker.city.trim() || 'Unknown'),
+    ...snapshot.companies.map(company => company.city.trim() || 'Unknown')
+  ]))
+  const cityReportRows = cityKeys
+    .map(city => {
+      const normalizedCity = city.toLowerCase()
+      const cityJobPosts = snapshot.jobPosts.filter(jobPost => (jobPost.city.trim() || 'Unknown').toLowerCase() === normalizedCity)
+      const cityCompanies = snapshot.companies.filter(company => (company.city.trim() || 'Unknown').toLowerCase() === normalizedCity)
+      const cityWorkers = snapshot.workers.filter(worker => (worker.city.trim() || 'Unknown').toLowerCase() === normalizedCity)
+      const jobPostIds = new Set(cityJobPosts.map(jobPost => jobPost.id))
+
+      return {
+        city,
+        liveJobs: cityJobPosts.filter(jobPost => jobPost.status === 'live').length,
+        applications: snapshot.jobApplications.filter(application => jobPostIds.has(application.jobPostId)).length,
+        workers: cityWorkers.length,
+        companies: cityCompanies.length
+      }
+    })
+    .sort((left, right) => right.liveJobs - left.liveJobs || right.applications - left.applications || left.city.localeCompare(right.city))
+    .slice(0, 10)
+  const exportRows = {
+    workers: snapshot.workers.map(worker => ({
+      id: worker.id,
+      fullName: worker.fullName,
+      mobile: worker.mobile,
+      city: worker.city,
+      status: worker.status,
+      kycState: getWorkerKycState(worker),
+      categories: worker.categoryIds.map(getCategoryName).join(', '),
+      walletBalance: worker.walletBalance,
+      isVisible: worker.isVisible,
+      registrationCompletedAt: worker.registrationCompletedAt
+    })),
+    companies: snapshot.companies.map(company => ({
+      id: company.id,
+      companyName: company.companyName,
+      contactPerson: company.contactPerson,
+      mobile: company.mobile,
+      city: company.city,
+      status: company.status,
+      registrationFeePaid: company.registrationFeePaid,
+      activePlan: getPlanName(company.activePlan),
+      categories: company.categoryIds.map(getCategoryName).join(', ')
+    })),
+    jobPosts: snapshot.jobPosts.map(jobPost => ({
+      id: jobPost.id,
+      title: jobPost.title,
+      company: getCompanyName(jobPost.companyId),
+      category: getCategoryName(jobPost.categoryId),
+      city: jobPost.city,
+      wageAmount: jobPost.wageAmount,
+      workersNeeded: jobPost.workersNeeded,
+      status: jobPost.status,
+      publishedAt: jobPost.publishedAt,
+      expiresAt: jobPost.expiresAt
+    })),
+    applications: snapshot.jobApplications.map(application => ({
+      id: application.id,
+      worker: getWorkerById(application.workerId)?.fullName || '',
+      workerMobile: getWorkerById(application.workerId)?.mobile || '',
+      company: getCompanyName(application.companyId),
+      jobPost: getJobPostById(application.jobPostId)?.title || '',
+      status: application.status,
+      appliedAt: application.appliedAt,
+      note: application.note
+    })),
+    savedJobs: snapshot.savedJobs.map(savedJob => ({
+      id: savedJob.id,
+      worker: getWorkerById(savedJob.workerId)?.fullName || '',
+      workerMobile: getWorkerById(savedJob.workerId)?.mobile || '',
+      company: getCompanyName(getJobPostById(savedJob.jobPostId)?.companyId || ''),
+      jobPost: getJobPostById(savedJob.jobPostId)?.title || '',
+      savedAt: savedJob.createdAt
+    })),
+    notifications: snapshot.workerNotifications.map(notification => ({
+      id: notification.id,
+      worker: getWorkerById(notification.workerId)?.fullName || '',
+      workerMobile: getWorkerById(notification.workerId)?.mobile || '',
+      type: notification.type,
+      title: notification.title,
+      priority: notification.priority,
+      isRead: notification.isRead,
+      company: getCompanyName(notification.relatedCompanyId || ''),
+      jobPost: getJobPostById(notification.relatedJobPostId || '')?.title || '',
+      createdAt: notification.createdAt
+    })),
+    wallet: walletTransactions.map(transaction => ({
+      id: transaction.id,
+      entityType: transaction.entityType,
+      entityName: transaction.entityName,
+      city: transaction.city,
+      transactionType: transaction.transactionType,
+      direction: transaction.direction,
+      amount: transaction.amount,
+      status: transaction.status,
+      reference: transaction.reference,
+      createdAt: transaction.createdAt
+    })),
+    recharge: rechargeRequests.map(request => ({
+      id: request.id,
+      requestType: request.requestType,
+      name: request.name,
+      city: request.city,
+      priority: request.priority,
+      status: request.requestStatus,
+      suggestedAmount: request.suggestedAmount,
+      note: request.note,
+      createdAt: request.createdAt
+    })),
+    categories: categoryReportRows,
+    cities: cityReportRows
+  }
+
+  const downloadReportFile = (fileName: string, content: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  }
+
+  const exportCsvReport = (name: keyof typeof exportRows) => {
+    downloadReportFile(
+      `scalevyapar-${name}-report.csv`,
+      createCsvContent(exportRows[name]),
+      'text/csv;charset=utf-8;'
+    )
+    showSaved(`${titleCase(name)} report exported`)
+  }
+
+  const exportJsonSnapshot = () => {
+    downloadReportFile(
+      'scalevyapar-labour-snapshot.json',
+      JSON.stringify(snapshot, null, 2),
+      'application/json;charset=utf-8;'
+    )
+    showSaved('Full labour snapshot exported')
+  }
 
   const validateCategory = () => {
     const name = categoryDraft.name.trim()
@@ -3367,6 +3552,79 @@ export default function LabourExchangeAdminPage() {
 
         {activeSection === 'reports' && (
           <div style={{ display: 'grid', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '16px' }}>
+              {[
+                { label: 'Unread Worker Alerts', value: unreadWorkerNotificationsCount, accent: '#b45309' },
+                { label: 'Pending Worker KYC', value: pendingWorkerKycCount, accent: '#c2410c' },
+                { label: 'Pending Companies', value: pendingCompanyApprovalsCount, accent: '#7c3aed' },
+                { label: 'Open Recharge Requests', value: openRechargeRequestsCount, accent: '#0f766e' },
+                { label: 'Saved To Apply Rate', value: `${savedJobConversionRate}%`, accent: '#1d4ed8' }
+              ].map(card => (
+                <div key={card.label} style={{ ...cardStyle, padding: '18px 20px' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{card.label}</p>
+                  <p style={{ margin: 0, fontSize: '24px', color: card.accent, fontWeight: '800' }}>{card.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '20px' }}>
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '18px' }}>Export reporting center</h3>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px', lineHeight: 1.7 }}>
+                      Download operational CSV reports for workers, companies, jobs, applications, saved jobs, notifications, wallet ledger, recharge follow-ups, category performance, and city demand.
+                    </p>
+                  </div>
+                  <button onClick={exportJsonSnapshot} style={primaryButtonStyle}>Export Full JSON Snapshot</button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
+                  {[
+                    { key: 'workers', label: 'Workers CSV', count: exportRows.workers.length },
+                    { key: 'companies', label: 'Companies CSV', count: exportRows.companies.length },
+                    { key: 'jobPosts', label: 'Job Posts CSV', count: exportRows.jobPosts.length },
+                    { key: 'applications', label: 'Applications CSV', count: exportRows.applications.length },
+                    { key: 'savedJobs', label: 'Saved Jobs CSV', count: exportRows.savedJobs.length },
+                    { key: 'notifications', label: 'Alerts CSV', count: exportRows.notifications.length },
+                    { key: 'wallet', label: 'Wallet Ledger CSV', count: exportRows.wallet.length },
+                    { key: 'recharge', label: 'Recharge CSV', count: exportRows.recharge.length },
+                    { key: 'categories', label: 'Category Performance CSV', count: exportRows.categories.length },
+                    { key: 'cities', label: 'City Demand CSV', count: exportRows.cities.length }
+                  ].map(item => (
+                    <button
+                      key={item.key}
+                      onClick={() => exportCsvReport(item.key as keyof typeof exportRows)}
+                      style={{ ...subtleButtonStyle, textAlign: 'left', display: 'grid', gap: '6px', padding: '14px 16px' }}
+                    >
+                      <span style={{ color: '#0f172a', fontWeight: '800' }}>{item.label}</span>
+                      <span style={{ color: '#64748b', fontSize: '12px' }}>{item.count} rows ready</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Queue health</h3>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {[
+                    `Unread worker alerts: ${unreadWorkerNotificationsCount}`,
+                    `Pending worker KYC review: ${pendingWorkerKycCount}`,
+                    `Pending company approvals: ${pendingCompanyApprovalsCount}`,
+                    `Open recharge requests: ${openRechargeRequestsCount}`,
+                    `Live job posts: ${snapshot.stats.liveJobPosts}`,
+                    `Expired job posts: ${expiredJobPostsCount}`,
+                    `Total applications: ${snapshot.jobApplications.length}`,
+                    `Total saved jobs: ${snapshot.savedJobs.length}`
+                  ].map(item => (
+                    <div key={item} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '20px' }}>
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Worker status breakdown</h3>
@@ -3409,7 +3667,7 @@ export default function LabourExchangeAdminPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.95fr', gap: '20px' }}>
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Category performance</h3>
                 <div style={{ display: 'grid', gap: '10px' }}>
@@ -3428,6 +3686,29 @@ export default function LabourExchangeAdminPage() {
               </div>
 
               <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Top city demand</h3>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {cityReportRows.length === 0 ? (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No city demand rows available yet.</p>
+                  ) : (
+                    cityReportRows.map(item => (
+                      <div key={item.city} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                          <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>{item.city}</p>
+                          <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>{item.liveJobs} live jobs</p>
+                        </div>
+                        <p style={{ margin: '6px 0 0', color: '#475569', fontSize: '12px' }}>
+                          Applications {item.applications} | Workers {item.workers} | Companies {item.companies}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Moderation queue</h3>
                 <div style={{ display: 'grid', gap: '10px' }}>
                   {moderationQueue.length === 0 ? (
@@ -3441,6 +3722,16 @@ export default function LabourExchangeAdminPage() {
                       </div>
                     ))
                   )}
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Reporting notes</h3>
+                <div style={{ display: 'grid', gap: '10px', color: '#475569', fontSize: '13px', lineHeight: 1.7 }}>
+                  <p style={{ margin: 0 }}>Use CSV exports for accountant review, ops follow-up, worker KYC audits, and company outreach lists.</p>
+                  <p style={{ margin: 0 }}>The full JSON export is useful for backup snapshots or advanced downstream analysis in spreadsheets or BI tools.</p>
+                  <p style={{ margin: 0 }}>Saved-to-apply conversion helps show whether shortlisting is turning into real hiring intent from workers.</p>
+                  <p style={{ margin: 0 }}>Unread alerts and recharge queues should be reviewed daily so worker engagement and wallet activation do not stall.</p>
                 </div>
               </div>
             </div>

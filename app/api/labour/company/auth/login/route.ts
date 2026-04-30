@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await request.json()
     const result = await loginCompanyApp(
-      String(payload.mobile || ''),
+      String(payload.email || ''),
       String(payload.identity || '')
     )
 

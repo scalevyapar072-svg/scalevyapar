@@ -84,6 +84,7 @@ type LabourCompany = {
   id: string
   companyName: string
   contactPerson: string
+  email: string
   mobile: string
   city: string
   categoryIds: string[]
@@ -402,6 +403,7 @@ const blankCompany: LabourCompany = {
   id: '',
   companyName: '',
   contactPerson: '',
+  email: '',
   mobile: '',
   city: '',
   categoryIds: [],
@@ -519,6 +521,7 @@ const blankCategoryFilters: CategoryFilters = { search: '', demand: 'all', activ
 const blankPlanFilters: PlanFilters = { search: '', audience: 'all', categoryId: '', activity: 'all' }
 const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryId: '', visibility: 'all', kyc: 'all' }
 const blankCompanyFilters: CompanyFilters = { search: '', status: 'all', categoryId: '', fee: 'all' }
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 const blankJobFilters: JobFilters = { search: '', status: 'all', categoryId: '', companyId: '' }
 const blankJobApplicationFilters: JobApplicationFilters = { search: '', status: 'all', companyId: '', jobPostId: '' }
 const blankSavedJobFilters: SavedJobFilters = { search: '', companyId: '', jobPostId: '' }
@@ -1147,6 +1150,7 @@ export default function LabourExchangeAdminPage() {
     return matchesSearch(companyFilters.search, [
       company.companyName,
       company.contactPerson,
+      company.email,
       company.mobile,
       company.city,
       company.status,
@@ -1560,6 +1564,8 @@ export default function LabourExchangeAdminPage() {
   const validateCompany = () => {
     if (!companyDraft.companyName.trim()) return 'Company name is required.'
     if (!companyDraft.contactPerson.trim()) return 'Contact person is required.'
+    if (!companyDraft.email.trim()) return 'Company email is required.'
+    if (!isValidEmail(companyDraft.email)) return 'Enter a valid company email address.'
     if (!companyDraft.mobile.trim()) return 'Company mobile is required.'
     if (!isTenDigitMobile(companyDraft.mobile)) return 'Company mobile must be exactly 10 digits.'
     if (companyDraft.categoryIds.length === 0) return 'Select at least one company category.'
@@ -1569,6 +1575,12 @@ export default function LabourExchangeAdminPage() {
       company => company.id !== editingCompanyId && company.mobile.trim() === companyDraft.mobile.trim()
     )
     if (duplicateMobile) return 'Another company already uses this mobile number.'
+
+    const normalizedEmail = companyDraft.email.trim().toLowerCase()
+    const duplicateEmail = snapshot.companies.find(
+      company => company.id !== editingCompanyId && company.email.trim().toLowerCase() === normalizedEmail
+    )
+    if (duplicateEmail) return 'Another company already uses this email address.'
 
     return ''
   }
@@ -2555,6 +2567,15 @@ export default function LabourExchangeAdminPage() {
                   </div>
                 </div>
                 <div>
+                  <label style={labelStyle}>Company Email *</label>
+                  <input
+                    type="email"
+                    value={companyDraft.email}
+                    onChange={event => setCompanyDraft(current => ({ ...current, email: event.target.value.trim().toLowerCase() }))}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
                   <label style={labelStyle}>Categories *</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     {snapshot.categories.map(category => (
@@ -2632,7 +2653,7 @@ export default function LabourExchangeAdminPage() {
                       <div>
                         <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{company.companyName}</p>
                         <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                          {company.contactPerson} | {company.city || 'No city'} | {company.status} | {company.registrationFeePaid ? 'Fee paid' : 'Fee pending'}
+                          {company.contactPerson} | {company.email || 'No email'} | {company.city || 'No city'} | {company.status} | {company.registrationFeePaid ? 'Fee paid' : 'Fee pending'}
                         </p>
                         <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
                           Categories: {company.categoryIds.map(getCategoryName).join(', ') || 'None'} | Plan {getPlanName(company.activePlan)}

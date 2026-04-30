@@ -45,6 +45,7 @@ type CompanyDashboard = {
     id: string
     companyName: string
     contactPerson: string
+    email: string
     mobile: string
     city: string
     status: string
@@ -93,7 +94,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
   const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
   const [dashboard, setDashboard] = useState<CompanyDashboard | null>(null)
-  const [mobile, setMobile] = useState('')
+  const [email, setEmail] = useState('')
   const [identity, setIdentity] = useState('')
   const [selectedJobId, setSelectedJobId] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
@@ -152,7 +153,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          mobile,
+          email,
           identity
         })
       })
@@ -252,13 +253,13 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           <p className={styles.eyebrow}>Company panel</p>
           <h1 className={styles.pageTitle}>Receive worker applications in one place</h1>
           <p className={styles.textMuted} style={{ marginBottom: '20px' }}>
-            Sign in with your registered company mobile number and your company or contact name. This is the working company panel for viewing job applications.
+            Sign in with your registered company email and your company or contact name. This is the working company panel for viewing job applications.
           </p>
           <form className={styles.stack} onSubmit={submitLogin}>
             <input
-              value={mobile}
-              onChange={event => setMobile(event.target.value)}
-              placeholder="Registered mobile number"
+              value={email}
+              onChange={event => setEmail(event.target.value)}
+              placeholder="Registered company email"
               style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
             />
             <input
@@ -310,7 +311,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           <p className={styles.eyebrow} style={{ color: 'rgba(255,255,255,0.75)' }}>{dashboard.profile.city}</p>
           <h1 className={styles.pageTitle} style={{ color: '#ffffff', marginBottom: '12px' }}>{dashboard.profile.companyName}</h1>
           <p className={styles.textMutedDark}>
-            Managed by {dashboard.profile.contactPerson}. Status: {dashboard.profile.status}. Active plan: {dashboard.profile.activePlan || 'Not assigned'}.
+            Managed by {dashboard.profile.contactPerson}. Email: {dashboard.profile.email || 'Not added'}. Status: {dashboard.profile.status}. Active plan: {dashboard.profile.activePlan || 'Not assigned'}.
           </p>
 
           <div className={styles.fourColGrid} style={{ marginTop: '24px' }}>

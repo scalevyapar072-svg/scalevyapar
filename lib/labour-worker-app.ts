@@ -21,6 +21,7 @@ import {
   updateLabourEntity
 } from './labour-marketplace'
 import { sendWorkerPushNotification } from './labour-worker-push'
+import { sendCompanyApplicationEmail } from './labour-company-email'
 import { supabaseAdmin } from './supabase-admin'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
@@ -1068,6 +1069,27 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     relatedJobPostId: jobPost.id,
     relatedCompanyId: company?.id
   })
+
+  try {
+    await sendCompanyApplicationEmail({
+      companyEmail: company.email,
+      companyName: company.companyName,
+      contactPerson: company.contactPerson,
+      workerName: worker.fullName,
+      workerCity: worker.city,
+      workerMobile: worker.mobile,
+      workerCategories: worker.categoryIds
+        .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name)
+        .filter((value): value is string => Boolean(value)),
+      expectedDailyWage: worker.expectedDailyWage,
+      note: note || '',
+      jobTitle: jobPost.title,
+      jobCity: jobPost.city,
+      appliedAt: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Failed to send company application email', error)
+  }
 
   return getWorkerAppDashboard(workerId)
 }

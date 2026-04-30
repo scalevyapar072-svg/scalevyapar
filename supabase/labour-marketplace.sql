@@ -80,6 +80,7 @@ create table if not exists public.labour_companies (
   id text primary key,
   company_name text not null,
   contact_person text not null,
+  email text,
   mobile text not null unique,
   city text,
   category_ids text[] not null default '{}',
@@ -89,6 +90,13 @@ create table if not exists public.labour_companies (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.labour_companies
+add column if not exists email text;
+
+create unique index if not exists idx_labour_companies_email_unique
+on public.labour_companies (lower(email))
+where email is not null and btrim(email) <> '';
 
 create table if not exists public.labour_job_posts (
   id text primary key,

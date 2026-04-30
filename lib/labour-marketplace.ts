@@ -84,6 +84,7 @@ export interface LabourCompanyRecord {
   id: string
   companyName: string
   contactPerson: string
+  email: string
   mobile: string
   city: string
   categoryIds: string[]
@@ -367,6 +368,7 @@ const defaultData: LabourMarketplaceData = {
       id: 'company-neelufer',
       companyName: 'Neelufer Creations',
       contactPerson: 'Neelu',
+      email: 'neelufer@example.com',
       mobile: '9898989898',
       city: 'Surat',
       categoryIds: ['cat-stitching', 'cat-embroidery'],
@@ -380,6 +382,7 @@ const defaultData: LabourMarketplaceData = {
       id: 'company-printerhub',
       companyName: 'Printer Hub',
       contactPerson: 'Imran',
+      email: 'printerhub@example.com',
       mobile: '9765432100',
       city: 'Ahmedabad',
       categoryIds: ['cat-printer-labour'],
@@ -660,6 +663,7 @@ const mapCompanyRow = (row: {
   id: string
   company_name: string
   contact_person: string
+  email: string | null
   mobile: string
   city: string | null
   category_ids: string[] | null
@@ -672,6 +676,7 @@ const mapCompanyRow = (row: {
   id: row.id,
   companyName: row.company_name,
   contactPerson: row.contact_person,
+  email: row.email || '',
   mobile: row.mobile,
   city: row.city || '',
   categoryIds: row.category_ids || [],
@@ -954,6 +959,7 @@ const normalizeCompany = (
     id: existing?.id || String(payload.id || createId('company')),
     companyName: String(payload.companyName || existing?.companyName || '').trim(),
     contactPerson: String(payload.contactPerson || existing?.contactPerson || '').trim(),
+    email: String(payload.email || existing?.email || '').trim().toLowerCase(),
     mobile: String(payload.mobile || existing?.mobile || '').trim(),
     city: String(payload.city || existing?.city || '').trim(),
     categoryIds: toStringArray(payload.categoryIds || existing?.categoryIds || []),
@@ -1333,6 +1339,7 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     id: company.id,
     company_name: company.companyName,
     contact_person: company.contactPerson,
+    email: company.email || null,
     mobile: company.mobile,
     city: company.city,
     category_ids: company.categoryIds,
@@ -1677,6 +1684,7 @@ export const createLabourEntity = async (
         id: record.id,
         company_name: record.companyName,
         contact_person: record.contactPerson,
+        email: record.email || null,
         mobile: record.mobile,
         city: record.city,
         category_ids: record.categoryIds,
@@ -1979,6 +1987,7 @@ export const updateLabourEntity = async (
       const { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update({
         company_name: record.companyName,
         contact_person: record.contactPerson,
+        email: record.email || null,
         mobile: record.mobile,
         city: record.city,
         category_ids: record.categoryIds,

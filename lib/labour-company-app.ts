@@ -15,7 +15,7 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyap
 
 export type CompanyAppTokenPayload = {
   companyId: string
-  mobile: string
+  email: string
   role: 'COMPANY_APP'
 }
 
@@ -23,6 +23,7 @@ export type CompanyAppProfile = {
   id: string
   companyName: string
   contactPerson: string
+  email: string
   mobile: string
   city: string
   status: string
@@ -76,14 +77,14 @@ export type CompanyAppDashboard = {
   recentApplications: CompanyAppApplicant[]
 }
 
-const sanitizeMobile = (mobile: string) => mobile.replace(/\D/g, '').slice(-10)
 const normalizeName = (value: string) => value.trim().toLowerCase()
+const normalizeEmail = (value: string) => value.trim().toLowerCase()
 const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 const signCompanyToken = async (payload: Omit<CompanyAppTokenPayload, 'role'>) =>
   new SignJWT({
     companyId: payload.companyId,
-    mobile: payload.mobile,
+    email: payload.email,
     role: 'COMPANY_APP'
   })
     .setProtectedHeader({ alg: 'HS256' })
@@ -130,6 +131,7 @@ const toCompanyProfile = (company: LabourCompanyRecord, categoryLabels: string[]
   id: company.id,
   companyName: company.companyName,
   contactPerson: company.contactPerson,
+  email: company.email,
   mobile: company.mobile,
   city: company.city,
   status: company.status,
@@ -137,13 +139,13 @@ const toCompanyProfile = (company: LabourCompanyRecord, categoryLabels: string[]
   categoryLabels
 })
 
-export const loginCompanyApp = async (mobile: string, identity: string) => {
+export const loginCompanyApp = async (email: string, identity: string) => {
   const snapshot = await getLabourMarketplaceSnapshot()
-  const sanitizedMobile = sanitizeMobile(mobile)
+  const normalizedEmail = normalizeEmail(email)
   const normalizedIdentity = normalizeName(identity)
 
   const company = snapshot.companies.find(item =>
-    sanitizeMobile(item.mobile) === sanitizedMobile &&
+    normalizeEmail(item.email) === normalizedEmail &&
     (
       normalizeName(item.companyName) === normalizedIdentity ||
       normalizeName(item.contactPerson) === normalizedIdentity
@@ -151,7 +153,7 @@ export const loginCompanyApp = async (mobile: string, identity: string) => {
   )
 
   if (!company) {
-    throw new Error('Company account not found. Use registered mobile and company or contact name.')
+    throw new Error('Company account not found. Use registered company email and company or contact name.')
   }
 
   if (company.status === 'blocked') {
@@ -160,7 +162,7 @@ export const loginCompanyApp = async (mobile: string, identity: string) => {
 
   const token = await signCompanyToken({
     companyId: company.id,
-    mobile: sanitizedMobile
+    email: normalizedEmail
   })
 
   return {
@@ -180,13 +182,13 @@ export const requireCompanyApp = async (request: NextRequest): Promise<CompanyAp
   const verified = await jwtVerify(token, JWT_SECRET)
   const payload = verified.payload as Partial<CompanyAppTokenPayload>
 
-  if (payload.role !== 'COMPANY_APP' || !payload.companyId || !payload.mobile) {
+  if (payload.role !== 'COMPANY_APP' || !payload.companyId || !payload.email) {
     throw new Error('Invalid company authorization token.')
   }
 
   return {
     companyId: payload.companyId,
-    mobile: payload.mobile,
+    email: payload.email,
     role: 'COMPANY_APP'
   }
 }

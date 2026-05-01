@@ -46,10 +46,10 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'Creative Studio',
     shortIcon: 'V',
     heroIcon: 'VA',
-    accent: '#7c3aed',
-    surface: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
-    softSurface: 'linear-gradient(135deg,#f5f3ff,#eef2ff)',
-    border: '#ddd6fe',
+    accent: '#7c5cf0',
+    surface: 'linear-gradient(135deg,#9f8cff,#7c5cf0)',
+    softSurface: 'linear-gradient(135deg,#faf5ff,#f3efff)',
+    border: '#e9ddff',
     description: 'Create polished product visuals, ad creatives, and motion content for your catalog from one workspace.',
     summary: 'AI-powered creative production for product photos, ads, and short-form selling content.',
     features: ['AI Photo Generator', 'Photo Upscaler 4x', 'Video Ad Generator', 'UGC Ads Creator', 'Background Cleanup', 'Creative Variants'],
@@ -59,10 +59,10 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'Lead Engine',
     shortIcon: 'LG',
     heroIcon: 'LE',
-    accent: '#0284c7',
-    surface: 'linear-gradient(135deg,#0284c7,#0369a1)',
-    softSurface: 'linear-gradient(135deg,#ecfeff,#eff6ff)',
-    border: '#bae6fd',
+    accent: '#4f9ed8',
+    surface: 'linear-gradient(135deg,#73c2f6,#4f9ed8)',
+    softSurface: 'linear-gradient(135deg,#f0f9ff,#eef7ff)',
+    border: '#d4ebfa',
     description: 'Search businesses by location, export lead lists, and build a reliable outbound pipeline.',
     summary: 'Google-sourced B2B lead collection with filtering, list management, and export support.',
     features: ['Google Maps Scraper', 'Filter by Location', 'Filter by Business Type', 'Export to CSV', 'Lead List Cleanup', 'Quick Follow-up Prep'],
@@ -72,10 +72,10 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'Labour Hiring',
     shortIcon: 'R',
     heroIcon: 'RZ',
-    accent: '#2563eb',
-    surface: 'linear-gradient(135deg,#2563eb,#1d4ed8)',
-    softSurface: 'linear-gradient(135deg,#eff6ff,#eef2ff)',
-    border: '#bfdbfe',
+    accent: '#5a88ee',
+    surface: 'linear-gradient(135deg,#7fa7ff,#5a88ee)',
+    softSurface: 'linear-gradient(135deg,#eff4ff,#edf2ff)',
+    border: '#d7e4ff',
     description: 'Search available workers, receive applications, and manage labour hiring without leaving your dashboard.',
     summary: 'Dedicated labour marketplace and company hiring panel for fast worker sourcing.',
     features: ['Search Labour', 'Receive Worker Applications', 'Company Hiring Panel', 'Rozgar Dashboard', 'Worker Shortlisting', 'Hiring Activity Review'],
@@ -85,10 +85,10 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'CRM Workflow',
     shortIcon: 'CRM',
     heroIcon: 'CM',
-    accent: '#059669',
-    surface: 'linear-gradient(135deg,#059669,#047857)',
-    softSurface: 'linear-gradient(135deg,#ecfdf5,#f0fdf4)',
-    border: '#a7f3d0',
+    accent: '#4bbd94',
+    surface: 'linear-gradient(135deg,#79ddb8,#4bbd94)',
+    softSurface: 'linear-gradient(135deg,#effcf7,#effbf5)',
+    border: '#d5f6e7',
     description: 'Track call outcomes, capture notes, and move every prospect through a clear follow-up pipeline.',
     summary: 'Daily sales follow-up workspace for call tracking, notes, and lead stage management.',
     features: ['Call Tracking', 'Follow-up Reminders', 'Lead Status', 'Notes & History', 'Opportunity Tracking', 'Team Handover Notes'],
@@ -98,10 +98,10 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'Messaging Automation',
     shortIcon: 'WA',
     heroIcon: 'WA',
-    accent: '#16a34a',
-    surface: 'linear-gradient(135deg,#16a34a,#15803d)',
-    softSurface: 'linear-gradient(135deg,#f0fdf4,#ecfdf5)',
-    border: '#bbf7d0',
+    accent: '#5fbf88',
+    surface: 'linear-gradient(135deg,#8ce0af,#5fbf88)',
+    softSurface: 'linear-gradient(135deg,#f2fcf5,#eefbf2)',
+    border: '#d7f4df',
     description: 'Automate customer replies, nurture leads, and keep conversations moving on WhatsApp.',
     summary: 'WhatsApp-first outreach and auto-response workflows for customer communication.',
     features: ['Auto Replies', 'Bulk Messaging', 'Lead Nurturing', 'Message Templates', 'Customer Follow-up', 'Quick Response Queues'],
@@ -111,10 +111,10 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'Store Operations',
     shortIcon: 'S',
     heroIcon: 'SP',
-    accent: '#65a30d',
-    surface: 'linear-gradient(135deg,#65a30d,#4d7c0f)',
-    softSurface: 'linear-gradient(135deg,#f7fee7,#fefce8)',
-    border: '#d9f99d',
+    accent: '#9fb55f',
+    surface: 'linear-gradient(135deg,#c6d98f,#9fb55f)',
+    softSurface: 'linear-gradient(135deg,#fbfdf1,#fafae8)',
+    border: '#e7efc2',
     description: 'Organize catalog, pricing, and store operations for a cleaner Shopify workflow.',
     summary: 'Storefront operations support for listings, pricing, and order visibility.',
     features: ['Catalog Setup', 'Product Organization', 'Pricing Workflow', 'Store Readiness Checklist', 'Order Snapshot', 'Collection Planning'],
@@ -124,10 +124,10 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'Inventory Control',
     shortIcon: 'INV',
     heroIcon: 'IN',
-    accent: '#d97706',
-    surface: 'linear-gradient(135deg,#d97706,#b45309)',
-    softSurface: 'linear-gradient(135deg,#fffbeb,#fff7ed)',
-    border: '#fcd34d',
+    accent: '#d79d5d',
+    surface: 'linear-gradient(135deg,#f2c38e,#d79d5d)',
+    softSurface: 'linear-gradient(135deg,#fffaf2,#fff5eb)',
+    border: '#f2dfc5',
     description: 'Monitor stock, materials, and dispatch activity in a more organized operations dashboard.',
     summary: 'Inventory and production visibility for stock movement, materials, and dispatch planning.',
     features: ['Stock Monitoring', 'Material Tracking', 'Dispatch Planning', 'Low Stock Review', 'Batch Visibility', 'Movement Notes'],
@@ -137,10 +137,10 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'AI Assistant',
     shortIcon: 'AI',
     heroIcon: 'AI',
-    accent: '#db2777',
-    surface: 'linear-gradient(135deg,#db2777,#be185d)',
-    softSurface: 'linear-gradient(135deg,#fdf2f8,#fce7f3)',
-    border: '#f9a8d4',
+    accent: '#d77aa8',
+    surface: 'linear-gradient(135deg,#efb0cf,#d77aa8)',
+    softSurface: 'linear-gradient(135deg,#fff4f9,#fdeef5)',
+    border: '#f5d5e5',
     description: 'Deploy a support assistant that handles first responses and helps qualify incoming prospects.',
     summary: 'AI chat assistant for fast first-touch customer support and lead qualification.',
     features: ['Customer Support Bot', 'Lead Qualification', 'FAQ Handling', 'Instant Replies', 'Escalation Routing', 'Chat Intake Capture'],
@@ -219,7 +219,7 @@ export default function DashboardClient({
     <div
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(180deg,#f8fbff 0%,#eef4fb 45%,#f7f9fc 100%)',
+        background: 'linear-gradient(180deg,#fcfdff 0%,#f5f7fb 42%,#f8fafc 100%)',
         fontFamily: '"Inter","Segoe UI",Tahoma,sans-serif',
         color: '#122033',
       }}
@@ -229,7 +229,7 @@ export default function DashboardClient({
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          background: 'rgba(248,251,255,0.88)',
+          background: 'rgba(252,253,255,0.94)',
           backdropFilter: 'blur(16px)',
           borderBottom: '1px solid rgba(148,163,184,0.16)',
           padding: '18px 28px',
@@ -244,7 +244,7 @@ export default function DashboardClient({
               width: '46px',
               height: '46px',
               borderRadius: '14px',
-              background: 'linear-gradient(135deg,#0f172a,#2563eb)',
+              background: 'linear-gradient(135deg,#8ca6d8,#6e88bf)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -298,7 +298,7 @@ export default function DashboardClient({
         >
           <aside
             style={{
-              background: 'rgba(255,255,255,0.82)',
+              background: 'rgba(255,255,255,0.9)',
               border: '1px solid rgba(226,232,240,0.9)',
               borderRadius: '24px',
               padding: '18px',
@@ -309,19 +309,19 @@ export default function DashboardClient({
           >
             <div
               style={{
-                background: 'linear-gradient(135deg,#0f172a,#1d4ed8 58%,#38bdf8)',
+                background: 'linear-gradient(135deg,#c7d9f8,#a7c2f0 58%,#d8e7fb)',
                 borderRadius: '20px',
                 padding: '18px',
-                color: 'white',
+                color: '#23324d',
                 marginBottom: '18px',
-                boxShadow: '0 18px 38px rgba(29,78,216,0.24)',
+                boxShadow: '0 14px 28px rgba(148,163,184,0.14)',
               }}
             >
-              <div style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.75, marginBottom: '8px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5b6b88', marginBottom: '8px' }}>
                 Client Overview
               </div>
               <div style={{ fontSize: '21px', fontWeight: 900, lineHeight: 1.2, marginBottom: '8px' }}>{user.name}</div>
-              <div style={{ fontSize: '12px', lineHeight: 1.6, opacity: 0.88 }}>
+              <div style={{ fontSize: '12px', lineHeight: 1.6, color: '#53627e' }}>
                 Review every module from one place, open active tools quickly, and keep visibility on what is assigned or still inactive.
               </div>
             </div>
@@ -405,8 +405,10 @@ export default function DashboardClient({
                             fontWeight: 900,
                             letterSpacing: '0.08em',
                             textTransform: 'uppercase',
-                            background: module.isAssigned ? '#dcfce7' : '#f8fafc',
-                            color: module.isAssigned ? '#15803d' : '#64748b',
+                            background: module.isAssigned ? '#e9f8ee' : '#f4f6f8',
+                            color: module.isAssigned ? '#2f8f56' : '#738092',
+                            minWidth: '76px',
+                            textAlign: 'center',
                           }}
                         >
                           {module.isAssigned ? 'Active' : 'Inactive'}
@@ -478,8 +480,10 @@ export default function DashboardClient({
                                 fontWeight: 900,
                                 letterSpacing: '0.08em',
                                 textTransform: 'uppercase',
-                                background: '#f8fafc',
-                                color: '#64748b',
+                                background: '#f4f6f8',
+                                color: '#738092',
+                                minWidth: '76px',
+                                textAlign: 'center',
                               }}
                             >
                               Inactive
@@ -499,7 +503,7 @@ export default function DashboardClient({
             <section
               style={{
                 background: activeMeta.surface,
-                color: 'white',
+                color: '#1f2d43',
                 borderRadius: '28px',
                 padding: '24px 26px',
                 marginBottom: '18px',
@@ -516,7 +520,7 @@ export default function DashboardClient({
                   width: '210px',
                   height: '210px',
                   borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.10)',
+                  background: 'rgba(255,255,255,0.42)',
                 }}
               />
               <div
@@ -527,20 +531,20 @@ export default function DashboardClient({
                   width: '180px',
                   height: '180px',
                   borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.07)',
+                  background: 'rgba(255,255,255,0.28)',
                 }}
               />
 
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '18px', flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: '22px' }}>
                   <div style={{ maxWidth: '700px' }}>
-                    <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', opacity: 0.76, marginBottom: '8px' }}>
+                    <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#5f7090', marginBottom: '8px' }}>
                       {activeMeta.badge}
                     </div>
                     <div style={{ fontSize: '31px', fontWeight: 900, lineHeight: 1.08, marginBottom: '10px' }}>
                       {activeModuleRecord?.name || 'Module dashboard'}
                     </div>
-                    <div style={{ fontSize: '14px', lineHeight: 1.7, opacity: 0.95, maxWidth: '640px' }}>
+                    <div style={{ fontSize: '14px', lineHeight: 1.7, color: '#4f607b', maxWidth: '640px' }}>
                       {activeModuleRecord?.description || activeMeta.summary}
                     </div>
                   </div>
@@ -550,12 +554,15 @@ export default function DashboardClient({
                       style={{
                         borderRadius: '999px',
                         padding: '10px 16px',
-                        background: activeModuleRecord?.isAssigned ? 'rgba(255,255,255,0.18)' : 'rgba(15,23,42,0.22)',
-                        border: '1px solid rgba(255,255,255,0.18)',
+                        background: activeModuleRecord?.isAssigned ? 'rgba(255,255,255,0.52)' : 'rgba(255,255,255,0.42)',
+                        border: '1px solid rgba(148,163,184,0.16)',
                         fontSize: '11px',
                         fontWeight: 900,
                         letterSpacing: '0.08em',
                         textTransform: 'uppercase',
+                        color: activeModuleRecord?.isAssigned ? '#2f8f56' : '#738092',
+                        minWidth: '154px',
+                        textAlign: 'center',
                       }}
                     >
                       {activeModuleRecord?.isAssigned ? 'Assigned to client' : 'Not assigned yet'}
@@ -568,7 +575,7 @@ export default function DashboardClient({
                         rel="noreferrer"
                         style={{
                           borderRadius: '14px',
-                          background: 'white',
+                          background: '#ffffff',
                           color: activeMeta.accent,
                           textDecoration: 'none',
                           padding: '12px 16px',
@@ -583,8 +590,8 @@ export default function DashboardClient({
                       <div
                         style={{
                           borderRadius: '14px',
-                          background: 'rgba(255,255,255,0.12)',
-                          color: 'rgba(255,255,255,0.9)',
+                          background: 'rgba(255,255,255,0.52)',
+                          color: '#738092',
                           padding: '12px 16px',
                           fontWeight: 800,
                           fontSize: '13px',
@@ -621,13 +628,13 @@ export default function DashboardClient({
                       key={card.label}
                       style={{
                         borderRadius: '18px',
-                        background: 'rgba(255,255,255,0.14)',
-                        border: '1px solid rgba(255,255,255,0.18)',
+                        background: 'rgba(255,255,255,0.52)',
+                        border: '1px solid rgba(148,163,184,0.12)',
                         padding: '16px 18px',
                       }}
                     >
-                      <div style={{ fontSize: '10px', opacity: 0.76, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '7px' }}>{card.label}</div>
-                      <div style={{ fontSize: '16px', fontWeight: 900, lineHeight: 1.35 }}>{card.value}</div>
+                      <div style={{ fontSize: '10px', color: '#657591', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '7px' }}>{card.label}</div>
+                      <div style={{ fontSize: '16px', fontWeight: 900, lineHeight: 1.35, color: '#20304a' }}>{card.value}</div>
                     </div>
                   ))}
                 </div>

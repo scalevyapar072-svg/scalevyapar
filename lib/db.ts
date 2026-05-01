@@ -1,4 +1,4 @@
-﻿import bcrypt from 'bcryptjs'
+import bcrypt from 'bcryptjs'
 import { supabaseAdmin } from './supabase-admin'
 
 export interface UserRecord {
@@ -19,6 +19,7 @@ export interface ModuleRecord {
   name: string
   slug: string
   description?: string
+  summary?: string
   status?: 'active' | 'coming_soon'
   type?: string
   icon?: string
@@ -49,6 +50,7 @@ interface ModuleInput {
   name: string
   slug: string
   description?: string
+  summary?: string
   status?: 'active' | 'coming_soon'
   type?: string
   icon?: string
@@ -108,6 +110,7 @@ const mapModuleRow = (row: {
   name: string
   slug: string
   description: string | null
+  summary: string | null
   status: string | null
   type: string | null
   icon: string | null
@@ -121,6 +124,7 @@ const mapModuleRow = (row: {
   name: row.name,
   slug: row.slug,
   description: row.description || '',
+  summary: row.summary || '',
   status: (row.status as 'active' | 'coming_soon' | null) || undefined,
   type: row.type || undefined,
   icon: row.icon || undefined,
@@ -162,6 +166,7 @@ const mapJoinedUserRows = (
             name: string
             slug: string
             description: string | null
+            summary: string | null
             status: string | null
             type: string | null
             icon: string | null
@@ -176,6 +181,7 @@ const mapJoinedUserRows = (
             name: string
             slug: string
             description: string | null
+            summary: string | null
             status: string | null
             type: string | null
             icon: string | null
@@ -323,7 +329,7 @@ export const getAllUsers = async (): Promise<UserRecord[]> => {
 export const getAllModules = async (): Promise<ModuleRecord[]> => {
   const { data, error } = await supabaseAdmin
     .from('modules')
-    .select('id, name, slug, description, status, type, icon, href, customer_link, features, color, is_active')
+    .select('id, name, slug, description, summary, status, type, icon, href, customer_link, features, color, is_active')
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -338,14 +344,15 @@ export const getUserModules = async (userId: string): Promise<ModuleRecord[]> =>
     .from('client_modules')
     .select(`
       is_enabled,
-      modules (
-        id,
-        name,
-        slug,
-        description,
-        status,
-        type,
-        icon,
+        modules (
+         id,
+         name,
+         slug,
+         description,
+         summary,
+         status,
+         type,
+         icon,
         href,
         customer_link,
         features,
@@ -432,11 +439,11 @@ export const updateUserModules = async (userId: string, moduleIds: string[]): Pr
 }
 
 export const updateUserPassword = async (userId: string, password: string): Promise<void> => {
-  const hashedPassword = await bcrypt.hash(password, 10)
+  const passwordHash = await bcrypt.hash(password, 10)
 
   const { error } = await supabaseAdmin
     .from('clients')
-    .update({ password_hash: hashedPassword })
+    .update({ password_hash: passwordHash })
     .eq('id', userId)
 
   if (error) {
@@ -520,6 +527,7 @@ export const getAllUsersWithAssignedModules = async (): Promise<Array<ReturnType
           name,
           slug,
           description,
+          summary,
           status,
           type,
           icon,
@@ -547,17 +555,18 @@ export const createModule = async (input: ModuleInput): Promise<ModuleRecord> =>
       id: `mod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: input.name,
       slug: input.slug,
-      description: input.description || '',
-      status: input.status || (input.isActive ? 'active' : 'coming_soon'),
-      type: input.type || 'Standard',
-      icon: input.icon || 'â—†',
+        description: input.description || '',
+        summary: input.summary || '',
+        status: input.status || (input.isActive ? 'active' : 'coming_soon'),
+        type: input.type || 'Standard',
+      icon: input.icon || '◆',
       href: input.href || '#',
       customer_link: input.customerLink || '',
       features: input.features || [],
       color: input.color || '#7c3aed',
       is_active: input.isActive ?? input.status === 'active'
     })
-    .select('id, name, slug, description, status, type, icon, href, customer_link, features, color, is_active')
+    .select('id, name, slug, description, summary, status, type, icon, href, customer_link, features, color, is_active')
     .single()
 
   if (error) {
@@ -569,12 +578,13 @@ export const createModule = async (input: ModuleInput): Promise<ModuleRecord> =>
 
 export const updateModule = async (id: string, input: Partial<ModuleInput>): Promise<boolean> => {
   const status = input.status
-  const updatePayload = {
-    name: input.name,
-    slug: input.slug,
-    description: input.description,
-    status,
-    type: input.type,
+    const updatePayload = {
+      name: input.name,
+      slug: input.slug,
+      description: input.description,
+      summary: input.summary,
+      status,
+      type: input.type,
     icon: input.icon,
     href: input.href,
     customer_link: input.customerLink,
@@ -607,8 +617,6 @@ export const deleteModuleById = async (id: string): Promise<void> => {
     throw new Error(`Failed to delete module: ${error.message}`)
   }
 }
-
-
 
 
 

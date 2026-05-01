@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       return admin
     }
 
-    const { name, slug, icon, description, isActive, status, type, href, customerLink, features, color } = await request.json()
+    const { name, slug, icon, description, summary, isActive, status, type, href, customerLink, features, color } = await request.json()
     if (!name || !slug) {
       return NextResponse.json({ error: 'Name and slug are required' }, { status: 400 })
     }
@@ -36,11 +36,12 @@ export async function POST(request: NextRequest) {
 
     const newModule = await createModule({
       name,
-      slug,
-      icon,
-      description,
-      isActive,
-      status,
+        slug,
+        icon,
+        description,
+        summary,
+        isActive,
+        status,
       type,
       href,
       customerLink,
@@ -61,8 +62,8 @@ export async function PUT(request: NextRequest) {
       return admin
     }
 
-    const { id, name, slug, icon, description, isActive, status, type, href, customerLink, features, color } = await request.json()
-    const updated = await updateModule(id, { name, slug, icon, description, isActive, status, type, href, customerLink, features, color })
+    const { id, name, slug, icon, description, summary, isActive, status, type, href, customerLink, features, color } = await request.json()
+    const updated = await updateModule(id, { name, slug, icon, description, summary, isActive, status, type, href, customerLink, features, color })
 
     if (!updated) {
       return NextResponse.json({ error: 'Module not found' }, { status: 404 })

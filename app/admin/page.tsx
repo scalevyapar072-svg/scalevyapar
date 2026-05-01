@@ -1,16 +1,14 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { defaultLoginPageSettings, type LoginPageFeatureItem, type LoginPageSettings } from '@/lib/login-page-settings-schema'
+import Link from 'next/link'
 
-type TabKey = 'dashboard' | 'clients' | 'modules' | 'settings'
-
-interface ModuleRecord {
+type ModuleItem = {
   id: string
   name: string
   slug: string
   description?: string
+  summary?: string
   status?: 'active' | 'coming_soon'
   type?: string
   icon?: string
@@ -21,2101 +19,732 @@ interface ModuleRecord {
   isActive?: boolean
 }
 
-interface UserRecord {
+type ClientItem = {
   id: string
   name: string
   email: string
-  role: 'ADMIN' | 'CLIENT'
-  createdAt: string
+  role?: string
   phone?: string
   plan?: string
-  status?: 'active' | 'inactive'
-  assignedModules?: ModuleRecord[]
-  assignedModuleIds?: string[]
+  status?: string
+  createdAt: string
+  assignedModules: ModuleItem[]
+  assignedModuleIds: string[]
 }
 
-interface ClientDraft {
-  name: string
-  email: string
-  password: string
-  phone: string
-  plan: string
-  status: 'active' | 'inactive'
-  moduleIds: string[]
-}
-
-interface ModuleDraft {
-  id?: string
-  name: string
-  slug: string
-  icon: string
-  description: string
-  type: string
-  status: 'active' | 'coming_soon'
-  isActive: boolean
-  href: string
-  customerLink: string
-  color: string
-  featuresText: string
-}
-
-interface FlashMessage {
-  type: 'success' | 'error'
-  message: string
-}
-
-interface GeneratedCredentials {
-  title: string
-  clientId: string
-  email: string
-  temporaryPassword: string
-}
-
-const PAGE = '#f2f5fa'
-const SURFACE = '#ffffff'
-const SURFACE_SOFT = '#f9fbfe'
-const BORDER = '#d8e0eb'
-const INK = '#0f172a'
-const MUTED = '#63748b'
-const BRAND = '#0f2240'
-const BRAND_BLUE = '#2c4f97'
-const BRAND_SOFT = '#eef3fb'
-const SUCCESS = '#10b981'
-const SUCCESS_BG = '#eefaf5'
-const DANGER = '#dc2626'
-const DANGER_BG = '#fff1f2'
-const WARNING = '#f59e0b'
-const WARNING_BG = '#fff7e6'
-
-const modulePresets: Record<'leads' | 'labour' | 'vizora', ModuleDraft> = {
-  leads: {
-    name: 'Leads',
-    slug: 'leads',
-    icon: 'LD',
-    description: 'Lead generation and public business data workflows.',
-    type: 'Growth',
-    status: 'active',
-    isActive: true,
-    href: '/leads',
-    customerLink: '',
-    color: '#2563eb',
-    featuresText: 'Google Maps scraping\nBusiness listing capture\nCSV export'
-  },
-  labour: {
-    name: 'Rozgar',
-    slug: 'labour',
-    icon: 'RZ',
-    description: 'Company-side labour marketplace and hiring workflows.',
-    type: 'Operations',
-    status: 'active',
-    isActive: true,
-    href: '/labour/company',
-    customerLink: '',
-    color: '#1d4ed8',
-    featuresText: 'Company intake\nWorker search\nMarketplace dashboard'
-  },
-  vizora: {
-    name: 'Vizora',
-    slug: 'vizora',
-    icon: 'VZ',
-    description: 'AI content generation and creative media tooling.',
-    type: 'Creative',
-    status: 'active',
-    isActive: true,
-    href: '/vizora',
-    customerLink: '',
-    color: '#7c3aed',
-    featuresText: 'AI image generation\nUpscaling\nCreative workspace'
-  }
-}
-
-const navItems: Array<{ key: TabKey; label: string }> = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'clients', label: 'Clients' },
-  { key: 'modules', label: 'Modules' },
-  { key: 'settings', label: 'Settings' }
-]
-
-const emptyClientDraft = (): ClientDraft => ({
-  name: '',
-  email: '',
-  password: '',
-  phone: '',
-  plan: 'Starter',
-  status: 'active',
-  moduleIds: []
-})
-
-const emptyModuleDraft = (): ModuleDraft => ({
+const BLANK_MODULE: ModuleItem = {
+  id: '',
   name: '',
   slug: '',
-  icon: 'SV',
   description: '',
-  type: 'Operations',
-  status: 'active',
-  isActive: true,
-  href: '',
+  summary: '',
+  status: 'coming_soon',
+  type: 'Standard',
+  icon: '◆',
+  href: '#',
   customerLink: '',
-  color: '#294fbc',
-  featuresText: ''
-})
-
-function initials(value: string) {
-  const parts = value.trim().split(/\s+/).slice(0, 2)
-  return parts.map(part => part.charAt(0).toUpperCase()).join('') || 'SV'
+  features: [''],
+  color: '#7c3aed',
+  isActive: false
 }
 
-function moduleBadge(module: Pick<ModuleRecord, 'icon' | 'name'>) {
-  return (module.icon && module.icon.trim()) || initials(module.name)
+const BLANK_CLIENT = {
+  name: '',
+  email: '',
+  phone: '',
+  plan: 'Starter'
 }
 
-function cleanSlug(value: string) {
+function formatDate(value?: string) {
+  if (!value) return '-'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString()
+}
+
+function toSlug(value: string) {
   return value
     .toLowerCase()
+    .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 }
 
-function joinFeatures(features?: string[]) {
-  return Array.isArray(features) ? features.join('\n') : ''
-}
-
-function splitFeatures(text: string) {
-  return text
-    .split(/\r?\n|,/)
-    .map(item => item.trim())
-    .filter(Boolean)
-}
-
-function prettyDate(value?: string) {
-  if (!value) return 'N/A'
-  try {
-    return new Date(value).toLocaleString('en-IN', {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    })
-  } catch {
-    return value
-  }
-}
-
-function isRozgarModule(module: Pick<ModuleRecord, 'slug' | 'name'>) {
-  const value = `${module.slug} ${module.name}`.toLowerCase()
-  return value.includes('rozgar') || value.includes('labour')
-}
-
-function getModuleTarget(module: ModuleRecord) {
-  return module.customerLink || module.href || ''
-}
-
-async function parseJson<T>(response: Response): Promise<T> {
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    const message =
-      typeof payload?.error === 'string'
-        ? payload.error
-        : 'Request failed. Please try again.'
-    throw new Error(message)
-  }
-
-  return payload as T
-}
-
-export default function AdminPage() {
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState<TabKey>('dashboard')
+export default function AdminPanel() {
+  const [activeTab, setActiveTab] = useState<'modules' | 'clients'>('modules')
+  const [modules, setModules] = useState<ModuleItem[]>([])
+  const [clients, setClients] = useState<ClientItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [users, setUsers] = useState<UserRecord[]>([])
-  const [modules, setModules] = useState<ModuleRecord[]>([])
-  const [clientQuery, setClientQuery] = useState('')
-  const [moduleQuery, setModuleQuery] = useState('')
-  const [clientDraft, setClientDraft] = useState<ClientDraft>(emptyClientDraft)
-  const [moduleDraft, setModuleDraft] = useState<ModuleDraft>(emptyModuleDraft)
-  const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null)
-  const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([])
-  const [showClientModal, setShowClientModal] = useState(false)
-  const [showAssignModal, setShowAssignModal] = useState(false)
-  const [showModuleModal, setShowModuleModal] = useState(false)
-  const [flash, setFlash] = useState<FlashMessage | null>(null)
-  const [generatedCredentials, setGeneratedCredentials] = useState<GeneratedCredentials | null>(null)
-  const [loginPageSettings, setLoginPageSettings] = useState<LoginPageSettings>(defaultLoginPageSettings)
-  const [loginPageSettingsStorage, setLoginPageSettingsStorage] = useState<'supabase' | 'json'>('json')
-  const [savingLoginPageSettings, setSavingLoginPageSettings] = useState(false)
+  const [error, setError] = useState('')
+  const [saved, setSaved] = useState('')
+  const [copied, setCopied] = useState('')
 
-  useEffect(() => {
-    void loadData()
-  }, [])
+  const [addingModule, setAddingModule] = useState(false)
+  const [editingModuleId, setEditingModuleId] = useState<string | null>(null)
+  const [moduleDraft, setModuleDraft] = useState<ModuleItem>(BLANK_MODULE)
 
-  useEffect(() => {
-    if (!flash) return
-    const timer = window.setTimeout(() => setFlash(null), 4000)
-    return () => window.clearTimeout(timer)
-  }, [flash])
+  const [addingClient, setAddingClient] = useState(false)
+  const [clientDraft, setClientDraft] = useState(BLANK_CLIENT)
+  const [editingClientId, setEditingClientId] = useState<string | null>(null)
+  const [generatedCredentials, setGeneratedCredentials] = useState<{
+    title: string
+    clientId: string
+    email: string
+    temporaryPassword: string
+  } | null>(null)
 
-  async function loadData() {
+  const inp = {
+    width: '100%',
+    background: '#ffffff',
+    border: '1px solid #dbe2ea',
+    color: '#0f172a',
+    fontSize: '13px',
+    padding: '10px 12px',
+    borderRadius: '10px',
+    outline: 'none',
+    boxSizing: 'border-box' as const,
+    fontFamily: 'inherit'
+  }
+
+  const lbl = {
+    fontSize: '11px',
+    color: '#475569',
+    fontWeight: '600' as const,
+    display: 'block' as const,
+    marginBottom: '4px'
+  }
+
+  const activeModulesCount = useMemo(
+    () => modules.filter(module => module.status === 'active' || module.isActive).length,
+    [modules]
+  )
+
+  const fetchAdminData = async () => {
+    setLoading(true)
+    setError('')
+
     try {
-      setLoading(true)
-      const [usersRes, modulesRes, loginSettingsRes] = await Promise.all([
-        fetch('/api/admin/users', { cache: 'no-store' }),
+      const [modulesRes, clientsRes] = await Promise.all([
         fetch('/api/admin/modules', { cache: 'no-store' }),
-        fetch('/api/admin/login-page-settings', { cache: 'no-store' })
+        fetch('/api/admin/users', { cache: 'no-store' })
       ])
 
-      if ([usersRes.status, modulesRes.status, loginSettingsRes.status].some(status => status === 401 || status === 403)) {
-        router.push('/login')
-        return
+      if (!modulesRes.ok || !clientsRes.ok) {
+        throw new Error('Failed to load admin data')
       }
 
-      const usersPayload = await parseJson<{ users: UserRecord[] }>(usersRes)
-      const modulesPayload = await parseJson<{ modules: ModuleRecord[] }>(modulesRes)
-      const loginSettingsPayload = await parseJson<{ settings: LoginPageSettings; storage?: 'supabase' | 'json' }>(loginSettingsRes)
-      setUsers(Array.isArray(usersPayload.users) ? usersPayload.users : [])
-      setModules(Array.isArray(modulesPayload.modules) ? modulesPayload.modules : [])
-      setLoginPageSettings(loginSettingsPayload.settings || defaultLoginPageSettings)
-      setLoginPageSettingsStorage(loginSettingsPayload.storage === 'supabase' ? 'supabase' : 'json')
-    } catch (error) {
-      console.error('Failed to load admin data:', error)
-      setFlash({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to load admin data.'
-      })
+      const modulesData = await modulesRes.json()
+      const clientsData = await clientsRes.json()
+
+      setModules(modulesData.modules || [])
+      setClients((clientsData.users || []).filter((user: ClientItem) => user.role !== 'ADMIN'))
+    } catch {
+      setError('Unable to load admin data right now.')
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.push('/login')
+  useEffect(() => {
+    void fetchAdminData()
+  }, [])
+
+  const showSaved = (message: string) => {
+    setSaved(message)
+    setTimeout(() => setSaved(''), 2500)
   }
 
-  function updateClientField<K extends keyof ClientDraft>(key: K, value: ClientDraft[K]) {
-    setClientDraft(prev => ({ ...prev, [key]: value }))
+  const startAddModule = () => {
+    setModuleDraft(BLANK_MODULE)
+    setEditingModuleId(null)
+    setAddingModule(true)
   }
 
-  function updateModuleField<K extends keyof ModuleDraft>(key: K, value: ModuleDraft[K]) {
-    setModuleDraft(prev => ({ ...prev, [key]: value }))
-  }
-
-  function openCreateClient() {
-    setSelectedUser(null)
-    setClientDraft(emptyClientDraft())
-    setShowClientModal(true)
-  }
-
-  function openEditClient(user: UserRecord) {
-    setSelectedUser(user)
-    setClientDraft({
-      name: user.name,
-      email: user.email,
-      password: '',
-      phone: user.phone || '',
-      plan: user.plan || 'Starter',
-      status: user.status || 'active',
-      moduleIds: user.assignedModuleIds || user.assignedModules?.map(module => module.id) || []
-    })
-    setShowClientModal(true)
-  }
-
-  function openAssignModules(user: UserRecord) {
-    setSelectedUser(user)
-    setSelectedModuleIds(user.assignedModuleIds || user.assignedModules?.map(module => module.id) || [])
-    setShowAssignModal(true)
-  }
-
-  function openCreateModule() {
-    setModuleDraft(emptyModuleDraft())
-    setShowModuleModal(true)
-  }
-
-  function openModulePreset(preset: 'leads' | 'labour' | 'vizora') {
-    setModuleDraft({ ...modulePresets[preset] })
-    setShowModuleModal(true)
-  }
-
-  function openEditModule(module: ModuleRecord) {
+  const startEditModule = (module: ModuleItem) => {
     setModuleDraft({
-      id: module.id,
-      name: module.name,
-      slug: module.slug,
-      icon: module.icon || moduleBadge(module),
-      description: module.description || '',
-      type: module.type || 'Operations',
-      status: module.status || (module.isActive === false ? 'coming_soon' : 'active'),
-      isActive: module.isActive ?? module.status === 'active',
-      href: module.href || '',
-      customerLink: module.customerLink || '',
-      color: module.color || '#294fbc',
-      featuresText: joinFeatures(module.features)
+      ...BLANK_MODULE,
+      ...module,
+      features: module.features?.length ? [...module.features] : ['']
     })
-    setShowModuleModal(true)
+    setEditingModuleId(module.id)
+    setAddingModule(false)
   }
 
-  function toggleClientModule(moduleId: string) {
-    setClientDraft(prev => ({
-      ...prev,
-      moduleIds: prev.moduleIds.includes(moduleId)
-        ? prev.moduleIds.filter(id => id !== moduleId)
-        : [...prev.moduleIds, moduleId]
-    }))
-  }
-
-  function toggleAssignedModule(moduleId: string) {
-    setSelectedModuleIds(prev =>
-      prev.includes(moduleId) ? prev.filter(id => id !== moduleId) : [...prev, moduleId]
-    )
-  }
-
-  function updateLoginPageField<K extends keyof LoginPageSettings>(key: K, value: LoginPageSettings[K]) {
-    setLoginPageSettings(prev => ({ ...prev, [key]: value }))
-  }
-
-  function updateLoginPageFeature(index: number, key: keyof LoginPageFeatureItem, value: string) {
-    setLoginPageSettings(prev => ({
-      ...prev,
-      features: prev.features.map((feature, featureIndex) =>
-        featureIndex === index ? { ...feature, [key]: value } : feature
-      )
-    }))
-  }
-
-  function addLoginPageFeature() {
-    setLoginPageSettings(prev => ({
-      ...prev,
-      features: [...prev.features, { icon: '•', text: '' }]
-    }))
-  }
-
-  function removeLoginPageFeature(index: number) {
-    setLoginPageSettings(prev => ({
-      ...prev,
-      features: prev.features.filter((_, featureIndex) => featureIndex !== index)
-    }))
-  }
-
-  async function copyGeneratedCredentials() {
-    if (!generatedCredentials) return
-
-    const payload = [
-      generatedCredentials.title,
-      `Client ID: ${generatedCredentials.clientId || 'Not returned'}`,
-      `Email: ${generatedCredentials.email}`,
-      `Password: ${generatedCredentials.temporaryPassword}`
-    ].join('\n')
-
-    try {
-      await navigator.clipboard.writeText(payload)
-      setFlash({ type: 'success', message: 'Credentials copied to clipboard.' })
-    } catch {
-      setFlash({ type: 'error', message: 'Could not copy credentials. Please copy them manually.' })
+  const saveModule = async () => {
+    setError('')
+    const payload = {
+      ...moduleDraft,
+      slug: moduleDraft.slug || toSlug(moduleDraft.name),
+      summary: moduleDraft.summary?.trim() || '',
+      features: (moduleDraft.features || []).filter(feature => feature.trim()),
+      isActive: moduleDraft.status === 'active'
     }
-  }
 
-  async function handleSaveLoginPageSettings() {
-    setSavingLoginPageSettings(true)
-    try {
-      const payload = await parseJson<{ settings: LoginPageSettings; storage?: 'supabase' | 'json' }>(
-        await fetch('/api/admin/login-page-settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ settings: loginPageSettings })
-        })
-      )
-
-      setLoginPageSettings(payload.settings || defaultLoginPageSettings)
-      setLoginPageSettingsStorage(payload.storage === 'supabase' ? 'supabase' : 'json')
-      setFlash({ type: 'success', message: 'Login page content updated.' })
-    } catch (error) {
-      setFlash({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to save login page settings.'
-      })
-    } finally {
-      setSavingLoginPageSettings(false)
+    if (!payload.name.trim() || !payload.slug.trim()) {
+      setError('Module name and slug are required.')
+      return
     }
+
+    const endpoint = editingModuleId ? `/api/admin/modules/${editingModuleId}` : '/api/admin/modules'
+    const method = editingModuleId ? 'PUT' : 'POST'
+    const res = await fetch(endpoint, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+
+    const data = await res.json().catch(() => ({ error: 'Unexpected response from server.' }))
+    if (!res.ok) {
+      setError(data.error || 'Failed to save module.')
+      return
+    }
+
+    setAddingModule(false)
+    setEditingModuleId(null)
+    setModuleDraft(BLANK_MODULE)
+    await fetchAdminData()
+    showSaved('Module saved')
   }
 
-  async function handleSaveClient() {
+  const deleteModule = async (id: string) => {
+    setError('')
+    const confirmed = window.confirm('Delete this module? This will also remove it from assigned clients.')
+    if (!confirmed) {
+      return
+    }
+
+    const res = await fetch(`/api/admin/modules/${id}`, {
+      method: 'DELETE'
+    })
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: 'Failed to delete module.' }))
+      setError(data.error || 'Failed to delete module.')
+      return
+    }
+
+    await fetchAdminData()
+    showSaved('Module deleted')
+  }
+
+  const saveClient = async () => {
+    setError('')
+
     if (!clientDraft.name.trim() || !clientDraft.email.trim()) {
-      setFlash({ type: 'error', message: 'Name and email are required.' })
+      setError('Client name and email are required.')
       return
     }
 
-    setSubmitting(true)
-    try {
-      if (selectedUser) {
-        await parseJson(
-          await fetch(`/api/admin/users/${selectedUser.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: clientDraft.name,
-              email: clientDraft.email,
-              phone: clientDraft.phone,
-              plan: clientDraft.plan,
-              status: clientDraft.status
-            })
-          })
-        )
-
-        await parseJson(
-          await fetch(`/api/admin/users/${selectedUser.id}/modules`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ moduleIds: clientDraft.moduleIds })
-          })
-        )
-
-        setFlash({ type: 'success', message: 'Client updated successfully.' })
-      } else {
-        const payload = await parseJson<{
-          user: { id: string; email: string }
-          temporaryPassword: string
-        }>(
-          await fetch('/api/admin/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: clientDraft.name,
-              email: clientDraft.email,
-              password: clientDraft.password.trim() || undefined,
-              moduleIds: clientDraft.moduleIds,
-              phone: clientDraft.phone,
-              plan: clientDraft.plan
-            })
-          })
-        )
-
-        setGeneratedCredentials({
-          title: 'Client credentials generated',
-          clientId: payload.user?.id || '',
-          email: payload.user?.email || clientDraft.email,
-          temporaryPassword: payload.temporaryPassword || ''
-        })
-        setFlash({ type: 'success', message: 'Client created successfully.' })
-      }
-
-      setShowClientModal(false)
-      setSelectedUser(null)
-      setClientDraft(emptyClientDraft())
-      await loadData()
-    } catch (error) {
-      setFlash({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to save client.'
+    const res = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: clientDraft.name,
+        email: clientDraft.email,
+        phone: clientDraft.phone,
+        plan: clientDraft.plan
       })
-    } finally {
-      setSubmitting(false)
-    }
-  }
+    })
 
-  async function handleDeleteClient(user: UserRecord) {
-    if (!window.confirm(`Delete client "${user.name}"?`)) {
+    const data = await res.json().catch(() => ({ error: 'Unexpected response from server.' }))
+
+    if (!res.ok) {
+      setError(data.error || 'Failed to create client.')
       return
     }
 
-    try {
-      await parseJson(
-        await fetch(`/api/admin/users/${user.id}`, {
-          method: 'DELETE'
-        })
-      )
-      setFlash({ type: 'success', message: 'Client deleted successfully.' })
-      await loadData()
-    } catch (error) {
-      setFlash({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to delete client.'
-      })
-    }
+    setGeneratedCredentials({
+      title: 'Client credentials generated',
+      clientId: data.user?.id || '',
+      email: data.user?.email || clientDraft.email,
+      temporaryPassword: data.temporaryPassword || ''
+    })
+
+    setClientDraft(BLANK_CLIENT)
+    setAddingClient(false)
+    await fetchAdminData()
+    showSaved('Client created')
   }
 
-  async function handleResetPassword(user: UserRecord) {
-    if (!window.confirm(`Generate a new password for ${user.email}?`)) {
+  const deleteClient = async (clientId: string) => {
+    setError('')
+    const confirmed = window.confirm('Delete this client? This will also remove their module access.')
+    if (!confirmed) {
       return
     }
 
-    try {
-      const payload = await parseJson<{ password: string }>(
-        await fetch(`/api/admin/users/${user.id}/reset-password`, {
-          method: 'POST'
-        })
-      )
+    const res = await fetch(`/api/admin/users/${clientId}`, {
+      method: 'DELETE'
+    })
 
-      setGeneratedCredentials({
-        title: 'Password reset completed',
-        clientId: user.id,
-        email: user.email,
-        temporaryPassword: payload.password
-      })
-      setFlash({ type: 'success', message: 'Temporary password generated.' })
-    } catch (error) {
-      setFlash({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to reset password.'
-      })
-    }
-  }
-
-  async function handleSaveAssignments() {
-    if (!selectedUser) return
-
-    setSubmitting(true)
-    try {
-      await parseJson(
-        await fetch(`/api/admin/users/${selectedUser.id}/modules`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ moduleIds: selectedModuleIds })
-        })
-      )
-
-      setFlash({ type: 'success', message: 'Assigned modules updated.' })
-      setShowAssignModal(false)
-      await loadData()
-    } catch (error) {
-      setFlash({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to update modules.'
-      })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  async function handleSaveModule() {
-    if (!moduleDraft.name.trim() || !moduleDraft.slug.trim()) {
-      setFlash({ type: 'error', message: 'Module name and slug are required.' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: 'Failed to delete client.' }))
+      setError(data.error || 'Failed to delete client.')
       return
     }
 
-    setSubmitting(true)
-    try {
-      const payload = {
-        name: moduleDraft.name,
-        slug: cleanSlug(moduleDraft.slug),
-        icon: moduleDraft.icon.trim(),
-        description: moduleDraft.description,
-        type: moduleDraft.type,
-        status: moduleDraft.status,
-        isActive: moduleDraft.isActive,
-        href: moduleDraft.href.trim(),
-        customerLink: moduleDraft.customerLink.trim(),
-        color: moduleDraft.color.trim(),
-        features: splitFeatures(moduleDraft.featuresText)
-      }
-
-      if (moduleDraft.id) {
-        await parseJson(
-          await fetch(`/api/admin/modules/${moduleDraft.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          })
-        )
-        setFlash({ type: 'success', message: 'Module updated successfully.' })
-      } else {
-        await parseJson(
-          await fetch('/api/admin/modules', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          })
-        )
-        setFlash({ type: 'success', message: 'Module created successfully.' })
-      }
-
-      setShowModuleModal(false)
-      setModuleDraft(emptyModuleDraft())
-      await loadData()
-    } catch (error) {
-      setFlash({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to save module.'
-      })
-    } finally {
-      setSubmitting(false)
-    }
+    setClients(current => current.filter(client => client.id !== clientId))
+    showSaved('Client deleted')
   }
 
-  async function handleDeleteModule(module: ModuleRecord) {
-    if (!window.confirm(`Delete module "${module.name}"?`)) {
+    const resetClientPassword = async (client: ClientItem) => {
+    setError('')
+    const confirmed = window.confirm(`Reset password for ${client.name}? A new temporary password will be generated.`)
+    if (!confirmed) {
       return
     }
 
-    try {
-      await parseJson(
-        await fetch(`/api/admin/modules/${module.id}`, {
-          method: 'DELETE'
-        })
-      )
-      setFlash({ type: 'success', message: 'Module deleted successfully.' })
-      await loadData()
-    } catch (error) {
-      setFlash({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to delete module.'
-      })
+    const res = await fetch(`/api/admin/users/${client.id}/reset-password`, {
+      method: 'POST'
+    })
+
+    const data = await res.json().catch(() => ({ error: 'Failed to reset password.' }))
+
+    if (!res.ok) {
+      setError(data.error || 'Failed to reset password.')
+      return
     }
+
+    setGeneratedCredentials({
+      title: `Temporary password reset for ${client.name}`,
+      clientId: client.id,
+      email: client.email,
+      temporaryPassword: data.password || ''
+    })
+    showSaved('Password reset')
   }
+  const toggleClientModule = async (clientId: string, moduleId: string) => {
+    setError('')
+    const client = clients.find(item => item.id === clientId)
+    if (!client) return
 
-  async function handleToggleModule(module: ModuleRecord) {
-    try {
-      await parseJson(
-        await fetch(`/api/admin/modules/${module.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: module.name,
-            slug: module.slug,
-            icon: module.icon,
-            description: module.description,
-            status: module.isActive === false ? 'active' : 'coming_soon',
-            isActive: module.isActive === false,
-            type: module.type,
-            href: module.href,
-            customerLink: module.customerLink,
-            color: module.color,
-            features: module.features || []
-          })
-        })
-      )
+    const nextModuleIds = client.assignedModuleIds.includes(moduleId)
+      ? client.assignedModuleIds.filter(id => id !== moduleId)
+      : [...client.assignedModuleIds, moduleId]
 
-      setFlash({
-        type: 'success',
-        message: `${module.name} ${module.isActive === false ? 'activated' : 'paused'}.`
-      })
-      await loadData()
-    } catch (error) {
-      setFlash({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to update module state.'
-      })
+    const res = await fetch(`/api/admin/users/${clientId}/modules`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ moduleIds: nextModuleIds })
+    })
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: 'Failed to update client modules.' }))
+      setError(data.error || 'Failed to update client modules.')
+      return
     }
-  }
 
-  const clientUsers = useMemo(
-    () => users.filter(user => user.role === 'CLIENT'),
-    [users]
-  )
-
-  const activeModules = useMemo(
-    () => modules.filter(module => module.isActive !== false),
-    [modules]
-  )
-
-  const connectedModules = useMemo(
-    () => modules.filter(module => Boolean(module.href && module.href !== '#') || Boolean(module.customerLink)),
-    [modules]
-  )
-
-  const filteredClientUsers = useMemo(() => {
-    const query = clientQuery.trim().toLowerCase()
-    if (!query) return clientUsers
-    return clientUsers.filter(user =>
-      [user.name, user.email, user.phone, user.plan]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(query))
+    setClients(current =>
+      current.map(item =>
+        item.id === clientId
+          ? {
+              ...item,
+              assignedModuleIds: nextModuleIds,
+              assignedModules: modules.filter(module => nextModuleIds.includes(module.id))
+            }
+          : item
+      )
     )
-  }, [clientQuery, clientUsers])
+    showSaved('Client modules updated')
+  }
 
-  const filteredModules = useMemo(() => {
-    const query = moduleQuery.trim().toLowerCase()
-    if (!query) return modules
-    return modules.filter(module =>
-      [module.name, module.slug, module.description, module.type]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(query))
-    )
-  }, [moduleQuery, modules])
+  const updateFeature = (index: number, value: string) => {
+    const nextFeatures = [...(moduleDraft.features || [''])]
+    nextFeatures[index] = value
+    setModuleDraft(current => ({ ...current, features: nextFeatures }))
+  }
 
-  const statCards = [
-    {
-      label: 'Active Clients',
-      value: clientUsers.filter(user => (user.status || 'active') === 'active').length,
-      color: '#10b981'
-    },
-    {
-      label: 'Assigned Modules',
-      value: clientUsers.reduce((count, user) => count + (user.assignedModuleIds?.length || 0), 0),
-      color: '#f59e0b'
-    },
-    {
-      label: 'Live Modules',
-      value: activeModules.length,
-      color: '#4f46e5'
-    },
-    {
-      label: 'Connected Modules',
-      value: connectedModules.length,
-      color: '#b45309'
+  const copyText = async (value: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(key)
+      setTimeout(() => setCopied(''), 2000)
+    } catch {
+      setError('Copy failed.')
     }
-  ]
+  }
+
+  const ModuleForm = (
+    <div style={{ background: '#ffffff', border: '1px solid #dbe2ea', borderRadius: '18px', padding: '24px', marginBottom: '20px', boxShadow: '0 12px 30px rgba(15, 23, 42, 0.05)' }}>
+      <p style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: '0 0 16px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+        {editingModuleId ? 'Edit Module' : 'Create New Module'}
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+        <div>
+          <label style={lbl}>Module Name *</label>
+          <input value={moduleDraft.name} onChange={event => setModuleDraft(current => ({ ...current, name: event.target.value, slug: current.slug || toSlug(event.target.value) }))} style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>Slug *</label>
+          <input value={moduleDraft.slug} onChange={event => setModuleDraft(current => ({ ...current, slug: toSlug(event.target.value) }))} style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>Type</label>
+          <select value={moduleDraft.type} onChange={event => setModuleDraft(current => ({ ...current, type: event.target.value }))} style={inp}>
+            <option>Standard</option>
+            <option>AI Module</option>
+            <option>Premium</option>
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>Status</label>
+          <select value={moduleDraft.status} onChange={event => setModuleDraft(current => ({ ...current, status: event.target.value as ModuleItem['status'], isActive: event.target.value === 'active' }))} style={inp}>
+            <option value="active">Live / Active</option>
+            <option value="coming_soon">Coming Soon</option>
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>Icon</label>
+          <input value={moduleDraft.icon} onChange={event => setModuleDraft(current => ({ ...current, icon: event.target.value }))} style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>Color</label>
+          <input value={moduleDraft.color} onChange={event => setModuleDraft(current => ({ ...current, color: event.target.value }))} style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>Module URL</label>
+          <input value={moduleDraft.href} onChange={event => setModuleDraft(current => ({ ...current, href: event.target.value }))} style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>Customer Access Link</label>
+          <input value={moduleDraft.customerLink} onChange={event => setModuleDraft(current => ({ ...current, customerLink: event.target.value }))} style={inp} />
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={lbl}>Description</label>
+          <textarea value={moduleDraft.description} onChange={event => setModuleDraft(current => ({ ...current, description: event.target.value }))} rows={2} style={{ ...inp, resize: 'none' }} />
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={lbl}>Module Summary</label>
+          <textarea value={moduleDraft.summary} onChange={event => setModuleDraft(current => ({ ...current, summary: event.target.value }))} rows={3} style={{ ...inp, resize: 'vertical', minHeight: '92px' }} />
+        </div>
+      </div>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={{ ...lbl, marginBottom: '8px' }}>What you can do in this module</label>
+        {(moduleDraft.features || ['']).map((feature, index) => (
+          <div key={`${feature}-${index}`} style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+            <input value={feature} onChange={event => updateFeature(index, event.target.value)} style={{ ...inp, flex: 1 }} />
+            {(moduleDraft.features || []).length > 1 && (
+              <button onClick={() => setModuleDraft(current => ({ ...current, features: (current.features || []).filter((_, featureIndex) => featureIndex !== index) }))} style={{ background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '0 10px', cursor: 'pointer', fontSize: '16px' }}>
+                x
+              </button>
+            )}
+          </div>
+        ))}
+        <button onClick={() => setModuleDraft(current => ({ ...current, features: [...(current.features || []), ''] }))} style={{ background: '#f8fafc', color: '#2563eb', border: '1px dashed #93c5fd', borderRadius: '8px', padding: '7px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+          + Add Feature
+        </button>
+      </div>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <button onClick={saveModule} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>
+          Save Module
+        </button>
+        <button onClick={() => { setAddingModule(false); setEditingModuleId(null); setModuleDraft(BLANK_MODULE) }} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', fontSize: '13px', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer' }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
 
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: PAGE,
-          color: MUTED,
-          fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
-        }}
-      >
-        Loading admin workspace...
+      <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#94a3b8' }}>Loading admin panel...</p>
       </div>
     )
   }
 
   return (
-    <>
-      <style>{`
-        * { box-sizing: border-box; }
-        body {
-          margin: 0;
-          font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-          background: ${PAGE};
-          color: ${INK};
-        }
-        .admin-shell {
-          min-height: 100vh;
-          background: linear-gradient(180deg, #fbfdff 0%, #f5f8fc 18%, ${PAGE} 100%);
-        }
-        .topbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 18px;
-          padding: 16px 24px 12px;
-          background: rgba(255,255,255,0.9);
-          border-bottom: 1px solid rgba(213, 223, 236, 0.82);
-        }
-        .brand-wrap {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-        .brand-icon {
-          width: 40px;
-          height: 40px;
-          border-radius: 13px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(135deg, ${BRAND_BLUE} 0%, #163fa2 100%);
-          color: white;
-          font-size: 17px;
-          font-weight: 800;
-          box-shadow: 0 10px 24px rgba(41, 79, 188, 0.16);
-        }
-        .brand-title {
-          font-size: 14px;
-          font-weight: 800;
-          margin: 0;
-        }
-        .brand-copy {
-          margin-top: 3px;
-          font-size: 12px;
-          color: ${MUTED};
-          max-width: 760px;
-          line-height: 1.4;
-        }
-        .page-actions {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .page-shell {
-          padding: 20px;
-          display: grid;
-          gap: 14px;
-        }
-        .surface-card {
-          background: rgba(255,255,255,0.98);
-          border: 1px solid rgba(213, 223, 236, 0.94);
-          border-radius: 22px;
-          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
-        }
-        .utility-bar {
-          padding: 16px 18px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 14px;
-          flex-wrap: wrap;
-        }
-        .utility-kicker {
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: #46658f;
-          margin-bottom: 6px;
-        }
-        .utility-copy {
-          font-size: 12px;
-          color: ${MUTED};
-        }
-        .utility-actions {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 12px;
-        }
-        .stat-card {
-          padding: 16px 18px;
-          min-height: 102px;
-        }
-        .stat-label {
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: #58749a;
-          margin-bottom: 12px;
-        }
-        .stat-value {
-          font-size: 32px;
-          line-height: 1;
-          font-weight: 800;
-          letter-spacing: -0.04em;
-        }
-        .tabbar {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .tab-pill {
-          border-radius: 15px;
-          padding: 10px 14px;
-          font-size: 13px;
-          font-weight: 700;
-          border: 1px solid ${BORDER};
-          background: rgba(255,255,255,0.96);
-          color: #47617f;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .tab-pill:hover {
-          border-color: rgba(41, 79, 188, 0.22);
-          color: ${BRAND};
-        }
-        .tab-pill.active {
-          background: white;
-          color: ${BRAND};
-          border-color: rgba(41, 79, 188, 0.24);
-          box-shadow: 0 10px 24px rgba(41, 79, 188, 0.08);
-        }
-        .content-panel {
-          padding: 18px;
-          display: grid;
-          gap: 14px;
-        }
-        .panel-head {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 14px;
-          flex-wrap: wrap;
-        }
-        .panel-title {
-          margin: 0 0 4px;
-          font-size: 16px;
-          font-weight: 800;
-        }
-        .panel-copy {
-          margin: 0;
-          font-size: 12px;
-          color: ${MUTED};
-          line-height: 1.5;
-        }
-        .card-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
-        }
-        .inner-card {
-          padding: 16px;
-          border-radius: 18px;
-          background: ${SURFACE};
-          border: 1px solid rgba(213, 223, 236, 0.96);
-        }
-        .list-stack {
-          display: grid;
-          gap: 12px;
-        }
-        .list-row {
-          padding: 12px 0;
-          border-top: 1px solid rgba(213, 223, 236, 0.9);
-          display: grid;
-          gap: 8px;
-        }
-        .list-row:first-of-type {
-          border-top: 0;
-          padding-top: 0;
-        }
-        .row-between {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          align-items: flex-start;
-        }
-        .muted { color: ${MUTED}; }
-        .client-toolbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-        .client-results {
-          display: grid;
-          gap: 14px;
-        }
-        .client-card {
-          padding: 18px;
-          border-radius: 22px;
-          border: 1px solid rgba(213, 223, 236, 0.96);
-          background:
-            radial-gradient(circle at top right, rgba(235, 243, 255, 0.78), transparent 32%),
-            linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
-          box-shadow: 0 14px 28px rgba(15, 23, 42, 0.04);
-          display: grid;
-          gap: 16px;
-        }
-        .client-card-top {
-          display: flex;
-          justify-content: space-between;
-          gap: 18px;
-          align-items: flex-start;
-          flex-wrap: wrap;
-        }
-        .client-main {
-          display: flex;
-          gap: 14px;
-          align-items: flex-start;
-          min-width: 0;
-        }
-        .client-avatar {
-          width: 56px;
-          height: 56px;
-          border-radius: 18px;
-          background: linear-gradient(135deg, ${BRAND} 0%, #0f2d63 100%);
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 800;
-          font-size: 21px;
-          flex: 0 0 auto;
-          box-shadow: 0 12px 24px rgba(22, 63, 162, 0.18);
-        }
-        .client-summary {
-          display: grid;
-          gap: 6px;
-          min-width: 0;
-        }
-        .client-name-row {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .client-name {
-          font-size: 18px;
-          font-weight: 800;
-          color: ${INK};
-        }
-        .client-email {
-          font-size: 14px;
-          color: #44617f;
-          word-break: break-word;
-        }
-        .client-meta-line {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .client-meta-pill {
-          display: inline-flex;
-          align-items: center;
-          border-radius: 999px;
-          padding: 6px 10px;
-          background: ${SURFACE_SOFT};
-          border: 1px solid rgba(213, 223, 236, 0.92);
-          color: #58749a;
-          font-size: 11px;
-          font-weight: 700;
-        }
-        .client-side {
-          display: grid;
-          gap: 10px;
-          justify-items: end;
-          min-width: 180px;
-        }
-        .client-module-strip {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .client-module-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          border-radius: 999px;
-          padding: 7px 11px;
-          font-size: 11px;
-          font-weight: 800;
-          color: ${BRAND_BLUE};
-          background: rgba(235, 243, 255, 0.9);
-          border: 1px solid rgba(195, 214, 244, 0.86);
-        }
-        .client-actions {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-          align-items: center;
-        }
-        .client-panel > .row-between {
-          padding: 12px 14px;
-          border-radius: 18px;
-          border: 1px solid rgba(213, 223, 236, 0.9);
-          background: linear-gradient(180deg, #fcfdff 0%, #f7faff 100%);
-        }
-        .client-panel > div:last-child {
-          display: grid;
-          gap: 14px;
-        }
-        .client-panel .list-row {
-          padding: 18px;
-          border: 1px solid rgba(213, 223, 236, 0.94);
-          border-radius: 22px;
-          background:
-            radial-gradient(circle at top right, rgba(235, 243, 255, 0.78), transparent 32%),
-            linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
-          box-shadow: 0 14px 28px rgba(15, 23, 42, 0.04);
-          gap: 14px;
-        }
-        .client-panel .list-row:first-of-type {
-          padding-top: 18px;
-        }
-        .client-panel .list-row .row-between:first-child {
-          gap: 18px;
-        }
-        .client-panel .list-row .chip-row {
-          gap: 9px;
-        }
-        .client-panel .list-row .actions {
-          padding-top: 2px;
-        }
-        .client-panel .list-row .actions .secondary-btn,
-        .client-panel .list-row .actions .danger-btn {
-          min-width: 122px;
-        }
-        .selection-header {
-          display: flex;
-          justify-content: space-between;
-          gap: 14px;
-          align-items: center;
-          flex-wrap: wrap;
-          margin-bottom: 12px;
-        }
-        .selection-summary {
-          font-size: 12px;
-          color: ${MUTED};
-        }
-        .field {
-          display: grid;
-          gap: 6px;
-        }
-        .field label {
-          font-size: 11px;
-          font-weight: 700;
-          color: #274563;
-        }
-        .field input, .field select, .field textarea {
-          width: 100%;
-          border: 1px solid ${BORDER};
-          background: ${SURFACE_SOFT};
-          border-radius: 13px;
-          padding: 10px 12px;
-          font-size: 13px;
-          color: ${INK};
-          outline: none;
-        }
-        .field textarea {
-          min-height: 76px;
-          resize: vertical;
-          font-family: inherit;
-        }
-        .field input:focus, .field select:focus, .field textarea:focus {
-          border-color: rgba(41, 79, 188, 0.42);
-          box-shadow: 0 0 0 4px rgba(41, 79, 188, 0.08);
-          background: white;
-        }
-        .actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .primary-btn, .secondary-btn, .danger-btn {
-          border-radius: 15px;
-          padding: 10px 14px;
-          font-weight: 800;
-          font-size: 13px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .primary-btn {
-          background: ${BRAND};
-          color: white;
-          border: 1px solid ${BRAND};
-        }
-        .secondary-btn {
-          background: white;
-          color: #274563;
-          border: 1px solid ${BORDER};
-        }
-        .danger-btn {
-          background: ${DANGER_BG};
-          color: ${DANGER};
-          border: 1px solid #fecaca;
-        }
-        .primary-btn:hover { filter: brightness(1.03); }
-        .secondary-btn:hover { border-color: rgba(41, 79, 188, 0.26); }
-        .chip-row {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          border-radius: 999px;
-          padding: 5px 9px;
-          font-size: 10px;
-          font-weight: 800;
-          border: 1px solid transparent;
-        }
-        .chip.success {
-          background: ${SUCCESS_BG};
-          color: ${SUCCESS};
-        }
-        .chip.warning {
-          background: ${WARNING_BG};
-          color: ${WARNING};
-        }
-        .chip.neutral {
-          background: ${BRAND_SOFT};
-          color: ${BRAND_BLUE};
-          border-color: rgba(41, 79, 188, 0.08);
-        }
-        .flash {
-          padding: 14px 16px;
-          border-radius: 16px;
-          font-weight: 700;
-        }
-        .flash.success {
-          background: ${SUCCESS_BG};
-          color: ${SUCCESS};
-          border: 1px solid #bbf7d0;
-        }
-        .flash.error {
-          background: ${DANGER_BG};
-          color: ${DANGER};
-          border: 1px solid #fecaca;
-        }
-        .module-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 12px;
-        }
-        .module-card {
-          padding: 0;
-          overflow: hidden;
-        }
-        .module-card-head {
-          padding: 16px 16px 10px;
-          border-bottom: 1px solid rgba(213, 223, 236, 0.8);
-        }
-        .module-card-body {
-          padding: 12px 16px 16px;
-          display: grid;
-          gap: 10px;
-        }
-        .module-icon {
-          width: 42px;
-          height: 42px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-size: 14px;
-          font-weight: 800;
-        }
-        .module-meta-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
-        }
-        .module-meta {
-          padding: 9px 10px;
-          border-radius: 14px;
-          background: ${SURFACE_SOFT};
-          border: 1px solid rgba(213, 223, 236, 0.8);
-        }
-        .module-meta-label {
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: #58749a;
-          margin-bottom: 6px;
-        }
-        .module-meta-value {
-          font-size: 12px;
-          font-weight: 700;
-          color: ${BRAND};
-        }
-        .selection-grid {
-          display: grid;
-          gap: 10px;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-        .selection-card {
-          border: 1px solid ${BORDER};
-          border-radius: 18px;
-          padding: 14px;
-          background: ${SURFACE_SOFT};
-          cursor: pointer;
-          transition: all 0.18s ease;
-        }
-        .selection-card:hover {
-          border-color: rgba(41, 79, 188, 0.24);
-          transform: translateY(-1px);
-        }
-        .selection-card.active {
-          border-color: rgba(41, 79, 188, 0.34);
-          background: ${BRAND_SOFT};
-          box-shadow: inset 0 0 0 1px rgba(41, 79, 188, 0.08);
-        }
-        .selection-card-copy {
-          display: grid;
-          gap: 6px;
-        }
-        .selection-card-title {
-          font-size: 16px;
-          font-weight: 800;
-          color: ${INK};
-        }
-        .selection-card-meta {
-          font-size: 12px;
-          color: ${MUTED};
-          line-height: 1.5;
-        }
-        .selection-card-footer {
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-          align-items: center;
-          margin-top: 12px;
-        }
-        .selection-check {
-          width: 18px;
-          height: 18px;
-        }
-        .selection-card .row-between {
-          gap: 16px;
-          align-items: flex-start;
-        }
-        .selection-card input[type="checkbox"] {
-          width: 18px;
-          height: 18px;
-          margin-top: 4px;
-          flex: 0 0 auto;
-        }
-        .credentials-card {
-          padding: 16px;
-          border-radius: 18px;
-          background: linear-gradient(180deg, #f9fbff 0%, #eef4ff 100%);
-          border: 1px solid rgba(41, 79, 188, 0.14);
-        }
-        .credentials-card code {
-          background: white;
-          color: ${BRAND};
-          padding: 3px 7px;
-          border-radius: 9px;
-          border: 1px solid rgba(41, 79, 188, 0.12);
-        }
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 100;
-          background: rgba(15, 23, 42, 0.48);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 16px;
-        }
-        .modal-card {
-          width: min(920px, 100%);
-          max-height: 92vh;
-          overflow: auto;
-          background: white;
-          border-radius: 20px;
-          border: 1px solid rgba(213, 223, 236, 0.94);
-          padding: 18px;
-          box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
-        }
-        .metric-subtext {
-          margin-top: 6px;
-          font-size: 11px;
-          color: ${MUTED};
-        }
-        @media (max-width: 1100px) {
-          .page-shell { padding: 18px; }
-          .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .card-grid { grid-template-columns: 1fr; }
-          .module-grid { grid-template-columns: 1fr; }
-          .selection-grid { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 720px) {
-          .topbar { padding: 16px 14px; }
-          .page-shell { padding: 16px; }
-          .stats-grid { grid-template-columns: 1fr; }
-          .utility-bar, .panel-head, .row-between { flex-direction: column; align-items: stretch; }
-          .client-card-top, .client-main { flex-direction: column; }
-          .client-side { justify-items: start; min-width: 0; }
-        }
-      `}</style>
+    <div style={{ minHeight: '100vh', background: '#f6f8fb', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      {(saved || error) && (
+        <div style={{ position: 'fixed', top: '20px', right: '20px', background: error ? '#fff1f2' : '#eff6ff', color: error ? '#b91c1c' : '#1d4ed8', border: `1px solid ${error ? '#fecdd3' : '#bfdbfe'}`, fontSize: '13px', fontWeight: '700', padding: '12px 20px', borderRadius: '12px', zIndex: 9999, boxShadow: '0 12px 30px rgba(15,23,42,0.08)' }}>
+          {error || saved}
+        </div>
+      )}
 
-      <div className="admin-shell">
-        <header className="topbar">
-          <div className="brand-wrap">
-            <div className="brand-icon">SV</div>
+      <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 0 rgba(15,23,42,0.03)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', color: 'white', fontSize: '14px' }}>SV</div>
             <div>
-              <h1 className="brand-title">ScaleVyapar Admin</h1>
-              <div className="brand-copy">
-                Manage clients, modules, credentials, labour tools, website editor access, and destination links.
-              </div>
+              <p style={{ margin: 0, color: '#0f172a', fontSize: '14px', fontWeight: '700' }}>Scale Vyapar</p>
+              <p style={{ margin: 0, color: '#94a3b8', fontSize: '10px' }}>Business Automation Platform</p>
             </div>
           </div>
+          <span style={{ background: '#f8fafc', color: '#334155', fontSize: '11px', padding: '4px 10px', borderRadius: '99px', border: '1px solid #e2e8f0', fontWeight: '600' }}>Admin Panel</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Link href="/admin/labour" style={{ background: '#0f172a', color: '#ffffff', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', textDecoration: 'none' }}>
+            Labour Exchange
+          </Link>
+          <span style={{ color: '#64748b', fontSize: '13px' }}>admin@scalevyapar.com</span>
+          <button onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login' }} style={{ background: '#ffffff', color: '#334155', border: '1px solid #dbe2ea', fontSize: '12px', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
+            Logout
+          </button>
+        </div>
+      </div>
 
-          <div className="page-actions">
-            <button className="secondary-btn" onClick={() => window.open('/dashboard', '_blank', 'noopener,noreferrer')}>Client Dashboard</button>
-            <button className="secondary-btn" onClick={() => window.open('/labour/company', '_blank', 'noopener,noreferrer')}>Labour Site</button>
-            <button className="primary-btn" onClick={handleLogout}>Logout</button>
-          </div>
-        </header>
-
-        <div className="page-shell">
-          {flash ? (
-            <div className={`flash ${flash.type}`}>
-              {flash.message}
-            </div>
-          ) : null}
-
-          {generatedCredentials ? (
-            <div className="credentials-card">
-              <div className="row-between" style={{ marginBottom: 18 }}>
-                <div>
-                  <div className="utility-kicker">Generated Credentials</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>{generatedCredentials.title}</div>
-                  <div className="muted">Save these credentials before closing the card.</div>
-                </div>
-                <div className="actions">
-                  <button className="secondary-btn" onClick={copyGeneratedCredentials}>Copy</button>
-                  <button className="secondary-btn" onClick={() => setGeneratedCredentials(null)}>Close</button>
-                </div>
-              </div>
-              <div className="card-grid">
-                <div className="inner-card">
-                  <div className="utility-kicker">Client ID</div>
-                  <code>{generatedCredentials.clientId || 'Not returned'}</code>
-                </div>
-                <div className="inner-card">
-                  <div className="utility-kicker">Email</div>
-                  <code>{generatedCredentials.email}</code>
-                </div>
-              </div>
-              <div className="inner-card" style={{ marginTop: 18 }}>
-                <div className="utility-kicker">Password</div>
-                <code>{generatedCredentials.temporaryPassword}</code>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="surface-card utility-bar">
-            <div>
-              <div className="utility-kicker">Control Mode</div>
-              <div className="utility-copy">
-                This panel controls client access, module routing, and Rozgar operations from one workspace.
-              </div>
-            </div>
-
-            <div className="utility-actions">
-              <button className="secondary-btn" onClick={openCreateClient}>Add Client</button>
-              <button className="secondary-btn" onClick={openCreateModule}>Add Module</button>
-              <button className="secondary-btn" onClick={() => window.open('/admin/labour', '_blank', 'noopener,noreferrer')}>Labour Admin</button>
-              <button className="secondary-btn" onClick={() => window.open('/admin/labour/website', '_blank', 'noopener,noreferrer')}>Edit Website</button>
-              <button className="primary-btn" onClick={() => void loadData()}>Refresh</button>
-            </div>
-          </div>
-
-          <div className="stats-grid">
-            {statCards.map(card => (
-              <div className="surface-card stat-card" key={card.label}>
-                <div className="stat-label">{card.label}</div>
-                <div className="stat-value" style={{ color: card.color }}>{card.value}</div>
-                <div className="metric-subtext">
-                  {card.label === 'Connected Modules'
-                    ? 'Ready for launch and assignment'
-                    : card.label === 'Assigned Modules'
-                      ? 'Live mapping across all clients'
-                      : card.label === 'Live Modules'
-                        ? 'Available for active accounts'
-                        : 'Clients currently able to sign in'}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="tabbar">
-            {navItems.map(item => (
-              <button
-                key={item.key}
-                className={`tab-pill ${activeTab === item.key ? 'active' : ''}`}
-                onClick={() => setActiveTab(item.key)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          {activeTab === 'dashboard' ? (
-            <section className="surface-card content-panel">
-              <div className="panel-head">
-                <div>
-                  <h2 className="panel-title">Workspace overview</h2>
-                  <p className="panel-copy">Quick visibility into clients, modules, and the live admin toolkit.</p>
-                </div>
-              </div>
-
-              <div className="card-grid">
-                <div className="inner-card">
-                  <h3 style={{ marginTop: 0, marginBottom: 16 }}>Recent clients</h3>
-                  <div className="list-stack">
-                    {clientUsers.slice(-5).reverse().map(user => (
-                      <div key={user.id} className="row-between">
-                        <div>
-                          <div style={{ fontWeight: 800 }}>{user.name}</div>
-                          <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>{user.email}</div>
-                        </div>
-                        <div className="chip-row">
-                          <span className={`chip ${(user.status || 'active') === 'active' ? 'success' : 'warning'}`}>
-                            {user.status || 'active'}
-                          </span>
-                          <span className="chip neutral">{user.assignedModuleIds?.length || 0} modules</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="inner-card">
-                  <h3 style={{ marginTop: 0, marginBottom: 16 }}>Quick actions</h3>
-                  <div className="actions">
-                    <button className="primary-btn" onClick={openCreateClient}>Create Client</button>
-                    <button className="secondary-btn" onClick={openCreateModule}>Create Module</button>
-                    <button className="secondary-btn" onClick={() => window.open('/api/setup', '_blank', 'noopener,noreferrer')}>Recreate Admin</button>
-                  </div>
-                  <p className="panel-copy" style={{ marginTop: 18 }}>
-                    Use the modules section to assign launch-ready tools and use the Rozgar actions to jump into labour management.
-                  </p>
-                </div>
-              </div>
-            </section>
-          ) : null}
-
-          {activeTab === 'clients' ? (
-            <section className="surface-card content-panel client-panel">
-              <div className="panel-head">
-                <div>
-                  <h2 className="panel-title">Client management</h2>
-                  <p className="panel-copy">Create clients, generate credentials, assign modules, and manage dashboard access.</p>
-                </div>
-                <button className="primary-btn" onClick={openCreateClient}>Add Client</button>
-              </div>
-
-              <div className="client-toolbar">
-                <div className="field" style={{ width: 'min(420px, 100%)' }}>
-                  <label>Search clients</label>
-                  <input
-                    value={clientQuery}
-                    onChange={event => setClientQuery(event.target.value)}
-                    placeholder="Search by name, email, phone, or plan"
-                  />
-                </div>
-                <div className="actions">
-                  <span className="chip neutral">{filteredClientUsers.length} results</span>
-                  <span className="chip success">
-                    {clientUsers.filter(user => (user.status || 'active') === 'active').length} active clients
-                  </span>
-                </div>
-              </div>
-
+      <div style={{ maxWidth: '1320px', margin: '0 auto', padding: '32px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '28px' }}>
+          {[
+            { label: 'Total Modules', value: `${modules.length}`, icon: 'Modules', color: '#7c3aed' },
+            { label: 'Live Modules', value: `${activeModulesCount}`, icon: 'Live', color: '#10b981' },
+            { label: 'Active Clients', value: `${clients.length}`, icon: 'Clients', color: '#0284c7' },
+            { label: 'Connected Assignments', value: `${clients.reduce((count, client) => count + client.assignedModuleIds.length, 0)}`, icon: 'Links', color: '#f59e0b' }
+          ].map(card => (
+            <div key={card.label} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '18px', padding: '20px 22px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)' }}>
+              <div style={{ minWidth: '56px', height: '56px', borderRadius: '14px', background: '#f8fafc', border: '1px solid #eef2f7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700', color: '#334155', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{card.icon}</div>
               <div>
-                {filteredClientUsers.length === 0 ? (
-                  <div className="inner-card muted">No clients found.</div>
-                ) : (
-                  filteredClientUsers.map(user => (
-                    <div key={user.id} className="list-row">
-                      <div className="row-between">
-                        <div style={{ display: 'flex', gap: 14 }}>
-                          <div
-                            style={{
-                              width: 52,
-                              height: 52,
-                              borderRadius: 18,
-                              background: BRAND,
-                              color: 'white',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 800,
-                              fontSize: 20
-                            }}
-                          >
-                            {initials(user.name)}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 800, fontSize: 16 }}>{user.name}</div>
-                            <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>{user.email}</div>
-                            <div className="muted" style={{ fontSize: 14, marginTop: 6 }}>
-                              {user.phone || 'No phone'} · {user.plan || 'Starter'} · Created {prettyDate(user.createdAt)}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="chip-row">
-                          <span className={`chip ${(user.status || 'active') === 'active' ? 'success' : 'warning'}`}>
-                            {user.status || 'active'}
-                          </span>
-                          <span className="chip neutral">{user.assignedModuleIds?.length || 0} modules</span>
-                        </div>
-                      </div>
-
-                      <div className="chip-row">
-                        {(user.assignedModules || []).length > 0 ? (
-                          user.assignedModules?.map(module => (
-                            <span className="chip neutral" key={module.id}>
-                              {moduleBadge(module)} {module.name}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="muted">No modules assigned yet.</span>
-                        )}
-                      </div>
-
-                      <div className="actions">
-                        <button className="secondary-btn" onClick={() => openEditClient(user)}>Edit</button>
-                        <button className="secondary-btn" onClick={() => openAssignModules(user)}>Assign Modules</button>
-                        <button className="secondary-btn" onClick={() => handleResetPassword(user)}>Reset Password</button>
-                        <button className="danger-btn" onClick={() => handleDeleteClient(user)}>Delete</button>
-                      </div>
-                    </div>
-                  ))
-                )}
+                <p style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', margin: '0 0 2px' }}>{card.value}</p>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>{card.label}</p>
               </div>
-            </section>
-          ) : null}
-
-          {activeTab === 'modules' ? (
-            <section className="surface-card content-panel">
-              <div className="panel-head">
-                <div>
-                  <h2 className="panel-title">Module management</h2>
-                  <p className="panel-copy">Edit module experience, assign premium routing, and manage Rozgar shortcuts without exposing raw URLs.</p>
-                </div>
-                <button className="primary-btn" onClick={openCreateModule}>Add Module</button>
-              </div>
-
-              <div className="row-between">
-                <div className="actions">
-                  <button className="secondary-btn" onClick={() => openModulePreset('leads')}>Lead Preset</button>
-                  <button className="secondary-btn" onClick={() => openModulePreset('labour')}>Rozgar Preset</button>
-                  <button className="secondary-btn" onClick={() => openModulePreset('vizora')}>Vizora Preset</button>
-                </div>
-                <div className="field" style={{ width: 'min(380px, 100%)' }}>
-                  <label>Search modules</label>
-                  <input
-                    value={moduleQuery}
-                    onChange={event => setModuleQuery(event.target.value)}
-                    placeholder="Search module, slug, or category"
-                  />
-                </div>
-              </div>
-
-              <div className="module-grid">
-                {filteredModules.map(module => {
-                  const isRozgar = isRozgarModule(module)
-                  const target = getModuleTarget(module)
-
-                  return (
-                    <div className="surface-card module-card" key={module.id}>
-                      <div className="module-card-head">
-                        <div className="row-between">
-                          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                            <div
-                              className="module-icon"
-                              style={{ background: `linear-gradient(135deg, ${module.color || BRAND_BLUE} 0%, ${BRAND} 100%)` }}
-                            >
-                              {moduleBadge(module)}
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 17, fontWeight: 800 }}>{module.name}</div>
-                              <div className="muted" style={{ marginTop: 4 }}>{module.type || 'Operations'}</div>
-                            </div>
-                          </div>
-                          <span className={`chip ${module.isActive === false ? 'warning' : 'success'}`}>
-                            {module.isActive === false ? 'Paused' : 'Live'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="module-card-body">
-                        <div className="muted" style={{ lineHeight: 1.65, minHeight: 76 }}>
-                          {module.description || 'Module workspace ready to be assigned and launched for clients.'}
-                        </div>
-
-                        <div className="module-meta-grid">
-                          <div className="module-meta">
-                            <div className="module-meta-label">Category</div>
-                            <div className="module-meta-value">{module.type || 'Operations'}</div>
-                          </div>
-                          <div className="module-meta">
-                            <div className="module-meta-label">Launch Mode</div>
-                            <div className="module-meta-value">
-                              {module.customerLink ? 'External App' : module.href && module.href !== '#' ? 'Internal Page' : 'Needs Setup'}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="chip-row">
-                          {(module.features || []).length > 0 ? (
-                            module.features?.slice(0, 4).map(feature => (
-                              <span className="chip neutral" key={feature}>{feature}</span>
-                            ))
-                          ) : (
-                            <span className="muted">No feature list added.</span>
-                          )}
-                        </div>
-
-                        <div className="actions">
-                          <button className="secondary-btn" onClick={() => openEditModule(module)}>Edit</button>
-                          <button className="secondary-btn" onClick={() => handleToggleModule(module)}>
-                            {module.isActive === false ? 'Activate' : 'Pause'}
-                          </button>
-                          {target ? (
-                            <button
-                              className="secondary-btn"
-                              onClick={() => {
-                                if (target.startsWith('http')) {
-                                  window.open(target, '_blank', 'noopener,noreferrer')
-                                  return
-                                }
-                                window.open(target, '_blank', 'noopener,noreferrer')
-                              }}
-                            >
-                              Open Module
-                            </button>
-                          ) : null}
-                          {isRozgar ? (
-                            <>
-                              <button
-                                className="secondary-btn"
-                                onClick={() => window.open('https://www.scalevyapar.in/admin/labour/website', '_blank', 'noopener,noreferrer')}
-                              >
-                                Website Editor
-                              </button>
-                              <button
-                                className="secondary-btn"
-                                onClick={() => window.open('https://www.scalevyapar.in/admin/labour', '_blank', 'noopener,noreferrer')}
-                              >
-                                Labour Admin
-                              </button>
-                            </>
-                          ) : null}
-                          <button className="danger-btn" onClick={() => handleDeleteModule(module)}>Delete</button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          ) : null}
-
-          {activeTab === 'settings' ? (
-            <section className="surface-card content-panel">
-              <div className="panel-head">
-                <div>
-                  <h2 className="panel-title">Settings and routing</h2>
-                  <p className="panel-copy">Manage login page content, route references, and environment expectations for the admin workspace.</p>
-                </div>
-                <div className="actions">
-                  <span className={`chip ${loginPageSettingsStorage === 'supabase' ? 'success' : 'neutral'}`}>
-                    {loginPageSettingsStorage === 'supabase' ? 'Live Supabase storage' : 'JSON fallback storage'}
-                  </span>
-                  <button className="primary-btn" onClick={handleSaveLoginPageSettings} disabled={savingLoginPageSettings}>
-                    {savingLoginPageSettings ? 'Saving...' : 'Save Login Content'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="card-grid">
-                <div className="inner-card">
-                  <h3 style={{ marginTop: 0, marginBottom: 14 }}>Login page content</h3>
-                  <div className="list-stack">
-                    <div className="field">
-                      <label>Hero headline</label>
-                      <input
-                        value={loginPageSettings.headline}
-                        onChange={event => updateLoginPageField('headline', event.target.value)}
-                        placeholder="Scale Your Business with Automation"
-                      />
-                    </div>
-                    <div className="field">
-                      <label>Hero subtitle</label>
-                      <textarea
-                        value={loginPageSettings.subtitle}
-                        onChange={event => updateLoginPageField('subtitle', event.target.value)}
-                        placeholder="The all-in-one platform for lead generation..."
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="inner-card">
-                  <h3 style={{ marginTop: 0, marginBottom: 14 }}>Core routes</h3>
-                  <div className="list-stack">
-                    <div className="row-between"><span className="muted">Admin panel</span><code>/admin</code></div>
-                    <div className="row-between"><span className="muted">Client dashboard</span><code>/dashboard</code></div>
-                    <div className="row-between"><span className="muted">Leads module</span><code>/leads</code></div>
-                    <div className="row-between"><span className="muted">Labour module</span><code>/labour/company</code></div>
-                    <div className="row-between"><span className="muted">Vizora module</span><code>/vizora</code></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="inner-card">
-                <div className="panel-head">
-                  <div>
-                    <h3 style={{ marginTop: 0, marginBottom: 8 }}>Login page features</h3>
-                    <p className="panel-copy">Edit the icon and label pairs shown on the left side of the login page.</p>
-                  </div>
-                  <button className="secondary-btn" onClick={addLoginPageFeature}>
-                    Add feature
-                  </button>
-                </div>
-
-                <div className="list-stack">
-                  {loginPageSettings.features.map((feature, index) => (
-                    <div key={`${feature.icon}-${index}`} className="inner-card" style={{ padding: 14 }}>
-                      <div className="card-grid">
-                        <div className="field">
-                          <label>Icon</label>
-                          <input
-                            value={feature.icon}
-                            onChange={event => updateLoginPageFeature(index, 'icon', event.target.value)}
-                            placeholder="🎯"
-                          />
-                        </div>
-                        <div className="field">
-                          <label>Feature label</label>
-                          <input
-                            value={feature.text}
-                            onChange={event => updateLoginPageFeature(index, 'text', event.target.value)}
-                            placeholder="Google B2B Lead Extraction"
-                          />
-                        </div>
-                      </div>
-                      <div className="actions" style={{ marginTop: 12, justifyContent: 'flex-end' }}>
-                        <button
-                          className="danger-btn"
-                          onClick={() => removeLoginPageFeature(index)}
-                          disabled={loginPageSettings.features.length <= 1}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="card-grid">
-                <div className="inner-card">
-                  <h3 style={{ marginTop: 0, marginBottom: 14 }}>Recommended setup flow</h3>
-                  <div className="list-stack">
-                    <div className="muted">1. Create or edit modules with internal href or external customer link.</div>
-                    <div className="muted">2. Create a client and leave the password blank to auto-generate credentials.</div>
-                    <div className="muted">3. Assign modules and verify the dashboard count updates.</div>
-                    <div className="muted">4. Use password reset when a client needs new credentials later.</div>
-                  </div>
-                </div>
-
-                <div className="inner-card">
-                  <h3 style={{ marginTop: 0, marginBottom: 14 }}>Environment notes</h3>
-                  <div className="list-stack">
-                    <div className="muted">This panel expects Supabase tables for <code>clients</code>, <code>modules</code>, <code>client_modules</code>, and <code>login_page_settings</code>.</div>
-                    <div className="muted">Use the SQL file in <code>supabase/admin-client-management.sql</code> to create or repair those tables.</div>
-                    <div className="muted">If the login content saves with JSON fallback, add the <code>login_page_settings</code> table in Supabase for persistent production edits.</div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          ) : null}
+            </div>
+          ))}
         </div>
 
-        {showClientModal ? (
-          <div className="modal-overlay">
-            <div className="modal-card">
-              <div className="panel-head">
-                <div>
-                  <h2 className="panel-title">{selectedUser ? 'Edit client' : 'Create client'}</h2>
-                  <p className="panel-copy">
-                    {selectedUser
-                      ? 'Update the client profile and assigned modules.'
-                      : 'Leave the password blank to auto-generate a secure one.'}
-                  </p>
+        {generatedCredentials && (
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '18px', padding: '18px 20px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)' }}>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: '700', color: '#0f172a', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{generatedCredentials.title}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px' }}>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#64748b', fontWeight: '700' }}>Client ID</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#0f172a', wordBreak: 'break-all' }}>{generatedCredentials.clientId}</p>
                 </div>
-                <button className="secondary-btn" onClick={() => setShowClientModal(false)}>Close</button>
-              </div>
-
-              <div className="card-grid">
-                <div className="field">
-                  <label>Name</label>
-                  <input value={clientDraft.name} onChange={event => updateClientField('name', event.target.value)} />
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#64748b', fontWeight: '700' }}>Email</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#0f172a', wordBreak: 'break-all' }}>{generatedCredentials.email}</p>
                 </div>
-                <div className="field">
-                  <label>Email</label>
-                  <input type="email" value={clientDraft.email} onChange={event => updateClientField('email', event.target.value)} />
-                </div>
-                <div className="field">
-                  <label>Phone</label>
-                  <input value={clientDraft.phone} onChange={event => updateClientField('phone', event.target.value)} />
-                </div>
-                <div className="field">
-                  <label>Plan</label>
-                  <input value={clientDraft.plan} onChange={event => updateClientField('plan', event.target.value)} />
-                </div>
-                <div className="field">
-                  <label>Status</label>
-                  <select value={clientDraft.status} onChange={event => updateClientField('status', event.target.value as ClientDraft['status'])}>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label>{selectedUser ? 'Password' : 'Password (optional)'}</label>
-                  <input
-                    type="text"
-                    value={clientDraft.password}
-                    onChange={event => updateClientField('password', event.target.value)}
-                    placeholder={selectedUser ? 'Use reset password action instead' : 'Leave blank to auto-generate'}
-                    disabled={Boolean(selectedUser)}
-                  />
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#64748b', fontWeight: '700' }}>Temporary Password</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#0f172a', wordBreak: 'break-all' }}>{generatedCredentials.temporaryPassword}</p>
                 </div>
               </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button onClick={() => copyText(generatedCredentials.clientId, 'generated-client-id')} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '12px', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>
+                {copied === 'generated-client-id' ? 'Copied ID' : 'Copy ID'}
+              </button>
+              <button onClick={() => copyText(generatedCredentials.email, 'generated-client-email')} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '12px', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>
+                {copied === 'generated-client-email' ? 'Copied Email' : 'Copy Email'}
+              </button>
+              <button onClick={() => copyText(generatedCredentials.temporaryPassword, 'generated-client-password')} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '12px', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>
+                {copied === 'generated-client-password' ? 'Copied Password' : 'Copy Password'}
+              </button>
+              <button onClick={() => setGeneratedCredentials(null)} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', fontSize: '12px', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
-              <div className="field" style={{ marginTop: 20 }}>
-                <div className="selection-header">
-                  <label>Assigned modules</label>
-                  <div className="selection-summary">
-                    {clientDraft.moduleIds.length} selected of {modules.length}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+          {[{ key: 'modules', label: 'Module Management' }, { key: 'clients', label: 'Client Management' }].map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key as 'modules' | 'clients')} style={{ padding: '10px 20px', border: `1px solid ${activeTab === tab.key ? '#cbd5e1' : '#e2e8f0'}`, background: activeTab === tab.key ? '#ffffff' : '#f8fafc', color: activeTab === tab.key ? '#0f172a' : '#64748b', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: activeTab === tab.key ? '700' : '600', boxShadow: activeTab === tab.key ? '0 6px 18px rgba(15, 23, 42, 0.06)' : 'none' }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'modules' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>Module Management</h2>
+                <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Changes here now update the same server data used by client dashboards.</p>
+              </div>
+              <button onClick={startAddModule} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '11px 20px', borderRadius: '12px', cursor: 'pointer' }}>
+                + Add New Module
+              </button>
+            </div>
+
+            {(addingModule || editingModuleId) && ModuleForm}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '20px' }}>
+              {modules.map(module => (
+                <div key={module.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)' }}>
+                  <div style={{ height: '4px', background: '#e2e8f0' }} />
+                  <div style={{ padding: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', color: '#334155' }}>
+                        {module.icon || '◆'}
+                      </div>
+                      <span style={{ background: module.status === 'active' ? '#f0fdf4' : '#f8fafc', color: module.status === 'active' ? '#166534' : '#64748b', fontSize: '11px', padding: '4px 10px', borderRadius: '99px', fontWeight: '700', border: `1px solid ${module.status === 'active' ? '#bbf7d0' : '#e2e8f0'}` }}>
+                        {module.status === 'active' ? 'Live' : 'Coming Soon'}
+                      </span>
+                    </div>
+                    <h3 style={{ color: '#0f172a', fontSize: '15px', fontWeight: '700', margin: '0 0 4px' }}>{module.name}</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 6px' }}>{module.type || 'Standard'}</p>
+                    <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 12px', lineHeight: '1.6' }}>{module.description || 'No description yet.'}</p>
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 12px', marginBottom: '12px' }}>
+                      <p style={{ fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', margin: '0 0 6px' }}>Module Summary</p>
+                      <p style={{ fontSize: '12px', color: '#475569', lineHeight: '1.65', margin: 0 }}>{module.summary || 'No module summary added yet.'}</p>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
+                      {(module.features || []).map(feature => (
+                        <span key={feature} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: '10px', padding: '2px 8px', borderRadius: '99px' }}>
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+                    {module.customerLink && (
+                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '8px 10px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                        <p style={{ fontSize: '10px', color: '#16a34a', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{module.customerLink}</p>
+                        <button onClick={() => copyText(module.customerLink || '', module.id)} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '10px', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>
+                          {copied === module.id ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px', display: 'flex', gap: '8px' }}>
+                      <button onClick={() => startEditModule(module)} style={{ flex: 1, background: '#ffffff', color: '#0f172a', border: '1px solid #dbe2ea', fontSize: '12px', fontWeight: '700', padding: '9px', borderRadius: '10px', cursor: 'pointer' }}>
+                        Edit
+                      </button>
+                      {module.href && module.href !== '#' && (
+                        <Link href={module.href} target="_blank" style={{ flex: 1, background: '#0f172a', color: 'white', fontSize: '12px', fontWeight: '700', padding: '9px', borderRadius: '10px', textDecoration: 'none', textAlign: 'center' }}>
+                          Open
+                        </Link>
+                      )}
+                      <button onClick={() => deleteModule(module.id)} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '12px', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer' }}>
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="selection-grid">
-                  {modules.map(module => {
-                    const checked = clientDraft.moduleIds.includes(module.id)
-                    return (
-                      <div
-                        key={module.id}
-                        className={`selection-card ${checked ? 'active' : ''}`}
-                        onClick={() => toggleClientModule(module.id)}
-                      >
-                        <div className="row-between">
-                          <div>
-                            <div style={{ fontWeight: 800 }}>{moduleBadge(module)} {module.name}</div>
-                            <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>
-                              {module.type || 'Operations'}
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleClientModule(module.id)}
-                            onClick={event => event.stopPropagation()}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="actions" style={{ marginTop: 22, justifyContent: 'flex-end' }}>
-                <button className="secondary-btn" onClick={() => setShowClientModal(false)}>Cancel</button>
-                <button className="primary-btn" onClick={handleSaveClient} disabled={submitting}>
-                  {submitting ? 'Saving...' : selectedUser ? 'Save Client' : 'Create Client'}
-                </button>
-              </div>
+              ))}
             </div>
           </div>
-        ) : null}
+        )}
 
-        {showAssignModal && selectedUser ? (
-          <div className="modal-overlay">
-            <div className="modal-card">
-              <div className="panel-head">
-                <div>
-                  <h2 className="panel-title">Assign modules</h2>
-                  <p className="panel-copy">{selectedUser.name} · {selectedUser.email}</p>
+        {activeTab === 'clients' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>Client Management</h2>
+                <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Assign modules here and the client dashboard will update from the same backend records.</p>
+              </div>
+              <button onClick={() => setAddingClient(true)} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '13px', fontWeight: '700', padding: '11px 20px', borderRadius: '12px', cursor: 'pointer' }}>
+                + Add New Client
+              </button>
+            </div>
+
+            {addingClient && (
+              <div style={{ background: '#ffffff', border: '1px solid #dbe2ea', borderRadius: '18px', padding: '24px', marginBottom: '20px', boxShadow: '0 12px 30px rgba(15, 23, 42, 0.05)' }}>
+                <p style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 20px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Create Client</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={lbl}>Business Name *</label>
+                    <input value={clientDraft.name} onChange={event => setClientDraft(current => ({ ...current, name: event.target.value }))} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Email Address *</label>
+                    <input type="email" value={clientDraft.email} onChange={event => setClientDraft(current => ({ ...current, email: event.target.value }))} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Phone Number</label>
+                    <input value={clientDraft.phone} onChange={event => setClientDraft(current => ({ ...current, phone: event.target.value }))} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Subscription Plan</label>
+                    <select value={clientDraft.plan} onChange={event => setClientDraft(current => ({ ...current, plan: event.target.value }))} style={inp}>
+                      <option>Starter</option>
+                      <option>Growth</option>
+                      <option>Pro</option>
+                      <option>Custom</option>
+                    </select>
+                  </div>
                 </div>
-                <button className="secondary-btn" onClick={() => setShowAssignModal(false)}>Close</button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={saveClient} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '14px', fontWeight: '700', padding: '11px 24px', borderRadius: '12px', cursor: 'pointer' }}>
+                    Save Client
+                  </button>
+                  <button onClick={() => setAddingClient(false)} style={{ background: '#ffffff', color: '#475569', border: '1px solid #dbe2ea', fontSize: '13px', padding: '11px 20px', borderRadius: '12px', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                </div>
               </div>
+            )}
 
-              <div className="selection-header">
-                <div className="selection-summary">Choose the modules this client should see after login.</div>
-                <span className="chip neutral">{selectedModuleIds.length} assigned</span>
-              </div>
-
-              <div className="selection-grid">
-                {modules.map(module => {
-                  const checked = selectedModuleIds.includes(module.id)
-                  return (
-                    <div
-                      key={module.id}
-                      className={`selection-card ${checked ? 'active' : ''}`}
-                      onClick={() => toggleAssignedModule(module.id)}
-                    >
-                      <div className="row-between">
-                        <div>
-                          <div style={{ fontWeight: 800 }}>{moduleBadge(module)} {module.name}</div>
-                          <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>
-                            {(module.features || []).slice(0, 2).join(' · ') || 'No feature list added'}
-                          </div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleAssignedModule(module.id)}
-                          onClick={event => event.stopPropagation()}
-                        />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {clients.map(client => (
+                <div key={client.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)' }}>
+                  <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <div style={{ width: '46px', height: '46px', borderRadius: '14px', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '18px' }}>
+                        {client.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p style={{ margin: '0 0 2px', fontWeight: '700', color: '#0f172a', fontSize: '15px' }}>{client.name}</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{client.email}{client.phone ? ` · ${client.phone}` : ''}</p>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ background: '#f8fafc', color: '#334155', fontSize: '12px', padding: '5px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #e2e8f0' }}>{client.plan || 'Starter'}</span>
+                      <span style={{ background: '#f0fdf4', color: '#166534', fontSize: '12px', padding: '5px 12px', borderRadius: '99px', fontWeight: '600', border: '1px solid #bbf7d0' }}>{client.status || 'active'}</span>
+                      <span style={{ color: '#94a3b8', fontSize: '11px' }}>Joined {formatDate(client.createdAt)}</span>
+                      <button onClick={() => setEditingClientId(current => current === client.id ? null : client.id)} style={{ background: editingClientId === client.id ? '#0f172a' : '#ffffff', color: editingClientId === client.id ? '#ffffff' : '#475569', border: `1px solid ${editingClientId === client.id ? '#0f172a' : '#dbe2ea'}`, fontSize: '12px', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
+                        {editingClientId === client.id ? 'Done' : 'Edit Modules'}
+                      </button>
+                      <button onClick={() => resetClientPassword(client)} style={{ background: '#ffffff', color: '#2563eb', border: '1px solid #bfdbfe', fontSize: '12px', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
+                        Reset Password
+                      </button>
+                      <button onClick={() => deleteClient(client.id)} style={{ background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', fontSize: '12px', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
 
-              <div className="actions" style={{ marginTop: 22, justifyContent: 'flex-end' }}>
-                <button className="secondary-btn" onClick={() => setShowAssignModal(false)}>Cancel</button>
-                <button className="primary-btn" onClick={handleSaveAssignments} disabled={submitting}>
-                  {submitting ? 'Saving...' : 'Save Assignments'}
-                </button>
-              </div>
+                  <div style={{ padding: '20px 24px' }}>
+                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 14px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Assigned Modules ({client.assignedModuleIds.length}/{modules.length})
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '10px' }}>
+                      {modules.map(module => {
+                        const isAssigned = client.assignedModuleIds.includes(module.id)
+                        const isEditing = editingClientId === client.id
+                        return (
+                          <div key={`${client.id}-${module.id}`} onClick={() => isEditing && toggleClientModule(client.id, module.id)} style={{ padding: '12px 14px', border: `1px solid ${isAssigned ? module.color || '#2563eb' : '#e2e8f0'}`, background: isAssigned ? '#ffffff' : '#f8fafc', borderRadius: '12px', cursor: isEditing ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: isAssigned ? '0 6px 18px rgba(15, 23, 42, 0.04)' : 'none' }}>
+                            <div>
+                              <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{module.name}</p>
+                              <p style={{ margin: 0, fontSize: '10px', color: '#94a3b8' }}>{module.status === 'active' ? 'Live' : 'Coming Soon'}</p>
+                            </div>
+                            <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: isAssigned ? '#0f172a' : 'transparent', border: `2px solid ${isAssigned ? '#0f172a' : '#d1d5db'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', fontWeight: '700' }}>
+                              {isAssigned ? 'Yes' : ''}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {editingClientId === client.id && (
+                      <div style={{ marginTop: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
+                        <p style={{ margin: 0, fontSize: '12px', color: '#475569' }}>Click any module card above to toggle access on or off. The client dashboard will reflect the change from backend data.</p>
+                      </div>
+                    )}
+
+                    {client.assignedModules
+                      .filter(module => module.customerLink)
+                      .map(module => (
+                        <div key={`${client.id}-${module.id}-link`} style={{ marginTop: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                          <div>
+                            <p style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>{module.name} Access Link</p>
+                            <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>{module.customerLink}</p>
+                          </div>
+                          <button onClick={() => copyText(module.customerLink || '', `${client.id}-${module.id}`)} style={{ background: '#0f172a', color: 'white', border: 'none', fontSize: '12px', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
+                            {copied === `${client.id}-${module.id}` ? 'Copied' : 'Copy Link'}
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        ) : null}
-
-        {showModuleModal ? (
-          <div className="modal-overlay">
-            <div className="modal-card">
-              <div className="panel-head">
-                <div>
-                  <h2 className="panel-title">{moduleDraft.id ? 'Edit module' : 'Create module'}</h2>
-                  <p className="panel-copy">Configure launch behavior, appearance, and features for each module.</p>
-                </div>
-                <button className="secondary-btn" onClick={() => setShowModuleModal(false)}>Close</button>
-              </div>
-
-              <div className="card-grid">
-                <div className="field">
-                  <label>Module name</label>
-                  <input value={moduleDraft.name} onChange={event => updateModuleField('name', event.target.value)} />
-                </div>
-                <div className="field">
-                  <label>Slug</label>
-                  <input value={moduleDraft.slug} onChange={event => updateModuleField('slug', cleanSlug(event.target.value))} />
-                </div>
-                <div className="field">
-                  <label>Icon / badge</label>
-                  <input value={moduleDraft.icon} onChange={event => updateModuleField('icon', event.target.value)} />
-                </div>
-                <div className="field">
-                  <label>Type</label>
-                  <input value={moduleDraft.type} onChange={event => updateModuleField('type', event.target.value)} />
-                </div>
-                <div className="field">
-                  <label>Status</label>
-                  <select value={moduleDraft.status} onChange={event => updateModuleField('status', event.target.value as ModuleDraft['status'])}>
-                    <option value="active">Active</option>
-                    <option value="coming_soon">Coming soon</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label>Theme color</label>
-                  <input value={moduleDraft.color} onChange={event => updateModuleField('color', event.target.value)} />
-                </div>
-                <div className="field">
-                  <label>Internal href</label>
-                  <input value={moduleDraft.href} onChange={event => updateModuleField('href', event.target.value)} placeholder="/leads or /labour/company" />
-                </div>
-                <div className="field">
-                  <label>External customer link</label>
-                  <input value={moduleDraft.customerLink} onChange={event => updateModuleField('customerLink', event.target.value)} placeholder="https://..." />
-                </div>
-              </div>
-
-              <div className="field" style={{ marginTop: 20 }}>
-                <label>Description</label>
-                <textarea value={moduleDraft.description} onChange={event => updateModuleField('description', event.target.value)} />
-              </div>
-
-              <div className="field" style={{ marginTop: 20 }}>
-                <label>Features (one per line or comma separated)</label>
-                <textarea value={moduleDraft.featuresText} onChange={event => updateModuleField('featuresText', event.target.value)} />
-              </div>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 20, fontWeight: 700 }}>
-                <input
-                  type="checkbox"
-                  checked={moduleDraft.isActive}
-                  onChange={event => updateModuleField('isActive', event.target.checked)}
-                />
-                Mark this module as active and visible to assigned clients
-              </label>
-
-              <div className="actions" style={{ marginTop: 22, justifyContent: 'flex-end' }}>
-                <button className="secondary-btn" onClick={() => setShowModuleModal(false)}>Cancel</button>
-                <button className="primary-btn" onClick={handleSaveModule} disabled={submitting}>
-                  {submitting ? 'Saving...' : moduleDraft.id ? 'Save Module' : 'Create Module'}
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+        )}
       </div>
-    </>
+    </div>
   )
 }
+
+
+
+
+
+

@@ -24,6 +24,7 @@ export default async function DashboardPage() {
     name: module.name,
     slug: module.slug || module.name.toLowerCase().replace(/\s+/g, '-'),
     description: module.description || '',
+    summary: module.summary || '',
     isActive: module.isActive ?? module.status === 'active',
     isAssigned: assignedModuleIds.has(module.id),
     href: module.href || '#',

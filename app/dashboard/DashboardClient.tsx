@@ -17,6 +17,7 @@ type DashboardModule = {
   name: string
   slug?: string
   description?: string
+  summary?: string
   isActive?: boolean
   isAssigned?: boolean
   href?: string
@@ -202,6 +203,8 @@ export default function DashboardClient({
   const activeKey = activeModuleRecord ? resolveModuleKey(activeModuleRecord) : 'crm'
   const activeMeta = MODULE_META[activeKey] || MODULE_META.crm
   const activeHref = pickModuleHref(activeKey, activeModuleRecord)
+  const moduleDescription = activeModuleRecord?.description?.trim() || activeMeta.description
+  const moduleSummary = activeModuleRecord?.summary?.trim() || activeMeta.summary
   const featureList = useMemo(() => {
     if (Array.isArray(activeModuleRecord?.features) && activeModuleRecord.features.length > 0) {
       return activeModuleRecord.features
@@ -545,7 +548,7 @@ export default function DashboardClient({
                       {activeModuleRecord?.name || 'Module dashboard'}
                     </div>
                     <div style={{ fontSize: '14px', lineHeight: 1.7, color: '#4f607b', maxWidth: '640px' }}>
-                      {activeModuleRecord?.description || activeMeta.summary}
+                      {moduleDescription}
                     </div>
                   </div>
 
@@ -669,7 +672,7 @@ export default function DashboardClient({
                     {activeModuleRecord?.name || 'Module overview'}
                   </div>
                   <div style={{ fontSize: '14px', lineHeight: 1.7, color: '#475569', maxWidth: '720px' }}>
-                    {activeMeta.description}
+                    {moduleDescription}
                   </div>
                 </div>
 
@@ -820,7 +823,7 @@ export default function DashboardClient({
                   >
                     <div style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a', marginBottom: '8px' }}>Module summary</div>
                     <div style={{ fontSize: '13px', lineHeight: 1.7, color: '#475569' }}>
-                      {activeMeta.summary} {activeModuleRecord?.isAssigned
+                      {moduleSummary} {activeModuleRecord?.isAssigned
                         ? 'Your account already has access, so you can open the module directly from this dashboard.'
                         : 'It is shown here in inactive mode so you can review it without confusion before it is assigned.'}
                     </div>

@@ -239,22 +239,6 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div style={{ marginTop: '28px', padding: '20px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <p style={{ color: '#94a3b8', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                Admin Login
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                  <span style={{ color: '#64748b', fontSize: '13px' }}>Email</span>
-                  <span style={{ color: '#374655', fontSize: '13px', fontWeight: '600', fontFamily: 'monospace' }}>admin@scalevyapar.com</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                  <span style={{ color: '#64748b', fontSize: '13px' }}>Password</span>
-                  <span style={{ color: '#374655', fontSize: '13px', fontWeight: '600', fontFamily: 'monospace' }}>ScaleVyapar@2026</span>
-                </div>
-              </div>
-            </div>
-
             <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '13px', marginTop: '24px' }}>
               ScaleVyapar © 2026 · Business Automation Platform
             </p>

@@ -85,6 +85,7 @@ const mapClientRow = (row: {
 const getDefaultModuleHref = (slug: string) => {
   if (slug === 'vizora') return '/vizora'
   if (slug === 'leads') return '/leads'
+  if (slug === 'rozgar') return '/labour/company/search'
   return '#'
 }
 

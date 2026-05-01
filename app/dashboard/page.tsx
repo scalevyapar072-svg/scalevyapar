@@ -267,7 +267,7 @@ export default function DashboardPage() {
                 <a href="/labour/company/search" style={{ background: '#0f172a', color: 'white', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700', boxShadow: '0 8px 20px rgba(15,23,42,0.14)' }}>
                   Search Labour
                 </a>
-                <a href="/labour/company/panel" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700' }}>
+                <a href="/labour/company/panel" target="_blank" rel="noopener noreferrer" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700' }}>
                   Receive Worker Applications
                 </a>
               </div>

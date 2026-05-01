@@ -96,13 +96,19 @@ export default function DashboardPage() {
     const fetchData = async () => {
       try {
         // Get current user
-        const meRes = await fetch('/api/auth/me')
+        const meRes = await fetch('/api/auth/me', {
+          cache: 'no-store',
+          credentials: 'same-origin'
+        })
         if (!meRes.ok) { router.push('/login'); return }
         const meData = await meRes.json()
         setUser(meData.user)
 
         // Get assigned modules
-        const modRes = await fetch('/api/dashboard/modules')
+        const modRes = await fetch('/api/dashboard/modules', {
+          cache: 'no-store',
+          credentials: 'same-origin'
+        })
         if (modRes.ok) {
           const modData = await modRes.json()
           const mods = modData.modules || []

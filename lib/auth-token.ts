@@ -82,6 +82,11 @@ export async function verifyPasswordResetToken(token: string): Promise<PasswordR
 }
 
 export function createAuthCookie(token: string) {
+  const productionDomain =
+    process.env.NODE_ENV === 'production'
+      ? '.scalevyapar.in'
+      : undefined
+
   return {
     name: 'auth-token',
     value: token,
@@ -90,7 +95,8 @@ export function createAuthCookie(token: string) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax' as const,
       maxAge: 7 * 24 * 60 * 60,
-      path: '/'
+      path: '/',
+      domain: productionDomain
     }
   }
 }

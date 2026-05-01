@@ -1,10 +1,8 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -43,11 +41,7 @@ export default function LoginPage() {
       const data = await res.json().catch(() => ({ error: 'Unexpected response from server.' }))
 
       if (res.ok && data.success) {
-        if (data.role === 'ADMIN') {
-          router.push('/admin')
-        } else {
-          router.push('/dashboard')
-        }
+        window.location.href = data.role === 'ADMIN' ? '/admin' : '/dashboard'
         return
       }
 

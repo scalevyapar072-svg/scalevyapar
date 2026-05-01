@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from '@/lib/auth-token'
+import { AUTH_COOKIE_NAME, LEGACY_AUTH_COOKIE_NAME, verifyToken } from '@/lib/auth-token'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
     process.env.NODE_ENV !== 'production' &&
     (request.nextUrl.hostname === '127.0.0.1' || request.nextUrl.hostname === 'localhost')
 
-  if (pathname === '/login' || pathname === '/reset-password' || pathname.startsWith('/api/auth')) {
+  if (pathname === '/login' || pathname.startsWith('/api/auth')) {
     return NextResponse.next()
   }
 
@@ -15,7 +15,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const authToken = request.cookies.get('auth-token')?.value
+  const authToken = request.cookies.get(AUTH_COOKIE_NAME)?.value || request.cookies.get(LEGACY_AUTH_COOKIE_NAME)?.value
   if (!authToken) {
     return NextResponse.redirect(new URL('/login', request.url))
   }

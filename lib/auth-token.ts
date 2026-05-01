@@ -3,6 +3,8 @@ import { SignJWT, jwtVerify } from 'jose'
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'scalevyapar-secret-key-2024'
 )
+export const AUTH_COOKIE_NAME = 'scalevyapar-auth'
+export const LEGACY_AUTH_COOKIE_NAME = 'auth-token'
 
 export interface User {
   id: string
@@ -88,7 +90,7 @@ export function createAuthCookie(token: string) {
       : undefined
 
   return {
-    name: 'auth-token',
+    name: AUTH_COOKIE_NAME,
     value: token,
     options: {
       httpOnly: true,
@@ -106,9 +108,19 @@ export function getTokenFromCookieHeader(cookieHeader: string | null): string | 
     return null
   }
 
-  return cookieHeader
+  const cookies = cookieHeader
     .split(';')
     .map(cookie => cookie.trim())
-    .find(cookie => cookie.startsWith('auth-token='))
+
+  const nextCookie = cookies
+    .find(cookie => cookie.startsWith(`${AUTH_COOKIE_NAME}=`))
+    ?.split('=')[1]
+
+  if (nextCookie) {
+    return nextCookie
+  }
+
+  return cookies
+    .find(cookie => cookie.startsWith(`${LEGACY_AUTH_COOKIE_NAME}=`))
     ?.split('=')[1] || null
 }

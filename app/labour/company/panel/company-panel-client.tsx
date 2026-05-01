@@ -128,15 +128,53 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
 
     const stored = localStorage.getItem(COMPANY_TOKEN_KEY)
     if (!stored) {
-      setLoading(false)
+      fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
+        .then(async response => {
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error(data.error || 'Company dashboard session was not found.')
+          }
+
+          const authToken = String(data.token || '')
+          if (!authToken) {
+            throw new Error('Company token is missing from the dashboard session response.')
+          }
+
+          setDashboard(data.dashboard as CompanyDashboard)
+          setToken(authToken)
+          localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+        })
+        .catch(() => {
+          setToken(null)
+          setDashboard(null)
+        })
+        .finally(() => setLoading(false))
       return
     }
 
     loadDashboard(stored)
       .catch(() => {
         localStorage.removeItem(COMPANY_TOKEN_KEY)
-        setToken(null)
-        setDashboard(null)
+        return fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
+          .then(async response => {
+            const data = await response.json()
+            if (!response.ok) {
+              throw new Error(data.error || 'Company dashboard session was not found.')
+            }
+
+            const authToken = String(data.token || '')
+            if (!authToken) {
+              throw new Error('Company token is missing from the dashboard session response.')
+            }
+
+            setDashboard(data.dashboard as CompanyDashboard)
+            setToken(authToken)
+            localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+          })
+          .catch(() => {
+            setToken(null)
+            setDashboard(null)
+          })
       })
       .finally(() => setLoading(false))
   }, [signinMode])

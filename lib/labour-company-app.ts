@@ -171,6 +171,45 @@ export const loginCompanyApp = async (email: string, identity: string) => {
   }
 }
 
+export const loginCompanyAppFromDashboard = async (email: string, fallbackIdentity?: string) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const normalizedEmail = normalizeEmail(email)
+  const normalizedFallbackIdentity = normalizeName(fallbackIdentity || '')
+
+  const company = snapshot.companies.find(item => {
+    if (normalizeEmail(item.email) !== normalizedEmail) {
+      return false
+    }
+
+    if (!normalizedFallbackIdentity) {
+      return true
+    }
+
+    return (
+      normalizeName(item.companyName) === normalizedFallbackIdentity ||
+      normalizeName(item.contactPerson) === normalizedFallbackIdentity
+    )
+  }) || snapshot.companies.find(item => normalizeEmail(item.email) === normalizedEmail)
+
+  if (!company) {
+    throw new Error('No registered company was found for this dashboard account.')
+  }
+
+  if (company.status === 'blocked') {
+    throw new Error('This company account is blocked. Please contact labour support.')
+  }
+
+  const token = await signCompanyToken({
+    companyId: company.id,
+    email: normalizedEmail
+  })
+
+  return {
+    token,
+    dashboard: await getCompanyAppDashboard(company.id)
+  }
+}
+
 export const requireCompanyApp = async (request: NextRequest): Promise<CompanyAppTokenPayload> => {
   const authorization = request.headers.get('authorization') || ''
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : ''

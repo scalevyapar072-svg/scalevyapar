@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs'
+﻿import bcrypt from 'bcryptjs'
 import { supabaseAdmin } from './supabase-admin'
 
 export interface UserRecord {
@@ -431,6 +431,19 @@ export const updateUserModules = async (userId: string, moduleIds: string[]): Pr
   }
 }
 
+export const updateUserPassword = async (userId: string, password: string): Promise<void> => {
+  const hashedPassword = await bcrypt.hash(password, 10)
+
+  const { error } = await supabaseAdmin
+    .from('clients')
+    .update({ password_hash: hashedPassword })
+    .eq('id', userId)
+
+  if (error) {
+    throw new Error(`Failed to update user password: ${error.message}`)
+  }
+}
+
 export const deleteUser = async (userId: string): Promise<void> => {
   const { error } = await supabaseAdmin
     .from('clients')
@@ -537,7 +550,7 @@ export const createModule = async (input: ModuleInput): Promise<ModuleRecord> =>
       description: input.description || '',
       status: input.status || (input.isActive ? 'active' : 'coming_soon'),
       type: input.type || 'Standard',
-      icon: input.icon || '◆',
+      icon: input.icon || 'â—†',
       href: input.href || '#',
       customer_link: input.customerLink || '',
       features: input.features || [],
@@ -594,6 +607,8 @@ export const deleteModuleById = async (id: string): Promise<void> => {
     throw new Error(`Failed to delete module: ${error.message}`)
   }
 }
+
+
 
 
 

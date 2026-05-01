@@ -24,6 +24,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ modules })
   } catch (error) {
     console.error('Dashboard modules error:', error)
-    return NextResponse.json({ modules: [] })
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to load dashboard modules',
+        modules: []
+      },
+      { status: 500 }
+    )
   }
 }

@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
     process.env.NODE_ENV !== 'production' &&
     (request.nextUrl.hostname === '127.0.0.1' || request.nextUrl.hostname === 'localhost')
 
-  if (pathname === '/login' || pathname.startsWith('/api/auth')) {
+  if (pathname === '/login' || pathname === '/reset-password' || pathname.startsWith('/api/auth')) {
     return NextResponse.next()
   }
 

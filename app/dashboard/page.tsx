@@ -107,7 +107,7 @@ export default function DashboardPage() {
           const modData = await modRes.json()
           const mods = modData.modules || []
           setModules(mods)
-          if (mods.length > 0) setActiveModule(mods[0].slug || mods[0].name?.toLowerCase())
+          if (mods.length > 0) setActiveModule(resolveModuleKey(mods[0]))
         }
       } catch (e) {
         router.push('/login')
@@ -212,7 +212,7 @@ export default function DashboardPage() {
               <p style={{ fontSize: '12px', color: '#94a3b8', padding: '12px', textAlign: 'center' }}>No modules assigned yet</p>
             ) : (
               modules.map((mod: any) => {
-                const slug = mod.slug || mod.name?.toLowerCase()
+                const slug = resolveModuleKey(mod)
                 const cfg = MODULE_CONFIG[slug] || { icon: 'M', color: '#64748b', bg: 'linear-gradient(135deg,#64748b,#475569)', isLive: mod.isActive }
                 const isActive = activeModule === slug
                 return (

@@ -359,22 +359,24 @@ const getWorkerPlan = (plans: LabourPlanRecord[]) =>
   plans.find(plan => plan.audience === 'worker' && plan.isActive) || null
 
 const deriveActivationSummary = (worker: LabourWorkerRecord, workerPlan: LabourPlanRecord | null): WorkerAppActivationSummary => {
-  if (worker.status === 'blocked') {
+  const effectiveStatus = deriveWorkerStatus(worker)
+
+  if (effectiveStatus === 'blocked') {
     return {
       isActive: false,
       canViewCompanyDetails: false,
-      status: worker.status,
+      status: effectiveStatus,
       headline: 'Account blocked',
       description: 'Your worker account is currently blocked by admin. Please contact support.',
       recommendedAction: 'Contact support'
     }
   }
 
-  if (worker.status === 'rejected') {
+  if (effectiveStatus === 'rejected') {
     return {
       isActive: false,
       canViewCompanyDetails: false,
-      status: worker.status,
+      status: effectiveStatus,
       headline: 'Profile not approved',
       description: 'Your worker profile was rejected or needs correction before activation.',
       recommendedAction: 'Update profile and contact support'
@@ -385,29 +387,29 @@ const deriveActivationSummary = (worker: LabourWorkerRecord, workerPlan: LabourP
     return {
       isActive: false,
       canViewCompanyDetails: false,
-      status: worker.status,
+      status: effectiveStatus,
       headline: 'Complete your registration',
       description: 'Upload your photo, identity proof, and work details so your worker account can be submitted for approval.',
       recommendedAction: 'Finish registration'
     }
   }
 
-  if (worker.status === 'pending') {
+  if (effectiveStatus === 'pending') {
     return {
       isActive: false,
       canViewCompanyDetails: false,
-      status: worker.status,
+      status: effectiveStatus,
       headline: 'Registration under review',
       description: 'Your worker account was submitted successfully and is waiting for admin verification.',
       recommendedAction: 'Wait for approval'
     }
   }
 
-  if (worker.walletBalance <= 0) {
+  if (effectiveStatus === 'inactive_wallet_empty') {
     return {
       isActive: false,
       canViewCompanyDetails: false,
-      status: worker.status,
+      status: effectiveStatus,
       headline: 'Recharge required',
       description: 'Your wallet balance is empty. Company details stay locked until your worker access becomes active again.',
       recommendedAction: workerPlan ? `Recharge at least Rs ${workerPlan.planAmount}` : 'Recharge wallet'
@@ -415,9 +417,9 @@ const deriveActivationSummary = (worker: LabourWorkerRecord, workerPlan: LabourP
   }
 
   return {
-    isActive: worker.status === 'active',
-    canViewCompanyDetails: worker.status === 'active',
-    status: worker.status,
+    isActive: effectiveStatus === 'active',
+    canViewCompanyDetails: effectiveStatus === 'active',
+    status: effectiveStatus,
     headline: 'Worker access is active',
     description: workerPlan
       ? `Your wallet is active. Daily deduction is Rs ${workerPlan.dailyCharge} and company details are unlocked.`

@@ -179,7 +179,6 @@ const defaultContent: LabourCompanyWebsiteContent = {
       { label: 'Home', href: '/labour/company' },
       { label: 'Pricing', href: '/labour/company/pricing' },
       { label: 'Search Labour', href: '/labour/company/search' },
-      { label: 'Sign In', href: '/labour/company/signin' },
       { label: 'Contact', href: '/labour/company/contact' }
     ]
   },
@@ -201,7 +200,6 @@ const defaultContent: LabourCompanyWebsiteContent = {
       {
         title: 'Support',
         links: [
-          { label: 'Sign In', href: '/labour/company/signin' },
           { label: 'Contact Us', href: '/labour/company/contact' },
           { label: 'Admin Website Editor', href: '/admin/labour/website' }
         ]

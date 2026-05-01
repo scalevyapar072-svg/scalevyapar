@@ -1,339 +1,329 @@
-'use client'
-
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-interface User {
-  id: string
-  name: string
-  email: string
-  role: string
-}
-
-interface Module {
-  id: string
-  name: string
-  slug: string
-  icon?: string
-  description?: string
-  isLive?: boolean
-  accessLink?: string
+const MODULE_CONFIG: Record<string, {
+  icon: string
+  color: string
+  bg: string
+  description: string
+  features: string[]
+  href: string
+  isLive: boolean
+}> = {
+  vizora: {
+    icon: 'âœ¦',
+    color: '#7c3aed',
+    bg: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+    description: 'AI-powered photo, video and ad creation studio for fashion sellers.',
+    features: ['AI Photo Generator', 'Photo Upscaler 4x', 'Video Ad Generator', 'UGC Ads Creator', 'Magic Eraser'],
+    href: '/vizora',
+    isLive: true,
+  },
+  leads: {
+    icon: 'ðŸŽ¯',
+    color: '#0284c7',
+    bg: 'linear-gradient(135deg,#0284c7,#0369a1)',
+    description: 'Extract B2B leads from Google Maps by location and business type.',
+    features: ['Google Maps Scraper', 'Filter by Location', 'Filter by Business Type', 'Export to CSV'],
+    href: '/leads',
+    isLive: true,
+  },
+  crm: {
+    icon: 'ðŸ“ž',
+    color: '#059669',
+    bg: 'linear-gradient(135deg,#059669,#047857)',
+    description: 'Track calls, follow-ups, notes and lead status â€” Hot / Warm / Cold.',
+    features: ['Call Tracking', 'Follow-up Reminders', 'Lead Status', 'Notes & History'],
+    href: '/leads',
+    isLive: true,
+  },
+  whatsapp: {
+    icon: 'ðŸ’¬',
+    color: '#16a34a',
+    bg: 'linear-gradient(135deg,#25d366,#128c7e)',
+    description: 'Chatbot, bulk messaging, auto replies and lead nurturing via WhatsApp.',
+    features: ['Chatbot', 'Bulk Messaging', 'Auto Replies', 'Lead Nurturing'],
+    href: '/leads',
+    isLive: true,
+  },
+  shopify: {
+    icon: 'ðŸ›’',
+    color: '#96bf48',
+    bg: 'linear-gradient(135deg,#96bf48,#5e8e3e)',
+    description: 'Shopify store setup, product catalog, pricing and order management.',
+    features: ['Shopify Setup', 'Product Catalog', 'Order Management', 'Pricing'],
+    href: '/leads',
+    isLive: true,
+  },
+  inventory: {
+    icon: 'ðŸ“¦',
+    color: '#d97706',
+    bg: 'linear-gradient(135deg,#d97706,#b45309)',
+    description: 'Raw materials, production tracking, orders and dispatch management.',
+    features: ['Inventory Management', 'Production Tracking', 'Raw Materials', 'Dispatch'],
+    href: '/leads',
+    isLive: true,
+  },
+  chatbot: {
+    icon: 'ðŸ¤–',
+    color: '#db2777',
+    bg: 'linear-gradient(135deg,#db2777,#9d174d)',
+    description: 'AI chatbot for customer support and lead qualification.',
+    features: ['Customer Support', 'Lead Qualification', 'Auto Replies', 'Multi-channel'],
+    href: '/leads',
+    isLive: true,
+  },
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [modules, setModules] = useState<Module[]>([])
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [modules, setModules] = useState<any[]>([])
   const [activeModule, setActiveModule] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const router = useRouter()
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Get current user
+        const meRes = await fetch('/api/auth/me')
+        if (!meRes.ok) { router.push('/login'); return }
+        const meData = await meRes.json()
+        setUser(meData.user)
 
-  const loadData = async () => {
-    try {
-      const authRes = await fetch('/api/auth/me')
-      if (!authRes.ok) { router.push('/login'); return }
-      const authData = await authRes.json()
-      if (!authData.user || authData.user.role !== 'CLIENT') { router.push('/login'); return }
-      setUser(authData.user)
-      const modulesRes = await fetch('/api/dashboard/modules')
-      if (modulesRes.ok) {
-        const data = await modulesRes.json()
-        const list = Array.isArray(data.modules) ? data.modules : []
-        setModules(list)
-        if (list.length > 0) setActiveModule(list[0].slug)
+        // Get assigned modules
+        const modRes = await fetch('/api/dashboard/modules')
+        if (modRes.ok) {
+          const modData = await modRes.json()
+          const mods = modData.modules || []
+          setModules(mods)
+          if (mods.length > 0) setActiveModule(mods[0].slug || mods[0].name?.toLowerCase())
+        }
+      } catch (e) {
+        router.push('/login')
+      } finally {
+        setLoading(false)
       }
-    } catch (error) {
-      router.push('/login')
-    } finally {
-      setLoading(false)
     }
-  }
+    fetchData()
+  }, [router])
 
-  const handleLogout = async () => {
+  const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/login')
   }
 
-  const getEmoji = (slug: string) => {
-    const map: any = { leads: '🎯', crm: '👥', whatsapp: '💬', shopify: '🛒', inventory: '📦', vizora: '📸' }
-    return map[slug] || '📌'
-  }
-
-  const getDescription = (slug: string) => {
-    const map: any = {
-      leads: 'Extract B2B leads from Google Maps. Filter by location, business type and keywords to build your prospect database.',
-      crm: 'Manage customer relationships, track calls, set follow-up reminders and monitor your sales pipeline.',
-      whatsapp: 'Send bulk WhatsApp messages, set up chatbot automation and run lead nurturing campaigns.',
-      shopify: 'Manage your Shopify store orders, products, pricing and customer data from one place.',
-      inventory: 'Track stock levels, manage raw materials, monitor production orders and dispatch in real time.',
-      vizora: 'Generate professional AI photos and videos for your products instantly.'
-    }
-    return map[slug] || 'This module is coming soon with powerful automation features.'
-  }
-
-  const getFeatures = (slug: string) => {
-    const map: any = {
-      leads: ['Google Maps extraction', 'Filter by location and type', 'Export to CRM', 'Bulk import leads'],
-      crm: ['Contact management', 'Call tracking', 'Follow-up reminders', 'Deal pipeline'],
-      whatsapp: ['Bulk messaging', 'Chatbot automation', 'Lead nurturing', 'Broadcast campaigns'],
-      shopify: ['Order management', 'Product catalog', 'Customer data', 'Sales reports'],
-      inventory: ['Stock tracking', 'Raw material management', 'Production orders', 'Dispatch tracking'],
-      vizora: ['AI photo generation', 'Video ad creation', 'Multiple poses', 'Instant download']
-    }
-    return map[slug] || ['Coming soon']
-  }
-
-  const getLiveLink = (slug: string) => {
-    const map: any = {
-      leads: 'https://leadradar-production-ffa0.up.railway.app',
-      vizora: '/vizora'
-    }
-    return map[slug] || null
-  }
-
-  const activeModuleData = modules.find(m => m.slug === activeModule)
-  const liveLink = activeModuleData ? getLiveLink(activeModuleData.slug) : null
-
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', fontFamily: 'system-ui' }}>
+    <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center' }}>
-        <img src="/logo.png" alt="ScaleVyapar" style={{ height: '40px', marginBottom: '16px' }} />
-        <p style={{ color: '#64748b' }}>Loading your dashboard...</p>
+        <div style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+        <p style={{ color: '#64748b', fontSize: '14px' }}>Loading your dashboard...</p>
       </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 
+  const activeSlug = activeModule
+  const activeConfig = activeSlug ? MODULE_CONFIG[activeSlug] || MODULE_CONFIG['crm'] : null
+  const activeModData = modules.find((m: any) => (m.slug || m.name?.toLowerCase()) === activeSlug)
+
   return (
-    <>
-      <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: system-ui, sans-serif; }
-        .dash-layout { min-height: 100vh; background: #f8fafc; padding-bottom: 70px; }
-        .dash-header { background: #374655; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: sticky; top: 0; z-index: 100; }
-        .dash-body { display: flex; min-height: calc(100vh - 64px); }
-        .dash-sidebar { width: 260px; background: #374655; padding: 24px 16px; flex-shrink: 0; }
-        .dash-content { flex: 1; padding: 32px; overflow-y: auto; }
-        .module-nav-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; cursor: pointer; margin-bottom: 6px; font-size: 14px; font-weight: 500; border-left: 3px solid transparent; color: rgba(255,255,255,0.6); transition: all 0.15s; }
-        .module-nav-item:hover { background: rgba(255,255,255,0.08); color: white; }
-        .module-nav-item.active { background: rgba(255,255,255,0.12); color: white; border-left-color: white; font-weight: 600; }
-        .module-icon-box { width: 32px; height: 32px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-        .module-icon-box.active { background: rgba(255,255,255,0.2); }
-        .feature-chip { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
-        .live-badge { background: #f0fdf4; color: #16a34a; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #bbf7d0; }
-        .soon-badge { background: #fef9c3; color: #a16207; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #fde68a; }
-        .open-btn { background: #374655; color: white; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s; }
-        .open-btn:hover { background: #4a5a6a; }
-        .hamburger { display: none; background: none; border: none; cursor: pointer; color: white; font-size: 24px; }
-        .bottom-nav { display: none; }
-        @media (max-width: 768px) {
-          .dash-sidebar { position: fixed; left: -260px; top: 0; height: 100vh; z-index: 150; transition: left 0.3s; padding-top: 80px; }
-          .dash-sidebar.open { left: 0; }
-          .hamburger { display: block; }
-          .dash-content { padding: 16px; }
-          .hide-mobile { display: none; }
-          .features-grid { grid-template-columns: 1fr !important; }
-          .mobile-overlay.open { display: block !important; }
-          .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e2e8f0; z-index: 50; }
-          .bottom-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 4px; background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 10px; font-weight: 500; gap: 2px; }
-          .bottom-nav-item.active { color: #374655; }
-          .bottom-nav-item span:first-child { font-size: 20px; }
-        }
-      `}</style>
+    <div style={{ minHeight: '100vh', background: '#f0f4f8', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
-      <div className="dash-layout">
-
-        {/* Header */}
-        <div className="dash-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button className="hamburger" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
-            <img src="/logo.png" alt="ScaleVyapar" style={{ height: '32px', width: 'auto' }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div className="hide-mobile" style={{ textAlign: 'right' }}>
-              <p style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>{user?.name}</p>
-              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>Client Account</p>
-            </div>
-            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '14px' }}>
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
-              Logout
-            </button>
+      {/* Top Nav */}
+      <div style={{ background: 'white', borderBottom: '1px solid #e2e8f0', padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg,#0284c7,#0369a1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '14px' }}>SV</div>
+          <div>
+            <p style={{ margin: 0, fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>ScaleVyapar</p>
+            <p style={{ margin: 0, fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Business Dashboard</p>
           </div>
         </div>
-
-        {/* Mobile overlay */}
-        <div className={`mobile-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} style={{ display: 'none', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 140 }} />
-
-        <div className="dash-body">
-
-          {/* Sidebar */}
-          <div className={`dash-sidebar ${sidebarOpen ? 'open' : ''}`}>
-
-            {/* Welcome card */}
-            <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px', marginBottom: '24px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>Welcome back</p>
-              <p style={{ color: 'white', fontSize: '15px', fontWeight: '700', marginBottom: '8px' }}>{user?.name}</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '8px', height: '8px', background: '#4ade80', borderRadius: '50%' }} />
-                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>{modules.length} modules active</span>
-              </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg,#0284c7,#0369a1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '14px' }}>
+              {user?.name?.charAt(0)?.toUpperCase() || 'N'}
             </div>
+            <div>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{user?.name || 'Client'}</p>
+              <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>Client Account</p>
+            </div>
+          </div>
+          <button onClick={logout} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '12px', padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Logout</button>
+        </div>
+      </div>
 
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 8px 12px' }}>Your Modules</p>
+      <div style={{ display: 'flex', minHeight: 'calc(100vh - 56px)' }}>
 
+        {/* Sidebar */}
+        <div style={{ width: '220px', background: 'white', borderRight: '1px solid #e2e8f0', padding: '20px 12px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+
+          {/* User card */}
+          <div style={{ background: 'linear-gradient(135deg,#0284c7,#0369a1)', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
+            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Welcome Back</p>
+            <p style={{ fontSize: '14px', fontWeight: '700', color: 'white', margin: '0 0 6px' }}>{user?.name || 'Client'}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80' }} />
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)', margin: 0 }}>{modules.length} modules active</p>
+            </div>
+          </div>
+
+          <p style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700', margin: '0 0 10px 4px' }}>Your Modules</p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
             {modules.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}>
-                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>No modules assigned yet</p>
-              </div>
+              <p style={{ fontSize: '12px', color: '#94a3b8', padding: '12px', textAlign: 'center' }}>No modules assigned yet</p>
             ) : (
-              modules.map(module => (
-                <div key={module.id} onClick={() => { setActiveModule(module.slug); setSidebarOpen(false) }} className={`module-nav-item ${activeModule === module.slug ? 'active' : ''}`}>
-                  <div className={`module-icon-box ${activeModule === module.slug ? 'active' : ''}`}>
-                    {module.icon || getEmoji(module.slug)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <span>{module.name}</span>
-                    {getLiveLink(module.slug) && (
-                      <span style={{ display: 'block', color: '#4ade80', fontSize: '10px', fontWeight: '600' }}>● Live</span>
-                    )}
-                  </div>
-                </div>
-              ))
+              modules.map((mod: any) => {
+                const slug = mod.slug || mod.name?.toLowerCase()
+                const cfg = MODULE_CONFIG[slug] || { icon: 'â—†', color: '#64748b', bg: 'linear-gradient(135deg,#64748b,#475569)', isLive: mod.isActive }
+                const isActive = activeModule === slug
+                return (
+                  <button key={mod.id || slug} onClick={() => setActiveModule(slug)} style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${isActive ? cfg.color + '60' : '#f1f5f9'}`, background: isActive ? cfg.color + '12' : 'transparent', borderRadius: '10px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.15s' }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isActive ? cfg.bg : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>
+                      {cfg.icon}
+                    </div>
+                    <div>
+                      <p style={{ margin: '0 0 1px', fontSize: '12px', fontWeight: '600', color: isActive ? cfg.color : '#374151' }}>{mod.name}</p>
+                      {(cfg.isLive || mod.isActive) && (
+                        <p style={{ margin: 0, fontSize: '10px', color: '#16a34a', fontWeight: '600' }}>â— Live</p>
+                      )}
+                    </div>
+                  </button>
+                )
+              })
             )}
           </div>
 
-          {/* Main Content */}
-          <div className="dash-content">
+          {/* Overview */}
+          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px', marginTop: '16px' }}>
+            <p style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700', margin: '0 0 8px' }}>Overview</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>Modules</span>
+              <span style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>{modules.length}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>Status</span>
+              <span style={{ fontSize: '12px', fontWeight: '700', color: '#16a34a' }}>Active</span>
+            </div>
+          </div>
+        </div>
 
-            {/* Welcome Banner */}
-            <div style={{ background: '#374655', borderRadius: '20px', padding: '28px', marginBottom: '24px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '200px', height: '200px', background: 'rgba(255,255,255,0.04)', borderRadius: '50%' }} />
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <h1 style={{ color: 'white', fontSize: '24px', fontWeight: '800', marginBottom: '8px' }}>
-                  Hello, {user?.name}! 👋
-                </h1>
-                <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', marginBottom: '16px' }}>
-                  You have {modules.length} automation module{modules.length !== 1 ? 's' : ''} ready to use.
+        {/* Main content */}
+        <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+
+          {/* Welcome banner */}
+          <div style={{ background: 'linear-gradient(135deg,#0284c7,#0369a1)', borderRadius: '16px', padding: '28px 32px', marginBottom: '24px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', right: '-20px', top: '-20px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+            <div style={{ position: 'absolute', right: '60px', bottom: '-40px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your Business Dashboard</p>
+            <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'white', margin: '0 0 8px' }}>Hello, {user?.name || 'Client'}! ðŸ‘‹</h1>
+            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)', margin: '0 0 20px' }}>
+              You have {modules.length} automation module{modules.length !== 1 ? 's' : ''} ready. Click any module to explore.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {modules.map((mod: any) => {
+                const slug = mod.slug || mod.name?.toLowerCase()
+                const cfg = MODULE_CONFIG[slug] || { icon: 'â—†', color: '#64748b' }
+                return (
+                  <button key={mod.id || slug} onClick={() => setActiveModule(slug)} style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', fontSize: '12px', padding: '6px 14px', borderRadius: '99px', cursor: 'pointer', fontWeight: '600', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span>{cfg.icon}</span> {mod.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: '24px 28px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
+              <div style={{ maxWidth: '620px' }}>
+                <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', letterSpacing: '0.6px', color: '#0284c7', textTransform: 'uppercase' }}>Labour tools</p>
+                <h2 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>Search labour and receive worker applications from one place</h2>
+                <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.7, color: '#64748b' }}>
+                  Use the labour dashboard shortcuts below to browse active workers and handle incoming worker applications without going back to the public company website.
                 </p>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {modules.map(m => (
-                    <span key={m.id} onClick={() => setActiveModule(m.slug)} style={{ background: 'rgba(255,255,255,0.12)', color: 'white', padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '500', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }}>
-                      {m.icon || getEmoji(m.slug)} {m.name}
-                    </span>
-                  ))}
-                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <a href="/labour/company/search" style={{ background: '#0f172a', color: 'white', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700', boxShadow: '0 8px 20px rgba(15,23,42,0.14)' }}>
+                  Search Labour
+                </a>
+                <a href="/labour/company/signin" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700' }}>
+                  Receive Worker Applications
+                </a>
               </div>
             </div>
+          </div>
 
-            {/* Active Module Detail */}
-            {activeModuleData && (
-              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '20px', overflow: 'hidden', marginBottom: '24px' }}>
-
-                {/* Module Header */}
-                <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '20px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <div style={{ width: '52px', height: '52px', background: '#374655', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
-                      {activeModuleData.icon || getEmoji(activeModuleData.slug)}
-                    </div>
-                    <div>
-                      <h2 style={{ color: '#1e293b', fontSize: '20px', fontWeight: '800', marginBottom: '2px' }}>{activeModuleData.name}</h2>
-                      <p style={{ color: '#94a3b8', fontSize: '13px' }}>Business Automation Module</p>
-                    </div>
+          {/* Active module content */}
+          {activeModule && activeConfig && activeModData ? (
+            <div style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+              {/* Module header */}
+              <div style={{ padding: '24px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: activeConfig.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', boxShadow: `0 4px 16px ${activeConfig.color}30` }}>
+                    {activeConfig.icon}
                   </div>
-                  {liveLink ? (
-                    <span className="live-badge">✅ Live</span>
-                  ) : (
-                    <span className="soon-badge">🚀 Coming Soon</span>
-                  )}
-                </div>
-
-                {/* Module Body */}
-                {liveLink ? (
                   <div>
-                    <div style={{ background: '#f0fdf4', padding: '12px 24px', borderBottom: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%' }} />
-                        <p style={{ color: '#15803d', fontSize: '13px', fontWeight: '600' }}>Module is live and ready to use</p>
-                      </div>
-                      <button onClick={() => window.open(liveLink, '_blank')} className="open-btn" style={{ fontSize: '13px', padding: '8px 16px' }}>
-                        Open in new tab ↗
-                      </button>
-                    </div>
-                    <iframe src={liveLink} style={{ width: '100%', height: '700px', border: 'none', display: 'block' }} title={activeModuleData.name} />
+                    <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>{activeModData.name}</h2>
+                    <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Business Automation Module</p>
+                  </div>
+                </div>
+                {activeConfig.isLive || activeModData.isActive ? (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <span style={{ background: '#f0fdf4', color: '#16a34a', fontSize: '12px', padding: '5px 14px', borderRadius: '99px', fontWeight: '700', border: '1px solid #bbf7d0' }}>â— Live</span>
+                    <a href={activeConfig.href} target="_blank" rel="noopener noreferrer" style={{ background: activeConfig.bg, color: 'white', fontSize: '13px', padding: '10px 22px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700', boxShadow: `0 4px 16px ${activeConfig.color}40` }}>
+                      Open {activeModData.name} â†’
+                    </a>
                   </div>
                 ) : (
-                  <div style={{ padding: '28px' }}>
-                    <p style={{ color: '#475569', fontSize: '15px', lineHeight: '1.7', marginBottom: '24px' }}>
-                      {getDescription(activeModuleData.slug)}
-                    </p>
-                    <h3 style={{ color: '#1e293b', fontSize: '15px', fontWeight: '700', marginBottom: '14px' }}>What you will be able to do:</h3>
-                    <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '24px' }}>
-                      {getFeatures(activeModuleData.slug).map((feature: string, idx: number) => (
-                        <div key={idx} className="feature-chip">
-                          <div style={{ width: '28px', height: '28px', background: '#374655', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '13px', flexShrink: 0 }}>✓</div>
-                          <span style={{ color: '#374655', fontSize: '14px', fontWeight: '500' }}>{feature}</span>
-                        </div>
-                      ))}
+                  <span style={{ background: '#fefce8', color: '#a16207', fontSize: '12px', padding: '5px 14px', borderRadius: '99px', fontWeight: '700', border: '1px solid #fde68a' }}>ðŸš€ Coming Soon</span>
+                )}
+              </div>
+
+              <div style={{ padding: '28px' }}>
+                <p style={{ fontSize: '15px', color: '#374151', margin: '0 0 24px', lineHeight: '1.7' }}>
+                  {activeConfig.description}
+                </p>
+
+                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 16px' }}>What you can do:</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '10px', marginBottom: '28px' }}>
+                  {activeConfig.features.map((f: string) => (
+                    <div key={f} style={{ background: activeConfig.color + '08', border: `1px solid ${activeConfig.color}20`, borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '22px', height: '22px', borderRadius: '6px', background: activeConfig.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '12px', fontWeight: '700', flexShrink: 0 }}>âœ“</div>
+                      <span style={{ fontSize: '13px', color: '#374151', fontWeight: '500' }}>{f}</span>
                     </div>
-                    <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '24px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                      <p style={{ fontSize: '32px', marginBottom: '12px' }}>⚡</p>
-                      <h4 style={{ color: '#1e293b', fontSize: '18px', fontWeight: '700', marginBottom: '8px' }}>Full functionality launching soon!</h4>
-                      <p style={{ color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
-                        Our team is building this module. You will be notified when it goes live.
-                      </p>
+                  ))}
+                </div>
+
+                {activeConfig.isLive || activeModData.isActive ? (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <p style={{ fontSize: '15px', fontWeight: '700', color: '#166534', margin: '0 0 4px' }}>âœ“ {activeModData.name} is ready to use!</p>
+                      <p style={{ fontSize: '13px', color: '#16a34a', margin: 0 }}>Click the button to open your AI studio</p>
                     </div>
+                    <a href={activeConfig.href} target="_blank" rel="noopener noreferrer" style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', color: 'white', fontSize: '14px', padding: '12px 28px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700', boxShadow: '0 4px 16px rgba(22,163,74,0.3)' }}>
+                      Open Now â†’
+                    </a>
+                  </div>
+                ) : (
+                  <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: '12px', padding: '20px 24px' }}>
+                    <p style={{ fontSize: '15px', fontWeight: '700', color: '#a16207', margin: '0 0 4px' }}>ðŸš€ Coming Soon</p>
+                    <p style={{ fontSize: '13px', color: '#ca8a04', margin: 0 }}>This module is being built and will be available soon. You will be notified when it launches!</p>
                   </div>
                 )}
               </div>
-            )}
-
-            {/* All Modules Grid */}
-            <div>
-              <h3 style={{ color: '#1e293b', fontSize: '17px', fontWeight: '700', marginBottom: '14px' }}>All Your Modules</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                {modules.map(module => {
-                  const isActive = activeModule === module.slug
-                  const isLive = !!getLiveLink(module.slug)
-                  return (
-                    <div key={module.id} onClick={() => setActiveModule(module.slug)} style={{ background: isActive ? '#374655' : 'white', border: `1px solid ${isActive ? '#374655' : '#e2e8f0'}`, borderRadius: '14px', padding: '18px', cursor: 'pointer', transition: 'all 0.2s' }}>
-                      <div style={{ width: '44px', height: '44px', background: isActive ? 'rgba(255,255,255,0.15)' : '#f1f5f9', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', marginBottom: '12px' }}>
-                        {module.icon || getEmoji(module.slug)}
-                      </div>
-                      <h4 style={{ color: isActive ? 'white' : '#1e293b', fontSize: '14px', fontWeight: '700', marginBottom: '4px' }}>{module.name}</h4>
-                      <p style={{ color: isActive ? 'rgba(255,255,255,0.6)' : '#94a3b8', fontSize: '12px', marginBottom: '10px' }}>Automation Module</p>
-                      {isLive ? (
-                        <span style={{ background: isActive ? 'rgba(255,255,255,0.15)' : '#f0fdf4', color: isActive ? 'white' : '#16a34a', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '600' }}>✅ Live</span>
-                      ) : (
-                        <span style={{ background: isActive ? 'rgba(255,255,255,0.1)' : '#fef9c3', color: isActive ? 'rgba(255,255,255,0.8)' : '#a16207', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '600' }}>Coming Soon</span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
             </div>
-
-          </div>
+          ) : modules.length === 0 ? (
+            <div style={{ background: 'white', borderRadius: '16px', padding: '48px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }}>ðŸ§©</div>
+              <p style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '0 0 8px' }}>No modules assigned yet</p>
+              <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>Contact your admin to get modules assigned to your account.</p>
+            </div>
+          ) : null}
         </div>
-
-        {/* Footer */}
-        <div style={{ background: '#374655', padding: '16px 24px', textAlign: 'center' }}>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>ScaleVyapar © 2026 · Business Automation Platform</p>
-        </div>
-
-        {/* Mobile Bottom Navigation */}
-        <div className="bottom-nav">
-          {modules.slice(0, 5).map(module => (
-            <button key={module.slug} className={`bottom-nav-item ${activeModule === module.slug ? 'active' : ''}`} onClick={() => setActiveModule(module.slug)}>
-              <span>{module.icon || getEmoji(module.slug)}</span>
-              <span>{module.name.split(' ')[0]}</span>
-            </button>
-          ))}
-        </div>
-
       </div>
-    </>
+    </div>
   )
 }

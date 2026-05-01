@@ -13,10 +13,11 @@ type CompanyApplicationEmailPayload = {
   appliedAt: string
 }
 
-const getBaseUrl = () =>
+const getPublicBaseUrl = () =>
   process.env.NEXT_PUBLIC_APP_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://scalevyapar.vercel.app')
+  process.env.PUBLIC_APP_URL ||
+  'https://scalevyapar.vercel.app'
 
 export const sendCompanyApplicationEmail = async (payload: CompanyApplicationEmailPayload) => {
   const apiKey = process.env.RESEND_API_KEY
@@ -32,7 +33,7 @@ export const sendCompanyApplicationEmail = async (payload: CompanyApplicationEma
     return { delivered: false, skipped: true, reason: 'mail-not-configured' as const }
   }
 
-  const companyPanelUrl = `${getBaseUrl()}/labour/company/panel`
+  const companySigninUrl = `${getPublicBaseUrl()}/labour/company/signin`
   const categoryLabel = payload.workerCategories.length ? payload.workerCategories.join(', ') : 'Not specified'
   const appliedAtLabel = new Date(payload.appliedAt).toLocaleString('en-IN', {
     dateStyle: 'medium',
@@ -52,7 +53,7 @@ export const sendCompanyApplicationEmail = async (payload: CompanyApplicationEma
     `Applied at: ${appliedAtLabel}`,
     payload.note ? `Worker note: ${payload.note}` : '',
     '',
-    `Review this application here: ${companyPanelUrl}`,
+    `Review this application here: ${companySigninUrl}`,
     '',
     'ScaleVyapar Rozgar'
   ].filter(Boolean).join('\n')
@@ -73,7 +74,7 @@ export const sendCompanyApplicationEmail = async (payload: CompanyApplicationEma
           <tr><td style="padding:8px 0;color:#64748b">Job city</td><td style="padding:8px 0">${payload.jobCity || 'Not added'}</td></tr>
         </table>
         ${payload.note ? `<div style="margin:0 0 18px;padding:14px 16px;border-radius:14px;background:#eff6ff;color:#1e3a8a"><strong>Worker note:</strong><br/>${payload.note}</div>` : ''}
-        <a href="${companyPanelUrl}" style="display:inline-block;padding:12px 18px;border-radius:12px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700">Open company panel</a>
+        <a href="${companySigninUrl}" style="display:inline-block;padding:12px 18px;border-radius:12px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700">Open company sign in</a>
       </div>
     </div>
   `

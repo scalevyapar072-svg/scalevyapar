@@ -35,6 +35,7 @@ create table if not exists public.labour_workers (
   experience_years numeric(6, 2) not null default 0,
   expected_daily_wage numeric(10, 2) not null default 0,
   wallet_balance numeric(10, 2) not null default 0,
+  registration_fee_paid boolean not null default false,
   status text not null default 'pending' check (status in ('pending', 'active', 'inactive_wallet_empty', 'inactive_subscription_expired', 'blocked', 'rejected')),
   availability text not null default 'available_today' check (availability in ('available_today', 'available_this_week', 'not_available')),
   is_visible boolean not null default true,
@@ -61,6 +62,9 @@ add column if not exists identity_proof_path text not null default '';
 
 alter table if exists public.labour_workers
 add column if not exists registration_completed_at timestamptz;
+
+alter table if exists public.labour_workers
+add column if not exists registration_fee_paid boolean not null default false;
 
 alter table if exists public.labour_workers
 drop constraint if exists labour_workers_identity_proof_type_check;

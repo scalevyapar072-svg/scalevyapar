@@ -92,6 +92,8 @@ export type WorkerRegistrationPayload = {
 export type WorkerAppWalletSummary = {
   balance: number
   dailyCharge: number
+  registrationFee: number
+  registrationFeePaid: boolean
   estimatedDaysRemaining: number
   visibilityRule: string
   lastDeductionAt: string | null
@@ -291,7 +293,11 @@ const isWorkerRegistrationComplete = (worker: LabourWorkerRecord) =>
   Boolean(worker.identityProofNumber.trim()) &&
   Boolean(worker.identityProofPath.trim())
 
-const deriveWorkerStatus = (worker: LabourWorkerRecord): LabourWorkerRecord['status'] => {
+const deriveWorkerStatus = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null = null,
+  transactions: LabourWalletTransactionRecord[] = []
+): LabourWorkerRecord['status'] => {
   if (worker.status === 'blocked' || worker.status === 'rejected') {
     return worker.status
   }
@@ -302,6 +308,11 @@ const deriveWorkerStatus = (worker: LabourWorkerRecord): LabourWorkerRecord['sta
 
   if (worker.status === 'pending') {
     return 'pending'
+  }
+
+  const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
+  if (outstandingRegistrationFee > 0 && worker.walletBalance < outstandingRegistrationFee) {
+    return 'inactive_wallet_empty'
   }
 
   if (worker.walletBalance <= 0) {
@@ -358,8 +369,50 @@ const assertWorkerRegistrationPayload = (payload: WorkerRegistrationPayload) => 
 const getWorkerPlan = (plans: LabourPlanRecord[]) =>
   plans.find(plan => plan.audience === 'worker' && plan.isActive) || null
 
-const deriveActivationSummary = (worker: LabourWorkerRecord, workerPlan: LabourPlanRecord | null): WorkerAppActivationSummary => {
-  const effectiveStatus = deriveWorkerStatus(worker)
+const hasCompletedWorkerRegistrationFeeTransaction = (
+  worker: LabourWorkerRecord,
+  transactions: LabourWalletTransactionRecord[]
+) =>
+  transactions.some(transaction =>
+    transaction.entityType === 'worker' &&
+    transaction.entityId === worker.id &&
+    transaction.transactionType === 'registration_fee' &&
+    transaction.status === 'completed'
+  )
+
+const isWorkerRegistrationFeeSettled = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[]
+) => {
+  if ((workerPlan?.registrationFee || 0) <= 0) {
+    return true
+  }
+
+  return worker.registrationFeePaid || hasCompletedWorkerRegistrationFeeTransaction(worker, transactions)
+}
+
+const getOutstandingWorkerRegistrationFee = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[]
+) => {
+  const registrationFee = workerPlan?.registrationFee || 0
+  if (registrationFee <= 0 || isWorkerRegistrationFeeSettled(worker, workerPlan, transactions)) {
+    return 0
+  }
+
+  return registrationFee
+}
+
+const deriveActivationSummary = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[]
+): WorkerAppActivationSummary => {
+  const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
+  const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
+  const rechargeGap = Math.max(outstandingRegistrationFee - worker.walletBalance, 0)
 
   if (effectiveStatus === 'blocked') {
     return {
@@ -410,9 +463,17 @@ const deriveActivationSummary = (worker: LabourWorkerRecord, workerPlan: LabourP
       isActive: false,
       canViewCompanyDetails: false,
       status: effectiveStatus,
-      headline: 'Recharge required',
-      description: 'Your wallet balance is empty. Company details stay locked until your worker access becomes active again.',
-      recommendedAction: workerPlan ? `Recharge at least Rs ${workerPlan.planAmount}` : 'Recharge wallet'
+      headline: outstandingRegistrationFee > 0 ? 'Registration fee pending' : 'Recharge required',
+      description: outstandingRegistrationFee > 0
+        ? rechargeGap > 0
+          ? `Add more wallet balance until it reaches at least Rs ${outstandingRegistrationFee}. Your one-time registration fee will be deducted first, then worker access can turn active.`
+          : `Your one-time registration fee of Rs ${outstandingRegistrationFee} is waiting to be deducted from the wallet before worker access becomes active.`
+        : 'Your wallet balance is empty. Company details stay locked until your worker access becomes active again.',
+      recommendedAction: outstandingRegistrationFee > 0
+        ? rechargeGap > 0
+          ? `Recharge at least Rs ${rechargeGap}`
+          : 'Wait for wallet fee deduction'
+        : workerPlan ? `Recharge at least Rs ${workerPlan.planAmount}` : 'Recharge wallet'
     }
   }
 
@@ -422,7 +483,7 @@ const deriveActivationSummary = (worker: LabourWorkerRecord, workerPlan: LabourP
     status: effectiveStatus,
     headline: 'Worker access is active',
     description: workerPlan
-      ? `Your wallet is active. Daily deduction is Rs ${workerPlan.dailyCharge} and company details are unlocked.`
+      ? `Your one-time registration fee is settled. Daily deduction is Rs ${workerPlan.dailyCharge} and company details are unlocked.`
       : 'Your worker access is active and company details are unlocked.',
     recommendedAction: 'Apply to matching job posts'
   }
@@ -458,15 +519,24 @@ const toWorkerWalletSummary = (
   workerPlan: LabourPlanRecord | null
 ): WorkerAppWalletSummary => {
   const dailyCharge = workerPlan?.dailyCharge || 0
+  const registrationFee = workerPlan?.registrationFee || 0
+  const registrationFeePaid = isWorkerRegistrationFeeSettled(worker, workerPlan, transactions)
+  const outstandingRegistrationFee = registrationFeePaid ? 0 : registrationFee
   const lastDeduction = transactions.find(transaction => transaction.transactionType === 'wallet_deduction')
 
   return {
     balance: worker.walletBalance,
     dailyCharge,
+    registrationFee,
+    registrationFeePaid,
     estimatedDaysRemaining: dailyCharge > 0 ? Math.floor(worker.walletBalance / dailyCharge) : 0,
-    visibilityRule: dailyCharge > 0
-      ? `Rs ${dailyCharge} is deducted every active day. Company details unlock only while your worker access is active.`
-      : 'Worker daily deduction is not configured yet.',
+    visibilityRule: outstandingRegistrationFee > 0
+      ? worker.walletBalance > 0
+        ? `A one-time registration fee of Rs ${registrationFee} is pending. Recharge until the wallet reaches at least Rs ${registrationFee}, then daily charges will start as per your worker plan.`
+        : `Add wallet balance to cover the one-time registration fee of Rs ${registrationFee}. After that, daily worker charges apply as per the active plan.`
+      : dailyCharge > 0
+        ? `One-time registration fee is already charged. Rs ${dailyCharge} is deducted every active day. Company details unlock only while your worker access is active.`
+        : 'Worker daily deduction is not configured yet.',
     lastDeductionAt: lastDeduction?.createdAt || null,
     transactions
   }
@@ -483,6 +553,84 @@ const toWorkerNotification = (notification: LabourWorkerNotificationRecord): Wor
   priority: notification.priority,
   createdAt: notification.createdAt
 })
+
+const reconcileWorkerRegistrationFee = async (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[]
+) => {
+  if (!isWorkerRegistrationComplete(worker)) {
+    return false
+  }
+
+  if (worker.status === 'blocked' || worker.status === 'rejected') {
+    return false
+  }
+
+  const registrationFee = workerPlan?.registrationFee || 0
+  const hasCompletedFeeTransaction = hasCompletedWorkerRegistrationFeeTransaction(worker, transactions)
+
+  if (!worker.registrationFeePaid && (registrationFee <= 0 || hasCompletedFeeTransaction)) {
+    const nextWorker: LabourWorkerRecord = {
+      ...worker,
+      registrationFeePaid: true
+    }
+    const nextStatus = deriveWorkerStatus(nextWorker, workerPlan, transactions)
+
+    await updateLabourEntity('workers', worker.id, {
+      registrationFeePaid: true,
+      status: nextStatus,
+      isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active'
+    }, 'worker-wallet')
+
+    return true
+  }
+
+  const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
+  if (outstandingRegistrationFee <= 0 || worker.walletBalance < outstandingRegistrationFee) {
+    const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
+    const shouldBeVisible = isWorkerRegistrationComplete(worker) && effectiveStatus === 'active'
+    if (worker.status !== effectiveStatus || worker.isVisible !== shouldBeVisible) {
+      await updateLabourEntity('workers', worker.id, {
+        status: effectiveStatus,
+        isVisible: shouldBeVisible
+      }, 'worker-wallet')
+
+      return true
+    }
+
+    return false
+  }
+
+  const nextWorker: LabourWorkerRecord = {
+    ...worker,
+    walletBalance: Math.max(0, worker.walletBalance - outstandingRegistrationFee),
+    registrationFeePaid: true
+  }
+  const nextStatus = deriveWorkerStatus(nextWorker, workerPlan, transactions)
+
+  await updateLabourEntity('workers', worker.id, {
+    walletBalance: nextWorker.walletBalance,
+    registrationFeePaid: true,
+    status: nextStatus,
+    isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active'
+  }, 'worker-wallet')
+
+  await createLabourEntity('walletTransactions', {
+    entityType: 'worker',
+    entityId: worker.id,
+    entityName: worker.fullName || worker.mobile,
+    city: worker.city,
+    transactionType: 'registration_fee',
+    amount: outstandingRegistrationFee,
+    direction: 'debit',
+    status: 'completed',
+    reference: workerPlan?.id || worker.id,
+    note: 'One-time worker registration fee deducted from wallet balance.'
+  }, 'worker-wallet')
+
+  return true
+}
 
 const buildWorkerFeed = (
   worker: LabourWorkerRecord,
@@ -656,11 +804,12 @@ const ensureWorkerExists = async (mobile: string) => {
     mobile: normalizedMobile,
     city: '',
     profilePhotoPath: '',
-    skills: [],
-    experienceYears: 0,
-    expectedDailyWage: 0,
-    walletBalance: 0,
-    status: 'pending',
+      skills: [],
+      experienceYears: 0,
+      expectedDailyWage: 0,
+      walletBalance: 0,
+      registrationFeePaid: false,
+      status: 'pending',
     availability: 'available_today',
     isVisible: false,
     categoryIds: [],
@@ -824,10 +973,15 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
   }
 
   const workerPlan = getWorkerPlan(snapshot.plans)
-  const activation = deriveActivationSummary(worker, workerPlan)
   const walletTransactions = snapshot.walletTransactions
     .filter(transaction => transaction.entityType === 'worker' && transaction.entityId === worker.id)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+  const didReconcileRegistrationFee = await reconcileWorkerRegistrationFee(worker, workerPlan, walletTransactions)
+  if (didReconcileRegistrationFee) {
+    return getWorkerAppDashboard(workerId)
+  }
+
+  const activation = deriveActivationSummary(worker, workerPlan, walletTransactions)
   const applications = snapshot.jobApplications
     .filter(application => application.workerId === worker.id)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
@@ -936,7 +1090,11 @@ export const completeWorkerAppRegistration = async (
     identityProofType: nextWorker.identityProofType
   })
 
-  const nextStatus = deriveWorkerStatus(nextWorker)
+  const nextStatus = deriveWorkerStatus(
+    nextWorker,
+    getWorkerPlan(snapshot.plans),
+    snapshot.walletTransactions.filter(transaction => transaction.entityType === 'worker' && transaction.entityId === workerId)
+  )
 
   await updateLabourEntity('workers', workerId, {
     fullName: nextWorker.fullName,
@@ -948,11 +1106,12 @@ export const completeWorkerAppRegistration = async (
     availability: nextWorker.availability,
     profilePhotoPath: nextWorker.profilePhotoPath,
     identityProofType: nextWorker.identityProofType,
-    identityProofNumber: nextWorker.identityProofNumber,
-    identityProofPath: nextWorker.identityProofPath,
-    registrationCompletedAt: nextWorker.registrationCompletedAt,
-    isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active',
-    status: nextStatus
+      identityProofNumber: nextWorker.identityProofNumber,
+      identityProofPath: nextWorker.identityProofPath,
+      registrationCompletedAt: nextWorker.registrationCompletedAt,
+      registrationFeePaid: existing.registrationFeePaid,
+      isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active',
+      status: nextStatus
   }, 'worker-app')
 
   return getWorkerAppDashboard(workerId)
@@ -978,7 +1137,11 @@ export const updateWorkerAppProfile = async (
     expectedDailyWage: payload.expectedDailyWage ?? existing.expectedDailyWage,
     availability: (payload.availability ?? existing.availability) as LabourWorkerRecord['availability']
   }
-  const nextStatus = deriveWorkerStatus(mergedWorker)
+  const nextStatus = deriveWorkerStatus(
+    mergedWorker,
+    getWorkerPlan(snapshot.plans),
+    snapshot.walletTransactions.filter(transaction => transaction.entityType === 'worker' && transaction.entityId === workerId)
+  )
 
   await updateLabourEntity('workers', workerId, {
     fullName: mergedWorker.fullName,
@@ -1041,7 +1204,11 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     throw new Error('This job is not available from an active company anymore.')
   }
 
-  const activation = deriveActivationSummary(worker, getWorkerPlan(snapshot.plans))
+  const activation = deriveActivationSummary(
+    worker,
+    getWorkerPlan(snapshot.plans),
+    snapshot.walletTransactions.filter(transaction => transaction.entityType === 'worker' && transaction.entityId === worker.id)
+  )
   if (!activation.canViewCompanyDetails) {
     throw new Error('Recharge and keep your worker access active before applying to jobs.')
   }

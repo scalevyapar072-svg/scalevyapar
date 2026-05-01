@@ -68,6 +68,7 @@ export interface LabourWorkerRecord {
   experienceYears: number
   expectedDailyWage: number
   walletBalance: number
+  registrationFeePaid: boolean
   status: WorkerStatus
   availability: WorkerAvailability
   isVisible: boolean
@@ -330,6 +331,7 @@ const defaultData: LabourMarketplaceData = {
       experienceYears: 6,
       expectedDailyWage: 950,
       walletBalance: 40,
+      registrationFeePaid: true,
       status: 'active',
       availability: 'available_today',
       isVisible: true,
@@ -351,6 +353,7 @@ const defaultData: LabourMarketplaceData = {
       experienceYears: 3,
       expectedDailyWage: 800,
       walletBalance: 0,
+      registrationFeePaid: false,
       status: 'inactive_wallet_empty',
       availability: 'available_this_week',
       isVisible: false,
@@ -627,6 +630,7 @@ const mapWorkerRow = (row: {
   experience_years: number | null
   expected_daily_wage: number | null
   wallet_balance: number | null
+  registration_fee_paid: boolean | null
   status: string | null
   availability: string | null
   is_visible: boolean | null
@@ -647,6 +651,7 @@ const mapWorkerRow = (row: {
   experienceYears: row.experience_years ?? 0,
   expectedDailyWage: row.expected_daily_wage ?? 0,
   walletBalance: row.wallet_balance ?? 0,
+  registrationFeePaid: row.registration_fee_paid ?? false,
   status: (row.status as WorkerStatus | null) || 'pending',
   availability: (row.availability as WorkerAvailability | null) || 'available_today',
   isVisible: row.is_visible ?? true,
@@ -937,6 +942,7 @@ const normalizeWorker = (
     experienceYears: toNumber(payload.experienceYears, existing?.experienceYears ?? 0),
     expectedDailyWage: toNumber(payload.expectedDailyWage, existing?.expectedDailyWage ?? 0),
     walletBalance: toNumber(payload.walletBalance, existing?.walletBalance ?? 0),
+    registrationFeePaid: toBoolean(payload.registrationFeePaid, existing?.registrationFeePaid ?? false),
     status: (payload.status || existing?.status || 'pending') as WorkerStatus,
     availability: (payload.availability || existing?.availability || 'available_today') as WorkerAvailability,
     isVisible: toBoolean(payload.isVisible, existing?.isVisible ?? true),
@@ -948,6 +954,14 @@ const normalizeWorker = (
     createdAt: existing?.createdAt || now,
     updatedAt: now
   }
+}
+
+const isMissingWorkerRegistrationFeePaidColumnError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return normalized.includes('registration_fee_paid') && (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  )
 }
 
 const normalizeCompany = (
@@ -1323,6 +1337,7 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     experience_years: worker.experienceYears,
     expected_daily_wage: worker.expectedDailyWage,
     wallet_balance: worker.walletBalance,
+    registration_fee_paid: worker.registrationFeePaid,
     status: worker.status,
     availability: worker.availability,
     is_visible: worker.isVisible,
@@ -1653,7 +1668,7 @@ export const createLabourEntity = async (
     }
     case 'workers': {
       const record = normalizeWorker(payload)
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert({
+      const workerPayload = {
         id: record.id,
         full_name: record.fullName,
         mobile: record.mobile,
@@ -1663,6 +1678,7 @@ export const createLabourEntity = async (
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
         wallet_balance: record.walletBalance,
+        registration_fee_paid: record.registrationFeePaid,
         status: record.status,
         availability: record.availability,
         is_visible: record.isVisible,
@@ -1673,7 +1689,12 @@ export const createLabourEntity = async (
         registration_completed_at: record.registrationCompletedAt || null,
         created_at: record.createdAt,
         updated_at: record.updatedAt
-      })
+      }
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(workerPayload)
+      if (error && isMissingWorkerRegistrationFeePaidColumnError(error.message)) {
+        const { registration_fee_paid, ...legacyWorkerPayload } = workerPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(legacyWorkerPayload))
+      }
       if (error) throw new Error(`Failed to create labour worker: ${error.message}`)
       await writeSupabaseAuditLog('create', entityType, record.id, `Created worker ${record.fullName}`, actor)
       break
@@ -1957,7 +1978,7 @@ export const updateLabourEntity = async (
       const existing = (await readSupabaseData()).workers.find(record => record.id === id)
       if (!existing) return null
       const record = normalizeWorker(payload, existing)
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update({
+      const workerPayload = {
         full_name: record.fullName,
         mobile: record.mobile,
         city: record.city,
@@ -1966,6 +1987,7 @@ export const updateLabourEntity = async (
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
         wallet_balance: record.walletBalance,
+        registration_fee_paid: record.registrationFeePaid,
         status: record.status,
         availability: record.availability,
         is_visible: record.isVisible,
@@ -1975,7 +1997,12 @@ export const updateLabourEntity = async (
         identity_proof_path: record.identityProofPath,
         registration_completed_at: record.registrationCompletedAt || null,
         updated_at: record.updatedAt
-      }).eq('id', id)
+      }
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(workerPayload).eq('id', id)
+      if (error && isMissingWorkerRegistrationFeePaidColumnError(error.message)) {
+        const { registration_fee_paid, ...legacyWorkerPayload } = workerPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(legacyWorkerPayload).eq('id', id))
+      }
       if (error) throw new Error(`Failed to update labour worker: ${error.message}`)
       await writeSupabaseAuditLog('update', entityType, id, `Updated worker ${record.fullName}`, actor)
       break

@@ -153,7 +153,7 @@ export const loginCompanyApp = async (email: string, identity: string) => {
   )
 
   if (!company) {
-    throw new Error('Company account not found. Use registered company email and company or contact name.')
+    throw new Error('Company account not found. Use your registered company email and your company name or contact person. Password is not used on this screen.')
   }
 
   if (company.status === 'blocked') {

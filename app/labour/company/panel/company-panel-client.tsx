@@ -291,21 +291,33 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           <p className={styles.eyebrow}>Company panel</p>
           <h1 className={styles.pageTitle}>Receive worker applications in one place</h1>
           <p className={styles.textMuted} style={{ marginBottom: '20px' }}>
-            Sign in with your registered company email and your company or contact name. This is the working company panel for viewing job applications.
+            Sign in with your registered company email and your company name or contact person. This screen does not use a password.
           </p>
           <form className={styles.stack} onSubmit={submitLogin}>
+            <label style={{ display: 'grid', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company email</span>
             <input
               value={email}
               onChange={event => setEmail(event.target.value)}
               placeholder="Registered company email"
               style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
             />
+            </label>
+            <label style={{ display: 'grid', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company name or contact person</span>
             <input
               value={identity}
               onChange={event => setIdentity(event.target.value)}
               placeholder="Company name or contact person"
               style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
             />
+            </label>
+            <div className={styles.softCard} style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+              <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use company email + company/contact name.</p>
+              <p style={{ margin: '4px 0 0', color: '#475569', fontSize: '13px', lineHeight: 1.6 }}>
+                Example: <strong>neelufercreation@gmail.com</strong> with <strong>Neelufer Creations</strong> or <strong>Neelu</strong>.
+              </p>
+            </div>
             {error ? (
               <div className={styles.softCard} style={{ borderColor: '#fecaca', background: '#fef2f2' }}>
                 <p style={{ margin: 0, color: '#b91c1c', fontWeight: 700 }}>{error}</p>

@@ -254,25 +254,27 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: '24px 28px', marginBottom: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
-              <div style={{ maxWidth: '620px' }}>
-                <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', letterSpacing: '0.6px', color: '#0284c7', textTransform: 'uppercase' }}>Labour tools</p>
-                <h2 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>Search labour and receive worker applications from one place</h2>
-                <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.7, color: '#64748b' }}>
-                  Use the labour dashboard shortcuts below to browse active workers and handle incoming worker applications without going back to the public company website.
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <a href="/labour/company/search" style={{ background: '#0f172a', color: 'white', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700', boxShadow: '0 8px 20px rgba(15,23,42,0.14)' }}>
-                  Search Labour
-                </a>
-                <a href="/labour/company/panel" target="_blank" rel="noopener noreferrer" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700' }}>
-                  Receive Worker Applications
-                </a>
+          {activeSlug === 'rozgar' ? (
+            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: '24px 28px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
+                <div style={{ maxWidth: '620px' }}>
+                  <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', letterSpacing: '0.6px', color: '#0284c7', textTransform: 'uppercase' }}>Labour tools</p>
+                  <h2 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>Search labour and receive worker applications from one place</h2>
+                  <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.7, color: '#64748b' }}>
+                    Use the labour dashboard shortcuts below to browse active workers and handle incoming worker applications without going back to the public company website.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <a href="/labour/company/search" target="_blank" rel="noopener noreferrer" style={{ background: '#0f172a', color: 'white', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700', boxShadow: '0 8px 20px rgba(15,23,42,0.14)' }}>
+                    Search Labour
+                  </a>
+                  <a href="/labour/company/panel" target="_blank" rel="noopener noreferrer" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700' }}>
+                    Receive Worker Applications
+                  </a>
+                </div>
               </div>
             </div>
-          </div>
+          ) : null}
 
           {/* Active module content */}
           {activeModule && activeConfig && activeModData ? (

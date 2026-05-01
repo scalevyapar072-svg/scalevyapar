@@ -133,9 +133,26 @@ export default function DashboardPage() {
     </div>
   )
 
+  const resolveModuleKey = (mod: any) => {
+    const rawSlug = String(mod?.slug || '').trim().toLowerCase()
+    const rawName = String(mod?.name || '').trim().toLowerCase()
+    const rawHref = String(mod?.href || mod?.customerLink || '').trim().toLowerCase()
+
+    if (rawSlug in MODULE_CONFIG) return rawSlug
+    if (rawName.includes('rozgar') || rawHref.includes('/labour/company')) return 'rozgar'
+    if (rawName.includes('vizora') || rawHref.includes('/vizora')) return 'vizora'
+    if (rawName.includes('lead') || rawHref.includes('/leads')) return 'leads'
+    if (rawName.includes('crm')) return 'crm'
+    if (rawName.includes('whatsapp')) return 'whatsapp'
+    if (rawName.includes('shopify')) return 'shopify'
+    if (rawName.includes('inventory')) return 'inventory'
+    if (rawName.includes('chatbot')) return 'chatbot'
+    return rawSlug || rawName
+  }
+
   const activeSlug = activeModule
+  const activeModData = modules.find((m: any) => resolveModuleKey(m) === activeSlug)
   const activeConfig = activeSlug ? MODULE_CONFIG[activeSlug] || MODULE_CONFIG['crm'] : null
-  const activeModData = modules.find((m: any) => (m.slug || m.name?.toLowerCase()) === activeSlug)
   const getModuleIcon = (slug: string, mod: any) => {
     if (typeof mod?.icon === 'string' && mod.icon.trim() && mod.icon !== '#') return mod.icon.trim()
     return MODULE_CONFIG[slug]?.icon || 'M'
@@ -243,7 +260,7 @@ export default function DashboardPage() {
             </p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {modules.map((mod: any) => {
-                const slug = mod.slug || mod.name?.toLowerCase()
+                const slug = resolveModuleKey(mod)
                 const cfg = MODULE_CONFIG[slug] || { icon: 'M', color: '#64748b' }
                 return (
                   <button key={mod.id || slug} onClick={() => setActiveModule(slug)} style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', fontSize: '12px', padding: '6px 14px', borderRadius: '99px', cursor: 'pointer', fontWeight: '600', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -253,28 +270,6 @@ export default function DashboardPage() {
               })}
             </div>
           </div>
-
-          {activeSlug === 'rozgar' ? (
-            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: '24px 28px', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
-                <div style={{ maxWidth: '620px' }}>
-                  <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', letterSpacing: '0.6px', color: '#0284c7', textTransform: 'uppercase' }}>Labour tools</p>
-                  <h2 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>Search labour and receive worker applications from one place</h2>
-                  <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.7, color: '#64748b' }}>
-                    Use the labour dashboard shortcuts below to browse active workers and handle incoming worker applications without going back to the public company website.
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <a href="/labour/company/search" target="_blank" rel="noopener noreferrer" style={{ background: '#0f172a', color: 'white', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700', boxShadow: '0 8px 20px rgba(15,23,42,0.14)' }}>
-                    Search Labour
-                  </a>
-                  <a href="/labour/company/panel" target="_blank" rel="noopener noreferrer" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700' }}>
-                    Receive Worker Applications
-                  </a>
-                </div>
-              </div>
-            </div>
-          ) : null}
 
           {/* Active module content */}
           {activeModule && activeConfig && activeModData ? (
@@ -304,8 +299,25 @@ export default function DashboardPage() {
 
               <div style={{ padding: '28px' }}>
                 <p style={{ fontSize: '15px', color: '#374151', margin: '0 0 24px', lineHeight: '1.7' }}>
-                  {activeConfig.description}
+                  {activeConfig.description.replace('â€”', '—')}
                 </p>
+
+                {activeSlug === 'rozgar' ? (
+                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '14px', padding: '18px 20px', marginBottom: '24px' }}>
+                    <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', letterSpacing: '0.6px', color: '#1d4ed8', textTransform: 'uppercase' }}>Labour tools</p>
+                    <p style={{ margin: '0 0 16px', fontSize: '14px', lineHeight: '1.7', color: '#475569' }}>
+                      Open labour search or worker applications in a new tab while keeping this dashboard open.
+                    </p>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      <a href="/labour/company/search" target="_blank" rel="noopener noreferrer" style={{ background: '#0f172a', color: 'white', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700', boxShadow: '0 8px 20px rgba(15,23,42,0.14)' }}>
+                        Search Labour
+                      </a>
+                      <a href="/labour/company/panel" target="_blank" rel="noopener noreferrer" style={{ background: '#ffffff', color: '#1d4ed8', border: '1px solid #93c5fd', fontSize: '13px', padding: '12px 18px', borderRadius: '10px', textDecoration: 'none', fontWeight: '700' }}>
+                        Receive Worker Applications
+                      </a>
+                    </div>
+                  </div>
+                ) : null}
 
                 <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 16px' }}>What you can do:</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '10px', marginBottom: '28px' }}>

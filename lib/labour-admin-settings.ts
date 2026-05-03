@@ -51,12 +51,24 @@ export type LabourAdminAutomationControls = {
   pendingKycEscalationHours: number
 }
 
+export type LabourAdminWorkerLanguageControls = {
+  enabledWorkerLanguageCodes: string[]
+  defaultWorkerLanguageCode: string
+  showLanguageSelectionOnFirstOpen: boolean
+}
+
+export type LabourAdminWorkerHomeControls = {
+  popularCitySuggestions: string[]
+}
+
 export interface LabourAdminSettings {
   notificationTemplates: LabourAdminNotificationTemplates
   uploadRules: LabourAdminUploadRules
   kycRules: LabourAdminKycRules
   feeRules: LabourAdminFeeRules
   automationControls: LabourAdminAutomationControls
+  workerLanguageControls: LabourAdminWorkerLanguageControls
+  workerHomeControls: LabourAdminWorkerHomeControls
 }
 
 export interface LabourAdminSettingsPayload {
@@ -112,6 +124,37 @@ export const defaultLabourAdminSettings: LabourAdminSettings = {
     autoCreateRechargeFollowUps: true,
     autoEscalatePendingKyc: true,
     pendingKycEscalationHours: 24
+  },
+  workerLanguageControls: {
+    enabledWorkerLanguageCodes: ['hi', 'en'],
+    defaultWorkerLanguageCode: 'hi',
+    showLanguageSelectionOnFirstOpen: true
+  },
+  workerHomeControls: {
+    popularCitySuggestions: [
+      'Jaipur',
+      'Delhi',
+      'Mumbai',
+      'Bengaluru',
+      'Pune',
+      'Kolkata',
+      'Ahmedabad',
+      'Hyderabad',
+      'Chennai',
+      'Surat',
+      'Lucknow',
+      'Nagpur',
+      'Vadodara',
+      'Indore',
+      'Patna',
+      'Rajkot',
+      'Chandigarh',
+      'Bhopal',
+      'Ludhiana',
+      'Kanpur',
+      'Nashik',
+      'Bhubaneswar'
+    ]
   }
 }
 
@@ -140,6 +183,33 @@ const normalizeStringArray = (value: unknown, fallback: string[]) => {
     .filter(Boolean)
 }
 
+const normalizeDisplayStringArray = (value: unknown, fallback: string[]) => {
+  if (!Array.isArray(value)) return fallback
+  const normalized = value
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+
+  return normalized.length > 0 ? Array.from(new Set(normalized)) : fallback
+}
+
+const supportedWorkerLanguageCodes = ['hi', 'en']
+
+const normalizeWorkerLanguageCodes = (value: unknown, fallback: string[]) => {
+  const normalized = normalizeStringArray(value, fallback)
+    .filter(code => supportedWorkerLanguageCodes.includes(code))
+
+  return normalized.length > 0 ? Array.from(new Set(normalized)) : fallback
+}
+
+const normalizeWorkerLanguageCode = (value: unknown, fallback: string, enabledCodes: string[]) => {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  if (enabledCodes.includes(normalized)) {
+    return normalized
+  }
+
+  return enabledCodes.includes(fallback) ? fallback : enabledCodes[0]
+}
+
 const normalizeSettings = (value: unknown): LabourAdminSettings => {
   const source = value && typeof value === 'object' ? value as Partial<LabourAdminSettings> : {}
   const notificationTemplates = (source.notificationTemplates ?? {}) as Partial<LabourAdminNotificationTemplates>
@@ -147,6 +217,12 @@ const normalizeSettings = (value: unknown): LabourAdminSettings => {
   const kycRules = (source.kycRules ?? {}) as Partial<LabourAdminKycRules>
   const feeRules = (source.feeRules ?? {}) as Partial<LabourAdminFeeRules>
   const automationControls = (source.automationControls ?? {}) as Partial<LabourAdminAutomationControls>
+  const workerLanguageControls = (source.workerLanguageControls ?? {}) as Partial<LabourAdminWorkerLanguageControls>
+  const workerHomeControls = (source.workerHomeControls ?? {}) as Partial<LabourAdminWorkerHomeControls>
+  const enabledWorkerLanguageCodes = normalizeWorkerLanguageCodes(
+    workerLanguageControls.enabledWorkerLanguageCodes,
+    defaultLabourAdminSettings.workerLanguageControls.enabledWorkerLanguageCodes
+  )
 
   return {
     notificationTemplates: {
@@ -192,6 +268,24 @@ const normalizeSettings = (value: unknown): LabourAdminSettings => {
       autoCreateRechargeFollowUps: normalizeBoolean(automationControls.autoCreateRechargeFollowUps, defaultLabourAdminSettings.automationControls.autoCreateRechargeFollowUps),
       autoEscalatePendingKyc: normalizeBoolean(automationControls.autoEscalatePendingKyc, defaultLabourAdminSettings.automationControls.autoEscalatePendingKyc),
       pendingKycEscalationHours: normalizeNumber(automationControls.pendingKycEscalationHours, defaultLabourAdminSettings.automationControls.pendingKycEscalationHours)
+    },
+    workerLanguageControls: {
+      enabledWorkerLanguageCodes,
+      defaultWorkerLanguageCode: normalizeWorkerLanguageCode(
+        workerLanguageControls.defaultWorkerLanguageCode,
+        defaultLabourAdminSettings.workerLanguageControls.defaultWorkerLanguageCode,
+        enabledWorkerLanguageCodes
+      ),
+      showLanguageSelectionOnFirstOpen: normalizeBoolean(
+        workerLanguageControls.showLanguageSelectionOnFirstOpen,
+        defaultLabourAdminSettings.workerLanguageControls.showLanguageSelectionOnFirstOpen
+      )
+    },
+    workerHomeControls: {
+      popularCitySuggestions: normalizeDisplayStringArray(
+        workerHomeControls.popularCitySuggestions,
+        defaultLabourAdminSettings.workerHomeControls.popularCitySuggestions
+      )
     }
   }
 }

@@ -36,6 +36,9 @@ export interface LabourCategoryRecord {
   name: string
   slug: string
   description: string
+  imageUrl: string
+  showOnHome: boolean
+  homeOrder: number
   demandLevel: DemandLevel
   isActive: boolean
   createdAt: string
@@ -103,6 +106,9 @@ export interface LabourJobPostRecord {
   title: string
   description: string
   city: string
+  locationLabel: string
+  latitude: number | null
+  longitude: number | null
   workersNeeded: number
   wageAmount: number
   validityDays: number
@@ -239,6 +245,9 @@ const defaultData: LabourMarketplaceData = {
       name: 'Stitching Karighar',
       slug: 'stitching-karighar',
       description: 'Daily-basis stitching karighars for garments and boutique production.',
+      imageUrl: '',
+      showOnHome: true,
+      homeOrder: 1,
       demandLevel: 'high',
       isActive: true,
       createdAt: '2026-04-25T00:00:00.000Z',
@@ -249,6 +258,9 @@ const defaultData: LabourMarketplaceData = {
       name: 'Embroidery Worker',
       slug: 'embroidery-worker',
       description: 'Machine embroidery and hand embroidery workers.',
+      imageUrl: '',
+      showOnHome: true,
+      homeOrder: 2,
       demandLevel: 'high',
       isActive: true,
       createdAt: '2026-04-25T00:00:00.000Z',
@@ -259,6 +271,9 @@ const defaultData: LabourMarketplaceData = {
       name: 'Electrician',
       slug: 'electrician',
       description: 'On-demand electricians for site work, maintenance and setup.',
+      imageUrl: '',
+      showOnHome: true,
+      homeOrder: 4,
       demandLevel: 'medium',
       isActive: true,
       createdAt: '2026-04-25T00:00:00.000Z',
@@ -269,6 +284,9 @@ const defaultData: LabourMarketplaceData = {
       name: 'Printer Labour',
       slug: 'printer-labour',
       description: 'Printing press labour and print setup helpers.',
+      imageUrl: '',
+      showOnHome: true,
+      homeOrder: 3,
       demandLevel: 'medium',
       isActive: true,
       createdAt: '2026-04-25T00:00:00.000Z',
@@ -404,6 +422,9 @@ const defaultData: LabourMarketplaceData = {
       title: '10 Stitching Karighar Needed For Ladies Kurtis',
       description: 'Immediate requirement for experienced stitching karighars for daily production. Overtime available.',
       city: 'Surat',
+      locationLabel: '',
+      latitude: null,
+      longitude: null,
       workersNeeded: 10,
       wageAmount: 950,
       validityDays: 3,
@@ -420,6 +441,9 @@ const defaultData: LabourMarketplaceData = {
       title: 'Printing Labour For Night Shift',
       description: 'Need two helpers for machine setup and print handling for the next three days.',
       city: 'Ahmedabad',
+      locationLabel: '',
+      latitude: null,
+      longitude: null,
       workersNeeded: 2,
       wageAmount: 850,
       validityDays: 3,
@@ -536,6 +560,12 @@ const toNumber = (value: unknown, fallback: number = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+const toNullableNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 const toBoolean = (value: unknown, fallback: boolean = false) => {
   if (typeof value === 'boolean') return value
   if (value === 'true') return true
@@ -575,6 +605,9 @@ const mapCategoryRow = (row: {
   name: string
   slug: string
   description: string | null
+  image_url: string | null
+  show_on_home: boolean | null
+  home_order: number | null
   demand_level: string | null
   is_active: boolean | null
   created_at: string
@@ -584,6 +617,9 @@ const mapCategoryRow = (row: {
   name: row.name,
   slug: row.slug,
   description: row.description || '',
+  imageUrl: row.image_url || '',
+  showOnHome: row.show_on_home ?? true,
+  homeOrder: row.home_order ?? 0,
   demandLevel: (row.demand_level as DemandLevel | null) || 'medium',
   isActive: row.is_active ?? true,
   createdAt: row.created_at,
@@ -699,6 +735,9 @@ const mapJobPostRow = (row: {
   title: string
   description: string | null
   city: string | null
+  location_label: string | null
+  latitude: number | null
+  longitude: number | null
   workers_needed: number | null
   wage_amount: number | null
   validity_days: number | null
@@ -714,6 +753,9 @@ const mapJobPostRow = (row: {
   title: row.title,
   description: row.description || '',
   city: row.city || '',
+  locationLabel: row.location_label || '',
+  latitude: row.latitude ?? null,
+  longitude: row.longitude ?? null,
   workersNeeded: row.workers_needed ?? 1,
   wageAmount: row.wage_amount ?? 0,
   validityDays: row.validity_days ?? 0,
@@ -898,6 +940,9 @@ const normalizeCategory = (
     name,
     slug,
     description: String(payload.description || existing?.description || '').trim(),
+    imageUrl: String(payload.imageUrl || existing?.imageUrl || '').trim(),
+    showOnHome: toBoolean(payload.showOnHome, existing?.showOnHome ?? true),
+    homeOrder: toNumber(payload.homeOrder, existing?.homeOrder ?? 0),
     demandLevel: (payload.demandLevel || existing?.demandLevel || 'medium') as DemandLevel,
     isActive: toBoolean(payload.isActive, existing?.isActive ?? true),
     createdAt: existing?.createdAt || now,
@@ -1011,6 +1056,9 @@ const normalizeJobPost = (
     title: String(payload.title || existing?.title || '').trim(),
     description: String(payload.description || existing?.description || '').trim(),
     city: String(payload.city || existing?.city || '').trim(),
+    locationLabel: String(payload.locationLabel || existing?.locationLabel || '').trim(),
+    latitude: toNullableNumber(payload.latitude ?? existing?.latitude ?? null),
+    longitude: toNullableNumber(payload.longitude ?? existing?.longitude ?? null),
     workersNeeded: toNumber(payload.workersNeeded, existing?.workersNeeded ?? 1),
     wageAmount: toNumber(payload.wageAmount, existing?.wageAmount ?? 0),
     validityDays,
@@ -1305,6 +1353,9 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     name: category.name,
     slug: category.slug,
     description: category.description,
+    image_url: category.imageUrl || null,
+    show_on_home: category.showOnHome,
+    home_order: category.homeOrder,
     demand_level: category.demandLevel,
     is_active: category.isActive,
     created_at: category.createdAt,
@@ -1636,6 +1687,9 @@ export const createLabourEntity = async (
         name: record.name,
         slug: record.slug,
         description: record.description,
+        image_url: record.imageUrl || null,
+        show_on_home: record.showOnHome,
+        home_order: record.homeOrder,
         demand_level: record.demandLevel,
         is_active: record.isActive,
         created_at: record.createdAt,
@@ -1728,6 +1782,9 @@ export const createLabourEntity = async (
         title: record.title,
         description: record.description,
         city: record.city,
+        location_label: record.locationLabel || null,
+        latitude: record.latitude,
+        longitude: record.longitude,
         workers_needed: record.workersNeeded,
         wage_amount: record.wageAmount,
         validity_days: record.validityDays,
@@ -1945,6 +2002,9 @@ export const updateLabourEntity = async (
         name: record.name,
         slug: record.slug,
         description: record.description,
+        image_url: record.imageUrl || null,
+        show_on_home: record.showOnHome,
+        home_order: record.homeOrder,
         demand_level: record.demandLevel,
         is_active: record.isActive,
         updated_at: record.updatedAt
@@ -2037,6 +2097,9 @@ export const updateLabourEntity = async (
         title: record.title,
         description: record.description,
         city: record.city,
+        location_label: record.locationLabel || null,
+        latitude: record.latitude,
+        longitude: record.longitude,
         workers_needed: record.workersNeeded,
         wage_amount: record.wageAmount,
         validity_days: record.validityDays,

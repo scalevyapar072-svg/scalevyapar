@@ -43,6 +43,7 @@ type LabourCategory = {
   name: string
   slug: string
   description: string
+  imageUrl: string
   demandLevel: DemandLevel
   isActive: boolean
 }
@@ -100,6 +101,9 @@ type LabourJobPost = {
   title: string
   description: string
   city: string
+  locationLabel: string
+  latitude: number | ''
+  longitude: number | ''
   workersNeeded: number
   wageAmount: number
   validityDays: number
@@ -338,6 +342,14 @@ type LabourAdminSettings = {
     autoEscalatePendingKyc: boolean
     pendingKycEscalationHours: number
   }
+  workerLanguageControls: {
+    enabledWorkerLanguageCodes: string[]
+    defaultWorkerLanguageCode: string
+    showLanguageSelectionOnFirstOpen: boolean
+  }
+  workerHomeControls: {
+    popularCitySuggestions: string[]
+  }
 }
 
 const workerStatuses: WorkerStatus[] = [
@@ -356,12 +368,19 @@ const jobPostStatuses: JobPostStatus[] = ['draft', 'live', 'expired', 'paused']
 const jobApplicationStatuses: JobApplicationStatus[] = ['submitted', 'reviewed', 'shortlisted', 'rejected', 'hired']
 const workerNotificationTypes: WorkerNotificationType[] = ['application_submitted', 'job_saved', 'application_status', 'wallet_reminder']
 const workerNotificationPriorities: WorkerNotificationPriority[] = ['high', 'medium', 'low']
+const workerLanguageOptions = [
+  { code: 'hi', label: 'Hindi' },
+  { code: 'en', label: 'English' }
+] as const
 
 const blankCategory: LabourCategory = {
   id: '',
   name: '',
   slug: '',
   description: '',
+  imageUrl: '',
+  showOnHome: true,
+  homeOrder: 0,
   demandLevel: 'medium',
   isActive: true
 }
@@ -419,6 +438,9 @@ const blankJobPost: LabourJobPost = {
   title: '',
   description: '',
   city: '',
+  locationLabel: '',
+  latitude: '',
+  longitude: '',
   workersNeeded: 1,
   wageAmount: 0,
   validityDays: 3,
@@ -514,6 +536,37 @@ const blankLabourAdminSettings: LabourAdminSettings = {
     autoCreateRechargeFollowUps: true,
     autoEscalatePendingKyc: true,
     pendingKycEscalationHours: 24
+  },
+  workerLanguageControls: {
+    enabledWorkerLanguageCodes: ['hi', 'en'],
+    defaultWorkerLanguageCode: 'hi',
+    showLanguageSelectionOnFirstOpen: true
+  },
+  workerHomeControls: {
+    popularCitySuggestions: [
+      'Jaipur',
+      'Delhi',
+      'Mumbai',
+      'Bengaluru',
+      'Pune',
+      'Kolkata',
+      'Ahmedabad',
+      'Hyderabad',
+      'Chennai',
+      'Surat',
+      'Lucknow',
+      'Nagpur',
+      'Vadodara',
+      'Indore',
+      'Patna',
+      'Rajkot',
+      'Chandigarh',
+      'Bhopal',
+      'Ludhiana',
+      'Kanpur',
+      'Nashik',
+      'Bhubaneswar'
+    ]
   }
 }
 
@@ -634,6 +687,12 @@ const parseCommaSeparatedList = (value: string) =>
   value
     .split(',')
     .map(item => item.trim().toLowerCase())
+    .filter(Boolean)
+
+const parseCommaSeparatedDisplayList = (value: string) =>
+  value
+    .split(',')
+    .map(item => item.trim())
     .filter(Boolean)
 
 export default function LabourExchangeAdminPage() {
@@ -808,6 +867,28 @@ export default function LabourExchangeAdminPage() {
     } finally {
       setSettingsLoading(false)
     }
+  }
+
+  const toggleWorkerLanguage = (code: string, enabled: boolean) => {
+    setSettingsDraft(current => {
+      const nextEnabledCodes = enabled
+        ? Array.from(new Set([...current.workerLanguageControls.enabledWorkerLanguageCodes, code]))
+        : current.workerLanguageControls.enabledWorkerLanguageCodes.filter(item => item !== code)
+
+      const sanitizedCodes = nextEnabledCodes.length > 0 ? nextEnabledCodes : [code]
+      const nextDefaultCode = sanitizedCodes.includes(current.workerLanguageControls.defaultWorkerLanguageCode)
+        ? current.workerLanguageControls.defaultWorkerLanguageCode
+        : sanitizedCodes[0]
+
+      return {
+        ...current,
+        workerLanguageControls: {
+          ...current.workerLanguageControls,
+          enabledWorkerLanguageCodes: sanitizedCodes,
+          defaultWorkerLanguageCode: nextDefaultCode
+        }
+      }
+    })
   }
 
   const persistEntity = async (
@@ -2122,6 +2203,26 @@ export default function LabourExchangeAdminPage() {
                   <label style={labelStyle}>Description</label>
                   <textarea value={categoryDraft.description} onChange={event => setCategoryDraft(current => ({ ...current, description: event.target.value }))} rows={4} style={{ ...inputStyle, resize: 'none' }} />
                 </div>
+                <div>
+                  <label style={labelStyle}>Image URL</label>
+                  <input value={categoryDraft.imageUrl} onChange={event => setCategoryDraft(current => ({ ...current, imageUrl: event.target.value }))} placeholder="https://..." style={inputStyle} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={categoryDraft.showOnHome} onChange={event => setCategoryDraft(current => ({ ...current, showOnHome: event.target.checked }))} />
+                    Show in worker home popular categories
+                  </label>
+                  <div>
+                    <label style={labelStyle}>Home card order</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={categoryDraft.homeOrder}
+                      onChange={event => setCategoryDraft(current => ({ ...current, homeOrder: Number(event.target.value || 0) }))}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
                   <input type="checkbox" checked={categoryDraft.isActive} onChange={event => setCategoryDraft(current => ({ ...current, isActive: event.target.checked }))} />
                   Category is active
@@ -2159,8 +2260,11 @@ export default function LabourExchangeAdminPage() {
                     <div key={category.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                       <div>
                         <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{category.name}</p>
-                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>{category.slug} | {category.demandLevel} demand | {category.isActive ? 'Active' : 'Inactive'}</p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                          {category.slug} | {category.demandLevel} demand | {category.isActive ? 'Active' : 'Inactive'} | Home: {category.showOnHome ? `Yes (#${category.homeOrder})` : 'No'}
+                        </p>
                         <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{category.description || 'No description yet.'}</p>
+                        <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>{category.imageUrl || 'No image URL set.'}</p>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                         <button onClick={() => { setCategoryDraft(category); setEditingCategoryId(category.id) }} style={subtleButtonStyle}>Edit</button>
@@ -2719,6 +2823,37 @@ export default function LabourExchangeAdminPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   <div>
+                    <label style={labelStyle}>Area / Locality</label>
+                    <input
+                      value={jobPostDraft.locationLabel}
+                      onChange={event => setJobPostDraft(current => ({ ...current, locationLabel: event.target.value }))}
+                      placeholder="Ajmer Road, Dholai, Gandhi Path"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={jobPostDraft.latitude}
+                      onChange={event => setJobPostDraft(current => ({ ...current, latitude: event.target.value === '' ? '' : Number(event.target.value) }))}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Longitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={jobPostDraft.longitude}
+                      onChange={event => setJobPostDraft(current => ({ ...current, longitude: event.target.value === '' ? '' : Number(event.target.value) }))}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div>
                     <label style={labelStyle}>Wage Amount</label>
                     <input type="number" min="0" value={jobPostDraft.wageAmount} onChange={event => setJobPostDraft(current => ({ ...current, wageAmount: Number(event.target.value) }))} style={inputStyle} />
                   </div>
@@ -2788,10 +2923,13 @@ export default function LabourExchangeAdminPage() {
                       <div key={jobPost.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                         <div>
                           <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{jobPost.title}</p>
-                          <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                            {getCompanyName(jobPost.companyId)} | {getCategoryName(jobPost.categoryId)} | {jobPost.city || 'No city'} | {effectiveStatus}
-                          </p>
-                          <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>{jobPost.description || 'No description yet.'}</p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                          {getCompanyName(jobPost.companyId)} | {getCategoryName(jobPost.categoryId)} | {jobPost.city || 'No city'} | {effectiveStatus}
+                        </p>
+                        <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>
+                          {jobPost.locationLabel || 'No area/locality'} | Lat {jobPost.latitude === '' ? '—' : jobPost.latitude} | Lng {jobPost.longitude === '' ? '—' : jobPost.longitude}
+                        </p>
+                        <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>{jobPost.description || 'No description yet.'}</p>
                           <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
                             {jobPost.workersNeeded} workers | {formatCurrency(jobPost.wageAmount)} | {jobPost.validityDays} days | {formatDate(jobPost.publishedAt)} to {formatDate(jobPost.expiresAt)}
                           </p>
@@ -4323,26 +4461,112 @@ export default function LabourExchangeAdminPage() {
               </div>
 
               <div style={cardStyle}>
-                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation and linked tools</h3>
-                <div style={{ display: 'grid', gap: '12px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-                    {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
-                      <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
-                        Open {sectionLabels[section]}
-                      </button>
-                    ))}
-                  </div>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Worker app languages</h3>
+                <div style={{ display: 'grid', gap: '14px' }}>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                    Control the first language-selection page for new worker installs. Only enabled languages will be shown inside the worker app.
+                  </p>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    <a href="/admin/labour/website" style={{ ...primaryButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-                      Open Website Editor
-                    </a>
-                    <a href="/labour/company" target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-                      Preview Website
-                    </a>
+                    {workerLanguageOptions.map(option => {
+                      const selected = settingsDraft.workerLanguageControls.enabledWorkerLanguageCodes.includes(option.code)
+                      return (
+                        <label key={option.code} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: '999px', border: selected ? '1px solid #1d4ed8' : '1px solid #cbd5e1', background: selected ? '#eff6ff' : '#fff', color: selected ? '#1d4ed8' : '#334155', fontSize: '12px', fontWeight: '700' }}>
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={event => toggleWorkerLanguage(option.code, event.target.checked)}
+                          />
+                          {option.label}
+                        </label>
+                      )
+                    })}
                   </div>
+                  <select
+                    value={settingsDraft.workerLanguageControls.defaultWorkerLanguageCode}
+                    onChange={event => setSettingsDraft(current => ({
+                      ...current,
+                      workerLanguageControls: {
+                        ...current.workerLanguageControls,
+                        defaultWorkerLanguageCode: event.target.value
+                      }
+                    }))}
+                    style={inputStyle}
+                  >
+                    {settingsDraft.workerLanguageControls.enabledWorkerLanguageCodes.map(code => {
+                      const option = workerLanguageOptions.find(item => item.code === code)
+                      return (
+                        <option key={code} value={code}>
+                          Default: {option?.label ?? code}
+                        </option>
+                      )
+                    })}
+                  </select>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.workerLanguageControls.showLanguageSelectionOnFirstOpen}
+                      onChange={event => setSettingsDraft(current => ({
+                        ...current,
+                        workerLanguageControls: {
+                          ...current.workerLanguageControls,
+                          showLanguageSelectionOnFirstOpen: event.target.checked
+                        }
+                      }))}
+                    />
+                    Show language selection on the very first app open
+                  </label>
                   <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', background: '#f8fafc', color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
-                    Save settings here before editing related plans, worker review logic, or push templates. This panel is meant for operational defaults, while Plans, Workers, Notifications, and Reports remain execution modules.
+                    Current worker app language setup: {settingsDraft.workerLanguageControls.enabledWorkerLanguageCodes.map(code => workerLanguageOptions.find(option => option.code === code)?.label ?? code).join(', ')}. Default language: {workerLanguageOptions.find(option => option.code === settingsDraft.workerLanguageControls.defaultWorkerLanguageCode)?.label ?? settingsDraft.workerLanguageControls.defaultWorkerLanguageCode}.
                   </div>
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Worker home city suggestions</h3>
+                <div style={{ display: 'grid', gap: '14px' }}>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                    These city names are shown in the worker app inside the favourite cities section and the add-more city picker.
+                  </p>
+                  <textarea
+                    value={settingsDraft.workerHomeControls.popularCitySuggestions.join(', ')}
+                    onChange={event => setSettingsDraft(current => ({
+                      ...current,
+                      workerHomeControls: {
+                        ...current.workerHomeControls,
+                        popularCitySuggestions: parseCommaSeparatedDisplayList(event.target.value)
+                      }
+                    }))}
+                    rows={4}
+                    placeholder="Jaipur, Delhi, Mumbai, Bengaluru, Pune"
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: '96px', lineHeight: 1.6 }}
+                  />
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', background: '#f8fafc', color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                    Current worker home cities: {settingsDraft.workerHomeControls.popularCitySuggestions.join(', ') || 'No cities added yet'}.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation and linked tools</h3>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                    <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
+                      Open {sectionLabels[section]}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <a href="/admin/labour/website" style={{ ...primaryButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                    Open Website Editor
+                  </a>
+                  <a href="/labour/company" target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                    Preview Website
+                  </a>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', background: '#f8fafc', color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                  Save settings here before editing related plans, worker review logic, or push templates. This panel is meant for operational defaults, while Plans, Workers, Notifications, and Reports remain execution modules.
                 </div>
               </div>
             </div>

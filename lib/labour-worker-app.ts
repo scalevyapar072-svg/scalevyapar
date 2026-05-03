@@ -20,6 +20,7 @@ import {
   WorkerIdentityProofType,
   updateLabourEntity
 } from './labour-marketplace'
+import { getLabourAdminSettings } from './labour-admin-settings'
 import { sendWorkerPushNotification } from './labour-worker-push'
 import { sendCompanyApplicationEmail } from './labour-company-email'
 import { supabaseAdmin } from './supabase-admin'
@@ -72,6 +73,7 @@ export type WorkerAppProfile = {
   identityProofNumber: string
   identityProofPath: string
   isRegistrationComplete: boolean
+  canAccessApp: boolean
   registrationCompletedAt: string
 }
 
@@ -114,6 +116,9 @@ export type WorkerAppFeedItem = {
   title: string
   description: string
   city: string
+  locationLabel: string
+  latitude: number | null
+  longitude: number | null
   wageAmount: number
   workersNeeded: number
   categoryName: string
@@ -153,7 +158,12 @@ export type WorkerAppDashboard = {
   availableCategories: Array<{
     id: string
     name: string
+    description: string
+    imageUrl: string
+    showOnHome: boolean
+    homeOrder: number
   }>
+  popularCitySuggestions: string[]
   workerPlan: {
     id: string
     name: string
@@ -292,6 +302,11 @@ const isWorkerRegistrationComplete = (worker: LabourWorkerRecord) =>
   Boolean(worker.identityProofType) &&
   Boolean(worker.identityProofNumber.trim()) &&
   Boolean(worker.identityProofPath.trim())
+
+const canWorkerAccessApp = (worker: LabourWorkerRecord) =>
+  isWorkerRegistrationComplete(worker) ||
+  Boolean(worker.registrationCompletedAt.trim()) ||
+  worker.status !== 'pending'
 
 const deriveWorkerStatus = (
   worker: LabourWorkerRecord,
@@ -510,6 +525,7 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   identityProofNumber: worker.identityProofNumber,
   identityProofPath: worker.identityProofPath,
   isRegistrationComplete: isWorkerRegistrationComplete(worker),
+  canAccessApp: canWorkerAccessApp(worker),
   registrationCompletedAt: worker.registrationCompletedAt
 })
 
@@ -669,6 +685,9 @@ const buildWorkerFeed = (
         title: jobPost.title,
         description: jobPost.description,
         city: jobPost.city,
+        locationLabel: jobPost.locationLabel,
+        latitude: jobPost.latitude,
+        longitude: jobPost.longitude,
         wageAmount: jobPost.wageAmount,
         workersNeeded: jobPost.workersNeeded,
         categoryName,
@@ -967,6 +986,7 @@ export const verifyWorkerOtpCode = async (mobile: string, otpCode: string) => {
 
 export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerAppDashboard> => {
   const snapshot = await getLabourMarketplaceSnapshot()
+  const adminSettings = await getLabourAdminSettings()
   const worker = findWorkerById(snapshot, workerId)
   if (!worker) {
     throw new Error('Worker account not found.')
@@ -1007,7 +1027,15 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
     unreadNotificationCount: notifications.filter(notification => !notification.isRead).length,
     availableCategories: snapshot.categories
       .filter(category => category.isActive)
-      .map(category => ({ id: category.id, name: category.name })),
+      .map(category => ({
+        id: category.id,
+        name: category.name,
+        description: category.description,
+        imageUrl: category.imageUrl,
+        showOnHome: category.showOnHome,
+        homeOrder: category.homeOrder
+      })),
+    popularCitySuggestions: adminSettings.settings.workerHomeControls.popularCitySuggestions,
     workerPlan: workerPlan ? {
       id: workerPlan.id,
       name: workerPlan.name,

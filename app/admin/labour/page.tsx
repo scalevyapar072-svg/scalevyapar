@@ -44,6 +44,8 @@ type LabourCategory = {
   slug: string
   description: string
   imageUrl: string
+  showOnHome: boolean
+  homeOrder: number
   demandLevel: DemandLevel
   isActive: boolean
 }

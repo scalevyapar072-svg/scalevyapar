@@ -70,6 +70,8 @@ type LabourWorker = {
   fullName: string
   mobile: string
   city: string
+  homeCity: string
+  address: string
   profilePhotoPath: string
   experienceYears: number
   expectedDailyWage: number
@@ -375,7 +377,7 @@ const workerStatuses: WorkerStatus[] = [
 ]
 
 const companyStatuses: CompanyStatus[] = ['pending', 'active', 'inactive', 'blocked']
-const workerAvailabilityOptions: WorkerAvailability[] = ['available_today', 'available_this_week', 'not_available']
+const workerAvailabilityOptions: WorkerAvailability[] = ['available_today', 'available_this_week']
 const workerIdentityProofOptions: Array<Exclude<WorkerIdentityProofType, ''>> = ['aadhaar', 'pan', 'voter_id', 'driving_license', 'other']
 const jobPostStatuses: JobPostStatus[] = ['draft', 'live', 'expired', 'paused']
 const jobApplicationStatuses: JobApplicationStatus[] = ['submitted', 'reviewed', 'shortlisted', 'rejected', 'hired']
@@ -417,6 +419,8 @@ const blankWorker: LabourWorker = {
   fullName: '',
   mobile: '',
   city: '',
+  homeCity: '',
+  address: '',
   profilePhotoPath: '',
   experienceYears: 0,
   expectedDailyWage: 0,
@@ -933,7 +937,11 @@ export default function LabourExchangeAdminPage() {
 
   useEffect(() => {
     if (!defaultAdminCity) return
-    setWorkerDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
+    setWorkerDraft(current => ({
+      ...current,
+      city: current.city.trim() || defaultAdminCity,
+      homeCity: current.homeCity.trim() || defaultAdminCity
+    }))
     setCompanyDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
     setJobPostDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
   }, [defaultAdminCity])
@@ -992,7 +1000,7 @@ export default function LabourExchangeAdminPage() {
   }
 
   const resetWorkerDraft = () => {
-    setWorkerDraft({ ...blankWorker, city: defaultAdminCity })
+    setWorkerDraft({ ...blankWorker, city: defaultAdminCity, homeCity: defaultAdminCity })
     setEditingWorkerId(null)
   }
 
@@ -2487,12 +2495,31 @@ export default function LabourExchangeAdminPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>City</label>
+                    <label style={labelStyle}>Looking Job City</label>
                     <select value={workerDraft.city} onChange={event => setWorkerDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
                       {getCitySelectOptions(workerDraft.city).map(city => (
                         <option key={city} value={city}>{city}</option>
                       ))}
                     </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Belongs To City</label>
+                    <select value={workerDraft.homeCity} onChange={event => setWorkerDraft(current => ({ ...current, homeCity: event.target.value }))} style={inputStyle}>
+                      {getCitySelectOptions(workerDraft.homeCity).map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Address</label>
+                    <textarea
+                      value={workerDraft.address}
+                      onChange={event => setWorkerDraft(current => ({ ...current, address: event.target.value }))}
+                      rows={3}
+                      style={{ ...inputStyle, resize: 'vertical', minHeight: '92px' }}
+                    />
                   </div>
                   <div>
                     <label style={labelStyle}>Experience Years</label>
@@ -2522,7 +2549,7 @@ export default function LabourExchangeAdminPage() {
                     <label style={labelStyle}>Availability</label>
                     <select value={workerDraft.availability} onChange={event => setWorkerDraft(current => ({ ...current, availability: event.target.value as WorkerAvailability }))} style={inputStyle}>
                       {workerAvailabilityOptions.map(option => (
-                        <option key={option} value={option}>{option}</option>
+                        <option key={option} value={option}>{option === 'available_today' ? 'Ready to Work today' : 'Can join in 7 days'}</option>
                       ))}
                     </select>
                   </div>
@@ -2601,12 +2628,15 @@ export default function LabourExchangeAdminPage() {
                               </span>
                             </div>
                             <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                              {worker.mobile} | {worker.city || 'No city'} | {worker.status} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
+                              {worker.mobile} | Looking: {worker.city || 'No city'} | Belongs: {worker.homeCity || 'No city'} | {worker.status} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
                             </p>
                             <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
-                              Categories: {worker.categoryIds.map(getCategoryName).join(', ') || 'None'} | Wage {formatCurrency(worker.expectedDailyWage)} | Availability {worker.availability}
+                              Categories: {worker.categoryIds.map(getCategoryName).join(', ') || 'None'} | Wage {formatCurrency(worker.expectedDailyWage)} | Availability {worker.availability === 'available_today' ? 'Ready to Work today' : worker.availability === 'available_this_week' ? 'Can join in 7 days' : worker.availability}
                             </p>
                             <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                              Address: {worker.address || 'No address added'}
+                            </p>
+                            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '12px' }}>
                               Proof: {formatIdentityProofType(worker.identityProofType)} {worker.identityProofNumber ? `| ${worker.identityProofNumber}` : '| No proof number'}
                             </p>
                           </div>

@@ -67,6 +67,8 @@ export type LabourAdminHelpControls = {
   supportSubtitle: string
   supportWhatsappNumber: string
   supportChatbotUrl: string
+  supportExtraLabel: string
+  supportExtraUrl: string
   supportPrefilledMessage: string
 }
 
@@ -172,6 +174,8 @@ export const defaultLabourAdminSettings: LabourAdminSettings = {
     supportSubtitle: 'Chat with our team or message us on WhatsApp.',
     supportWhatsappNumber: '',
     supportChatbotUrl: '',
+    supportExtraLabel: '',
+    supportExtraUrl: '',
     supportPrefilledMessage: 'Hello Team, I need help with the Rozgar worker app.'
   }
 }
@@ -326,6 +330,14 @@ const normalizeSettings = (value: unknown): LabourAdminSettings => {
       supportChatbotUrl: normalizeString(
         helpControls.supportChatbotUrl,
         defaultLabourAdminSettings.helpControls.supportChatbotUrl
+      ),
+      supportExtraLabel: normalizeString(
+        helpControls.supportExtraLabel,
+        defaultLabourAdminSettings.helpControls.supportExtraLabel
+      ),
+      supportExtraUrl: normalizeString(
+        helpControls.supportExtraUrl,
+        defaultLabourAdminSettings.helpControls.supportExtraUrl
       ),
       supportPrefilledMessage: normalizeString(
         helpControls.supportPrefilledMessage,

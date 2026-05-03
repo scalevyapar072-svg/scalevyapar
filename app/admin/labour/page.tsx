@@ -18,7 +18,7 @@ type WalletEntityType = 'worker' | 'company'
 type WalletTransactionType = 'registration_fee' | 'wallet_deduction' | 'plan_purchase' | 'wallet_recharge' | 'manual_adjustment'
 type WalletTransactionDirection = 'credit' | 'debit'
 type WalletTransactionStatus = 'pending' | 'completed' | 'attention' | 'failed'
-type RechargeRequestType = 'worker_recharge' | 'company_follow_up'
+type RechargeRequestType = 'worker_recharge' | 'company_follow_up' | 'worker_support'
 type RechargeRequestPriority = 'high' | 'medium' | 'low'
 type RechargeRequestStatus = 'open' | 'contacted' | 'resolved' | 'closed'
 type LabourSection =
@@ -33,6 +33,7 @@ type LabourSection =
   | 'plans'
   | 'walletTransactions'
   | 'rechargeRequests'
+  | 'supportRequests'
   | 'reports'
   | 'settings'
   | 'auditLogs'
@@ -352,6 +353,16 @@ type LabourAdminSettings = {
   workerHomeControls: {
     popularCitySuggestions: string[]
   }
+  helpControls: {
+    showHeaderHelpButton: boolean
+    supportTitle: string
+    supportSubtitle: string
+    supportWhatsappNumber: string
+    supportChatbotUrl: string
+    supportExtraLabel: string
+    supportExtraUrl: string
+    supportPrefilledMessage: string
+  }
 }
 
 const workerStatuses: WorkerStatus[] = [
@@ -569,6 +580,16 @@ const blankLabourAdminSettings: LabourAdminSettings = {
       'Nashik',
       'Bhubaneswar'
     ]
+  },
+  helpControls: {
+    showHeaderHelpButton: true,
+    supportTitle: 'Need help?',
+    supportSubtitle: 'Chat with our team or message us on WhatsApp.',
+    supportWhatsappNumber: '',
+    supportChatbotUrl: '',
+    supportExtraLabel: '',
+    supportExtraUrl: '',
+    supportPrefilledMessage: 'Hello Team, I need help with the Rozgar worker app.'
   }
 }
 
@@ -597,6 +618,7 @@ const sectionLabels: Record<LabourSection, string> = {
   plans: 'Plans',
   walletTransactions: 'Wallet Transactions',
   rechargeRequests: 'Recharge Requests',
+  supportRequests: 'Support Requests',
   reports: 'Reports',
   settings: 'Settings',
   auditLogs: 'Audit Logs'
@@ -1412,8 +1434,24 @@ export default function LabourExchangeAdminPage() {
   })
 
   const filteredRechargeRequests = rechargeRequests.filter(request => {
+    if (request.requestType === 'worker_support') return false
     if (rechargeFilters.priority !== 'all' && request.priority !== rechargeFilters.priority) return false
     if (rechargeFilters.type !== 'all' && request.requestType !== rechargeFilters.type) return false
+    if (rechargeFilters.status !== 'all' && request.requestStatus !== rechargeFilters.status) return false
+
+    return matchesSearch(rechargeFilters.search, [
+      request.name,
+      request.city,
+      request.categoryLabel,
+      request.statusLabel,
+      request.requestStatus,
+      request.note
+    ])
+  })
+
+  const filteredSupportRequests = rechargeRequests.filter(request => {
+    if (request.requestType !== 'worker_support') return false
+    if (rechargeFilters.priority !== 'all' && request.priority !== rechargeFilters.priority) return false
     if (rechargeFilters.status !== 'all' && request.requestStatus !== rechargeFilters.status) return false
 
     return matchesSearch(rechargeFilters.search, [
@@ -1433,7 +1471,12 @@ export default function LabourExchangeAdminPage() {
   const unreadWorkerNotificationsCount = snapshot.workerNotifications.filter(notification => !notification.isRead).length
   const pendingWorkerKycCount = snapshot.workers.filter(worker => getWorkerKycState(worker) === 'ready_for_review').length
   const pendingCompanyApprovalsCount = snapshot.companies.filter(company => company.status === 'pending').length
-  const openRechargeRequestsCount = rechargeRequests.filter(request => request.requestStatus === 'open').length
+  const openRechargeRequestsCount = rechargeRequests.filter(
+    request => request.requestType !== 'worker_support' && request.requestStatus === 'open'
+  ).length
+  const openSupportRequestsCount = rechargeRequests.filter(
+    request => request.requestType === 'worker_support' && request.requestStatus === 'open'
+  ).length
   const savedJobConversionRate = snapshot.savedJobs.length === 0
     ? 0
     : Math.round((snapshot.jobApplications.length / snapshot.savedJobs.length) * 100)
@@ -1987,7 +2030,7 @@ export default function LabourExchangeAdminPage() {
       return
     }
 
-    const relatedEntityType = rechargeRequestDraft.requestType === 'worker_recharge' ? 'worker' : 'company'
+    const relatedEntityType = rechargeRequestDraft.requestType === 'company_follow_up' ? 'company' : 'worker'
     const payload = {
       ...rechargeRequestDraft,
       relatedEntityType,
@@ -2126,7 +2169,8 @@ export default function LabourExchangeAdminPage() {
                     `Saved Jobs: ${snapshot.savedJobs.length}`,
                     `Worker Alerts: ${snapshot.workerNotifications.length}`,
                     `Wallet Entries: ${walletTransactions.length}`,
-                    `Recharge Follow-ups: ${rechargeRequests.length}`,
+                    `Recharge Follow-ups: ${rechargeRequests.filter(request => request.requestType !== 'worker_support').length}`,
+                    `Support Requests: ${rechargeRequests.filter(request => request.requestType === 'worker_support').length}`,
                     `Audit Logs: ${snapshot.auditLogs.length}`
                   ].map(item => (
                     <div key={item} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
@@ -3985,7 +4029,7 @@ export default function LabourExchangeAdminPage() {
                       value={rechargeRequestDraft.requestType}
                       onChange={event => {
                         const requestType = event.target.value as RechargeRequestType
-                        const relatedEntityType = requestType === 'worker_recharge' ? 'worker' : 'company'
+                        const relatedEntityType = requestType === 'company_follow_up' ? 'company' : 'worker'
                         setRechargeRequestDraft(current => ({
                           ...current,
                           requestType,
@@ -4001,6 +4045,7 @@ export default function LabourExchangeAdminPage() {
                     >
                       <option value="worker_recharge">worker_recharge</option>
                       <option value="company_follow_up">company_follow_up</option>
+                      <option value="worker_support">worker_support</option>
                     </select>
                   </div>
                   <div>
@@ -4009,7 +4054,7 @@ export default function LabourExchangeAdminPage() {
                       value={rechargeRequestDraft.relatedEntityId}
                       onChange={event => {
                         const relatedEntityId = event.target.value
-                        const relatedEntityType = rechargeRequestDraft.requestType === 'worker_recharge' ? 'worker' : 'company'
+                        const relatedEntityType = rechargeRequestDraft.requestType === 'company_follow_up' ? 'company' : 'worker'
                         setRechargeRequestDraft(current => ({
                           ...current,
                           relatedEntityType,
@@ -4022,10 +4067,10 @@ export default function LabourExchangeAdminPage() {
                       }}
                       style={inputStyle}
                     >
-                      <option value="">Select {rechargeRequestDraft.requestType === 'worker_recharge' ? 'worker' : 'company'}</option>
-                      {(rechargeRequestDraft.requestType === 'worker_recharge' ? snapshot.workers : snapshot.companies).map(entity => (
-                        <option key={entity.id} value={entity.id}>{rechargeRequestDraft.requestType === 'worker_recharge' ? (entity as LabourWorker).fullName : (entity as LabourCompany).companyName}</option>
-                      ))}
+                        <option value="">Select {rechargeRequestDraft.requestType === 'company_follow_up' ? 'company' : 'worker'}</option>
+                        {(rechargeRequestDraft.requestType === 'company_follow_up' ? snapshot.companies : snapshot.workers).map(entity => (
+                          <option key={entity.id} value={entity.id}>{rechargeRequestDraft.requestType === 'company_follow_up' ? (entity as LabourCompany).companyName : (entity as LabourWorker).fullName}</option>
+                        ))}
                     </select>
                   </div>
                 </div>
@@ -4119,6 +4164,70 @@ export default function LabourExchangeAdminPage() {
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'supportRequests' && (
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Support requests from worker app</h2>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                  Review workers who tapped Help in the Rozgar app. Open now: {openSupportRequestsCount}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <input placeholder="Search support requests" value={rechargeFilters.search} onChange={event => setRechargeFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                <select value={rechargeFilters.priority} onChange={event => setRechargeFilters(current => ({ ...current, priority: event.target.value as RechargeFilters['priority'] }))} style={{ ...inputStyle, width: '130px' }}>
+                  <option value="all">All Priority</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+                <select value={rechargeFilters.status} onChange={event => setRechargeFilters(current => ({ ...current, status: event.target.value as RechargeFilters['status'] }))} style={{ ...inputStyle, width: '140px' }}>
+                  <option value="all">All Request Status</option>
+                  <option value="open">open</option>
+                  <option value="contacted">contacted</option>
+                  <option value="resolved">resolved</option>
+                  <option value="closed">closed</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {filteredSupportRequests.length === 0 ? (
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No support requests match the current filters.</p>
+              ) : (
+                filteredSupportRequests.map(request => (
+                  <div key={request.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'grid', gridTemplateColumns: '1.15fr 0.7fr 0.7fr 0.5fr 0.6fr 0.6fr', gap: '10px', alignItems: 'center' }}>
+                    <div>
+                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{request.name}</p>
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>Worker Support | {request.statusLabel}</p>
+                      <p style={{ margin: '4px 0 0', color: '#475569', fontSize: '12px' }}>{request.note}</p>
+                    </div>
+                    <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{request.city || 'No city'}</p>
+                    <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{request.categoryLabel || 'Unassigned'}</p>
+                    <p style={{ margin: 0, color: request.priority === 'high' ? '#b91c1c' : request.priority === 'medium' ? '#b45309' : '#2563eb', fontSize: '12px', fontWeight: '700' }}>
+                      {titleCase(request.priority)}
+                    </p>
+                    <p style={{ margin: 0, color: '#0f172a', fontSize: '12px', fontWeight: '700' }}>{titleCase(request.requestStatus)}</p>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <button
+                        onClick={() => {
+                          setRechargeRequestDraft(request)
+                          setEditingRechargeRequestId(request.id)
+                          setActiveSection('rechargeRequests')
+                        }}
+                        style={subtleButtonStyle}
+                      >
+                        Edit
+                      </button>
+                      <button onClick={() => void removeEntity('rechargeRequests', request.id, request.name)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -4582,13 +4691,146 @@ export default function LabourExchangeAdminPage() {
                   </div>
                 </div>
               </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Worker app help button</h3>
+                <div style={{ display: 'grid', gap: '14px' }}>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                    These settings control the Help button in the worker app header. Workers can use it to contact your team on WhatsApp, open your chatbot link, or use one extra custom button you configure here.
+                  </p>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.helpControls.showHeaderHelpButton}
+                      onChange={event => setSettingsDraft(current => ({
+                        ...current,
+                        helpControls: {
+                          ...current.helpControls,
+                          showHeaderHelpButton: event.target.checked
+                        }
+                      }))}
+                    />
+                    Show Help button in worker app header
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Help title</label>
+                      <input
+                        value={settingsDraft.helpControls.supportTitle}
+                        onChange={event => setSettingsDraft(current => ({
+                          ...current,
+                          helpControls: {
+                            ...current.helpControls,
+                            supportTitle: event.target.value
+                          }
+                        }))}
+                        placeholder="Need help?"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>WhatsApp number</label>
+                      <input
+                        value={settingsDraft.helpControls.supportWhatsappNumber}
+                        onChange={event => setSettingsDraft(current => ({
+                          ...current,
+                          helpControls: {
+                            ...current.helpControls,
+                            supportWhatsappNumber: event.target.value
+                          }
+                        }))}
+                        placeholder="9198XXXXXXXX"
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Help subtitle</label>
+                    <input
+                      value={settingsDraft.helpControls.supportSubtitle}
+                      onChange={event => setSettingsDraft(current => ({
+                        ...current,
+                        helpControls: {
+                          ...current.helpControls,
+                          supportSubtitle: event.target.value
+                        }
+                      }))}
+                      placeholder="Chat with our team or message us on WhatsApp."
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Chatbot URL</label>
+                    <input
+                      value={settingsDraft.helpControls.supportChatbotUrl}
+                      onChange={event => setSettingsDraft(current => ({
+                        ...current,
+                        helpControls: {
+                          ...current.helpControls,
+                          supportChatbotUrl: event.target.value
+                        }
+                      }))}
+                      placeholder="https://..."
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Other button text</label>
+                      <input
+                        value={settingsDraft.helpControls.supportExtraLabel}
+                        onChange={event => setSettingsDraft(current => ({
+                          ...current,
+                          helpControls: {
+                            ...current.helpControls,
+                            supportExtraLabel: event.target.value
+                          }
+                        }))}
+                        placeholder="Visit support page"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Other link URL</label>
+                      <input
+                        value={settingsDraft.helpControls.supportExtraUrl}
+                        onChange={event => setSettingsDraft(current => ({
+                          ...current,
+                          helpControls: {
+                            ...current.helpControls,
+                            supportExtraUrl: event.target.value
+                          }
+                        }))}
+                        placeholder="https://..."
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Default WhatsApp message</label>
+                    <textarea
+                      value={settingsDraft.helpControls.supportPrefilledMessage}
+                      onChange={event => setSettingsDraft(current => ({
+                        ...current,
+                        helpControls: {
+                          ...current.helpControls,
+                          supportPrefilledMessage: event.target.value
+                        }
+                      }))}
+                      rows={3}
+                      placeholder="Hello Team, I need help with the Rozgar worker app."
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div style={cardStyle}>
               <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation and linked tools</h3>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'supportRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
                     <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
                       Open {sectionLabels[section]}
                     </button>

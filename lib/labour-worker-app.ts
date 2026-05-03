@@ -158,6 +158,8 @@ export type WorkerAppDashboard = {
     subtitle: string
     whatsappNumber: string
     chatbotUrl: string
+    extraLabel: string
+    extraUrl: string
     prefilledMessage: string
   }
   feed: WorkerAppFeedItem[]
@@ -1028,6 +1030,8 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
       subtitle: adminSettings.settings.helpControls.supportSubtitle,
       whatsappNumber: adminSettings.settings.helpControls.supportWhatsappNumber,
       chatbotUrl: adminSettings.settings.helpControls.supportChatbotUrl,
+      extraLabel: adminSettings.settings.helpControls.supportExtraLabel,
+      extraUrl: adminSettings.settings.helpControls.supportExtraUrl,
       prefilledMessage: adminSettings.settings.helpControls.supportPrefilledMessage
     },
     feed: buildWorkerFeed(
@@ -1244,7 +1248,7 @@ export const createWorkerHelpRequest = async (workerId: string, note?: string) =
     .join(', ')
 
   await createLabourEntity('rechargeRequests', {
-    requestType: 'worker_recharge',
+    requestType: 'worker_support',
     relatedEntityType: 'worker',
     relatedEntityId: worker.id,
     name: `${worker.fullName || worker.mobile} help request`,

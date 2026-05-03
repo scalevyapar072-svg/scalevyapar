@@ -61,6 +61,15 @@ export type LabourAdminWorkerHomeControls = {
   popularCitySuggestions: string[]
 }
 
+export type LabourAdminHelpControls = {
+  showHeaderHelpButton: boolean
+  supportTitle: string
+  supportSubtitle: string
+  supportWhatsappNumber: string
+  supportChatbotUrl: string
+  supportPrefilledMessage: string
+}
+
 export interface LabourAdminSettings {
   notificationTemplates: LabourAdminNotificationTemplates
   uploadRules: LabourAdminUploadRules
@@ -69,6 +78,7 @@ export interface LabourAdminSettings {
   automationControls: LabourAdminAutomationControls
   workerLanguageControls: LabourAdminWorkerLanguageControls
   workerHomeControls: LabourAdminWorkerHomeControls
+  helpControls: LabourAdminHelpControls
 }
 
 export interface LabourAdminSettingsPayload {
@@ -155,6 +165,14 @@ export const defaultLabourAdminSettings: LabourAdminSettings = {
       'Nashik',
       'Bhubaneswar'
     ]
+  },
+  helpControls: {
+    showHeaderHelpButton: true,
+    supportTitle: 'Need help?',
+    supportSubtitle: 'Chat with our team or message us on WhatsApp.',
+    supportWhatsappNumber: '',
+    supportChatbotUrl: '',
+    supportPrefilledMessage: 'Hello Team, I need help with the Rozgar worker app.'
   }
 }
 
@@ -219,6 +237,7 @@ const normalizeSettings = (value: unknown): LabourAdminSettings => {
   const automationControls = (source.automationControls ?? {}) as Partial<LabourAdminAutomationControls>
   const workerLanguageControls = (source.workerLanguageControls ?? {}) as Partial<LabourAdminWorkerLanguageControls>
   const workerHomeControls = (source.workerHomeControls ?? {}) as Partial<LabourAdminWorkerHomeControls>
+  const helpControls = (source.helpControls ?? {}) as Partial<LabourAdminHelpControls>
   const enabledWorkerLanguageCodes = normalizeWorkerLanguageCodes(
     workerLanguageControls.enabledWorkerLanguageCodes,
     defaultLabourAdminSettings.workerLanguageControls.enabledWorkerLanguageCodes
@@ -285,6 +304,32 @@ const normalizeSettings = (value: unknown): LabourAdminSettings => {
       popularCitySuggestions: normalizeDisplayStringArray(
         workerHomeControls.popularCitySuggestions,
         defaultLabourAdminSettings.workerHomeControls.popularCitySuggestions
+      )
+    },
+    helpControls: {
+      showHeaderHelpButton: normalizeBoolean(
+        helpControls.showHeaderHelpButton,
+        defaultLabourAdminSettings.helpControls.showHeaderHelpButton
+      ),
+      supportTitle: normalizeString(
+        helpControls.supportTitle,
+        defaultLabourAdminSettings.helpControls.supportTitle
+      ),
+      supportSubtitle: normalizeString(
+        helpControls.supportSubtitle,
+        defaultLabourAdminSettings.helpControls.supportSubtitle
+      ),
+      supportWhatsappNumber: normalizeString(
+        helpControls.supportWhatsappNumber,
+        defaultLabourAdminSettings.helpControls.supportWhatsappNumber
+      ),
+      supportChatbotUrl: normalizeString(
+        helpControls.supportChatbotUrl,
+        defaultLabourAdminSettings.helpControls.supportChatbotUrl
+      ),
+      supportPrefilledMessage: normalizeString(
+        helpControls.supportPrefilledMessage,
+        defaultLabourAdminSettings.helpControls.supportPrefilledMessage
       )
     }
   }

@@ -152,6 +152,14 @@ export type WorkerAppDashboard = {
   profile: WorkerAppProfile
   wallet: WorkerAppWalletSummary
   activation: WorkerAppActivationSummary
+  support: {
+    showHeaderHelpButton: boolean
+    title: string
+    subtitle: string
+    whatsappNumber: string
+    chatbotUrl: string
+    prefilledMessage: string
+  }
   feed: WorkerAppFeedItem[]
   notifications: WorkerAppNotification[]
   unreadNotificationCount: number
@@ -1014,6 +1022,14 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
     profile: toWorkerProfile(worker, snapshot.categories),
     wallet: toWorkerWalletSummary(worker, walletTransactions, workerPlan),
     activation,
+    support: {
+      showHeaderHelpButton: adminSettings.settings.helpControls.showHeaderHelpButton,
+      title: adminSettings.settings.helpControls.supportTitle,
+      subtitle: adminSettings.settings.helpControls.supportSubtitle,
+      whatsappNumber: adminSettings.settings.helpControls.supportWhatsappNumber,
+      chatbotUrl: adminSettings.settings.helpControls.supportChatbotUrl,
+      prefilledMessage: adminSettings.settings.helpControls.supportPrefilledMessage
+    },
     feed: buildWorkerFeed(
       worker,
       snapshot.companies,
@@ -1210,6 +1226,35 @@ export const createWorkerRechargeRequest = async (workerId: string, note?: strin
     priority: worker.walletBalance <= 0 ? 'high' : 'medium',
     requestStatus: 'open',
     note: note || 'Recharge requested from worker app.'
+  }, 'worker-app')
+
+  return getWorkerAppDashboard(workerId)
+}
+
+export const createWorkerHelpRequest = async (workerId: string, note?: string) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const worker = findWorkerById(snapshot, workerId)
+  if (!worker) {
+    throw new Error('Worker account not found.')
+  }
+
+  const categoryLabel = worker.categoryIds
+    .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name)
+    .filter((value): value is string => Boolean(value))
+    .join(', ')
+
+  await createLabourEntity('rechargeRequests', {
+    requestType: 'worker_recharge',
+    relatedEntityType: 'worker',
+    relatedEntityId: worker.id,
+    name: `${worker.fullName || worker.mobile} help request`,
+    city: worker.city,
+    categoryLabel,
+    statusLabel: worker.status,
+    suggestedAmount: 0,
+    priority: 'medium',
+    requestStatus: 'open',
+    note: note?.trim() || 'Worker asked for support from the Rozgar app.'
   }, 'worker-app')
 
   return getWorkerAppDashboard(workerId)

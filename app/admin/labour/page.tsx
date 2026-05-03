@@ -893,6 +893,29 @@ export default function LabourExchangeAdminPage() {
     })
   }
 
+  const adminCityOptions = settingsDraft.workerHomeControls.popularCitySuggestions.reduce<string[]>((list, city) => {
+    const normalizedCity = city.trim()
+    if (!normalizedCity) return list
+    if (list.some(item => item.toLowerCase() === normalizedCity.toLowerCase())) return list
+    return [...list, normalizedCity]
+  }, [])
+
+  const defaultAdminCity = adminCityOptions[0] || ''
+
+  const getCitySelectOptions = (selectedCity: string) => {
+    const normalizedSelectedCity = selectedCity.trim()
+    if (!normalizedSelectedCity) return adminCityOptions
+    if (adminCityOptions.some(city => city.toLowerCase() === normalizedSelectedCity.toLowerCase())) return adminCityOptions
+    return [normalizedSelectedCity, ...adminCityOptions]
+  }
+
+  useEffect(() => {
+    if (!defaultAdminCity) return
+    setWorkerDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
+    setCompanyDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
+    setJobPostDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
+  }, [defaultAdminCity])
+
   const persistEntity = async (
     method: 'POST' | 'PUT',
     entityType: LabourEntityType,
@@ -947,17 +970,17 @@ export default function LabourExchangeAdminPage() {
   }
 
   const resetWorkerDraft = () => {
-    setWorkerDraft(blankWorker)
+    setWorkerDraft({ ...blankWorker, city: defaultAdminCity })
     setEditingWorkerId(null)
   }
 
   const resetCompanyDraft = () => {
-    setCompanyDraft(blankCompany)
+    setCompanyDraft({ ...blankCompany, city: defaultAdminCity })
     setEditingCompanyId(null)
   }
 
   const resetJobPostDraft = () => {
-    setJobPostDraft(blankJobPost)
+    setJobPostDraft({ ...blankJobPost, city: defaultAdminCity })
     setEditingJobPostId(null)
   }
 
@@ -2421,7 +2444,11 @@ export default function LabourExchangeAdminPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>City</label>
-                    <input value={workerDraft.city} onChange={event => setWorkerDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle} />
+                    <select value={workerDraft.city} onChange={event => setWorkerDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
+                      {getCitySelectOptions(workerDraft.city).map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label style={labelStyle}>Experience Years</label>
@@ -2669,7 +2696,11 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div>
                     <label style={labelStyle}>City</label>
-                    <input value={companyDraft.city} onChange={event => setCompanyDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle} />
+                    <select value={companyDraft.city} onChange={event => setCompanyDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
+                      {getCitySelectOptions(companyDraft.city).map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div>
@@ -2816,7 +2847,11 @@ export default function LabourExchangeAdminPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>City</label>
-                    <input value={jobPostDraft.city} onChange={event => setJobPostDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle} />
+                    <select value={jobPostDraft.city} onChange={event => setJobPostDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
+                      {getCitySelectOptions(jobPostDraft.city).map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label style={labelStyle}>Workers Needed</label>
@@ -4524,10 +4559,10 @@ export default function LabourExchangeAdminPage() {
               </div>
 
               <div style={cardStyle}>
-                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Worker home city suggestions</h3>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Common city list for admin and worker app</h3>
                 <div style={{ display: 'grid', gap: '14px' }}>
                   <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
-                    These city names are shown in the worker app inside the favourite cities section and the add-more city picker.
+                    These city names are used in Add Worker, Edit Company, Add Job Post, and the worker app favourite cities section. Admin users will now select only from this dropdown list to avoid wrong spellings.
                   </p>
                   <textarea
                     value={settingsDraft.workerHomeControls.popularCitySuggestions.join(', ')}
@@ -4543,7 +4578,7 @@ export default function LabourExchangeAdminPage() {
                     style={{ ...inputStyle, resize: 'vertical', minHeight: '96px', lineHeight: 1.6 }}
                   />
                   <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', background: '#f8fafc', color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
-                    Current worker home cities: {settingsDraft.workerHomeControls.popularCitySuggestions.join(', ') || 'No cities added yet'}.
+                    Current common cities: {settingsDraft.workerHomeControls.popularCitySuggestions.join(', ') || 'No cities added yet'}.
                   </div>
                 </div>
               </div>

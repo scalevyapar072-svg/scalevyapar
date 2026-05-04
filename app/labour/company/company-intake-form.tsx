@@ -32,6 +32,7 @@ type FormState = {
   companyName: string
   contactPerson: string
   mobile: string
+  contactMobile: string
   city: string
   categoryIds: string[]
   activePlan: string
@@ -47,6 +48,7 @@ const initialState: FormState = {
   companyName: '',
   contactPerson: '',
   mobile: '',
+  contactMobile: '',
   city: '',
   categoryIds: [],
   activePlan: '',
@@ -176,13 +178,18 @@ export function CompanyIntakeForm({
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
           <div>
-            <label style={labelStyle}>Mobile *</label>
+            <label style={labelStyle}>Owner Number *</label>
             <input value={form.mobile} maxLength={10} onChange={event => setForm(current => ({ ...current, mobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>City *</label>
-            <input value={form.city} onChange={event => setForm(current => ({ ...current, city: event.target.value }))} style={inputStyle} />
+            <label style={labelStyle}>Contact Number (WhatsApp)</label>
+            <input value={form.contactMobile} maxLength={10} onChange={event => setForm(current => ({ ...current, contactMobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
           </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>City *</label>
+          <input value={form.city} onChange={event => setForm(current => ({ ...current, city: event.target.value }))} style={inputStyle} />
         </div>
 
         <div>

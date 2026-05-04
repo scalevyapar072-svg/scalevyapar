@@ -66,6 +66,8 @@ export interface LabourWorkerRecord {
   fullName: string
   mobile: string
   city: string
+  homeCity: string
+  address: string
   profilePhotoPath: string
   skills: string[]
   experienceYears: number
@@ -90,6 +92,7 @@ export interface LabourCompanyRecord {
   contactPerson: string
   email: string
   mobile: string
+  contactMobile: string
   city: string
   categoryIds: string[]
   status: CompanyStatus
@@ -344,6 +347,8 @@ const defaultData: LabourMarketplaceData = {
       fullName: 'Sajid Ansari',
       mobile: '9876543210',
       city: 'Surat',
+      homeCity: 'Surat',
+      address: 'Textile Market, Surat',
       profilePhotoPath: 'workers/worker-sajid/profile-photo-demo.jpg',
       skills: ['Ladies kurti stitching', 'Machine handling', 'Finishing'],
       experienceYears: 6,
@@ -366,6 +371,8 @@ const defaultData: LabourMarketplaceData = {
       fullName: 'Rahul Sahu',
       mobile: '9812345678',
       city: 'Jaipur',
+      homeCity: 'Jaipur',
+      address: 'Mansarovar, Jaipur',
       profilePhotoPath: 'workers/worker-rahul/profile-photo-demo.jpg',
       skills: ['Site wiring', 'Repair work'],
       experienceYears: 3,
@@ -391,6 +398,7 @@ const defaultData: LabourMarketplaceData = {
       contactPerson: 'Neelu',
       email: 'neelufer@example.com',
       mobile: '9898989898',
+      contactMobile: '9898989898',
       city: 'Surat',
       categoryIds: ['cat-stitching', 'cat-embroidery'],
       status: 'active',
@@ -405,6 +413,7 @@ const defaultData: LabourMarketplaceData = {
       contactPerson: 'Imran',
       email: 'printerhub@example.com',
       mobile: '9765432100',
+      contactMobile: '9765432100',
       city: 'Ahmedabad',
       categoryIds: ['cat-printer-labour'],
       status: 'pending',
@@ -661,6 +670,8 @@ const mapWorkerRow = (row: {
   full_name: string
   mobile: string
   city: string | null
+  home_city: string | null
+  address: string | null
   profile_photo_path: string | null
   skills: string[] | null
   experience_years: number | null
@@ -682,6 +693,8 @@ const mapWorkerRow = (row: {
   fullName: row.full_name,
   mobile: row.mobile,
   city: row.city || '',
+  homeCity: row.home_city || '',
+  address: row.address || '',
   profilePhotoPath: row.profile_photo_path || '',
   skills: row.skills || [],
   experienceYears: row.experience_years ?? 0,
@@ -706,6 +719,7 @@ const mapCompanyRow = (row: {
   contact_person: string
   email: string | null
   mobile: string
+  contact_mobile?: string | null
   city: string | null
   category_ids: string[] | null
   status: string | null
@@ -719,6 +733,7 @@ const mapCompanyRow = (row: {
   contactPerson: row.contact_person,
   email: row.email || '',
   mobile: row.mobile,
+  contactMobile: row.contact_mobile || row.mobile || '',
   city: row.city || '',
   categoryIds: row.category_ids || [],
   status: (row.status as CompanyStatus | null) || 'pending',
@@ -982,6 +997,8 @@ const normalizeWorker = (
     fullName: String(payload.fullName || existing?.fullName || '').trim(),
     mobile: String(payload.mobile || existing?.mobile || '').trim(),
     city: String(payload.city || existing?.city || '').trim(),
+    homeCity: String(payload.homeCity || existing?.homeCity || '').trim(),
+    address: String(payload.address || existing?.address || '').trim(),
     profilePhotoPath: String(payload.profilePhotoPath || existing?.profilePhotoPath || '').trim(),
     skills: toStringArray(payload.skills || existing?.skills || []),
     experienceYears: toNumber(payload.experienceYears, existing?.experienceYears ?? 0),
@@ -1009,17 +1026,28 @@ const isMissingWorkerRegistrationFeePaidColumnError = (message: string) => {
   )
 }
 
+const isMissingCompanyContactMobileColumnError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return normalized.includes('contact_mobile') && (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  )
+}
+
 const normalizeCompany = (
   payload: Partial<LabourCompanyRecord>,
   existing?: LabourCompanyRecord
 ): LabourCompanyRecord => {
   const now = new Date().toISOString()
+  const primaryMobile = String(payload.mobile || existing?.mobile || '').trim()
+  const contactMobile = String(payload.contactMobile || existing?.contactMobile || primaryMobile).trim()
   return {
     id: existing?.id || String(payload.id || createId('company')),
     companyName: String(payload.companyName || existing?.companyName || '').trim(),
     contactPerson: String(payload.contactPerson || existing?.contactPerson || '').trim(),
     email: String(payload.email || existing?.email || '').trim().toLowerCase(),
-    mobile: String(payload.mobile || existing?.mobile || '').trim(),
+    mobile: primaryMobile,
+    contactMobile,
     city: String(payload.city || existing?.city || '').trim(),
     categoryIds: toStringArray(payload.categoryIds || existing?.categoryIds || []),
     status: (payload.status || existing?.status || 'pending') as CompanyStatus,
@@ -1407,6 +1435,7 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     contact_person: company.contactPerson,
     email: company.email || null,
     mobile: company.mobile,
+    contact_mobile: company.contactMobile || company.mobile,
     city: company.city,
     category_ids: company.categoryIds,
     status: company.status,
@@ -1755,12 +1784,13 @@ export const createLabourEntity = async (
     }
     case 'companies': {
       const record = normalizeCompany(payload)
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert({
+      const companyPayload = {
         id: record.id,
         company_name: record.companyName,
         contact_person: record.contactPerson,
         email: record.email || null,
         mobile: record.mobile,
+        contact_mobile: record.contactMobile || record.mobile,
         city: record.city,
         category_ids: record.categoryIds,
         status: record.status,
@@ -1768,7 +1798,12 @@ export const createLabourEntity = async (
         active_plan: record.activePlan,
         created_at: record.createdAt,
         updated_at: record.updatedAt
-      })
+      }
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(companyPayload)
+      if (error && isMissingCompanyContactMobileColumnError(error.message)) {
+        const { contact_mobile, ...legacyCompanyPayload } = companyPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(legacyCompanyPayload))
+      }
       if (error) throw new Error(`Failed to create labour company: ${error.message}`)
       await writeSupabaseAuditLog('create', entityType, record.id, `Created company ${record.companyName}`, actor)
       break
@@ -2071,18 +2106,24 @@ export const updateLabourEntity = async (
       const existing = (await readSupabaseData()).companies.find(record => record.id === id)
       if (!existing) return null
       const record = normalizeCompany(payload, existing)
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update({
+      const companyPayload = {
         company_name: record.companyName,
         contact_person: record.contactPerson,
         email: record.email || null,
         mobile: record.mobile,
+        contact_mobile: record.contactMobile || record.mobile,
         city: record.city,
         category_ids: record.categoryIds,
         status: record.status,
         registration_fee_paid: record.registrationFeePaid,
         active_plan: record.activePlan,
         updated_at: record.updatedAt
-      }).eq('id', id)
+      }
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(companyPayload).eq('id', id)
+      if (error && isMissingCompanyContactMobileColumnError(error.message)) {
+        const { contact_mobile, ...legacyCompanyPayload } = companyPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(legacyCompanyPayload).eq('id', id))
+      }
       if (error) throw new Error(`Failed to update labour company: ${error.message}`)
       await writeSupabaseAuditLog('update', entityType, id, `Updated company ${record.companyName}`, actor)
       break

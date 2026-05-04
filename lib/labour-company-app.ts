@@ -25,6 +25,7 @@ export type CompanyAppProfile = {
   contactPerson: string
   email: string
   mobile: string
+  contactMobile: string
   city: string
   status: string
   activePlan: string
@@ -133,6 +134,7 @@ const toCompanyProfile = (company: LabourCompanyRecord, categoryLabels: string[]
   contactPerson: company.contactPerson,
   email: company.email,
   mobile: company.mobile,
+  contactMobile: company.contactMobile || company.mobile,
   city: company.city,
   status: company.status,
   activePlan: company.activePlan,

@@ -23,6 +23,7 @@ import {
 import { getLabourAdminSettings } from './labour-admin-settings'
 import { sendWorkerPushNotification } from './labour-worker-push'
 import { sendCompanyApplicationEmail } from './labour-company-email'
+import { sendWhatsappTextMessage } from './labour-whatsapp'
 import { supabaseAdmin } from './supabase-admin'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
@@ -59,6 +60,8 @@ export type WorkerAppProfile = {
   fullName: string
   mobile: string
   city: string
+  homeCity: string
+  address: string
   profilePhotoPath: string
   categoryIds: string[]
   categoryLabels: string[]
@@ -80,6 +83,8 @@ export type WorkerAppProfile = {
 export type WorkerRegistrationPayload = {
   fullName: string
   city: string
+  homeCity: string
+  address: string
   categoryIds: string[]
   skills: string[]
   experienceYears: number
@@ -285,6 +290,49 @@ const writeOtpSessions = async (sessions: WorkerAuthSession[], storage: 'supabas
 const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 const sanitizeMobile = (mobile: string) => mobile.replace(/\D/g, '').slice(-10)
+const resolveCompanyContactMobile = (company: LabourCompanyRecord | undefined) => company?.contactMobile || company?.mobile || ''
+const formatCategorySummary = (categories: string[]) => categories.length ? categories.slice(0, 3).join(', ') : 'Not specified'
+const formatAppliedAtLabel = (value: string) => new Date(value).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+
+const buildCompanyApplicationWhatsappMessage = (payload: {
+  companyName: string
+  workerName: string
+  workerCity: string
+  workerMobile: string
+  workerCategories: string[]
+  expectedDailyWage: number
+  note: string
+  jobTitle: string
+  appliedAt: string
+}) => [
+  'Rozgar App',
+  `New worker applied for ${payload.jobTitle}.`,
+  `Worker: ${payload.workerName}`,
+  `City: ${payload.workerCity || 'Not added'}`,
+  `Mobile: ${payload.workerMobile || 'Not available'}`,
+  `Skills: ${formatCategorySummary(payload.workerCategories)}`,
+  `Wage: Rs ${Number(payload.expectedDailyWage || 0).toLocaleString('en-IN')}/day`,
+  payload.note ? `Note: ${payload.note}` : '',
+  `Applied: ${formatAppliedAtLabel(payload.appliedAt)}`
+].filter(Boolean).join('\n')
+
+const buildWorkerApplicationConfirmationWhatsappMessage = (payload: {
+  workerName: string
+  companyName: string
+  contactPerson: string
+  companyCity: string
+  companyMobile: string
+  jobTitle: string
+}) => [
+  'Rozgar App',
+  `You applied for ${payload.jobTitle}.`,
+  `Company: ${payload.companyName}`,
+  `Contact: ${payload.contactPerson || payload.companyName}`,
+  `City: ${payload.companyCity || 'Not added'}`,
+  `Number: ${payload.companyMobile || 'Not available'}`,
+  `${payload.workerName}, the company can contact you soon.`
+].filter(Boolean).join('\n')
+
 const sanitizeFileName = (fileName: string) =>
   fileName
     .toLowerCase()
@@ -519,6 +567,8 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   fullName: worker.fullName,
   mobile: worker.mobile,
   city: worker.city,
+  homeCity: worker.homeCity,
+  address: worker.address,
   profilePhotoPath: worker.profilePhotoPath,
   categoryIds: worker.categoryIds,
   categoryLabels: worker.categoryIds
@@ -705,7 +755,7 @@ const buildWorkerFeed = (
         companyName: activation.canViewCompanyDetails ? company?.companyName || 'Company not found' : 'Unlock company details after activation',
         companyCity: company?.city || '',
         contactPerson: activation.canViewCompanyDetails ? company?.contactPerson || null : null,
-        companyMobile: activation.canViewCompanyDetails ? company?.mobile || null : null,
+        companyMobile: activation.canViewCompanyDetails ? resolveCompanyContactMobile(company) || null : null,
         publishedAt: jobPost.publishedAt,
         expiresAt: jobPost.expiresAt,
         matchReason,
@@ -832,6 +882,8 @@ const ensureWorkerExists = async (mobile: string) => {
     fullName: '',
     mobile: normalizedMobile,
     city: '',
+    homeCity: '',
+    address: '',
     profilePhotoPath: '',
       skills: [],
       experienceYears: 0,
@@ -1121,6 +1173,8 @@ export const completeWorkerAppRegistration = async (
     ...existing,
     fullName: payload.fullName.trim(),
     city: payload.city.trim(),
+    homeCity: payload.homeCity.trim(),
+    address: payload.address.trim(),
     categoryIds: payload.categoryIds,
     skills: payload.skills,
     experienceYears: payload.experienceYears,
@@ -1167,7 +1221,7 @@ export const completeWorkerAppRegistration = async (
 
 export const updateWorkerAppProfile = async (
   workerId: string,
-  payload: Partial<Pick<WorkerAppProfile, 'fullName' | 'city' | 'categoryIds' | 'skills' | 'experienceYears' | 'expectedDailyWage' | 'availability'>>
+  payload: Partial<Pick<WorkerAppProfile, 'fullName' | 'city' | 'homeCity' | 'address' | 'categoryIds' | 'skills' | 'experienceYears' | 'expectedDailyWage' | 'availability'>>
 ) => {
   const snapshot = await getLabourMarketplaceSnapshot()
   const existing = findWorkerById(snapshot, workerId)
@@ -1179,6 +1233,8 @@ export const updateWorkerAppProfile = async (
     ...existing,
     fullName: payload.fullName ?? existing.fullName,
     city: payload.city ?? existing.city,
+    homeCity: payload.homeCity ?? existing.homeCity,
+    address: payload.address ?? existing.address,
     categoryIds: payload.categoryIds ?? existing.categoryIds,
     skills: payload.skills ?? existing.skills,
     experienceYears: payload.experienceYears ?? existing.experienceYears,
@@ -1194,6 +1250,8 @@ export const updateWorkerAppProfile = async (
   await updateLabourEntity('workers', workerId, {
     fullName: mergedWorker.fullName,
     city: mergedWorker.city,
+    homeCity: mergedWorker.homeCity,
+    address: mergedWorker.address,
     categoryIds: mergedWorker.categoryIds,
     skills: mergedWorker.skills,
     experienceYears: mergedWorker.experienceYears,
@@ -1316,6 +1374,12 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     relatedCompanyId: company?.id
   })
 
+  const workerCategories = worker.categoryIds
+    .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name)
+    .filter((value): value is string => Boolean(value))
+  const companyContactMobile = resolveCompanyContactMobile(company)
+  const appliedAt = new Date().toISOString()
+
   try {
     await sendCompanyApplicationEmail({
       companyEmail: company.email,
@@ -1324,17 +1388,47 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
       workerName: worker.fullName,
       workerCity: worker.city,
       workerMobile: worker.mobile,
-      workerCategories: worker.categoryIds
-        .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name)
-        .filter((value): value is string => Boolean(value)),
+      workerCategories,
       expectedDailyWage: worker.expectedDailyWage,
       note: note || '',
       jobTitle: jobPost.title,
       jobCity: jobPost.city,
-      appliedAt: new Date().toISOString()
+      appliedAt
     })
   } catch (error) {
     console.error('Failed to send company application email', error)
+  }
+
+  try {
+    await Promise.allSettled([
+      sendWhatsappTextMessage({
+        to: companyContactMobile,
+        body: buildCompanyApplicationWhatsappMessage({
+          companyName: company.companyName,
+          workerName: worker.fullName,
+          workerCity: worker.city,
+          workerMobile: worker.mobile,
+          workerCategories,
+          expectedDailyWage: worker.expectedDailyWage,
+          note: note || '',
+          jobTitle: jobPost.title,
+          appliedAt
+        })
+      }),
+      sendWhatsappTextMessage({
+        to: worker.mobile,
+        body: buildWorkerApplicationConfirmationWhatsappMessage({
+          workerName: worker.fullName,
+          companyName: company.companyName,
+          contactPerson: company.contactPerson,
+          companyCity: company.city,
+          companyMobile: companyContactMobile,
+          jobTitle: jobPost.title
+        })
+      })
+    ])
+  } catch (error) {
+    console.error('Failed to send worker/company WhatsApp alerts', error)
   }
 
   return getWorkerAppDashboard(workerId)

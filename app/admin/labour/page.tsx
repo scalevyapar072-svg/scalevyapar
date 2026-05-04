@@ -92,6 +92,7 @@ type LabourCompany = {
   contactPerson: string
   email: string
   mobile: string
+  contactMobile: string
   city: string
   categoryIds: string[]
   status: CompanyStatus
@@ -441,6 +442,7 @@ const blankCompany: LabourCompany = {
   contactPerson: '',
   email: '',
   mobile: '',
+  contactMobile: '',
   city: '',
   categoryIds: [],
   status: 'pending',
@@ -1550,6 +1552,7 @@ export default function LabourExchangeAdminPage() {
       companyName: company.companyName,
       contactPerson: company.contactPerson,
       mobile: company.mobile,
+      contactMobile: company.contactMobile,
       city: company.city,
       status: company.status,
       registrationFeePaid: company.registrationFeePaid,
@@ -1723,8 +1726,9 @@ export default function LabourExchangeAdminPage() {
     if (!companyDraft.contactPerson.trim()) return 'Contact person is required.'
     if (!companyDraft.email.trim()) return 'Company email is required.'
     if (!isValidEmail(companyDraft.email)) return 'Enter a valid company email address.'
-    if (!companyDraft.mobile.trim()) return 'Company mobile is required.'
-    if (!isTenDigitMobile(companyDraft.mobile)) return 'Company mobile must be exactly 10 digits.'
+    if (!companyDraft.mobile.trim()) return 'Owner number is required.'
+    if (!isTenDigitMobile(companyDraft.mobile)) return 'Owner number must be exactly 10 digits.'
+    if (companyDraft.contactMobile.trim() && !isTenDigitMobile(companyDraft.contactMobile)) return 'Contact number must be exactly 10 digits.'
     if (companyDraft.categoryIds.length === 0) return 'Select at least one company category.'
     if (companyDraft.status === 'active' && !companyDraft.activePlan) return 'Active companies should have a plan selected.'
 
@@ -2765,17 +2769,21 @@ export default function LabourExchangeAdminPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>Mobile *</label>
+                    <label style={labelStyle}>Owner Number *</label>
                     <input value={companyDraft.mobile} maxLength={10} onChange={event => setCompanyDraft(current => ({ ...current, mobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
                   </div>
                   <div>
-                    <label style={labelStyle}>City</label>
-                    <select value={companyDraft.city} onChange={event => setCompanyDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
-                      {getCitySelectOptions(companyDraft.city).map(city => (
-                        <option key={city} value={city}>{city}</option>
-                      ))}
-                    </select>
+                    <label style={labelStyle}>Contact Number (WhatsApp)</label>
+                    <input value={companyDraft.contactMobile} maxLength={10} onChange={event => setCompanyDraft(current => ({ ...current, contactMobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
                   </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>City</label>
+                  <select value={companyDraft.city} onChange={event => setCompanyDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
+                    {getCitySelectOptions(companyDraft.city).map(city => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label style={labelStyle}>Company Email *</label>
@@ -2864,7 +2872,7 @@ export default function LabourExchangeAdminPage() {
                       <div>
                         <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{company.companyName}</p>
                         <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                          {company.contactPerson} | {company.email || 'No email'} | {company.city || 'No city'} | {company.status} | {company.registrationFeePaid ? 'Fee paid' : 'Fee pending'}
+                          {company.contactPerson} | Owner {company.mobile || 'No owner number'} | Contact {company.contactMobile || company.mobile || 'No contact number'} | {company.city || 'No city'} | {company.status} | {company.registrationFeePaid ? 'Fee paid' : 'Fee pending'}
                         </p>
                         <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
                           Categories: {company.categoryIds.map(getCategoryName).join(', ') || 'None'} | Plan {getPlanName(company.activePlan)}
@@ -3342,7 +3350,10 @@ export default function LabourExchangeAdminPage() {
                         Contact person: {getCompanyById(selectedJobApplication.companyId)?.contactPerson || 'Not available'}
                       </p>
                       <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
-                        Company mobile: {getCompanyById(selectedJobApplication.companyId)?.mobile || 'Not available'}
+                        Owner number: {getCompanyById(selectedJobApplication.companyId)?.mobile || 'Not available'}
+                      </p>
+                      <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                        Contact number: {getCompanyById(selectedJobApplication.companyId)?.contactMobile || getCompanyById(selectedJobApplication.companyId)?.mobile || 'Not available'}
                       </p>
                       <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
                         Open from company panel to compare this worker against the rest of that company pipeline.

@@ -1400,7 +1400,7 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
   }
 
   try {
-    await Promise.allSettled([
+    const whatsappResults = await Promise.allSettled([
       sendWhatsappTextMessage({
         to: companyContactMobile,
         body: buildCompanyApplicationWhatsappMessage({
@@ -1427,6 +1427,17 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
         })
       })
     ])
+
+    whatsappResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error(
+          index === 0
+            ? 'Failed to send company WhatsApp application alert'
+            : 'Failed to send worker WhatsApp application confirmation',
+          result.reason
+        )
+      }
+    })
   } catch (error) {
     console.error('Failed to send worker/company WhatsApp alerts', error)
   }

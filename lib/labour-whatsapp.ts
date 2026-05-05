@@ -3,6 +3,13 @@ type SendWhatsappTextPayload = {
   body: string
 }
 
+type SendWhatsappTemplatePayload = {
+  to: string
+  templateName: string
+  languageCode?: string
+  bodyParameters?: string[]
+}
+
 const sanitizeWhatsappNumber = (value: string) => value.replace(/[^\d+]/g, '').trim()
 
 const toInternationalWhatsappNumber = (value: string) => {
@@ -69,6 +76,69 @@ export const sendWhatsappTextMessage = async ({ to, body }: SendWhatsappTextPayl
   if (!response.ok) {
     const responseBody = await response.text()
     throw new Error(`WhatsApp send failed (${response.status}): ${responseBody}`)
+  }
+
+  return { delivered: true, skipped: false as const }
+}
+
+export const sendWhatsappTemplateMessage = async ({
+  to,
+  templateName,
+  languageCode = 'en',
+  bodyParameters = []
+}: SendWhatsappTemplatePayload) => {
+  const { accessToken, phoneNumberId, graphVersion } = getWhatsappConfig()
+  const recipient = toInternationalWhatsappNumber(to)
+  const trimmedTemplateName = String(templateName || '').trim()
+  const normalizedParameters = bodyParameters
+    .map(value => String(value ?? '').trim())
+    .filter(Boolean)
+
+  if (!recipient || !trimmedTemplateName) {
+    return { delivered: false, skipped: true, reason: 'missing-recipient-or-template' as const }
+  }
+
+  if (!accessToken || !phoneNumberId) {
+    console.warn('WhatsApp template send skipped because WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID is not configured.')
+    return { delivered: false, skipped: true, reason: 'whatsapp-not-configured' as const }
+  }
+
+  const components = normalizedParameters.length > 0
+    ? [
+        {
+          type: 'body',
+          parameters: normalizedParameters.map(parameter => ({
+            type: 'text',
+            text: parameter
+          }))
+        }
+      ]
+    : undefined
+
+  const response = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: recipient,
+      type: 'template',
+      template: {
+        name: trimmedTemplateName,
+        language: {
+          code: String(languageCode || 'en').trim() || 'en'
+        },
+        ...(components ? { components } : {})
+      }
+    })
+  })
+
+  if (!response.ok) {
+    const responseBody = await response.text()
+    throw new Error(`WhatsApp template send failed (${response.status}): ${responseBody}`)
   }
 
   return { delivered: true, skipped: false as const }

@@ -23,7 +23,7 @@ import {
 import { getLabourAdminSettings } from './labour-admin-settings'
 import { sendWorkerPushNotification } from './labour-worker-push'
 import { sendCompanyApplicationEmail } from './labour-company-email'
-import { sendWhatsappTextMessage } from './labour-whatsapp'
+import { sendWhatsappTemplateMessage, sendWhatsappTextMessage } from './labour-whatsapp'
 import { supabaseAdmin } from './supabase-admin'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
@@ -332,6 +332,16 @@ const buildWorkerApplicationConfirmationWhatsappMessage = (payload: {
   `Number: ${payload.companyMobile || 'Not available'}`,
   `${payload.workerName}, the company can contact you soon.`
 ].filter(Boolean).join('\n')
+
+const getWorkerConfirmationWhatsappTemplateConfig = () => {
+  const templateName = (process.env.WHATSAPP_WORKER_CONFIRMATION_TEMPLATE_NAME || '').trim()
+  const languageCode = (process.env.WHATSAPP_WORKER_CONFIRMATION_TEMPLATE_LANGUAGE || 'en').trim() || 'en'
+
+  return {
+    templateName,
+    languageCode
+  }
+}
 
 const sanitizeFileName = (fileName: string) =>
   fileName
@@ -1400,6 +1410,7 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
   }
 
   try {
+    const workerConfirmationTemplate = getWorkerConfirmationWhatsappTemplateConfig()
     const whatsappResults = await Promise.allSettled([
       sendWhatsappTextMessage({
         to: companyContactMobile,
@@ -1415,17 +1426,31 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
           appliedAt
         })
       }),
-      sendWhatsappTextMessage({
-        to: worker.mobile,
-        body: buildWorkerApplicationConfirmationWhatsappMessage({
-          workerName: worker.fullName,
-          companyName: company.companyName,
-          contactPerson: company.contactPerson,
-          companyCity: company.city,
-          companyMobile: companyContactMobile,
-          jobTitle: jobPost.title
-        })
-      })
+      workerConfirmationTemplate.templateName
+        ? sendWhatsappTemplateMessage({
+            to: worker.mobile,
+            templateName: workerConfirmationTemplate.templateName,
+            languageCode: workerConfirmationTemplate.languageCode,
+            bodyParameters: [
+              worker.fullName || 'Worker',
+              jobPost.title || 'Job',
+              company.companyName || 'Company',
+              company.contactPerson || company.companyName || 'Company team',
+              company.city || 'Not added',
+              companyContactMobile || 'Not available'
+            ]
+          })
+        : sendWhatsappTextMessage({
+            to: worker.mobile,
+            body: buildWorkerApplicationConfirmationWhatsappMessage({
+              workerName: worker.fullName,
+              companyName: company.companyName,
+              contactPerson: company.contactPerson,
+              companyCity: company.city,
+              companyMobile: companyContactMobile,
+              jobTitle: jobPost.title
+            })
+          })
     ])
 
     whatsappResults.forEach((result, index) => {

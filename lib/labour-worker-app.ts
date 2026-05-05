@@ -1456,7 +1456,14 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     ])
 
     whatsappResults.forEach((result, index) => {
-      if (result.status === 'rejected') {
+      if (result.status === 'fulfilled' && !result.value.delivered) {
+        console.warn(
+          index === 0
+            ? 'Company WhatsApp application alert skipped'
+            : 'Worker WhatsApp application confirmation skipped',
+          result.value
+        )
+      } else if (result.status === 'rejected') {
         console.error(
           index === 0
             ? 'Failed to send company WhatsApp application alert'

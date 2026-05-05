@@ -1434,9 +1434,11 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
             bodyParameters: [
               worker.fullName || 'Worker',
               jobPost.title || 'Job',
-              company.companyName || 'Company',
-              company.contactPerson || company.companyName || 'Company team',
-              company.city || 'Not added',
+              [
+                company.companyName || 'Company',
+                company.contactPerson || company.companyName || 'Company team',
+                company.city || 'Not added'
+              ].filter(Boolean).join(', '),
               companyContactMobile || 'Not available'
             ]
           })

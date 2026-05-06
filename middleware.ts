@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from '@/lib/auth-token'
+import { AUTH_COOKIE_NAME, LEGACY_AUTH_COOKIE_NAME, verifyToken } from '@/lib/auth-token'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const hostname = request.nextUrl.hostname
 
   const isLocalDev =
     process.env.NODE_ENV !== 'production' &&
-    (request.nextUrl.hostname === '127.0.0.1' || request.nextUrl.hostname === 'localhost')
+    (hostname === '127.0.0.1' || hostname === 'localhost')
+
+  // Redirect apex to www
+  if (process.env.NODE_ENV === 'production' && hostname === 'scalevyapar.in') {
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.hostname = 'www.scalevyapar.in'
+    redirectUrl.protocol = 'https'
+    return NextResponse.redirect(redirectUrl, 308)
+  }
 
   // Public website pages - no auth needed
   const publicPages = ['/', '/tools', '/pricing', '/about', '/contact']
@@ -25,7 +34,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // All other routes need auth
-  const authToken = request.cookies.get('auth-token')?.value
+  const authToken =
+    request.cookies.get(AUTH_COOKIE_NAME)?.value ||
+    request.cookies.get(LEGACY_AUTH_COOKIE_NAME)?.value
+
   if (!authToken) {
     return NextResponse.redirect(new URL('/login', request.url))
   }

@@ -24,7 +24,7 @@ export type WalletEntityType = 'worker' | 'company'
 export type WalletTransactionType = 'registration_fee' | 'wallet_deduction' | 'plan_purchase' | 'wallet_recharge' | 'manual_adjustment'
 export type WalletTransactionDirection = 'credit' | 'debit'
 export type WalletTransactionStatus = 'pending' | 'completed' | 'attention' | 'failed'
-export type RechargeRequestType = 'worker_recharge' | 'company_follow_up'
+export type RechargeRequestType = 'worker_recharge' | 'company_follow_up' | 'worker_support'
 export type RechargeRequestPriority = 'high' | 'medium' | 'low'
 export type RechargeRequestStatus = 'open' | 'contacted' | 'resolved' | 'closed'
 export type JobApplicationStatus = 'submitted' | 'reviewed' | 'shortlisted' | 'rejected' | 'hired'
@@ -36,6 +36,9 @@ export interface LabourCategoryRecord {
   name: string
   slug: string
   description: string
+  imageUrl: string
+  showOnHome: boolean
+  homeOrder: number
   demandLevel: DemandLevel
   isActive: boolean
   createdAt: string
@@ -63,11 +66,14 @@ export interface LabourWorkerRecord {
   fullName: string
   mobile: string
   city: string
+  homeCity: string
+  address: string
   profilePhotoPath: string
   skills: string[]
   experienceYears: number
   expectedDailyWage: number
   walletBalance: number
+  registrationFeePaid: boolean
   status: WorkerStatus
   availability: WorkerAvailability
   isVisible: boolean
@@ -84,7 +90,9 @@ export interface LabourCompanyRecord {
   id: string
   companyName: string
   contactPerson: string
+  email: string
   mobile: string
+  contactMobile: string
   city: string
   categoryIds: string[]
   status: CompanyStatus
@@ -101,6 +109,9 @@ export interface LabourJobPostRecord {
   title: string
   description: string
   city: string
+  locationLabel: string
+  latitude: number | null
+  longitude: number | null
   workersNeeded: number
   wageAmount: number
   validityDays: number
@@ -237,6 +248,9 @@ const defaultData: LabourMarketplaceData = {
       name: 'Stitching Karighar',
       slug: 'stitching-karighar',
       description: 'Daily-basis stitching karighars for garments and boutique production.',
+      imageUrl: '',
+      showOnHome: true,
+      homeOrder: 1,
       demandLevel: 'high',
       isActive: true,
       createdAt: '2026-04-25T00:00:00.000Z',
@@ -247,6 +261,9 @@ const defaultData: LabourMarketplaceData = {
       name: 'Embroidery Worker',
       slug: 'embroidery-worker',
       description: 'Machine embroidery and hand embroidery workers.',
+      imageUrl: '',
+      showOnHome: true,
+      homeOrder: 2,
       demandLevel: 'high',
       isActive: true,
       createdAt: '2026-04-25T00:00:00.000Z',
@@ -257,6 +274,9 @@ const defaultData: LabourMarketplaceData = {
       name: 'Electrician',
       slug: 'electrician',
       description: 'On-demand electricians for site work, maintenance and setup.',
+      imageUrl: '',
+      showOnHome: true,
+      homeOrder: 4,
       demandLevel: 'medium',
       isActive: true,
       createdAt: '2026-04-25T00:00:00.000Z',
@@ -267,6 +287,9 @@ const defaultData: LabourMarketplaceData = {
       name: 'Printer Labour',
       slug: 'printer-labour',
       description: 'Printing press labour and print setup helpers.',
+      imageUrl: '',
+      showOnHome: true,
+      homeOrder: 3,
       demandLevel: 'medium',
       isActive: true,
       createdAt: '2026-04-25T00:00:00.000Z',
@@ -324,11 +347,14 @@ const defaultData: LabourMarketplaceData = {
       fullName: 'Sajid Ansari',
       mobile: '9876543210',
       city: 'Surat',
+      homeCity: 'Surat',
+      address: 'Textile Market, Surat',
       profilePhotoPath: 'workers/worker-sajid/profile-photo-demo.jpg',
       skills: ['Ladies kurti stitching', 'Machine handling', 'Finishing'],
       experienceYears: 6,
       expectedDailyWage: 950,
       walletBalance: 40,
+      registrationFeePaid: true,
       status: 'active',
       availability: 'available_today',
       isVisible: true,
@@ -345,11 +371,14 @@ const defaultData: LabourMarketplaceData = {
       fullName: 'Rahul Sahu',
       mobile: '9812345678',
       city: 'Jaipur',
+      homeCity: 'Jaipur',
+      address: 'Mansarovar, Jaipur',
       profilePhotoPath: 'workers/worker-rahul/profile-photo-demo.jpg',
       skills: ['Site wiring', 'Repair work'],
       experienceYears: 3,
       expectedDailyWage: 800,
       walletBalance: 0,
+      registrationFeePaid: false,
       status: 'inactive_wallet_empty',
       availability: 'available_this_week',
       isVisible: false,
@@ -367,7 +396,9 @@ const defaultData: LabourMarketplaceData = {
       id: 'company-neelufer',
       companyName: 'Neelufer Creations',
       contactPerson: 'Neelu',
+      email: 'neelufer@example.com',
       mobile: '9898989898',
+      contactMobile: '9898989898',
       city: 'Surat',
       categoryIds: ['cat-stitching', 'cat-embroidery'],
       status: 'active',
@@ -380,7 +411,9 @@ const defaultData: LabourMarketplaceData = {
       id: 'company-printerhub',
       companyName: 'Printer Hub',
       contactPerson: 'Imran',
+      email: 'printerhub@example.com',
       mobile: '9765432100',
+      contactMobile: '9765432100',
       city: 'Ahmedabad',
       categoryIds: ['cat-printer-labour'],
       status: 'pending',
@@ -398,6 +431,9 @@ const defaultData: LabourMarketplaceData = {
       title: '10 Stitching Karighar Needed For Ladies Kurtis',
       description: 'Immediate requirement for experienced stitching karighars for daily production. Overtime available.',
       city: 'Surat',
+      locationLabel: '',
+      latitude: null,
+      longitude: null,
       workersNeeded: 10,
       wageAmount: 950,
       validityDays: 3,
@@ -414,6 +450,9 @@ const defaultData: LabourMarketplaceData = {
       title: 'Printing Labour For Night Shift',
       description: 'Need two helpers for machine setup and print handling for the next three days.',
       city: 'Ahmedabad',
+      locationLabel: '',
+      latitude: null,
+      longitude: null,
       workersNeeded: 2,
       wageAmount: 850,
       validityDays: 3,
@@ -530,6 +569,12 @@ const toNumber = (value: unknown, fallback: number = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+const toNullableNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 const toBoolean = (value: unknown, fallback: boolean = false) => {
   if (typeof value === 'boolean') return value
   if (value === 'true') return true
@@ -569,6 +614,9 @@ const mapCategoryRow = (row: {
   name: string
   slug: string
   description: string | null
+  image_url: string | null
+  show_on_home: boolean | null
+  home_order: number | null
   demand_level: string | null
   is_active: boolean | null
   created_at: string
@@ -578,6 +626,9 @@ const mapCategoryRow = (row: {
   name: row.name,
   slug: row.slug,
   description: row.description || '',
+  imageUrl: row.image_url || '',
+  showOnHome: row.show_on_home ?? true,
+  homeOrder: row.home_order ?? 0,
   demandLevel: (row.demand_level as DemandLevel | null) || 'medium',
   isActive: row.is_active ?? true,
   createdAt: row.created_at,
@@ -619,11 +670,14 @@ const mapWorkerRow = (row: {
   full_name: string
   mobile: string
   city: string | null
+  home_city: string | null
+  address: string | null
   profile_photo_path: string | null
   skills: string[] | null
   experience_years: number | null
   expected_daily_wage: number | null
   wallet_balance: number | null
+  registration_fee_paid: boolean | null
   status: string | null
   availability: string | null
   is_visible: boolean | null
@@ -639,11 +693,14 @@ const mapWorkerRow = (row: {
   fullName: row.full_name,
   mobile: row.mobile,
   city: row.city || '',
+  homeCity: row.home_city || '',
+  address: row.address || '',
   profilePhotoPath: row.profile_photo_path || '',
   skills: row.skills || [],
   experienceYears: row.experience_years ?? 0,
   expectedDailyWage: row.expected_daily_wage ?? 0,
   walletBalance: row.wallet_balance ?? 0,
+  registrationFeePaid: row.registration_fee_paid ?? false,
   status: (row.status as WorkerStatus | null) || 'pending',
   availability: (row.availability as WorkerAvailability | null) || 'available_today',
   isVisible: row.is_visible ?? true,
@@ -660,7 +717,9 @@ const mapCompanyRow = (row: {
   id: string
   company_name: string
   contact_person: string
+  email: string | null
   mobile: string
+  contact_mobile?: string | null
   city: string | null
   category_ids: string[] | null
   status: string | null
@@ -672,7 +731,9 @@ const mapCompanyRow = (row: {
   id: row.id,
   companyName: row.company_name,
   contactPerson: row.contact_person,
+  email: row.email || '',
   mobile: row.mobile,
+  contactMobile: row.contact_mobile || row.mobile || '',
   city: row.city || '',
   categoryIds: row.category_ids || [],
   status: (row.status as CompanyStatus | null) || 'pending',
@@ -689,6 +750,9 @@ const mapJobPostRow = (row: {
   title: string
   description: string | null
   city: string | null
+  location_label: string | null
+  latitude: number | null
+  longitude: number | null
   workers_needed: number | null
   wage_amount: number | null
   validity_days: number | null
@@ -704,6 +768,9 @@ const mapJobPostRow = (row: {
   title: row.title,
   description: row.description || '',
   city: row.city || '',
+  locationLabel: row.location_label || '',
+  latitude: row.latitude ?? null,
+  longitude: row.longitude ?? null,
   workersNeeded: row.workers_needed ?? 1,
   wageAmount: row.wage_amount ?? 0,
   validityDays: row.validity_days ?? 0,
@@ -888,6 +955,9 @@ const normalizeCategory = (
     name,
     slug,
     description: String(payload.description || existing?.description || '').trim(),
+    imageUrl: String(payload.imageUrl || existing?.imageUrl || '').trim(),
+    showOnHome: toBoolean(payload.showOnHome, existing?.showOnHome ?? true),
+    homeOrder: toNumber(payload.homeOrder, existing?.homeOrder ?? 0),
     demandLevel: (payload.demandLevel || existing?.demandLevel || 'medium') as DemandLevel,
     isActive: toBoolean(payload.isActive, existing?.isActive ?? true),
     createdAt: existing?.createdAt || now,
@@ -927,11 +997,14 @@ const normalizeWorker = (
     fullName: String(payload.fullName || existing?.fullName || '').trim(),
     mobile: String(payload.mobile || existing?.mobile || '').trim(),
     city: String(payload.city || existing?.city || '').trim(),
+    homeCity: String(payload.homeCity || existing?.homeCity || '').trim(),
+    address: String(payload.address || existing?.address || '').trim(),
     profilePhotoPath: String(payload.profilePhotoPath || existing?.profilePhotoPath || '').trim(),
     skills: toStringArray(payload.skills || existing?.skills || []),
     experienceYears: toNumber(payload.experienceYears, existing?.experienceYears ?? 0),
     expectedDailyWage: toNumber(payload.expectedDailyWage, existing?.expectedDailyWage ?? 0),
     walletBalance: toNumber(payload.walletBalance, existing?.walletBalance ?? 0),
+    registrationFeePaid: toBoolean(payload.registrationFeePaid, existing?.registrationFeePaid ?? false),
     status: (payload.status || existing?.status || 'pending') as WorkerStatus,
     availability: (payload.availability || existing?.availability || 'available_today') as WorkerAvailability,
     isVisible: toBoolean(payload.isVisible, existing?.isVisible ?? true),
@@ -945,16 +1018,36 @@ const normalizeWorker = (
   }
 }
 
+const isMissingWorkerRegistrationFeePaidColumnError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return normalized.includes('registration_fee_paid') && (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  )
+}
+
+const isMissingCompanyContactMobileColumnError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return normalized.includes('contact_mobile') && (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  )
+}
+
 const normalizeCompany = (
   payload: Partial<LabourCompanyRecord>,
   existing?: LabourCompanyRecord
 ): LabourCompanyRecord => {
   const now = new Date().toISOString()
+  const primaryMobile = String(payload.mobile || existing?.mobile || '').trim()
+  const contactMobile = String(payload.contactMobile || existing?.contactMobile || primaryMobile).trim()
   return {
     id: existing?.id || String(payload.id || createId('company')),
     companyName: String(payload.companyName || existing?.companyName || '').trim(),
     contactPerson: String(payload.contactPerson || existing?.contactPerson || '').trim(),
-    mobile: String(payload.mobile || existing?.mobile || '').trim(),
+    email: String(payload.email || existing?.email || '').trim().toLowerCase(),
+    mobile: primaryMobile,
+    contactMobile,
     city: String(payload.city || existing?.city || '').trim(),
     categoryIds: toStringArray(payload.categoryIds || existing?.categoryIds || []),
     status: (payload.status || existing?.status || 'pending') as CompanyStatus,
@@ -991,6 +1084,9 @@ const normalizeJobPost = (
     title: String(payload.title || existing?.title || '').trim(),
     description: String(payload.description || existing?.description || '').trim(),
     city: String(payload.city || existing?.city || '').trim(),
+    locationLabel: String(payload.locationLabel || existing?.locationLabel || '').trim(),
+    latitude: toNullableNumber(payload.latitude ?? existing?.latitude ?? null),
+    longitude: toNullableNumber(payload.longitude ?? existing?.longitude ?? null),
     workersNeeded: toNumber(payload.workersNeeded, existing?.workersNeeded ?? 1),
     wageAmount: toNumber(payload.wageAmount, existing?.wageAmount ?? 0),
     validityDays,
@@ -1285,6 +1381,9 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     name: category.name,
     slug: category.slug,
     description: category.description,
+    image_url: category.imageUrl || null,
+    show_on_home: category.showOnHome,
+    home_order: category.homeOrder,
     demand_level: category.demandLevel,
     is_active: category.isActive,
     created_at: category.createdAt,
@@ -1317,6 +1416,7 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     experience_years: worker.experienceYears,
     expected_daily_wage: worker.expectedDailyWage,
     wallet_balance: worker.walletBalance,
+    registration_fee_paid: worker.registrationFeePaid,
     status: worker.status,
     availability: worker.availability,
     is_visible: worker.isVisible,
@@ -1333,7 +1433,9 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     id: company.id,
     company_name: company.companyName,
     contact_person: company.contactPerson,
+    email: company.email || null,
     mobile: company.mobile,
+    contact_mobile: company.contactMobile || company.mobile,
     city: company.city,
     category_ids: company.categoryIds,
     status: company.status,
@@ -1614,6 +1716,9 @@ export const createLabourEntity = async (
         name: record.name,
         slug: record.slug,
         description: record.description,
+        image_url: record.imageUrl || null,
+        show_on_home: record.showOnHome,
+        home_order: record.homeOrder,
         demand_level: record.demandLevel,
         is_active: record.isActive,
         created_at: record.createdAt,
@@ -1646,7 +1751,7 @@ export const createLabourEntity = async (
     }
     case 'workers': {
       const record = normalizeWorker(payload)
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert({
+      const workerPayload = {
         id: record.id,
         full_name: record.fullName,
         mobile: record.mobile,
@@ -1656,6 +1761,7 @@ export const createLabourEntity = async (
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
         wallet_balance: record.walletBalance,
+        registration_fee_paid: record.registrationFeePaid,
         status: record.status,
         availability: record.availability,
         is_visible: record.isVisible,
@@ -1666,18 +1772,25 @@ export const createLabourEntity = async (
         registration_completed_at: record.registrationCompletedAt || null,
         created_at: record.createdAt,
         updated_at: record.updatedAt
-      })
+      }
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(workerPayload)
+      if (error && isMissingWorkerRegistrationFeePaidColumnError(error.message)) {
+        const { registration_fee_paid, ...legacyWorkerPayload } = workerPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(legacyWorkerPayload))
+      }
       if (error) throw new Error(`Failed to create labour worker: ${error.message}`)
       await writeSupabaseAuditLog('create', entityType, record.id, `Created worker ${record.fullName}`, actor)
       break
     }
     case 'companies': {
       const record = normalizeCompany(payload)
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert({
+      const companyPayload = {
         id: record.id,
         company_name: record.companyName,
         contact_person: record.contactPerson,
+        email: record.email || null,
         mobile: record.mobile,
+        contact_mobile: record.contactMobile || record.mobile,
         city: record.city,
         category_ids: record.categoryIds,
         status: record.status,
@@ -1685,7 +1798,12 @@ export const createLabourEntity = async (
         active_plan: record.activePlan,
         created_at: record.createdAt,
         updated_at: record.updatedAt
-      })
+      }
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(companyPayload)
+      if (error && isMissingCompanyContactMobileColumnError(error.message)) {
+        const { contact_mobile, ...legacyCompanyPayload } = companyPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(legacyCompanyPayload))
+      }
       if (error) throw new Error(`Failed to create labour company: ${error.message}`)
       await writeSupabaseAuditLog('create', entityType, record.id, `Created company ${record.companyName}`, actor)
       break
@@ -1699,6 +1817,9 @@ export const createLabourEntity = async (
         title: record.title,
         description: record.description,
         city: record.city,
+        location_label: record.locationLabel || null,
+        latitude: record.latitude,
+        longitude: record.longitude,
         workers_needed: record.workersNeeded,
         wage_amount: record.wageAmount,
         validity_days: record.validityDays,
@@ -1916,6 +2037,9 @@ export const updateLabourEntity = async (
         name: record.name,
         slug: record.slug,
         description: record.description,
+        image_url: record.imageUrl || null,
+        show_on_home: record.showOnHome,
+        home_order: record.homeOrder,
         demand_level: record.demandLevel,
         is_active: record.isActive,
         updated_at: record.updatedAt
@@ -1949,7 +2073,7 @@ export const updateLabourEntity = async (
       const existing = (await readSupabaseData()).workers.find(record => record.id === id)
       if (!existing) return null
       const record = normalizeWorker(payload, existing)
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update({
+      const workerPayload = {
         full_name: record.fullName,
         mobile: record.mobile,
         city: record.city,
@@ -1958,6 +2082,7 @@ export const updateLabourEntity = async (
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
         wallet_balance: record.walletBalance,
+        registration_fee_paid: record.registrationFeePaid,
         status: record.status,
         availability: record.availability,
         is_visible: record.isVisible,
@@ -1967,7 +2092,12 @@ export const updateLabourEntity = async (
         identity_proof_path: record.identityProofPath,
         registration_completed_at: record.registrationCompletedAt || null,
         updated_at: record.updatedAt
-      }).eq('id', id)
+      }
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(workerPayload).eq('id', id)
+      if (error && isMissingWorkerRegistrationFeePaidColumnError(error.message)) {
+        const { registration_fee_paid, ...legacyWorkerPayload } = workerPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(legacyWorkerPayload).eq('id', id))
+      }
       if (error) throw new Error(`Failed to update labour worker: ${error.message}`)
       await writeSupabaseAuditLog('update', entityType, id, `Updated worker ${record.fullName}`, actor)
       break
@@ -1976,17 +2106,24 @@ export const updateLabourEntity = async (
       const existing = (await readSupabaseData()).companies.find(record => record.id === id)
       if (!existing) return null
       const record = normalizeCompany(payload, existing)
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update({
+      const companyPayload = {
         company_name: record.companyName,
         contact_person: record.contactPerson,
+        email: record.email || null,
         mobile: record.mobile,
+        contact_mobile: record.contactMobile || record.mobile,
         city: record.city,
         category_ids: record.categoryIds,
         status: record.status,
         registration_fee_paid: record.registrationFeePaid,
         active_plan: record.activePlan,
         updated_at: record.updatedAt
-      }).eq('id', id)
+      }
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(companyPayload).eq('id', id)
+      if (error && isMissingCompanyContactMobileColumnError(error.message)) {
+        const { contact_mobile, ...legacyCompanyPayload } = companyPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(legacyCompanyPayload).eq('id', id))
+      }
       if (error) throw new Error(`Failed to update labour company: ${error.message}`)
       await writeSupabaseAuditLog('update', entityType, id, `Updated company ${record.companyName}`, actor)
       break
@@ -2001,6 +2138,9 @@ export const updateLabourEntity = async (
         title: record.title,
         description: record.description,
         city: record.city,
+        location_label: record.locationLabel || null,
+        latitude: record.latitude,
+        longitude: record.longitude,
         workers_needed: record.workersNeeded,
         wage_amount: record.wageAmount,
         validity_days: record.validityDays,

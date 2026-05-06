@@ -8,6 +8,8 @@ export async function POST(request: NextRequest) {
     const dashboard = await completeWorkerAppRegistration(auth.workerId, {
       fullName: String(payload.fullName || ''),
       city: String(payload.city || ''),
+      homeCity: String(payload.homeCity || ''),
+      address: String(payload.address || ''),
       categoryIds: Array.isArray(payload.categoryIds) ? payload.categoryIds.map((item: unknown) => String(item)) : [],
       skills: Array.isArray(payload.skills) ? payload.skills.map((item: unknown) => String(item)) : [],
       experienceYears: Number(payload.experienceYears || 0),

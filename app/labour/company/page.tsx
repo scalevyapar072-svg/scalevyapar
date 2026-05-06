@@ -83,7 +83,7 @@ export default async function LabourCompanyHomePage() {
               <div className={styles.stack}>
                 <a href="/labour/company/search" className={styles.secondaryButton}>Search labour</a>
                 <a href="/labour/company/pricing" className={styles.secondaryButton}>View pricing</a>
-                <a href="/labour/company/signin" className={styles.secondaryButton}>Existing company sign in</a>
+                <a href="/labour/company/contact" className={styles.secondaryButton}>Talk to ScaleVyapar</a>
               </div>
             </div>
           </div>

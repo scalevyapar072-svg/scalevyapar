@@ -121,6 +121,8 @@ class WorkerWalletTransactionModel {
 class WorkerWalletSummaryModel {
   final double balance;
   final double dailyCharge;
+  final double registrationFee;
+  final bool registrationFeePaid;
   final int estimatedDaysRemaining;
   final String visibilityRule;
   final String? lastDeductionAt;
@@ -129,6 +131,8 @@ class WorkerWalletSummaryModel {
   WorkerWalletSummaryModel({
     required this.balance,
     required this.dailyCharge,
+    required this.registrationFee,
+    required this.registrationFeePaid,
     required this.estimatedDaysRemaining,
     required this.visibilityRule,
     required this.lastDeductionAt,
@@ -139,6 +143,8 @@ class WorkerWalletSummaryModel {
     return WorkerWalletSummaryModel(
       balance: (json['balance'] as num?)?.toDouble() ?? 0,
       dailyCharge: (json['dailyCharge'] as num?)?.toDouble() ?? 0,
+      registrationFee: (json['registrationFee'] as num?)?.toDouble() ?? 0,
+      registrationFeePaid: json['registrationFeePaid'] as bool? ?? false,
       estimatedDaysRemaining: json['estimatedDaysRemaining'] as int? ?? 0,
       visibilityRule: json['visibilityRule'] as String? ?? '',
       lastDeductionAt: json['lastDeductionAt'] as String?,

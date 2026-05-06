@@ -13,7 +13,7 @@ export async function PUT(
     }
 
     const { id } = await context.params
-    const { name, slug, icon, description, isActive, status, type, href, customerLink, features, color } = await request.json()
+    const { name, slug, icon, description, summary, isActive, status, type, href, customerLink, features, color } = await request.json()
 
     if (!name || !slug) {
       return NextResponse.json({ error: 'Name and slug are required' }, { status: 400 })
@@ -30,6 +30,7 @@ export async function PUT(
       slug,
       icon,
       description,
+      summary,
       isActive,
       status,
       type,

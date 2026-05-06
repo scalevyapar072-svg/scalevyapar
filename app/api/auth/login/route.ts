@@ -1,21 +1,22 @@
 import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
-import { createAuthCookie } from '@/lib/auth'
-import { generateToken } from '@/lib/auth-token'
+import { createAuthCookie, generateToken } from '@/lib/auth-token'
 import { getUserByEmail } from '@/lib/db'
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()
+    const normalizedEmail = String(email || '').trim().toLowerCase()
+    const rawPassword = String(password || '')
 
-    if (!email || !password) {
+    if (!normalizedEmail || !rawPassword) {
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
       )
     }
 
-    const user = await getUserByEmail(email)
+    const user = await getUserByEmail(normalizedEmail)
 
     if (!user) {
       return NextResponse.json(
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password_hash)
+    const isValidPassword = await bcrypt.compare(rawPassword, user.password_hash)
 
     if (!isValidPassword) {
       return NextResponse.json(

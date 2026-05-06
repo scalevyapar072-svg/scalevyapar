@@ -128,6 +128,7 @@
       "id": "company-neelufer",
       "companyName": "Neelufer Creations",
       "contactPerson": "Neelu",
+      "email": "neelufer@example.com",
       "mobile": "9898989898",
       "city": "Surat",
       "categoryIds": [
@@ -144,6 +145,7 @@
       "id": "company-printerhub",
       "companyName": "Printer Hub",
       "contactPerson": "Imran",
+      "email": "printerhub@example.com",
       "mobile": "9765432100",
       "city": "Ahmedabad",
       "categoryIds": [

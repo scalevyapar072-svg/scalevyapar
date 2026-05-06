@@ -26,6 +26,10 @@ export async function POST(request: NextRequest) {
 
     const { name, email, password, moduleIds, phone, plan } = await request.json()
 
+    if (!name?.trim() || !email?.trim()) {
+      return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
+    }
+
     const existingUser = await getUserByEmail(email)
     if (existingUser) {
       return NextResponse.json({ error: 'Email already exists' }, { status: 400 })
@@ -33,8 +37,8 @@ export async function POST(request: NextRequest) {
 
     const temporaryPassword = password || `SV-${Math.random().toString(36).slice(2, 6)}${Date.now().toString().slice(-4)}`
     const newUser = await createClient({
-      name,
-      email,
+      name: name.trim(),
+      email: email.trim(),
       password: temporaryPassword,
       phone,
       plan

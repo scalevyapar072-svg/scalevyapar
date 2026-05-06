@@ -18,7 +18,7 @@ type WalletEntityType = 'worker' | 'company'
 type WalletTransactionType = 'registration_fee' | 'wallet_deduction' | 'plan_purchase' | 'wallet_recharge' | 'manual_adjustment'
 type WalletTransactionDirection = 'credit' | 'debit'
 type WalletTransactionStatus = 'pending' | 'completed' | 'attention' | 'failed'
-type RechargeRequestType = 'worker_recharge' | 'company_follow_up'
+type RechargeRequestType = 'worker_recharge' | 'company_follow_up' | 'worker_support'
 type RechargeRequestPriority = 'high' | 'medium' | 'low'
 type RechargeRequestStatus = 'open' | 'contacted' | 'resolved' | 'closed'
 type LabourSection =
@@ -33,6 +33,7 @@ type LabourSection =
   | 'plans'
   | 'walletTransactions'
   | 'rechargeRequests'
+  | 'supportRequests'
   | 'reports'
   | 'settings'
   | 'auditLogs'
@@ -43,6 +44,9 @@ type LabourCategory = {
   name: string
   slug: string
   description: string
+  imageUrl: string
+  showOnHome: boolean
+  homeOrder: number
   demandLevel: DemandLevel
   isActive: boolean
 }
@@ -66,6 +70,8 @@ type LabourWorker = {
   fullName: string
   mobile: string
   city: string
+  homeCity: string
+  address: string
   profilePhotoPath: string
   experienceYears: number
   expectedDailyWage: number
@@ -84,7 +90,9 @@ type LabourCompany = {
   id: string
   companyName: string
   contactPerson: string
+  email: string
   mobile: string
+  contactMobile: string
   city: string
   categoryIds: string[]
   status: CompanyStatus
@@ -99,6 +107,9 @@ type LabourJobPost = {
   title: string
   description: string
   city: string
+  locationLabel: string
+  latitude: number | ''
+  longitude: number | ''
   workersNeeded: number
   wageAmount: number
   validityDays: number
@@ -337,6 +348,24 @@ type LabourAdminSettings = {
     autoEscalatePendingKyc: boolean
     pendingKycEscalationHours: number
   }
+  workerLanguageControls: {
+    enabledWorkerLanguageCodes: string[]
+    defaultWorkerLanguageCode: string
+    showLanguageSelectionOnFirstOpen: boolean
+  }
+  workerHomeControls: {
+    popularCitySuggestions: string[]
+  }
+  helpControls: {
+    showHeaderHelpButton: boolean
+    supportTitle: string
+    supportSubtitle: string
+    supportWhatsappNumber: string
+    supportChatbotUrl: string
+    supportExtraLabel: string
+    supportExtraUrl: string
+    supportPrefilledMessage: string
+  }
 }
 
 const workerStatuses: WorkerStatus[] = [
@@ -349,18 +378,25 @@ const workerStatuses: WorkerStatus[] = [
 ]
 
 const companyStatuses: CompanyStatus[] = ['pending', 'active', 'inactive', 'blocked']
-const workerAvailabilityOptions: WorkerAvailability[] = ['available_today', 'available_this_week', 'not_available']
+const workerAvailabilityOptions: WorkerAvailability[] = ['available_today', 'available_this_week']
 const workerIdentityProofOptions: Array<Exclude<WorkerIdentityProofType, ''>> = ['aadhaar', 'pan', 'voter_id', 'driving_license', 'other']
 const jobPostStatuses: JobPostStatus[] = ['draft', 'live', 'expired', 'paused']
 const jobApplicationStatuses: JobApplicationStatus[] = ['submitted', 'reviewed', 'shortlisted', 'rejected', 'hired']
 const workerNotificationTypes: WorkerNotificationType[] = ['application_submitted', 'job_saved', 'application_status', 'wallet_reminder']
 const workerNotificationPriorities: WorkerNotificationPriority[] = ['high', 'medium', 'low']
+const workerLanguageOptions = [
+  { code: 'hi', label: 'Hindi' },
+  { code: 'en', label: 'English' }
+] as const
 
 const blankCategory: LabourCategory = {
   id: '',
   name: '',
   slug: '',
   description: '',
+  imageUrl: '',
+  showOnHome: true,
+  homeOrder: 0,
   demandLevel: 'medium',
   isActive: true
 }
@@ -384,6 +420,8 @@ const blankWorker: LabourWorker = {
   fullName: '',
   mobile: '',
   city: '',
+  homeCity: '',
+  address: '',
   profilePhotoPath: '',
   experienceYears: 0,
   expectedDailyWage: 0,
@@ -402,7 +440,9 @@ const blankCompany: LabourCompany = {
   id: '',
   companyName: '',
   contactPerson: '',
+  email: '',
   mobile: '',
+  contactMobile: '',
   city: '',
   categoryIds: [],
   status: 'pending',
@@ -417,6 +457,9 @@ const blankJobPost: LabourJobPost = {
   title: '',
   description: '',
   city: '',
+  locationLabel: '',
+  latitude: '',
+  longitude: '',
   workersNeeded: 1,
   wageAmount: 0,
   validityDays: 3,
@@ -512,6 +555,47 @@ const blankLabourAdminSettings: LabourAdminSettings = {
     autoCreateRechargeFollowUps: true,
     autoEscalatePendingKyc: true,
     pendingKycEscalationHours: 24
+  },
+  workerLanguageControls: {
+    enabledWorkerLanguageCodes: ['hi', 'en'],
+    defaultWorkerLanguageCode: 'hi',
+    showLanguageSelectionOnFirstOpen: true
+  },
+  workerHomeControls: {
+    popularCitySuggestions: [
+      'Jaipur',
+      'Delhi',
+      'Mumbai',
+      'Bengaluru',
+      'Pune',
+      'Kolkata',
+      'Ahmedabad',
+      'Hyderabad',
+      'Chennai',
+      'Surat',
+      'Lucknow',
+      'Nagpur',
+      'Vadodara',
+      'Indore',
+      'Patna',
+      'Rajkot',
+      'Chandigarh',
+      'Bhopal',
+      'Ludhiana',
+      'Kanpur',
+      'Nashik',
+      'Bhubaneswar'
+    ]
+  },
+  helpControls: {
+    showHeaderHelpButton: true,
+    supportTitle: 'Need help?',
+    supportSubtitle: 'Chat with our team or message us on WhatsApp.',
+    supportWhatsappNumber: '',
+    supportChatbotUrl: '',
+    supportExtraLabel: '',
+    supportExtraUrl: '',
+    supportPrefilledMessage: 'Hello Team, I need help with the Rozgar worker app.'
   }
 }
 
@@ -519,6 +603,7 @@ const blankCategoryFilters: CategoryFilters = { search: '', demand: 'all', activ
 const blankPlanFilters: PlanFilters = { search: '', audience: 'all', categoryId: '', activity: 'all' }
 const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryId: '', visibility: 'all', kyc: 'all' }
 const blankCompanyFilters: CompanyFilters = { search: '', status: 'all', categoryId: '', fee: 'all' }
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 const blankJobFilters: JobFilters = { search: '', status: 'all', categoryId: '', companyId: '' }
 const blankJobApplicationFilters: JobApplicationFilters = { search: '', status: 'all', companyId: '', jobPostId: '' }
 const blankSavedJobFilters: SavedJobFilters = { search: '', companyId: '', jobPostId: '' }
@@ -539,6 +624,7 @@ const sectionLabels: Record<LabourSection, string> = {
   plans: 'Plans',
   walletTransactions: 'Wallet Transactions',
   rechargeRequests: 'Recharge Requests',
+  supportRequests: 'Support Requests',
   reports: 'Reports',
   settings: 'Settings',
   auditLogs: 'Audit Logs'
@@ -631,6 +717,12 @@ const parseCommaSeparatedList = (value: string) =>
   value
     .split(',')
     .map(item => item.trim().toLowerCase())
+    .filter(Boolean)
+
+const parseCommaSeparatedDisplayList = (value: string) =>
+  value
+    .split(',')
+    .map(item => item.trim())
     .filter(Boolean)
 
 export default function LabourExchangeAdminPage() {
@@ -807,6 +899,55 @@ export default function LabourExchangeAdminPage() {
     }
   }
 
+  const toggleWorkerLanguage = (code: string, enabled: boolean) => {
+    setSettingsDraft(current => {
+      const nextEnabledCodes = enabled
+        ? Array.from(new Set([...current.workerLanguageControls.enabledWorkerLanguageCodes, code]))
+        : current.workerLanguageControls.enabledWorkerLanguageCodes.filter(item => item !== code)
+
+      const sanitizedCodes = nextEnabledCodes.length > 0 ? nextEnabledCodes : [code]
+      const nextDefaultCode = sanitizedCodes.includes(current.workerLanguageControls.defaultWorkerLanguageCode)
+        ? current.workerLanguageControls.defaultWorkerLanguageCode
+        : sanitizedCodes[0]
+
+      return {
+        ...current,
+        workerLanguageControls: {
+          ...current.workerLanguageControls,
+          enabledWorkerLanguageCodes: sanitizedCodes,
+          defaultWorkerLanguageCode: nextDefaultCode
+        }
+      }
+    })
+  }
+
+  const adminCityOptions = settingsDraft.workerHomeControls.popularCitySuggestions.reduce<string[]>((list, city) => {
+    const normalizedCity = city.trim()
+    if (!normalizedCity) return list
+    if (list.some(item => item.toLowerCase() === normalizedCity.toLowerCase())) return list
+    return [...list, normalizedCity]
+  }, [])
+
+  const defaultAdminCity = adminCityOptions[0] || ''
+
+  const getCitySelectOptions = (selectedCity: string) => {
+    const normalizedSelectedCity = selectedCity.trim()
+    if (!normalizedSelectedCity) return adminCityOptions
+    if (adminCityOptions.some(city => city.toLowerCase() === normalizedSelectedCity.toLowerCase())) return adminCityOptions
+    return [normalizedSelectedCity, ...adminCityOptions]
+  }
+
+  useEffect(() => {
+    if (!defaultAdminCity) return
+    setWorkerDraft(current => ({
+      ...current,
+      city: current.city.trim() || defaultAdminCity,
+      homeCity: current.homeCity.trim() || defaultAdminCity
+    }))
+    setCompanyDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
+    setJobPostDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
+  }, [defaultAdminCity])
+
   const persistEntity = async (
     method: 'POST' | 'PUT',
     entityType: LabourEntityType,
@@ -861,17 +1002,17 @@ export default function LabourExchangeAdminPage() {
   }
 
   const resetWorkerDraft = () => {
-    setWorkerDraft(blankWorker)
+    setWorkerDraft({ ...blankWorker, city: defaultAdminCity, homeCity: defaultAdminCity })
     setEditingWorkerId(null)
   }
 
   const resetCompanyDraft = () => {
-    setCompanyDraft(blankCompany)
+    setCompanyDraft({ ...blankCompany, city: defaultAdminCity })
     setEditingCompanyId(null)
   }
 
   const resetJobPostDraft = () => {
-    setJobPostDraft(blankJobPost)
+    setJobPostDraft({ ...blankJobPost, city: defaultAdminCity })
     setEditingJobPostId(null)
   }
 
@@ -1147,6 +1288,7 @@ export default function LabourExchangeAdminPage() {
     return matchesSearch(companyFilters.search, [
       company.companyName,
       company.contactPerson,
+      company.email,
       company.mobile,
       company.city,
       company.status,
@@ -1302,8 +1444,24 @@ export default function LabourExchangeAdminPage() {
   })
 
   const filteredRechargeRequests = rechargeRequests.filter(request => {
+    if (request.requestType === 'worker_support') return false
     if (rechargeFilters.priority !== 'all' && request.priority !== rechargeFilters.priority) return false
     if (rechargeFilters.type !== 'all' && request.requestType !== rechargeFilters.type) return false
+    if (rechargeFilters.status !== 'all' && request.requestStatus !== rechargeFilters.status) return false
+
+    return matchesSearch(rechargeFilters.search, [
+      request.name,
+      request.city,
+      request.categoryLabel,
+      request.statusLabel,
+      request.requestStatus,
+      request.note
+    ])
+  })
+
+  const filteredSupportRequests = rechargeRequests.filter(request => {
+    if (request.requestType !== 'worker_support') return false
+    if (rechargeFilters.priority !== 'all' && request.priority !== rechargeFilters.priority) return false
     if (rechargeFilters.status !== 'all' && request.requestStatus !== rechargeFilters.status) return false
 
     return matchesSearch(rechargeFilters.search, [
@@ -1323,7 +1481,12 @@ export default function LabourExchangeAdminPage() {
   const unreadWorkerNotificationsCount = snapshot.workerNotifications.filter(notification => !notification.isRead).length
   const pendingWorkerKycCount = snapshot.workers.filter(worker => getWorkerKycState(worker) === 'ready_for_review').length
   const pendingCompanyApprovalsCount = snapshot.companies.filter(company => company.status === 'pending').length
-  const openRechargeRequestsCount = rechargeRequests.filter(request => request.requestStatus === 'open').length
+  const openRechargeRequestsCount = rechargeRequests.filter(
+    request => request.requestType !== 'worker_support' && request.requestStatus === 'open'
+  ).length
+  const openSupportRequestsCount = rechargeRequests.filter(
+    request => request.requestType === 'worker_support' && request.requestStatus === 'open'
+  ).length
   const savedJobConversionRate = snapshot.savedJobs.length === 0
     ? 0
     : Math.round((snapshot.jobApplications.length / snapshot.savedJobs.length) * 100)
@@ -1389,6 +1552,7 @@ export default function LabourExchangeAdminPage() {
       companyName: company.companyName,
       contactPerson: company.contactPerson,
       mobile: company.mobile,
+      contactMobile: company.contactMobile,
       city: company.city,
       status: company.status,
       registrationFeePaid: company.registrationFeePaid,
@@ -1560,8 +1724,11 @@ export default function LabourExchangeAdminPage() {
   const validateCompany = () => {
     if (!companyDraft.companyName.trim()) return 'Company name is required.'
     if (!companyDraft.contactPerson.trim()) return 'Contact person is required.'
-    if (!companyDraft.mobile.trim()) return 'Company mobile is required.'
-    if (!isTenDigitMobile(companyDraft.mobile)) return 'Company mobile must be exactly 10 digits.'
+    if (!companyDraft.email.trim()) return 'Company email is required.'
+    if (!isValidEmail(companyDraft.email)) return 'Enter a valid company email address.'
+    if (!companyDraft.mobile.trim()) return 'Owner number is required.'
+    if (!isTenDigitMobile(companyDraft.mobile)) return 'Owner number must be exactly 10 digits.'
+    if (companyDraft.contactMobile.trim() && !isTenDigitMobile(companyDraft.contactMobile)) return 'Contact number must be exactly 10 digits.'
     if (companyDraft.categoryIds.length === 0) return 'Select at least one company category.'
     if (companyDraft.status === 'active' && !companyDraft.activePlan) return 'Active companies should have a plan selected.'
 
@@ -1569,6 +1736,12 @@ export default function LabourExchangeAdminPage() {
       company => company.id !== editingCompanyId && company.mobile.trim() === companyDraft.mobile.trim()
     )
     if (duplicateMobile) return 'Another company already uses this mobile number.'
+
+    const normalizedEmail = companyDraft.email.trim().toLowerCase()
+    const duplicateEmail = snapshot.companies.find(
+      company => company.id !== editingCompanyId && company.email.trim().toLowerCase() === normalizedEmail
+    )
+    if (duplicateEmail) return 'Another company already uses this email address.'
 
     return ''
   }
@@ -1869,7 +2042,7 @@ export default function LabourExchangeAdminPage() {
       return
     }
 
-    const relatedEntityType = rechargeRequestDraft.requestType === 'worker_recharge' ? 'worker' : 'company'
+    const relatedEntityType = rechargeRequestDraft.requestType === 'company_follow_up' ? 'company' : 'worker'
     const payload = {
       ...rechargeRequestDraft,
       relatedEntityType,
@@ -2008,7 +2181,8 @@ export default function LabourExchangeAdminPage() {
                     `Saved Jobs: ${snapshot.savedJobs.length}`,
                     `Worker Alerts: ${snapshot.workerNotifications.length}`,
                     `Wallet Entries: ${walletTransactions.length}`,
-                    `Recharge Follow-ups: ${rechargeRequests.length}`,
+                    `Recharge Follow-ups: ${rechargeRequests.filter(request => request.requestType !== 'worker_support').length}`,
+                    `Support Requests: ${rechargeRequests.filter(request => request.requestType === 'worker_support').length}`,
                     `Audit Logs: ${snapshot.auditLogs.length}`
                   ].map(item => (
                     <div key={item} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
@@ -2110,6 +2284,26 @@ export default function LabourExchangeAdminPage() {
                   <label style={labelStyle}>Description</label>
                   <textarea value={categoryDraft.description} onChange={event => setCategoryDraft(current => ({ ...current, description: event.target.value }))} rows={4} style={{ ...inputStyle, resize: 'none' }} />
                 </div>
+                <div>
+                  <label style={labelStyle}>Image URL</label>
+                  <input value={categoryDraft.imageUrl} onChange={event => setCategoryDraft(current => ({ ...current, imageUrl: event.target.value }))} placeholder="https://..." style={inputStyle} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input type="checkbox" checked={categoryDraft.showOnHome} onChange={event => setCategoryDraft(current => ({ ...current, showOnHome: event.target.checked }))} />
+                    Show in worker home popular categories
+                  </label>
+                  <div>
+                    <label style={labelStyle}>Home card order</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={categoryDraft.homeOrder}
+                      onChange={event => setCategoryDraft(current => ({ ...current, homeOrder: Number(event.target.value || 0) }))}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
                   <input type="checkbox" checked={categoryDraft.isActive} onChange={event => setCategoryDraft(current => ({ ...current, isActive: event.target.checked }))} />
                   Category is active
@@ -2147,8 +2341,11 @@ export default function LabourExchangeAdminPage() {
                     <div key={category.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                       <div>
                         <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{category.name}</p>
-                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>{category.slug} | {category.demandLevel} demand | {category.isActive ? 'Active' : 'Inactive'}</p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                          {category.slug} | {category.demandLevel} demand | {category.isActive ? 'Active' : 'Inactive'} | Home: {category.showOnHome ? `Yes (#${category.homeOrder})` : 'No'}
+                        </p>
                         <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{category.description || 'No description yet.'}</p>
+                        <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>{category.imageUrl || 'No image URL set.'}</p>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                         <button onClick={() => { setCategoryDraft(category); setEditingCategoryId(category.id) }} style={subtleButtonStyle}>Edit</button>
@@ -2302,8 +2499,31 @@ export default function LabourExchangeAdminPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>City</label>
-                    <input value={workerDraft.city} onChange={event => setWorkerDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle} />
+                    <label style={labelStyle}>Looking Job City</label>
+                    <select value={workerDraft.city} onChange={event => setWorkerDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
+                      {getCitySelectOptions(workerDraft.city).map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Belongs To City</label>
+                    <select value={workerDraft.homeCity} onChange={event => setWorkerDraft(current => ({ ...current, homeCity: event.target.value }))} style={inputStyle}>
+                      {getCitySelectOptions(workerDraft.homeCity).map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Address</label>
+                    <textarea
+                      value={workerDraft.address}
+                      onChange={event => setWorkerDraft(current => ({ ...current, address: event.target.value }))}
+                      rows={3}
+                      style={{ ...inputStyle, resize: 'vertical', minHeight: '92px' }}
+                    />
                   </div>
                   <div>
                     <label style={labelStyle}>Experience Years</label>
@@ -2333,7 +2553,7 @@ export default function LabourExchangeAdminPage() {
                     <label style={labelStyle}>Availability</label>
                     <select value={workerDraft.availability} onChange={event => setWorkerDraft(current => ({ ...current, availability: event.target.value as WorkerAvailability }))} style={inputStyle}>
                       {workerAvailabilityOptions.map(option => (
-                        <option key={option} value={option}>{option}</option>
+                        <option key={option} value={option}>{option === 'available_today' ? 'Ready to Work today' : 'Can join in 7 days'}</option>
                       ))}
                     </select>
                   </div>
@@ -2412,12 +2632,15 @@ export default function LabourExchangeAdminPage() {
                               </span>
                             </div>
                             <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                              {worker.mobile} | {worker.city || 'No city'} | {worker.status} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
+                              {worker.mobile} | Looking: {worker.city || 'No city'} | Belongs: {worker.homeCity || 'No city'} | {worker.status} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
                             </p>
                             <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
-                              Categories: {worker.categoryIds.map(getCategoryName).join(', ') || 'None'} | Wage {formatCurrency(worker.expectedDailyWage)} | Availability {worker.availability}
+                              Categories: {worker.categoryIds.map(getCategoryName).join(', ') || 'None'} | Wage {formatCurrency(worker.expectedDailyWage)} | Availability {worker.availability === 'available_today' ? 'Ready to Work today' : worker.availability === 'available_this_week' ? 'Can join in 7 days' : worker.availability}
                             </p>
                             <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                              Address: {worker.address || 'No address added'}
+                            </p>
+                            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '12px' }}>
                               Proof: {formatIdentityProofType(worker.identityProofType)} {worker.identityProofNumber ? `| ${worker.identityProofNumber}` : '| No proof number'}
                             </p>
                           </div>
@@ -2546,13 +2769,30 @@ export default function LabourExchangeAdminPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>Mobile *</label>
+                    <label style={labelStyle}>Owner Number *</label>
                     <input value={companyDraft.mobile} maxLength={10} onChange={event => setCompanyDraft(current => ({ ...current, mobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
                   </div>
                   <div>
-                    <label style={labelStyle}>City</label>
-                    <input value={companyDraft.city} onChange={event => setCompanyDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle} />
+                    <label style={labelStyle}>Contact Number (WhatsApp)</label>
+                    <input value={companyDraft.contactMobile} maxLength={10} onChange={event => setCompanyDraft(current => ({ ...current, contactMobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
                   </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>City</label>
+                  <select value={companyDraft.city} onChange={event => setCompanyDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
+                    {getCitySelectOptions(companyDraft.city).map(city => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Company Email *</label>
+                  <input
+                    type="email"
+                    value={companyDraft.email}
+                    onChange={event => setCompanyDraft(current => ({ ...current, email: event.target.value.trim().toLowerCase() }))}
+                    style={inputStyle}
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Categories *</label>
@@ -2632,7 +2872,7 @@ export default function LabourExchangeAdminPage() {
                       <div>
                         <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{company.companyName}</p>
                         <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                          {company.contactPerson} | {company.city || 'No city'} | {company.status} | {company.registrationFeePaid ? 'Fee paid' : 'Fee pending'}
+                          {company.contactPerson} | Owner {company.mobile || 'No owner number'} | Contact {company.contactMobile || company.mobile || 'No contact number'} | {company.city || 'No city'} | {company.status} | {company.registrationFeePaid ? 'Fee paid' : 'Fee pending'}
                         </p>
                         <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
                           Categories: {company.categoryIds.map(getCategoryName).join(', ') || 'None'} | Plan {getPlanName(company.activePlan)}
@@ -2689,11 +2929,46 @@ export default function LabourExchangeAdminPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>City</label>
-                    <input value={jobPostDraft.city} onChange={event => setJobPostDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle} />
+                    <select value={jobPostDraft.city} onChange={event => setJobPostDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
+                      {getCitySelectOptions(jobPostDraft.city).map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label style={labelStyle}>Workers Needed</label>
                     <input type="number" min="1" value={jobPostDraft.workersNeeded} onChange={event => setJobPostDraft(current => ({ ...current, workersNeeded: Number(event.target.value) }))} style={inputStyle} />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Area / Locality</label>
+                    <input
+                      value={jobPostDraft.locationLabel}
+                      onChange={event => setJobPostDraft(current => ({ ...current, locationLabel: event.target.value }))}
+                      placeholder="Ajmer Road, Dholai, Gandhi Path"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={jobPostDraft.latitude}
+                      onChange={event => setJobPostDraft(current => ({ ...current, latitude: event.target.value === '' ? '' : Number(event.target.value) }))}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Longitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={jobPostDraft.longitude}
+                      onChange={event => setJobPostDraft(current => ({ ...current, longitude: event.target.value === '' ? '' : Number(event.target.value) }))}
+                      style={inputStyle}
+                    />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
@@ -2767,10 +3042,13 @@ export default function LabourExchangeAdminPage() {
                       <div key={jobPost.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                         <div>
                           <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{jobPost.title}</p>
-                          <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                            {getCompanyName(jobPost.companyId)} | {getCategoryName(jobPost.categoryId)} | {jobPost.city || 'No city'} | {effectiveStatus}
-                          </p>
-                          <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>{jobPost.description || 'No description yet.'}</p>
+                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                          {getCompanyName(jobPost.companyId)} | {getCategoryName(jobPost.categoryId)} | {jobPost.city || 'No city'} | {effectiveStatus}
+                        </p>
+                        <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>
+                          {jobPost.locationLabel || 'No area/locality'} | Lat {jobPost.latitude === '' ? '—' : jobPost.latitude} | Lng {jobPost.longitude === '' ? '—' : jobPost.longitude}
+                        </p>
+                        <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>{jobPost.description || 'No description yet.'}</p>
                           <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
                             {jobPost.workersNeeded} workers | {formatCurrency(jobPost.wageAmount)} | {jobPost.validityDays} days | {formatDate(jobPost.publishedAt)} to {formatDate(jobPost.expiresAt)}
                           </p>
@@ -3072,7 +3350,10 @@ export default function LabourExchangeAdminPage() {
                         Contact person: {getCompanyById(selectedJobApplication.companyId)?.contactPerson || 'Not available'}
                       </p>
                       <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
-                        Company mobile: {getCompanyById(selectedJobApplication.companyId)?.mobile || 'Not available'}
+                        Owner number: {getCompanyById(selectedJobApplication.companyId)?.mobile || 'Not available'}
+                      </p>
+                      <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
+                        Contact number: {getCompanyById(selectedJobApplication.companyId)?.contactMobile || getCompanyById(selectedJobApplication.companyId)?.mobile || 'Not available'}
                       </p>
                       <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
                         Open from company panel to compare this worker against the rest of that company pipeline.
@@ -3789,7 +4070,7 @@ export default function LabourExchangeAdminPage() {
                       value={rechargeRequestDraft.requestType}
                       onChange={event => {
                         const requestType = event.target.value as RechargeRequestType
-                        const relatedEntityType = requestType === 'worker_recharge' ? 'worker' : 'company'
+                        const relatedEntityType = requestType === 'company_follow_up' ? 'company' : 'worker'
                         setRechargeRequestDraft(current => ({
                           ...current,
                           requestType,
@@ -3805,6 +4086,7 @@ export default function LabourExchangeAdminPage() {
                     >
                       <option value="worker_recharge">worker_recharge</option>
                       <option value="company_follow_up">company_follow_up</option>
+                      <option value="worker_support">worker_support</option>
                     </select>
                   </div>
                   <div>
@@ -3813,7 +4095,7 @@ export default function LabourExchangeAdminPage() {
                       value={rechargeRequestDraft.relatedEntityId}
                       onChange={event => {
                         const relatedEntityId = event.target.value
-                        const relatedEntityType = rechargeRequestDraft.requestType === 'worker_recharge' ? 'worker' : 'company'
+                        const relatedEntityType = rechargeRequestDraft.requestType === 'company_follow_up' ? 'company' : 'worker'
                         setRechargeRequestDraft(current => ({
                           ...current,
                           relatedEntityType,
@@ -3826,10 +4108,10 @@ export default function LabourExchangeAdminPage() {
                       }}
                       style={inputStyle}
                     >
-                      <option value="">Select {rechargeRequestDraft.requestType === 'worker_recharge' ? 'worker' : 'company'}</option>
-                      {(rechargeRequestDraft.requestType === 'worker_recharge' ? snapshot.workers : snapshot.companies).map(entity => (
-                        <option key={entity.id} value={entity.id}>{rechargeRequestDraft.requestType === 'worker_recharge' ? (entity as LabourWorker).fullName : (entity as LabourCompany).companyName}</option>
-                      ))}
+                        <option value="">Select {rechargeRequestDraft.requestType === 'company_follow_up' ? 'company' : 'worker'}</option>
+                        {(rechargeRequestDraft.requestType === 'company_follow_up' ? snapshot.companies : snapshot.workers).map(entity => (
+                          <option key={entity.id} value={entity.id}>{rechargeRequestDraft.requestType === 'company_follow_up' ? (entity as LabourCompany).companyName : (entity as LabourWorker).fullName}</option>
+                        ))}
                     </select>
                   </div>
                 </div>
@@ -3923,6 +4205,70 @@ export default function LabourExchangeAdminPage() {
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'supportRequests' && (
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Support requests from worker app</h2>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                  Review workers who tapped Help in the Rozgar app. Open now: {openSupportRequestsCount}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <input placeholder="Search support requests" value={rechargeFilters.search} onChange={event => setRechargeFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                <select value={rechargeFilters.priority} onChange={event => setRechargeFilters(current => ({ ...current, priority: event.target.value as RechargeFilters['priority'] }))} style={{ ...inputStyle, width: '130px' }}>
+                  <option value="all">All Priority</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+                <select value={rechargeFilters.status} onChange={event => setRechargeFilters(current => ({ ...current, status: event.target.value as RechargeFilters['status'] }))} style={{ ...inputStyle, width: '140px' }}>
+                  <option value="all">All Request Status</option>
+                  <option value="open">open</option>
+                  <option value="contacted">contacted</option>
+                  <option value="resolved">resolved</option>
+                  <option value="closed">closed</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {filteredSupportRequests.length === 0 ? (
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No support requests match the current filters.</p>
+              ) : (
+                filteredSupportRequests.map(request => (
+                  <div key={request.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'grid', gridTemplateColumns: '1.15fr 0.7fr 0.7fr 0.5fr 0.6fr 0.6fr', gap: '10px', alignItems: 'center' }}>
+                    <div>
+                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{request.name}</p>
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>Worker Support | {request.statusLabel}</p>
+                      <p style={{ margin: '4px 0 0', color: '#475569', fontSize: '12px' }}>{request.note}</p>
+                    </div>
+                    <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{request.city || 'No city'}</p>
+                    <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>{request.categoryLabel || 'Unassigned'}</p>
+                    <p style={{ margin: 0, color: request.priority === 'high' ? '#b91c1c' : request.priority === 'medium' ? '#b45309' : '#2563eb', fontSize: '12px', fontWeight: '700' }}>
+                      {titleCase(request.priority)}
+                    </p>
+                    <p style={{ margin: 0, color: '#0f172a', fontSize: '12px', fontWeight: '700' }}>{titleCase(request.requestStatus)}</p>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <button
+                        onClick={() => {
+                          setRechargeRequestDraft(request)
+                          setEditingRechargeRequestId(request.id)
+                          setActiveSection('rechargeRequests')
+                        }}
+                        style={subtleButtonStyle}
+                      >
+                        Edit
+                      </button>
+                      <button onClick={() => void removeEntity('rechargeRequests', request.id, request.name)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -4302,26 +4648,245 @@ export default function LabourExchangeAdminPage() {
               </div>
 
               <div style={cardStyle}>
-                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation and linked tools</h3>
-                <div style={{ display: 'grid', gap: '12px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-                    {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
-                      <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
-                        Open {sectionLabels[section]}
-                      </button>
-                    ))}
-                  </div>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Worker app languages</h3>
+                <div style={{ display: 'grid', gap: '14px' }}>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                    Control the first language-selection page for new worker installs. Only enabled languages will be shown inside the worker app.
+                  </p>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    <a href="/admin/labour/website" style={{ ...primaryButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-                      Open Website Editor
-                    </a>
-                    <a href="/labour/company" target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-                      Preview Website
-                    </a>
+                    {workerLanguageOptions.map(option => {
+                      const selected = settingsDraft.workerLanguageControls.enabledWorkerLanguageCodes.includes(option.code)
+                      return (
+                        <label key={option.code} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: '999px', border: selected ? '1px solid #1d4ed8' : '1px solid #cbd5e1', background: selected ? '#eff6ff' : '#fff', color: selected ? '#1d4ed8' : '#334155', fontSize: '12px', fontWeight: '700' }}>
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={event => toggleWorkerLanguage(option.code, event.target.checked)}
+                          />
+                          {option.label}
+                        </label>
+                      )
+                    })}
                   </div>
+                  <select
+                    value={settingsDraft.workerLanguageControls.defaultWorkerLanguageCode}
+                    onChange={event => setSettingsDraft(current => ({
+                      ...current,
+                      workerLanguageControls: {
+                        ...current.workerLanguageControls,
+                        defaultWorkerLanguageCode: event.target.value
+                      }
+                    }))}
+                    style={inputStyle}
+                  >
+                    {settingsDraft.workerLanguageControls.enabledWorkerLanguageCodes.map(code => {
+                      const option = workerLanguageOptions.find(item => item.code === code)
+                      return (
+                        <option key={code} value={code}>
+                          Default: {option?.label ?? code}
+                        </option>
+                      )
+                    })}
+                  </select>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.workerLanguageControls.showLanguageSelectionOnFirstOpen}
+                      onChange={event => setSettingsDraft(current => ({
+                        ...current,
+                        workerLanguageControls: {
+                          ...current.workerLanguageControls,
+                          showLanguageSelectionOnFirstOpen: event.target.checked
+                        }
+                      }))}
+                    />
+                    Show language selection on the very first app open
+                  </label>
                   <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', background: '#f8fafc', color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
-                    Save settings here before editing related plans, worker review logic, or push templates. This panel is meant for operational defaults, while Plans, Workers, Notifications, and Reports remain execution modules.
+                    Current worker app language setup: {settingsDraft.workerLanguageControls.enabledWorkerLanguageCodes.map(code => workerLanguageOptions.find(option => option.code === code)?.label ?? code).join(', ')}. Default language: {workerLanguageOptions.find(option => option.code === settingsDraft.workerLanguageControls.defaultWorkerLanguageCode)?.label ?? settingsDraft.workerLanguageControls.defaultWorkerLanguageCode}.
                   </div>
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Common city list for admin and worker app</h3>
+                <div style={{ display: 'grid', gap: '14px' }}>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                    These city names are used in Add Worker, Edit Company, Add Job Post, and the worker app favourite cities section. Admin users will now select only from this dropdown list to avoid wrong spellings.
+                  </p>
+                  <textarea
+                    value={settingsDraft.workerHomeControls.popularCitySuggestions.join(', ')}
+                    onChange={event => setSettingsDraft(current => ({
+                      ...current,
+                      workerHomeControls: {
+                        ...current.workerHomeControls,
+                        popularCitySuggestions: parseCommaSeparatedDisplayList(event.target.value)
+                      }
+                    }))}
+                    rows={4}
+                    placeholder="Jaipur, Delhi, Mumbai, Bengaluru, Pune"
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: '96px', lineHeight: 1.6 }}
+                  />
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', background: '#f8fafc', color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                    Current common cities: {settingsDraft.workerHomeControls.popularCitySuggestions.join(', ') || 'No cities added yet'}.
+                  </div>
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Worker app help button</h3>
+                <div style={{ display: 'grid', gap: '14px' }}>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                    These settings control the Help button in the worker app header. Workers can use it to contact your team on WhatsApp, open your chatbot link, or use one extra custom button you configure here.
+                  </p>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.helpControls.showHeaderHelpButton}
+                      onChange={event => setSettingsDraft(current => ({
+                        ...current,
+                        helpControls: {
+                          ...current.helpControls,
+                          showHeaderHelpButton: event.target.checked
+                        }
+                      }))}
+                    />
+                    Show Help button in worker app header
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Help title</label>
+                      <input
+                        value={settingsDraft.helpControls.supportTitle}
+                        onChange={event => setSettingsDraft(current => ({
+                          ...current,
+                          helpControls: {
+                            ...current.helpControls,
+                            supportTitle: event.target.value
+                          }
+                        }))}
+                        placeholder="Need help?"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>WhatsApp number</label>
+                      <input
+                        value={settingsDraft.helpControls.supportWhatsappNumber}
+                        onChange={event => setSettingsDraft(current => ({
+                          ...current,
+                          helpControls: {
+                            ...current.helpControls,
+                            supportWhatsappNumber: event.target.value
+                          }
+                        }))}
+                        placeholder="9198XXXXXXXX"
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Help subtitle</label>
+                    <input
+                      value={settingsDraft.helpControls.supportSubtitle}
+                      onChange={event => setSettingsDraft(current => ({
+                        ...current,
+                        helpControls: {
+                          ...current.helpControls,
+                          supportSubtitle: event.target.value
+                        }
+                      }))}
+                      placeholder="Chat with our team or message us on WhatsApp."
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Chatbot URL</label>
+                    <input
+                      value={settingsDraft.helpControls.supportChatbotUrl}
+                      onChange={event => setSettingsDraft(current => ({
+                        ...current,
+                        helpControls: {
+                          ...current.helpControls,
+                          supportChatbotUrl: event.target.value
+                        }
+                      }))}
+                      placeholder="https://..."
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Other button text</label>
+                      <input
+                        value={settingsDraft.helpControls.supportExtraLabel}
+                        onChange={event => setSettingsDraft(current => ({
+                          ...current,
+                          helpControls: {
+                            ...current.helpControls,
+                            supportExtraLabel: event.target.value
+                          }
+                        }))}
+                        placeholder="Visit support page"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Other link URL</label>
+                      <input
+                        value={settingsDraft.helpControls.supportExtraUrl}
+                        onChange={event => setSettingsDraft(current => ({
+                          ...current,
+                          helpControls: {
+                            ...current.helpControls,
+                            supportExtraUrl: event.target.value
+                          }
+                        }))}
+                        placeholder="https://..."
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Default WhatsApp message</label>
+                    <textarea
+                      value={settingsDraft.helpControls.supportPrefilledMessage}
+                      onChange={event => setSettingsDraft(current => ({
+                        ...current,
+                        helpControls: {
+                          ...current.helpControls,
+                          supportPrefilledMessage: event.target.value
+                        }
+                      }))}
+                      rows={3}
+                      placeholder="Hello Team, I need help with the Rozgar worker app."
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation and linked tools</h3>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'supportRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                    <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
+                      Open {sectionLabels[section]}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <a href="/admin/labour/website" style={{ ...primaryButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                    Open Website Editor
+                  </a>
+                  <a href="/labour/company" target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                    Preview Website
+                  </a>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', background: '#f8fafc', color: '#64748b', fontSize: '12px', lineHeight: 1.7 }}>
+                  Save settings here before editing related plans, worker review logic, or push templates. This panel is meant for operational defaults, while Plans, Workers, Notifications, and Reports remain execution modules.
                 </div>
               </div>
             </div>

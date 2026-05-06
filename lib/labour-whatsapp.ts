@@ -10,6 +10,11 @@ type SendWhatsappTemplatePayload = {
   bodyParameters?: string[]
 }
 
+export const isWhatsappTemplateTranslationMissingError = (error: unknown) =>
+  error instanceof Error &&
+  error.message.includes('132001') &&
+  /template name .* does not exist/i.test(error.message)
+
 const sanitizeWhatsappNumber = (value: string) => value.replace(/[^\d+]/g, '').trim()
 
 const toInternationalWhatsappNumber = (value: string) => {

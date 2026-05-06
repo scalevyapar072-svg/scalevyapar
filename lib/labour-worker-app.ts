@@ -23,7 +23,11 @@ import {
 import { getLabourAdminSettings } from './labour-admin-settings'
 import { sendWorkerPushNotification } from './labour-worker-push'
 import { sendCompanyApplicationEmail } from './labour-company-email'
-import { sendWhatsappTemplateMessage, sendWhatsappTextMessage } from './labour-whatsapp'
+import {
+  isWhatsappTemplateTranslationMissingError,
+  sendWhatsappTemplateMessage,
+  sendWhatsappTextMessage
+} from './labour-whatsapp'
 import { supabaseAdmin } from './supabase-admin'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
@@ -151,6 +155,18 @@ export type WorkerAppNotification = {
   isRead: boolean
   priority: string
   createdAt: string
+}
+
+export type WorkerApplicationDeliveryDebugItem = {
+  recipient: 'company' | 'worker'
+  channel: 'whatsapp'
+  status: 'delivered' | 'skipped' | 'failed'
+  reason: string
+}
+
+export type WorkerJobApplyResult = {
+  dashboard: WorkerAppDashboard
+  deliveryDebug: WorkerApplicationDeliveryDebugItem[]
 }
 
 export type WorkerAppDashboard = {
@@ -340,6 +356,94 @@ const getWorkerConfirmationWhatsappTemplateConfig = () => {
   return {
     templateName,
     languageCode
+  }
+}
+
+const getTemplateRetryLanguageCode = (languageCode: string) => {
+  const normalizedLanguageCode = String(languageCode || '').trim().toLowerCase()
+  if (!normalizedLanguageCode || normalizedLanguageCode === 'en') {
+    return 'en_US'
+  }
+
+  return null
+}
+
+const sendWorkerApplicationConfirmationWhatsapp = async (payload: {
+  workerMobile: string
+  workerName: string
+  companyName: string
+  contactPerson: string
+  companyCity: string
+  companyMobile: string
+  jobTitle: string
+}) => {
+  const workerConfirmationTemplate = getWorkerConfirmationWhatsappTemplateConfig()
+  const textFallbackPayload = {
+    to: payload.workerMobile,
+    body: buildWorkerApplicationConfirmationWhatsappMessage({
+      workerName: payload.workerName,
+      companyName: payload.companyName,
+      contactPerson: payload.contactPerson,
+      companyCity: payload.companyCity,
+      companyMobile: payload.companyMobile,
+      jobTitle: payload.jobTitle
+    })
+  }
+
+  if (!workerConfirmationTemplate.templateName) {
+    return sendWhatsappTextMessage(textFallbackPayload)
+  }
+
+  const bodyParameters = [
+    payload.workerName || 'Worker',
+    payload.jobTitle || 'Job',
+    [
+      payload.companyName || 'Company',
+      payload.contactPerson || payload.companyName || 'Company team',
+      payload.companyCity || 'Not added'
+    ].filter(Boolean).join(', '),
+    payload.companyMobile || 'Not available'
+  ]
+
+  try {
+    return await sendWhatsappTemplateMessage({
+      to: payload.workerMobile,
+      templateName: workerConfirmationTemplate.templateName,
+      languageCode: workerConfirmationTemplate.languageCode,
+      bodyParameters
+    })
+  } catch (error) {
+    const retryLanguageCode = getTemplateRetryLanguageCode(workerConfirmationTemplate.languageCode)
+
+    if (!retryLanguageCode || !isWhatsappTemplateTranslationMissingError(error)) {
+      throw error
+    }
+
+    console.warn('Worker WhatsApp template translation missing, retrying with fallback language.', {
+      templateName: workerConfirmationTemplate.templateName,
+      languageCode: workerConfirmationTemplate.languageCode,
+      retryLanguageCode
+    })
+
+    try {
+      return await sendWhatsappTemplateMessage({
+        to: payload.workerMobile,
+        templateName: workerConfirmationTemplate.templateName,
+        languageCode: retryLanguageCode,
+        bodyParameters
+      })
+    } catch (retryError) {
+      if (!isWhatsappTemplateTranslationMissingError(retryError)) {
+        throw retryError
+      }
+
+      console.warn('Worker WhatsApp template still missing after retry, falling back to text confirmation.', {
+        templateName: workerConfirmationTemplate.templateName,
+        languageCode: retryLanguageCode
+      })
+
+      return sendWhatsappTextMessage(textFallbackPayload)
+    }
   }
 }
 
@@ -1332,7 +1436,7 @@ export const createWorkerHelpRequest = async (workerId: string, note?: string) =
   return getWorkerAppDashboard(workerId)
 }
 
-export const applyToWorkerJob = async (workerId: string, jobPostId: string, note?: string) => {
+export const applyToWorkerJob = async (workerId: string, jobPostId: string, note?: string): Promise<WorkerJobApplyResult> => {
   const snapshot = await getLabourMarketplaceSnapshot()
   const worker = findWorkerById(snapshot, workerId)
   if (!worker) {
@@ -1363,7 +1467,10 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
   )
 
   if (existingApplication) {
-    return getWorkerAppDashboard(workerId)
+    return {
+      dashboard: await getWorkerAppDashboard(workerId),
+      deliveryDebug: []
+    }
   }
 
   await createLabourEntity('jobApplications', {
@@ -1409,8 +1516,9 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     console.error('Failed to send company application email', error)
   }
 
+  let deliveryDebug: WorkerApplicationDeliveryDebugItem[] = []
+
   try {
-    const workerConfirmationTemplate = getWorkerConfirmationWhatsappTemplateConfig()
     const whatsappResults = await Promise.allSettled([
       sendWhatsappTextMessage({
         to: companyContactMobile,
@@ -1426,34 +1534,42 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
           appliedAt
         })
       }),
-      workerConfirmationTemplate.templateName
-        ? sendWhatsappTemplateMessage({
-            to: worker.mobile,
-            templateName: workerConfirmationTemplate.templateName,
-            languageCode: workerConfirmationTemplate.languageCode,
-            bodyParameters: [
-              worker.fullName || 'Worker',
-              jobPost.title || 'Job',
-              [
-                company.companyName || 'Company',
-                company.contactPerson || company.companyName || 'Company team',
-                company.city || 'Not added'
-              ].filter(Boolean).join(', '),
-              companyContactMobile || 'Not available'
-            ]
-          })
-        : sendWhatsappTextMessage({
-            to: worker.mobile,
-            body: buildWorkerApplicationConfirmationWhatsappMessage({
-              workerName: worker.fullName,
-              companyName: company.companyName,
-              contactPerson: company.contactPerson,
-              companyCity: company.city,
-              companyMobile: companyContactMobile,
-              jobTitle: jobPost.title
-            })
-          })
+      sendWorkerApplicationConfirmationWhatsapp({
+        workerMobile: worker.mobile,
+        workerName: worker.fullName,
+        companyName: company.companyName,
+        contactPerson: company.contactPerson,
+        companyCity: company.city,
+        companyMobile: companyContactMobile,
+        jobTitle: jobPost.title
+      })
     ])
+
+    deliveryDebug = whatsappResults.map((result, index) => {
+      const recipient = index === 0 ? 'company' : 'worker'
+      if (result.status === 'fulfilled') {
+        return {
+          recipient,
+          channel: 'whatsapp',
+          status: result.value.delivered ? 'delivered' : 'skipped',
+          reason: result.value.delivered ? 'delivered' : (result.value.reason || 'skipped')
+        }
+      }
+
+      return {
+        recipient,
+        channel: 'whatsapp',
+        status: 'failed',
+        reason: result.reason instanceof Error ? result.reason.message : String(result.reason || 'unknown-error')
+      }
+    })
+
+    console.log('Worker application WhatsApp delivery summary', {
+      workerId,
+      jobPostId,
+      companyId: company.id,
+      deliveryDebug
+    })
 
     whatsappResults.forEach((result, index) => {
       if (result.status === 'fulfilled' && !result.value.delivered) {
@@ -1474,9 +1590,26 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     })
   } catch (error) {
     console.error('Failed to send worker/company WhatsApp alerts', error)
+    deliveryDebug = [
+      {
+        recipient: 'company',
+        channel: 'whatsapp',
+        status: 'failed',
+        reason: error instanceof Error ? error.message : 'unknown-error'
+      },
+      {
+        recipient: 'worker',
+        channel: 'whatsapp',
+        status: 'failed',
+        reason: error instanceof Error ? error.message : 'unknown-error'
+      }
+    ]
   }
 
-  return getWorkerAppDashboard(workerId)
+  return {
+    dashboard: await getWorkerAppDashboard(workerId),
+    deliveryDebug
+  }
 }
 
 export const toggleWorkerSavedJob = async (workerId: string, jobPostId: string) => {

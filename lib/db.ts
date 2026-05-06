@@ -61,8 +61,32 @@ interface ModuleInput {
   isActive?: boolean
 }
 
+const BUILT_IN_MODULES: ModuleInput[] = [
+  {
+    name: 'Rozgar',
+    slug: 'rozgar',
+    description: 'Search workers, manage labour applications, and operate the hiring flow from one marketplace.',
+    summary: 'Dedicated labour marketplace and company hiring panel for fast worker sourcing.',
+    status: 'active',
+    type: 'Marketplace',
+    icon: 'R',
+    href: '/labour/company/search',
+    features: [
+      'Search Labour',
+      'Receive Worker Applications',
+      'Company Hiring Panel',
+      'Rozgar Dashboard'
+    ],
+    color: '#5a88ee',
+    isActive: true
+  }
+]
+
 const isMissingSummaryColumnError = (error: { message?: string } | null | undefined) =>
   Boolean(error?.message && /summary/i.test(error.message) && /(column|schema cache)/i.test(error.message))
+
+const isDuplicateModuleError = (error: unknown) =>
+  error instanceof Error && /(duplicate|unique)/i.test(error.message)
 
 type LegacyModuleRow = {
   id: string
@@ -367,10 +391,14 @@ export const getAllModules = async (): Promise<ModuleRecord[]> => {
       throw new Error(`Failed to fetch modules: ${legacyResult.error.message}`)
     }
 
-    return (legacyResult.data || []).map(row => mapLegacyModuleRow(row as LegacyModuleRow))
+    const legacyModules = (legacyResult.data || []).map(row => mapLegacyModuleRow(row as LegacyModuleRow))
+    const didSeedBuiltIns = await ensureBuiltInModules(legacyModules)
+    return didSeedBuiltIns ? getAllModules() : legacyModules
   }
 
-  return (data || []).map(mapModuleRow)
+  const modules = (data || []).map(mapModuleRow)
+  const didSeedBuiltIns = await ensureBuiltInModules(modules)
+  return didSeedBuiltIns ? getAllModules() : modules
 }
 
 export const getUserModules = async (userId: string): Promise<ModuleRecord[]> => {
@@ -728,6 +756,29 @@ export const createModule = async (input: ModuleInput): Promise<ModuleRecord> =>
   }
 
   return mapModuleRow(data)
+}
+
+const ensureBuiltInModules = async (modules: ModuleRecord[]) => {
+  let didCreateModule = false
+
+  for (const moduleInput of BUILT_IN_MODULES) {
+    if (modules.some(moduleRecord => moduleRecord.slug === moduleInput.slug)) {
+      continue
+    }
+
+    try {
+      await createModule(moduleInput)
+      didCreateModule = true
+    } catch (error) {
+      if (!isDuplicateModuleError(error)) {
+        throw error
+      }
+
+      didCreateModule = true
+    }
+  }
+
+  return didCreateModule
 }
 
 export const updateModule = async (id: string, input: Partial<ModuleInput>): Promise<boolean> => {

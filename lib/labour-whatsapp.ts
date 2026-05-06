@@ -15,6 +15,18 @@ export const isWhatsappTemplateTranslationMissingError = (error: unknown) =>
   error.message.includes('132001') &&
   /template name .* does not exist/i.test(error.message)
 
+type WhatsappAcceptedResponse = {
+  messaging_product?: string
+  contacts?: Array<{
+    input?: string
+    wa_id?: string
+  }>
+  messages?: Array<{
+    id?: string
+    message_status?: string
+  }>
+}
+
 const sanitizeWhatsappNumber = (value: string) => value.replace(/[^\d+]/g, '').trim()
 
 const toInternationalWhatsappNumber = (value: string) => {
@@ -52,12 +64,12 @@ export const sendWhatsappTextMessage = async ({ to, body }: SendWhatsappTextPayl
   const trimmedBody = String(body || '').trim()
 
   if (!recipient || !trimmedBody) {
-    return { delivered: false, skipped: true, reason: 'missing-recipient-or-body' as const }
+    return { accepted: false, skipped: true, reason: 'missing-recipient-or-body' as const }
   }
 
   if (!accessToken || !phoneNumberId) {
     console.warn('WhatsApp send skipped because WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID is not configured.')
-    return { delivered: false, skipped: true, reason: 'whatsapp-not-configured' as const }
+    return { accepted: false, skipped: true, reason: 'whatsapp-not-configured' as const }
   }
 
   const response = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`, {
@@ -78,12 +90,23 @@ export const sendWhatsappTextMessage = async ({ to, body }: SendWhatsappTextPayl
     })
   })
 
+  const responseBody = await response.text()
   if (!response.ok) {
-    const responseBody = await response.text()
     throw new Error(`WhatsApp send failed (${response.status}): ${responseBody}`)
   }
 
-  return { delivered: true, skipped: false as const }
+  const parsed = responseBody ? JSON.parse(responseBody) as WhatsappAcceptedResponse : {}
+  const firstMessage = parsed.messages?.[0]
+  const firstContact = parsed.contacts?.[0]
+
+  return {
+    accepted: true,
+    skipped: false as const,
+    reason: 'accepted' as const,
+    messageId: firstMessage?.id || '',
+    messageStatus: firstMessage?.message_status || '',
+    recipientWaId: firstContact?.wa_id || recipient
+  }
 }
 
 export const sendWhatsappTemplateMessage = async ({
@@ -100,12 +123,12 @@ export const sendWhatsappTemplateMessage = async ({
     .filter(Boolean)
 
   if (!recipient || !trimmedTemplateName) {
-    return { delivered: false, skipped: true, reason: 'missing-recipient-or-template' as const }
+    return { accepted: false, skipped: true, reason: 'missing-recipient-or-template' as const }
   }
 
   if (!accessToken || !phoneNumberId) {
     console.warn('WhatsApp template send skipped because WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID is not configured.')
-    return { delivered: false, skipped: true, reason: 'whatsapp-not-configured' as const }
+    return { accepted: false, skipped: true, reason: 'whatsapp-not-configured' as const }
   }
 
   const components = normalizedParameters.length > 0
@@ -141,10 +164,21 @@ export const sendWhatsappTemplateMessage = async ({
     })
   })
 
+  const responseBody = await response.text()
   if (!response.ok) {
-    const responseBody = await response.text()
     throw new Error(`WhatsApp template send failed (${response.status}): ${responseBody}`)
   }
 
-  return { delivered: true, skipped: false as const }
+  const parsed = responseBody ? JSON.parse(responseBody) as WhatsappAcceptedResponse : {}
+  const firstMessage = parsed.messages?.[0]
+  const firstContact = parsed.contacts?.[0]
+
+  return {
+    accepted: true,
+    skipped: false as const,
+    reason: 'accepted' as const,
+    messageId: firstMessage?.id || '',
+    messageStatus: firstMessage?.message_status || '',
+    recipientWaId: firstContact?.wa_id || recipient
+  }
 }

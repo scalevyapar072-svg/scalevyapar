@@ -160,8 +160,11 @@ export type WorkerAppNotification = {
 export type WorkerApplicationDeliveryDebugItem = {
   recipient: 'company' | 'worker'
   channel: 'whatsapp'
-  status: 'delivered' | 'skipped' | 'failed'
+  status: 'accepted' | 'skipped' | 'failed'
   reason: string
+  messageId?: string
+  messageStatus?: string
+  recipientWaId?: string
 }
 
 export type WorkerJobApplyResult = {
@@ -1551,8 +1554,11 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
         return {
           recipient,
           channel: 'whatsapp',
-          status: result.value.delivered ? 'delivered' : 'skipped',
-          reason: result.value.delivered ? 'delivered' : (result.value.reason || 'skipped')
+          status: result.value.accepted ? 'accepted' : 'skipped',
+          reason: result.value.accepted ? 'accepted' : (result.value.reason || 'skipped'),
+          messageId: result.value.messageId || undefined,
+          messageStatus: result.value.messageStatus || undefined,
+          recipientWaId: result.value.recipientWaId || undefined
         }
       }
 
@@ -1572,7 +1578,7 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     })
 
     whatsappResults.forEach((result, index) => {
-      if (result.status === 'fulfilled' && !result.value.delivered) {
+      if (result.status === 'fulfilled' && !result.value.accepted) {
         console.warn(
           index === 0
             ? 'Company WhatsApp application alert skipped'

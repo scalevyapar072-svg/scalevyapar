@@ -52,7 +52,7 @@ export default function Navbar() {
           <Link href="/pricing" className="nav-link">Pricing</Link>
           <Link href="/about" className="nav-link">About</Link>
           <Link href="/contact" className="nav-link">Contact</Link>
-          <Link href="https://scalevyapar.vercel.app/login" className="nav-cta" target="_blank">
+          <Link href="https://www.scalevyapar.in/login" className="nav-cta" target="_blank">
             Login →
           </Link>
         </div>

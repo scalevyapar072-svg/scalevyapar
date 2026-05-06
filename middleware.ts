@@ -9,7 +9,6 @@ export async function middleware(request: NextRequest) {
     process.env.NODE_ENV !== 'production' &&
     (hostname === '127.0.0.1' || hostname === 'localhost')
 
-  // Redirect apex to www
   if (process.env.NODE_ENV === 'production' && hostname === 'scalevyapar.in') {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.hostname = 'www.scalevyapar.in'
@@ -17,23 +16,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl, 308)
   }
 
-  // Public website pages - no auth needed
   const publicPages = ['/', '/tools', '/pricing', '/about', '/contact']
   if (publicPages.includes(pathname)) {
     return NextResponse.next()
   }
 
-  // Login and auth routes - public
   if (pathname === '/login' || pathname.startsWith('/api/auth')) {
     return NextResponse.next()
   }
 
-  // Local dev leads route
   if (isLocalDev && pathname.startsWith('/leads')) {
     return NextResponse.next()
   }
 
-  // All other routes need auth
   const authToken =
     request.cookies.get(AUTH_COOKIE_NAME)?.value ||
     request.cookies.get(LEGACY_AUTH_COOKIE_NAME)?.value
@@ -54,7 +49,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (pathname.startsWith('/dashboard')) {redirectUrl.hostname = 'www.scalevyapar.in'
+  if (pathname.startsWith('/dashboard')) {
     if (user.role !== 'CLIENT') {
       return NextResponse.redirect(new URL('/admin', request.url))
     }

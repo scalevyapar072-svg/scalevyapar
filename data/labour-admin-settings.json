@@ -1,0 +1,46 @@
+{
+  "notificationTemplates": {
+    "applicationSubmittedTitle": "Application received",
+    "applicationSubmittedMessage": "Your application for {{job_title}} has been submitted successfully.",
+    "shortlistedTitle": "You are shortlisted",
+    "shortlistedMessage": "You have been shortlisted for {{job_title}}. Keep your phone active for the next step.",
+    "rejectedTitle": "Application update",
+    "rejectedMessage": "Your application for {{job_title}} was not selected this time.",
+    "walletReminderTitle": "Wallet recharge needed",
+    "walletReminderMessage": "Your wallet is low. Recharge soon to keep company details unlocked.",
+    "adminBroadcastTitle": "Important update",
+    "adminBroadcastMessage": "Admin shared a new update for active workers."
+  },
+  "uploadRules": {
+    "maxPhotoSizeMb": 4,
+    "maxDocumentSizeMb": 8,
+    "allowedPhotoExtensions": ["jpg", "jpeg", "png", "webp", "heic", "heif"],
+    "allowedDocumentExtensions": ["jpg", "jpeg", "png", "webp", "pdf"],
+    "requireIdentityDocumentUpload": true
+  },
+  "kycRules": {
+    "requireProfilePhoto": true,
+    "requireIdentityNumber": true,
+    "manualReviewRequired": true,
+    "autoRejectBlurredPhoto": false,
+    "reviewReminderHours": 12,
+    "allowedProofTypes": ["aadhaar", "pan", "voter_id", "driving_license", "other"]
+  },
+  "feeRules": {
+    "defaultWorkerRegistrationFee": 49,
+    "defaultWorkerDailyDeduction": 5,
+    "minimumWalletRecharge": 50,
+    "defaultCompanyRegistrationFee": 199,
+    "defaultCompanyPlanAmount": 999,
+    "followUpCreditThreshold": 100
+  },
+  "automationControls": {
+    "autoHideInactiveWorkers": true,
+    "autoPauseExpiredJobs": true,
+    "sendWalletReminderPush": true,
+    "sendApplicationStatusPush": true,
+    "autoCreateRechargeFollowUps": true,
+    "autoEscalatePendingKyc": true,
+    "pendingKycEscalationHours": 24
+  }
+}

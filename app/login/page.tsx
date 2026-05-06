@@ -53,7 +53,8 @@ export default function LoginPage() {
         .sign-btn:disabled { background: #94a3b8; cursor: not-allowed; }
         .feature-item { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
         .feature-icon { width: 36px; height: 36px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-        .deco1 { position: absolute; top: -100px; right: -100px; width: 350px; height: 350px; background: rgba(255,255,255,0.03); border-radius: 50%; }
+        .deco1 { position: absol
+        ute; top: -100px; right: -100px; width: 350px; height: 350px; background: rgba(255,255,255,0.03); border-radius: 50%; }
         .deco2 { position: absolute; bottom: -100px; left: -100px; width: 350px; height: 350px; background: rgba(255,255,255,0.03); border-radius: 50%; }
         @media (max-width: 768px) {
           .login-wrap { flex-direction: column; }

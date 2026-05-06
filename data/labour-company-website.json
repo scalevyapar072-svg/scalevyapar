@@ -1,0 +1,238 @@
+{
+  "theme": {
+    "brandName": "ScaleVyapar Labour Exchange",
+    "brandTagline": "Hire daily-basis labour faster across industries",
+    "accentColor": "#0f172a",
+    "accentSoft": "#e0ecff",
+    "highlightColor": "#2563eb"
+  },
+  "header": {
+    "announcement": "Daily worker hiring for factories, workshops, contractors and growing businesses",
+    "primaryCtaLabel": "Post Requirement",
+    "primaryCtaHref": "/labour/company#company-intake",
+    "navItems": [
+      { "label": "Home", "href": "/labour/company" },
+      { "label": "Pricing", "href": "/labour/company/pricing" },
+      { "label": "Search Labour", "href": "/labour/company/search" },
+      { "label": "Sign In", "href": "/labour/company/signin" },
+      { "label": "Contact", "href": "/labour/company/contact" }
+    ]
+  },
+  "footer": {
+    "description": "A company hiring website for stitching karighar, embroidery worker, electrician, printer labour, machine setup staff, contractor labour and other daily-basis workforce needs.",
+    "supportEmail": "support@scalevyapar.com",
+    "phone": "+91 98765 43210",
+    "address": "Surat, Gujarat, India",
+    "copyrightText": "© 2026 ScaleVyapar Labour Exchange. All rights reserved.",
+    "linkGroups": [
+      {
+        "title": "Company",
+        "links": [
+          { "label": "Home", "href": "/labour/company" },
+          { "label": "Pricing", "href": "/labour/company/pricing" },
+          { "label": "Search Labour", "href": "/labour/company/search" }
+        ]
+      },
+      {
+        "title": "Support",
+        "links": [
+          { "label": "Sign In", "href": "/labour/company/signin" },
+          { "label": "Contact Us", "href": "/labour/company/contact" },
+          { "label": "Admin Website Editor", "href": "/admin/labour/website" }
+        ]
+      }
+    ]
+  },
+  "home": {
+    "sectionOrder": ["hero", "trust", "features", "process", "pricing", "testimonials", "faq", "cta", "intake"],
+    "hero": {
+      "eyebrow": "Hiring for factories, workshops and contractors",
+      "title": "Hire daily-basis labour faster across stitching, embroidery, machine setup, printer work, electrician jobs and more.",
+      "subtitle": "A dedicated company hiring website for labour demand. Post your requirement, choose a low-cost plan, and connect with relevant workers in your city.",
+      "primaryCtaLabel": "Post Requirement",
+      "primaryCtaHref": "#company-intake",
+      "secondaryCtaLabel": "See Pricing",
+      "secondaryCtaHref": "/labour/company/pricing"
+    },
+    "trustStrip": {
+      "title": "Built for fast, local and category-specific labour hiring",
+      "items": [
+        "Daily-basis labour categories",
+        "Company plan control from admin",
+        "City-wise demand matching",
+        "Short-validity urgent hiring flow"
+      ]
+    },
+    "features": {
+      "title": "What companies get",
+      "subtitle": "A practical employer website inspired by modern hiring pages, but adapted to the labour market and daily workforce needs.",
+      "cards": [
+        {
+          "title": "Category-specific hiring",
+          "description": "Post labour requirements for stitching karighar, embroidery worker, electrician, printer labour, machine setup, contractor labour and more.",
+          "bullets": [
+            "Multiple labour categories",
+            "City and role based demand",
+            "Fast short-term requirement posting"
+          ]
+        },
+        {
+          "title": "Affordable company plans",
+          "description": "Keep pricing simple for businesses that hire often but still want low upfront cost and clear validity windows.",
+          "bullets": [
+            "Registration fee tracking",
+            "3-day and priority plans",
+            "Admin editable plan pricing"
+          ]
+        },
+        {
+          "title": "Search live labour",
+          "description": "Companies can browse active workers on the website, filter them by city and category, and shortlist relevant people quickly.",
+          "bullets": [
+            "Visible active workers only",
+            "Search by city and labour category",
+            "Useful for urgent workforce demand"
+          ]
+        }
+      ]
+    },
+    "process": {
+      "title": "How the company flow works",
+      "steps": [
+        {
+          "title": "Submit company details",
+          "description": "Add your company, contact person, mobile, city and the labour categories you want to hire."
+        },
+        {
+          "title": "Choose your plan",
+          "description": "Select the right company plan based on category and hiring urgency."
+        },
+        {
+          "title": "Post the first requirement",
+          "description": "Add workers needed, wage amount, validity days and job description."
+        },
+        {
+          "title": "Get activated from admin",
+          "description": "Your profile appears in the admin panel for review, follow-up and publishing."
+        }
+      ]
+    },
+    "pricing": {
+      "title": "Company pricing",
+      "subtitle": "Keep plans clear, short-validity and easy to understand for market hiring.",
+      "footnote": "Displayed plans below are connected to live active company plans from the labour database."
+    },
+    "testimonials": {
+      "title": "Why this model works",
+      "items": [
+        {
+          "quote": "We needed a hiring flow that works for urgent production labour instead of generic corporate recruitment. This structure is made for that speed.",
+          "name": "Operations Team",
+          "role": "Garment Production",
+          "company": "ScaleVyapar Demo"
+        },
+        {
+          "quote": "Short validity, category filters and direct local requirements make daily labour hiring much more realistic for small and medium businesses.",
+          "name": "Factory Hiring Desk",
+          "role": "Workshop Hiring",
+          "company": "ScaleVyapar Demo"
+        }
+      ]
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "items": [
+        {
+          "question": "Can I post requirements for more than one labour category?",
+          "answer": "Yes. A company can select multiple categories and create multiple labour requirements from the same flow."
+        },
+        {
+          "question": "Can pricing and plan validity be changed later?",
+          "answer": "Yes. Company plans are controlled from the labour admin panel and can be updated there."
+        },
+        {
+          "question": "Will my requirement go live immediately?",
+          "answer": "The current flow creates a pending company with a draft job post so your admin team can review and activate it."
+        }
+      ]
+    },
+    "finalCta": {
+      "title": "Start hiring your next labour team",
+      "subtitle": "Post your first requirement and let the admin team review, activate and publish it from ScaleVyapar Labour Exchange.",
+      "buttonLabel": "Submit Company Requirement",
+      "buttonHref": "#company-intake"
+    },
+    "intake": {
+      "title": "Post company requirement",
+      "description": "Submit your company and first job requirement in one go. The labour admin team can review, approve and publish it from the admin panel.",
+      "submitLabel": "Create company enquiry"
+    }
+  },
+  "pricingPage": {
+    "eyebrow": "Simple pricing for labour hiring",
+    "title": "Choose the right company plan for your hiring volume and urgency.",
+    "subtitle": "Clear pricing, short validity windows and category-specific options inspired by employer pricing pages, but tailored for labour exchange workflows.",
+    "badgeText": "Most popular for growing businesses",
+    "customPlanTitle": "Need a custom plan?",
+    "customPlanDescription": "Use a personalised plan if you hire across many categories or cities and want additional admin support.",
+    "customPlanPoints": [
+      "Dedicated account follow-up",
+      "Priority category setup",
+      "Longer validity options",
+      "City-wise hiring management"
+    ],
+    "primaryCtaLabel": "Post a requirement",
+    "primaryCtaHref": "/labour/company#company-intake",
+    "secondaryCtaLabel": "Contact sales",
+    "secondaryCtaHref": "/labour/company/contact",
+    "faqTitle": "Pricing questions"
+  },
+  "signinPage": {
+    "eyebrow": "Existing company access",
+    "title": "Sign in to manage your company profile, plans and labour requirements.",
+    "subtitle": "Keep this page simple for employers. Use it as a branded login page with clear actions for existing customers and new enquiries.",
+    "infoTitle": "What you can do after sign in",
+    "infoDescription": "View active plans, manage requirements, follow job status and connect with the admin team.",
+    "benefits": [
+      "Manage posted labour requirements",
+      "Review plan validity and payment status",
+      "Track city and category hiring activity",
+      "Connect with support for activation and follow-up"
+    ],
+    "primaryCtaLabel": "Go to client login",
+    "primaryCtaHref": "/login",
+    "secondaryCtaLabel": "New company enquiry",
+    "secondaryCtaHref": "/labour/company#company-intake"
+  },
+  "contactPage": {
+    "eyebrow": "Get in touch",
+    "title": "Contact the ScaleVyapar labour hiring team",
+    "subtitle": "Use this page for support, sales follow-up, activation help and pricing discussions.",
+    "supportEmail": "support@scalevyapar.com",
+    "escalationEmail": "escalations@scalevyapar.com",
+    "phone": "+91 98765 43210",
+    "address": "Surat, Gujarat, India",
+    "cards": [
+      {
+        "title": "Talk to sales",
+        "description": "Discuss company pricing, category setup and custom hiring plans.",
+        "ctaLabel": "Open pricing page",
+        "ctaHref": "/labour/company/pricing"
+      },
+      {
+        "title": "Need support",
+        "description": "Use the contact team for account activation, plan follow-up and company profile changes.",
+        "ctaLabel": "Send company enquiry",
+        "ctaHref": "/labour/company#company-intake"
+      }
+    ]
+  },
+  "searchPage": {
+    "eyebrow": "Search active workers",
+    "title": "Browse visible labour by category, city and availability.",
+    "subtitle": "This page gives companies a quick website-level view of active workers before they post or expand their requirements.",
+    "helperText": "Use the search filters below to find workers who match your hiring needs.",
+    "emptyTitle": "No workers match these filters yet",
+    "emptyDescription": "Try another city or category, or post a requirement so the admin team can help connect you faster."
+  }
+}

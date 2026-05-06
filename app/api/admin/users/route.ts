@@ -1,27 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
+import { createClient, getAllUsersWithAssignedModules, getUserByEmail, updateUserModules } from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
-const dbPath = path.join(process.cwd(), 'data/db.json')
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const fileContent = fs.readFileSync(dbPath, 'utf-8')
-    const db = JSON.parse(fileContent)
+    const admin = await requireAdmin(request)
+    if (admin instanceof NextResponse) {
+      return admin
+    }
 
-    const usersWithModules = db.users.map((user: any) => {
-      const userModuleIds = db.userModules
-        .filter((um: any) => um.userId === user.id && um.isEnabled === true)
-        .map((um: any) => um.moduleId)
-
-      const assignedModules = db.modules.filter((m: any) =>
-        userModuleIds.includes(m.id)
-      )
-
-      const { password, ...userWithoutPassword } = user
-      return { ...userWithoutPassword, assignedModules }
-    })
-
+    const usersWithModules = await getAllUsersWithAssignedModules()
     return NextResponse.json({ users: usersWithModules })
   } catch (error) {
     console.error('Error fetching users:', error)
@@ -31,44 +19,44 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password, moduleIds } = await request.json()
+    const admin = await requireAdmin(request)
+    if (admin instanceof NextResponse) {
+      return admin
+    }
 
-    const fileContent = fs.readFileSync(dbPath, 'utf-8')
-    const db = JSON.parse(fileContent)
+    const { name, email, password, moduleIds, phone, plan } = await request.json()
 
-    const existingUser = db.users.find((u: any) => u.email === email)
+    const existingUser = await getUserByEmail(email)
     if (existingUser) {
       return NextResponse.json({ error: 'Email already exists' }, { status: 400 })
     }
 
-    const bcrypt = require('bcryptjs')
-    const hashedPassword = await bcrypt.hash(password, 10)
-
-    const newUser = {
-      id: `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    const temporaryPassword = password || `SV-${Math.random().toString(36).slice(2, 6)}${Date.now().toString().slice(-4)}`
+    const newUser = await createClient({
       name,
       email,
-      password: hashedPassword,
-      role: 'CLIENT',
-      createdAt: new Date().toISOString()
+      password: temporaryPassword,
+      phone,
+      plan
+    })
+
+    await updateUserModules(newUser.id, Array.isArray(moduleIds) ? moduleIds : [])
+
+    const userWithoutPassword = {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role,
+      createdAt: newUser.createdAt,
+      phone: newUser.phone,
+      plan: newUser.plan,
+      status: newUser.status
     }
-
-    db.users.push(newUser)
-
-    if (moduleIds && moduleIds.length > 0) {
-      moduleIds.forEach((moduleId: string) => {
-        db.userModules.push({
-          userId: newUser.id,
-          moduleId,
-          isEnabled: true
-        })
-      })
-    }
-
-    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2))
-
-    const { password: _, ...userWithoutPassword } = newUser
-    return NextResponse.json({ success: true, user: userWithoutPassword })
+    return NextResponse.json({
+      success: true,
+      user: userWithoutPassword,
+      temporaryPassword
+    })
   } catch (error) {
     console.error('Error creating user:', error)
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })

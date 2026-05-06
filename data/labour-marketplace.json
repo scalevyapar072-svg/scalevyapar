@@ -1,0 +1,194 @@
+{
+  "categories": [
+    {
+      "id": "cat-stitching",
+      "name": "Stitching Karighar",
+      "slug": "stitching-karighar",
+      "description": "Daily-basis stitching karighars for garments and boutique production.",
+      "demandLevel": "high",
+      "isActive": true,
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    },
+    {
+      "id": "cat-embroidery",
+      "name": "Embroidery Worker",
+      "slug": "embroidery-worker",
+      "description": "Machine embroidery and hand embroidery workers.",
+      "demandLevel": "high",
+      "isActive": true,
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    },
+    {
+      "id": "cat-electrician",
+      "name": "Electrician",
+      "slug": "electrician",
+      "description": "On-demand electricians for site work, maintenance and setup.",
+      "demandLevel": "medium",
+      "isActive": true,
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    },
+    {
+      "id": "cat-printer-labour",
+      "name": "Printer Labour",
+      "slug": "printer-labour",
+      "description": "Printing press labour and print setup helpers.",
+      "demandLevel": "medium",
+      "isActive": true,
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    }
+  ],
+  "plans": [
+    {
+      "id": "plan-worker-basic",
+      "audience": "worker",
+      "name": "Worker Access 10 Days",
+      "registrationFee": 50,
+      "walletCredit": 50,
+      "planAmount": 50,
+      "validityDays": 10,
+      "dailyCharge": 5,
+      "description": "Opening worker wallet with 10 active days at Rs 5 deduction per day.",
+      "isActive": true,
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    },
+    {
+      "id": "plan-company-basic",
+      "audience": "company",
+      "name": "Company Basic 3 Days",
+      "registrationFee": 100,
+      "walletCredit": 0,
+      "planAmount": 200,
+      "validityDays": 3,
+      "dailyCharge": 0,
+      "description": "General company posting plan for any daily worker requirement.",
+      "isActive": true,
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    },
+    {
+      "id": "plan-company-stitching",
+      "audience": "company",
+      "name": "Stitching Karighar Priority 3 Days",
+      "categoryId": "cat-stitching",
+      "registrationFee": 100,
+      "walletCredit": 0,
+      "planAmount": 300,
+      "validityDays": 3,
+      "dailyCharge": 0,
+      "description": "Category-specific premium posting plan for stitching karighar demand.",
+      "isActive": true,
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    }
+  ],
+  "workers": [
+    {
+      "id": "worker-sajid",
+      "fullName": "Sajid Ansari",
+      "mobile": "9876543210",
+      "city": "Surat",
+      "experienceYears": 6,
+      "expectedDailyWage": 950,
+      "walletBalance": 40,
+      "status": "active",
+      "availability": "available_today",
+      "isVisible": true,
+      "categoryIds": [
+        "cat-stitching",
+        "cat-embroidery"
+      ],
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    },
+    {
+      "id": "worker-rahul",
+      "fullName": "Rahul Sahu",
+      "mobile": "9812345678",
+      "city": "Jaipur",
+      "experienceYears": 3,
+      "expectedDailyWage": 800,
+      "walletBalance": 0,
+      "status": "inactive_wallet_empty",
+      "availability": "available_this_week",
+      "isVisible": false,
+      "categoryIds": [
+        "cat-electrician"
+      ],
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    }
+  ],
+  "companies": [
+    {
+      "id": "company-neelufer",
+      "companyName": "Neelufer Creations",
+      "contactPerson": "Neelu",
+      "mobile": "9898989898",
+      "city": "Surat",
+      "categoryIds": [
+        "cat-stitching",
+        "cat-embroidery"
+      ],
+      "status": "active",
+      "registrationFeePaid": true,
+      "activePlan": "plan-company-stitching",
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    },
+    {
+      "id": "company-printerhub",
+      "companyName": "Printer Hub",
+      "contactPerson": "Imran",
+      "mobile": "9765432100",
+      "city": "Ahmedabad",
+      "categoryIds": [
+        "cat-printer-labour"
+      ],
+      "status": "pending",
+      "registrationFeePaid": false,
+      "activePlan": "plan-company-basic",
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    }
+  ],
+  "jobPosts": [
+    {
+      "id": "job-neelufer-stitching",
+      "companyId": "company-neelufer",
+      "categoryId": "cat-stitching",
+      "title": "10 Stitching Karighar Needed For Ladies Kurtis",
+      "description": "Immediate requirement for experienced stitching karighars for daily production. Overtime available.",
+      "city": "Surat",
+      "workersNeeded": 10,
+      "wageAmount": 950,
+      "validityDays": 3,
+      "status": "live",
+      "publishedAt": "2026-04-25",
+      "expiresAt": "2026-04-28",
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    },
+    {
+      "id": "job-printerhub-print",
+      "companyId": "company-printerhub",
+      "categoryId": "cat-printer-labour",
+      "title": "Printing Labour For Night Shift",
+      "description": "Need two helpers for machine setup and print handling for the next three days.",
+      "city": "Ahmedabad",
+      "workersNeeded": 2,
+      "wageAmount": 850,
+      "validityDays": 3,
+      "status": "draft",
+      "publishedAt": "2026-04-25",
+      "expiresAt": "2026-04-28",
+      "createdAt": "2026-04-25T00:00:00.000Z",
+      "updatedAt": "2026-04-25T00:00:00.000Z"
+    }
+  ],
+  "auditLogs": []
+}

@@ -20,7 +20,10 @@ import {
   WorkerIdentityProofType,
   updateLabourEntity
 } from './labour-marketplace'
+import { getLabourAdminSettings } from './labour-admin-settings'
 import { sendWorkerPushNotification } from './labour-worker-push'
+import { sendCompanyApplicationEmail } from './labour-company-email'
+import { sendWhatsappTemplateMessage, sendWhatsappTextMessage } from './labour-whatsapp'
 import { supabaseAdmin } from './supabase-admin'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
@@ -57,6 +60,8 @@ export type WorkerAppProfile = {
   fullName: string
   mobile: string
   city: string
+  homeCity: string
+  address: string
   profilePhotoPath: string
   categoryIds: string[]
   categoryLabels: string[]
@@ -71,12 +76,15 @@ export type WorkerAppProfile = {
   identityProofNumber: string
   identityProofPath: string
   isRegistrationComplete: boolean
+  canAccessApp: boolean
   registrationCompletedAt: string
 }
 
 export type WorkerRegistrationPayload = {
   fullName: string
   city: string
+  homeCity: string
+  address: string
   categoryIds: string[]
   skills: string[]
   experienceYears: number
@@ -91,6 +99,8 @@ export type WorkerRegistrationPayload = {
 export type WorkerAppWalletSummary = {
   balance: number
   dailyCharge: number
+  registrationFee: number
+  registrationFeePaid: boolean
   estimatedDaysRemaining: number
   visibilityRule: string
   lastDeductionAt: string | null
@@ -111,6 +121,9 @@ export type WorkerAppFeedItem = {
   title: string
   description: string
   city: string
+  locationLabel: string
+  latitude: number | null
+  longitude: number | null
   wageAmount: number
   workersNeeded: number
   categoryName: string
@@ -144,13 +157,28 @@ export type WorkerAppDashboard = {
   profile: WorkerAppProfile
   wallet: WorkerAppWalletSummary
   activation: WorkerAppActivationSummary
+  support: {
+    showHeaderHelpButton: boolean
+    title: string
+    subtitle: string
+    whatsappNumber: string
+    chatbotUrl: string
+    extraLabel: string
+    extraUrl: string
+    prefilledMessage: string
+  }
   feed: WorkerAppFeedItem[]
   notifications: WorkerAppNotification[]
   unreadNotificationCount: number
   availableCategories: Array<{
     id: string
     name: string
+    description: string
+    imageUrl: string
+    showOnHome: boolean
+    homeOrder: number
   }>
+  popularCitySuggestions: string[]
   workerPlan: {
     id: string
     name: string
@@ -262,6 +290,59 @@ const writeOtpSessions = async (sessions: WorkerAuthSession[], storage: 'supabas
 const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 const sanitizeMobile = (mobile: string) => mobile.replace(/\D/g, '').slice(-10)
+const resolveCompanyContactMobile = (company: LabourCompanyRecord | undefined) => company?.contactMobile || company?.mobile || ''
+const formatCategorySummary = (categories: string[]) => categories.length ? categories.slice(0, 3).join(', ') : 'Not specified'
+const formatAppliedAtLabel = (value: string) => new Date(value).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+
+const buildCompanyApplicationWhatsappMessage = (payload: {
+  companyName: string
+  workerName: string
+  workerCity: string
+  workerMobile: string
+  workerCategories: string[]
+  expectedDailyWage: number
+  note: string
+  jobTitle: string
+  appliedAt: string
+}) => [
+  'Rozgar App',
+  `New worker applied for ${payload.jobTitle}.`,
+  `Worker: ${payload.workerName}`,
+  `City: ${payload.workerCity || 'Not added'}`,
+  `Mobile: ${payload.workerMobile || 'Not available'}`,
+  `Skills: ${formatCategorySummary(payload.workerCategories)}`,
+  `Wage: Rs ${Number(payload.expectedDailyWage || 0).toLocaleString('en-IN')}/day`,
+  payload.note ? `Note: ${payload.note}` : '',
+  `Applied: ${formatAppliedAtLabel(payload.appliedAt)}`
+].filter(Boolean).join('\n')
+
+const buildWorkerApplicationConfirmationWhatsappMessage = (payload: {
+  workerName: string
+  companyName: string
+  contactPerson: string
+  companyCity: string
+  companyMobile: string
+  jobTitle: string
+}) => [
+  'Rozgar App',
+  `You applied for ${payload.jobTitle}.`,
+  `Company: ${payload.companyName}`,
+  `Contact: ${payload.contactPerson || payload.companyName}`,
+  `City: ${payload.companyCity || 'Not added'}`,
+  `Number: ${payload.companyMobile || 'Not available'}`,
+  `${payload.workerName}, the company can contact you soon.`
+].filter(Boolean).join('\n')
+
+const getWorkerConfirmationWhatsappTemplateConfig = () => {
+  const templateName = (process.env.WHATSAPP_WORKER_CONFIRMATION_TEMPLATE_NAME || '').trim()
+  const languageCode = (process.env.WHATSAPP_WORKER_CONFIRMATION_TEMPLATE_LANGUAGE || 'en').trim() || 'en'
+
+  return {
+    templateName,
+    languageCode
+  }
+}
+
 const sanitizeFileName = (fileName: string) =>
   fileName
     .toLowerCase()
@@ -290,7 +371,16 @@ const isWorkerRegistrationComplete = (worker: LabourWorkerRecord) =>
   Boolean(worker.identityProofNumber.trim()) &&
   Boolean(worker.identityProofPath.trim())
 
-const deriveWorkerStatus = (worker: LabourWorkerRecord): LabourWorkerRecord['status'] => {
+const canWorkerAccessApp = (worker: LabourWorkerRecord) =>
+  isWorkerRegistrationComplete(worker) ||
+  Boolean(worker.registrationCompletedAt.trim()) ||
+  worker.status !== 'pending'
+
+const deriveWorkerStatus = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null = null,
+  transactions: LabourWalletTransactionRecord[] = []
+): LabourWorkerRecord['status'] => {
   if (worker.status === 'blocked' || worker.status === 'rejected') {
     return worker.status
   }
@@ -301,6 +391,11 @@ const deriveWorkerStatus = (worker: LabourWorkerRecord): LabourWorkerRecord['sta
 
   if (worker.status === 'pending') {
     return 'pending'
+  }
+
+  const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
+  if (outstandingRegistrationFee > 0 && worker.walletBalance < outstandingRegistrationFee) {
+    return 'inactive_wallet_empty'
   }
 
   if (worker.walletBalance <= 0) {
@@ -357,23 +452,67 @@ const assertWorkerRegistrationPayload = (payload: WorkerRegistrationPayload) => 
 const getWorkerPlan = (plans: LabourPlanRecord[]) =>
   plans.find(plan => plan.audience === 'worker' && plan.isActive) || null
 
-const deriveActivationSummary = (worker: LabourWorkerRecord, workerPlan: LabourPlanRecord | null): WorkerAppActivationSummary => {
-  if (worker.status === 'blocked') {
+const hasCompletedWorkerRegistrationFeeTransaction = (
+  worker: LabourWorkerRecord,
+  transactions: LabourWalletTransactionRecord[]
+) =>
+  transactions.some(transaction =>
+    transaction.entityType === 'worker' &&
+    transaction.entityId === worker.id &&
+    transaction.transactionType === 'registration_fee' &&
+    transaction.status === 'completed'
+  )
+
+const isWorkerRegistrationFeeSettled = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[]
+) => {
+  if ((workerPlan?.registrationFee || 0) <= 0) {
+    return true
+  }
+
+  return worker.registrationFeePaid || hasCompletedWorkerRegistrationFeeTransaction(worker, transactions)
+}
+
+const getOutstandingWorkerRegistrationFee = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[]
+) => {
+  const registrationFee = workerPlan?.registrationFee || 0
+  if (registrationFee <= 0 || isWorkerRegistrationFeeSettled(worker, workerPlan, transactions)) {
+    return 0
+  }
+
+  return registrationFee
+}
+
+const deriveActivationSummary = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[]
+): WorkerAppActivationSummary => {
+  const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
+  const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
+  const rechargeGap = Math.max(outstandingRegistrationFee - worker.walletBalance, 0)
+
+  if (effectiveStatus === 'blocked') {
     return {
       isActive: false,
       canViewCompanyDetails: false,
-      status: worker.status,
+      status: effectiveStatus,
       headline: 'Account blocked',
       description: 'Your worker account is currently blocked by admin. Please contact support.',
       recommendedAction: 'Contact support'
     }
   }
 
-  if (worker.status === 'rejected') {
+  if (effectiveStatus === 'rejected') {
     return {
       isActive: false,
       canViewCompanyDetails: false,
-      status: worker.status,
+      status: effectiveStatus,
       headline: 'Profile not approved',
       description: 'Your worker profile was rejected or needs correction before activation.',
       recommendedAction: 'Update profile and contact support'
@@ -384,42 +523,50 @@ const deriveActivationSummary = (worker: LabourWorkerRecord, workerPlan: LabourP
     return {
       isActive: false,
       canViewCompanyDetails: false,
-      status: worker.status,
+      status: effectiveStatus,
       headline: 'Complete your registration',
       description: 'Upload your photo, identity proof, and work details so your worker account can be submitted for approval.',
       recommendedAction: 'Finish registration'
     }
   }
 
-  if (worker.status === 'pending') {
+  if (effectiveStatus === 'pending') {
     return {
       isActive: false,
       canViewCompanyDetails: false,
-      status: worker.status,
+      status: effectiveStatus,
       headline: 'Registration under review',
       description: 'Your worker account was submitted successfully and is waiting for admin verification.',
       recommendedAction: 'Wait for approval'
     }
   }
 
-  if (worker.walletBalance <= 0) {
+  if (effectiveStatus === 'inactive_wallet_empty') {
     return {
       isActive: false,
       canViewCompanyDetails: false,
-      status: worker.status,
-      headline: 'Recharge required',
-      description: 'Your wallet balance is empty. Company details stay locked until your worker access becomes active again.',
-      recommendedAction: workerPlan ? `Recharge at least Rs ${workerPlan.planAmount}` : 'Recharge wallet'
+      status: effectiveStatus,
+      headline: outstandingRegistrationFee > 0 ? 'Registration fee pending' : 'Recharge required',
+      description: outstandingRegistrationFee > 0
+        ? rechargeGap > 0
+          ? `Add more wallet balance until it reaches at least Rs ${outstandingRegistrationFee}. Your one-time registration fee will be deducted first, then worker access can turn active.`
+          : `Your one-time registration fee of Rs ${outstandingRegistrationFee} is waiting to be deducted from the wallet before worker access becomes active.`
+        : 'Your wallet balance is empty. Company details stay locked until your worker access becomes active again.',
+      recommendedAction: outstandingRegistrationFee > 0
+        ? rechargeGap > 0
+          ? `Recharge at least Rs ${rechargeGap}`
+          : 'Wait for wallet fee deduction'
+        : workerPlan ? `Recharge at least Rs ${workerPlan.planAmount}` : 'Recharge wallet'
     }
   }
 
   return {
-    isActive: worker.status === 'active',
-    canViewCompanyDetails: worker.status === 'active',
-    status: worker.status,
+    isActive: effectiveStatus === 'active',
+    canViewCompanyDetails: effectiveStatus === 'active',
+    status: effectiveStatus,
     headline: 'Worker access is active',
     description: workerPlan
-      ? `Your wallet is active. Daily deduction is Rs ${workerPlan.dailyCharge} and company details are unlocked.`
+      ? `Your one-time registration fee is settled. Daily deduction is Rs ${workerPlan.dailyCharge} and company details are unlocked.`
       : 'Your worker access is active and company details are unlocked.',
     recommendedAction: 'Apply to matching job posts'
   }
@@ -430,6 +577,8 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   fullName: worker.fullName,
   mobile: worker.mobile,
   city: worker.city,
+  homeCity: worker.homeCity,
+  address: worker.address,
   profilePhotoPath: worker.profilePhotoPath,
   categoryIds: worker.categoryIds,
   categoryLabels: worker.categoryIds
@@ -446,6 +595,7 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   identityProofNumber: worker.identityProofNumber,
   identityProofPath: worker.identityProofPath,
   isRegistrationComplete: isWorkerRegistrationComplete(worker),
+  canAccessApp: canWorkerAccessApp(worker),
   registrationCompletedAt: worker.registrationCompletedAt
 })
 
@@ -455,15 +605,24 @@ const toWorkerWalletSummary = (
   workerPlan: LabourPlanRecord | null
 ): WorkerAppWalletSummary => {
   const dailyCharge = workerPlan?.dailyCharge || 0
+  const registrationFee = workerPlan?.registrationFee || 0
+  const registrationFeePaid = isWorkerRegistrationFeeSettled(worker, workerPlan, transactions)
+  const outstandingRegistrationFee = registrationFeePaid ? 0 : registrationFee
   const lastDeduction = transactions.find(transaction => transaction.transactionType === 'wallet_deduction')
 
   return {
     balance: worker.walletBalance,
     dailyCharge,
+    registrationFee,
+    registrationFeePaid,
     estimatedDaysRemaining: dailyCharge > 0 ? Math.floor(worker.walletBalance / dailyCharge) : 0,
-    visibilityRule: dailyCharge > 0
-      ? `Rs ${dailyCharge} is deducted every active day. Company details unlock only while your worker access is active.`
-      : 'Worker daily deduction is not configured yet.',
+    visibilityRule: outstandingRegistrationFee > 0
+      ? worker.walletBalance > 0
+        ? `A one-time registration fee of Rs ${registrationFee} is pending. Recharge until the wallet reaches at least Rs ${registrationFee}, then daily charges will start as per your worker plan.`
+        : `Add wallet balance to cover the one-time registration fee of Rs ${registrationFee}. After that, daily worker charges apply as per the active plan.`
+      : dailyCharge > 0
+        ? `One-time registration fee is already charged. Rs ${dailyCharge} is deducted every active day. Company details unlock only while your worker access is active.`
+        : 'Worker daily deduction is not configured yet.',
     lastDeductionAt: lastDeduction?.createdAt || null,
     transactions
   }
@@ -481,6 +640,84 @@ const toWorkerNotification = (notification: LabourWorkerNotificationRecord): Wor
   createdAt: notification.createdAt
 })
 
+const reconcileWorkerRegistrationFee = async (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[]
+) => {
+  if (!isWorkerRegistrationComplete(worker)) {
+    return false
+  }
+
+  if (worker.status === 'blocked' || worker.status === 'rejected') {
+    return false
+  }
+
+  const registrationFee = workerPlan?.registrationFee || 0
+  const hasCompletedFeeTransaction = hasCompletedWorkerRegistrationFeeTransaction(worker, transactions)
+
+  if (!worker.registrationFeePaid && (registrationFee <= 0 || hasCompletedFeeTransaction)) {
+    const nextWorker: LabourWorkerRecord = {
+      ...worker,
+      registrationFeePaid: true
+    }
+    const nextStatus = deriveWorkerStatus(nextWorker, workerPlan, transactions)
+
+    await updateLabourEntity('workers', worker.id, {
+      registrationFeePaid: true,
+      status: nextStatus,
+      isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active'
+    }, 'worker-wallet')
+
+    return true
+  }
+
+  const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
+  if (outstandingRegistrationFee <= 0 || worker.walletBalance < outstandingRegistrationFee) {
+    const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
+    const shouldBeVisible = isWorkerRegistrationComplete(worker) && effectiveStatus === 'active'
+    if (worker.status !== effectiveStatus || worker.isVisible !== shouldBeVisible) {
+      await updateLabourEntity('workers', worker.id, {
+        status: effectiveStatus,
+        isVisible: shouldBeVisible
+      }, 'worker-wallet')
+
+      return true
+    }
+
+    return false
+  }
+
+  const nextWorker: LabourWorkerRecord = {
+    ...worker,
+    walletBalance: Math.max(0, worker.walletBalance - outstandingRegistrationFee),
+    registrationFeePaid: true
+  }
+  const nextStatus = deriveWorkerStatus(nextWorker, workerPlan, transactions)
+
+  await updateLabourEntity('workers', worker.id, {
+    walletBalance: nextWorker.walletBalance,
+    registrationFeePaid: true,
+    status: nextStatus,
+    isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active'
+  }, 'worker-wallet')
+
+  await createLabourEntity('walletTransactions', {
+    entityType: 'worker',
+    entityId: worker.id,
+    entityName: worker.fullName || worker.mobile,
+    city: worker.city,
+    transactionType: 'registration_fee',
+    amount: outstandingRegistrationFee,
+    direction: 'debit',
+    status: 'completed',
+    reference: workerPlan?.id || worker.id,
+    note: 'One-time worker registration fee deducted from wallet balance.'
+  }, 'worker-wallet')
+
+  return true
+}
+
 const buildWorkerFeed = (
   worker: LabourWorkerRecord,
   companies: LabourCompanyRecord[],
@@ -491,19 +728,36 @@ const buildWorkerFeed = (
   activation: WorkerAppActivationSummary
 ): WorkerAppFeedItem[] => {
   const matchingPosts = jobPosts
-    .filter(jobPost => jobPost.status === 'live' && worker.categoryIds.includes(jobPost.categoryId))
+    .filter(jobPost => {
+      if (jobPost.status !== 'live') {
+        return false
+      }
+      const company = companies.find(item => item.id === jobPost.companyId)
+      return company?.status === 'active'
+    })
     .map(jobPost => {
       const company = companies.find(item => item.id === jobPost.companyId)
       const categoryName = categories.find(category => category.id === jobPost.categoryId)?.name || jobPost.categoryId
+      const categoryMatch = worker.categoryIds.includes(jobPost.categoryId)
       const cityMatch = worker.city && jobPost.city && worker.city.toLowerCase() === jobPost.city.toLowerCase()
       const application = applications.find(item => item.jobPostId === jobPost.id)
       const savedJob = savedJobs.find(item => item.jobPostId === jobPost.id)
+      const matchReason = categoryMatch
+        ? cityMatch
+          ? 'Strong match in your city and category'
+          : 'Category match for your worker profile'
+        : cityMatch
+          ? 'Available in your city'
+          : 'Open job from an active company'
 
       return {
         id: jobPost.id,
         title: jobPost.title,
         description: jobPost.description,
         city: jobPost.city,
+        locationLabel: jobPost.locationLabel,
+        latitude: jobPost.latitude,
+        longitude: jobPost.longitude,
         wageAmount: jobPost.wageAmount,
         workersNeeded: jobPost.workersNeeded,
         categoryName,
@@ -511,10 +765,10 @@ const buildWorkerFeed = (
         companyName: activation.canViewCompanyDetails ? company?.companyName || 'Company not found' : 'Unlock company details after activation',
         companyCity: company?.city || '',
         contactPerson: activation.canViewCompanyDetails ? company?.contactPerson || null : null,
-        companyMobile: activation.canViewCompanyDetails ? company?.mobile || null : null,
+        companyMobile: activation.canViewCompanyDetails ? resolveCompanyContactMobile(company) || null : null,
         publishedAt: jobPost.publishedAt,
         expiresAt: jobPost.expiresAt,
-        matchReason: cityMatch ? 'Strong match in your city and category' : 'Category match for your worker profile',
+        matchReason,
         hasApplied: Boolean(application),
         applicationStatus: application?.status || null,
         isSaved: Boolean(savedJob),
@@ -523,13 +777,31 @@ const buildWorkerFeed = (
     })
 
   return matchingPosts.sort((left, right) => {
-    const leftCity = left.city.toLowerCase() === worker.city.toLowerCase() ? 1 : 0
-    const rightCity = right.city.toLowerCase() === worker.city.toLowerCase() ? 1 : 0
     const applicationBoost = Number(right.hasApplied) - Number(left.hasApplied)
     if (applicationBoost !== 0) {
       return applicationBoost
     }
-    return rightCity - leftCity
+
+    const scoreMatch = (item: WorkerAppFeedItem) => {
+      const normalized = item.matchReason.toLowerCase()
+      if (normalized.includes('strong match')) {
+        return 3
+      }
+      if (normalized.includes('category match')) {
+        return 2
+      }
+      if (normalized.includes('your city')) {
+        return 1
+      }
+      return 0
+    }
+
+    const matchBoost = scoreMatch(right) - scoreMatch(left)
+    if (matchBoost !== 0) {
+      return matchBoost
+    }
+
+    return Date.parse(right.publishedAt) - Date.parse(left.publishedAt)
   })
 }
 
@@ -620,12 +892,15 @@ const ensureWorkerExists = async (mobile: string) => {
     fullName: '',
     mobile: normalizedMobile,
     city: '',
+    homeCity: '',
+    address: '',
     profilePhotoPath: '',
-    skills: [],
-    experienceYears: 0,
-    expectedDailyWage: 0,
-    walletBalance: 0,
-    status: 'pending',
+      skills: [],
+      experienceYears: 0,
+      expectedDailyWage: 0,
+      walletBalance: 0,
+      registrationFeePaid: false,
+      status: 'pending',
     availability: 'available_today',
     isVisible: false,
     categoryIds: [],
@@ -783,16 +1058,22 @@ export const verifyWorkerOtpCode = async (mobile: string, otpCode: string) => {
 
 export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerAppDashboard> => {
   const snapshot = await getLabourMarketplaceSnapshot()
+  const adminSettings = await getLabourAdminSettings()
   const worker = findWorkerById(snapshot, workerId)
   if (!worker) {
     throw new Error('Worker account not found.')
   }
 
   const workerPlan = getWorkerPlan(snapshot.plans)
-  const activation = deriveActivationSummary(worker, workerPlan)
   const walletTransactions = snapshot.walletTransactions
     .filter(transaction => transaction.entityType === 'worker' && transaction.entityId === worker.id)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+  const didReconcileRegistrationFee = await reconcileWorkerRegistrationFee(worker, workerPlan, walletTransactions)
+  if (didReconcileRegistrationFee) {
+    return getWorkerAppDashboard(workerId)
+  }
+
+  const activation = deriveActivationSummary(worker, workerPlan, walletTransactions)
   const applications = snapshot.jobApplications
     .filter(application => application.workerId === worker.id)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
@@ -805,6 +1086,16 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
     profile: toWorkerProfile(worker, snapshot.categories),
     wallet: toWorkerWalletSummary(worker, walletTransactions, workerPlan),
     activation,
+    support: {
+      showHeaderHelpButton: adminSettings.settings.helpControls.showHeaderHelpButton,
+      title: adminSettings.settings.helpControls.supportTitle,
+      subtitle: adminSettings.settings.helpControls.supportSubtitle,
+      whatsappNumber: adminSettings.settings.helpControls.supportWhatsappNumber,
+      chatbotUrl: adminSettings.settings.helpControls.supportChatbotUrl,
+      extraLabel: adminSettings.settings.helpControls.supportExtraLabel,
+      extraUrl: adminSettings.settings.helpControls.supportExtraUrl,
+      prefilledMessage: adminSettings.settings.helpControls.supportPrefilledMessage
+    },
     feed: buildWorkerFeed(
       worker,
       snapshot.companies,
@@ -818,7 +1109,15 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
     unreadNotificationCount: notifications.filter(notification => !notification.isRead).length,
     availableCategories: snapshot.categories
       .filter(category => category.isActive)
-      .map(category => ({ id: category.id, name: category.name })),
+      .map(category => ({
+        id: category.id,
+        name: category.name,
+        description: category.description,
+        imageUrl: category.imageUrl,
+        showOnHome: category.showOnHome,
+        homeOrder: category.homeOrder
+      })),
+    popularCitySuggestions: adminSettings.settings.workerHomeControls.popularCitySuggestions,
     workerPlan: workerPlan ? {
       id: workerPlan.id,
       name: workerPlan.name,
@@ -884,6 +1183,8 @@ export const completeWorkerAppRegistration = async (
     ...existing,
     fullName: payload.fullName.trim(),
     city: payload.city.trim(),
+    homeCity: payload.homeCity.trim(),
+    address: payload.address.trim(),
     categoryIds: payload.categoryIds,
     skills: payload.skills,
     experienceYears: payload.experienceYears,
@@ -901,7 +1202,11 @@ export const completeWorkerAppRegistration = async (
     identityProofType: nextWorker.identityProofType
   })
 
-  const nextStatus = deriveWorkerStatus(nextWorker)
+  const nextStatus = deriveWorkerStatus(
+    nextWorker,
+    getWorkerPlan(snapshot.plans),
+    snapshot.walletTransactions.filter(transaction => transaction.entityType === 'worker' && transaction.entityId === workerId)
+  )
 
   await updateLabourEntity('workers', workerId, {
     fullName: nextWorker.fullName,
@@ -913,11 +1218,12 @@ export const completeWorkerAppRegistration = async (
     availability: nextWorker.availability,
     profilePhotoPath: nextWorker.profilePhotoPath,
     identityProofType: nextWorker.identityProofType,
-    identityProofNumber: nextWorker.identityProofNumber,
-    identityProofPath: nextWorker.identityProofPath,
-    registrationCompletedAt: nextWorker.registrationCompletedAt,
-    isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active',
-    status: nextStatus
+      identityProofNumber: nextWorker.identityProofNumber,
+      identityProofPath: nextWorker.identityProofPath,
+      registrationCompletedAt: nextWorker.registrationCompletedAt,
+      registrationFeePaid: existing.registrationFeePaid,
+      isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active',
+      status: nextStatus
   }, 'worker-app')
 
   return getWorkerAppDashboard(workerId)
@@ -925,7 +1231,7 @@ export const completeWorkerAppRegistration = async (
 
 export const updateWorkerAppProfile = async (
   workerId: string,
-  payload: Partial<Pick<WorkerAppProfile, 'fullName' | 'city' | 'categoryIds' | 'skills' | 'experienceYears' | 'expectedDailyWage' | 'availability'>>
+  payload: Partial<Pick<WorkerAppProfile, 'fullName' | 'city' | 'homeCity' | 'address' | 'categoryIds' | 'skills' | 'experienceYears' | 'expectedDailyWage' | 'availability'>>
 ) => {
   const snapshot = await getLabourMarketplaceSnapshot()
   const existing = findWorkerById(snapshot, workerId)
@@ -937,17 +1243,25 @@ export const updateWorkerAppProfile = async (
     ...existing,
     fullName: payload.fullName ?? existing.fullName,
     city: payload.city ?? existing.city,
+    homeCity: payload.homeCity ?? existing.homeCity,
+    address: payload.address ?? existing.address,
     categoryIds: payload.categoryIds ?? existing.categoryIds,
     skills: payload.skills ?? existing.skills,
     experienceYears: payload.experienceYears ?? existing.experienceYears,
     expectedDailyWage: payload.expectedDailyWage ?? existing.expectedDailyWage,
     availability: (payload.availability ?? existing.availability) as LabourWorkerRecord['availability']
   }
-  const nextStatus = deriveWorkerStatus(mergedWorker)
+  const nextStatus = deriveWorkerStatus(
+    mergedWorker,
+    getWorkerPlan(snapshot.plans),
+    snapshot.walletTransactions.filter(transaction => transaction.entityType === 'worker' && transaction.entityId === workerId)
+  )
 
   await updateLabourEntity('workers', workerId, {
     fullName: mergedWorker.fullName,
     city: mergedWorker.city,
+    homeCity: mergedWorker.homeCity,
+    address: mergedWorker.address,
     categoryIds: mergedWorker.categoryIds,
     skills: mergedWorker.skills,
     experienceYears: mergedWorker.experienceYears,
@@ -989,6 +1303,35 @@ export const createWorkerRechargeRequest = async (workerId: string, note?: strin
   return getWorkerAppDashboard(workerId)
 }
 
+export const createWorkerHelpRequest = async (workerId: string, note?: string) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const worker = findWorkerById(snapshot, workerId)
+  if (!worker) {
+    throw new Error('Worker account not found.')
+  }
+
+  const categoryLabel = worker.categoryIds
+    .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name)
+    .filter((value): value is string => Boolean(value))
+    .join(', ')
+
+  await createLabourEntity('rechargeRequests', {
+    requestType: 'worker_support',
+    relatedEntityType: 'worker',
+    relatedEntityId: worker.id,
+    name: `${worker.fullName || worker.mobile} help request`,
+    city: worker.city,
+    categoryLabel,
+    statusLabel: worker.status,
+    suggestedAmount: 0,
+    priority: 'medium',
+    requestStatus: 'open',
+    note: note?.trim() || 'Worker asked for support from the Rozgar app.'
+  }, 'worker-app')
+
+  return getWorkerAppDashboard(workerId)
+}
+
 export const applyToWorkerJob = async (workerId: string, jobPostId: string, note?: string) => {
   const snapshot = await getLabourMarketplaceSnapshot()
   const worker = findWorkerById(snapshot, workerId)
@@ -1001,13 +1344,18 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     throw new Error('Job post not found or no longer live.')
   }
 
-  const activation = deriveActivationSummary(worker, getWorkerPlan(snapshot.plans))
-  if (!activation.canViewCompanyDetails) {
-    throw new Error('Recharge and keep your worker access active before applying to jobs.')
+  const company = snapshot.companies.find(item => item.id === jobPost.companyId)
+  if (!company || company.status !== 'active') {
+    throw new Error('This job is not available from an active company anymore.')
   }
 
-  if (!worker.categoryIds.includes(jobPost.categoryId)) {
-    throw new Error('This job does not match your current labour category profile.')
+  const activation = deriveActivationSummary(
+    worker,
+    getWorkerPlan(snapshot.plans),
+    snapshot.walletTransactions.filter(transaction => transaction.entityType === 'worker' && transaction.entityId === worker.id)
+  )
+  if (!activation.canViewCompanyDetails) {
+    throw new Error('Recharge and keep your worker access active before applying to jobs.')
   }
 
   const existingApplication = snapshot.jobApplications.find(
@@ -1018,7 +1366,6 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     return getWorkerAppDashboard(workerId)
   }
 
-  const company = snapshot.companies.find(item => item.id === jobPost.companyId)
   await createLabourEntity('jobApplications', {
     workerId,
     jobPostId,
@@ -1036,6 +1383,98 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
     relatedJobPostId: jobPost.id,
     relatedCompanyId: company?.id
   })
+
+  const workerCategories = worker.categoryIds
+    .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name)
+    .filter((value): value is string => Boolean(value))
+  const companyContactMobile = resolveCompanyContactMobile(company)
+  const appliedAt = new Date().toISOString()
+
+  try {
+    await sendCompanyApplicationEmail({
+      companyEmail: company.email,
+      companyName: company.companyName,
+      contactPerson: company.contactPerson,
+      workerName: worker.fullName,
+      workerCity: worker.city,
+      workerMobile: worker.mobile,
+      workerCategories,
+      expectedDailyWage: worker.expectedDailyWage,
+      note: note || '',
+      jobTitle: jobPost.title,
+      jobCity: jobPost.city,
+      appliedAt
+    })
+  } catch (error) {
+    console.error('Failed to send company application email', error)
+  }
+
+  try {
+    const workerConfirmationTemplate = getWorkerConfirmationWhatsappTemplateConfig()
+    const whatsappResults = await Promise.allSettled([
+      sendWhatsappTextMessage({
+        to: companyContactMobile,
+        body: buildCompanyApplicationWhatsappMessage({
+          companyName: company.companyName,
+          workerName: worker.fullName,
+          workerCity: worker.city,
+          workerMobile: worker.mobile,
+          workerCategories,
+          expectedDailyWage: worker.expectedDailyWage,
+          note: note || '',
+          jobTitle: jobPost.title,
+          appliedAt
+        })
+      }),
+      workerConfirmationTemplate.templateName
+        ? sendWhatsappTemplateMessage({
+            to: worker.mobile,
+            templateName: workerConfirmationTemplate.templateName,
+            languageCode: workerConfirmationTemplate.languageCode,
+            bodyParameters: [
+              worker.fullName || 'Worker',
+              jobPost.title || 'Job',
+              [
+                company.companyName || 'Company',
+                company.contactPerson || company.companyName || 'Company team',
+                company.city || 'Not added'
+              ].filter(Boolean).join(', '),
+              companyContactMobile || 'Not available'
+            ]
+          })
+        : sendWhatsappTextMessage({
+            to: worker.mobile,
+            body: buildWorkerApplicationConfirmationWhatsappMessage({
+              workerName: worker.fullName,
+              companyName: company.companyName,
+              contactPerson: company.contactPerson,
+              companyCity: company.city,
+              companyMobile: companyContactMobile,
+              jobTitle: jobPost.title
+            })
+          })
+    ])
+
+    whatsappResults.forEach((result, index) => {
+      if (result.status === 'fulfilled' && !result.value.delivered) {
+        console.warn(
+          index === 0
+            ? 'Company WhatsApp application alert skipped'
+            : 'Worker WhatsApp application confirmation skipped',
+          result.value
+        )
+      } else if (result.status === 'rejected') {
+        console.error(
+          index === 0
+            ? 'Failed to send company WhatsApp application alert'
+            : 'Failed to send worker WhatsApp application confirmation',
+          result.reason
+        )
+      }
+    })
+  } catch (error) {
+    console.error('Failed to send worker/company WhatsApp alerts', error)
+  }
 
   return getWorkerAppDashboard(workerId)
 }

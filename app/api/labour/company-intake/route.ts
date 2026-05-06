@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     const companyName = String(body.companyName || '').trim()
     const contactPerson = String(body.contactPerson || '').trim()
     const mobile = String(body.mobile || '').trim()
+    const contactMobile = String(body.contactMobile || '').trim()
     const city = String(body.city || '').trim()
     const categoryIds = Array.isArray(body.categoryIds) ? body.categoryIds.map((item: unknown) => String(item)).filter(Boolean) : []
     const activePlan = String(body.activePlan || '').trim()
@@ -33,6 +34,10 @@ export async function POST(request: NextRequest) {
 
     if (!isTenDigitMobile(mobile)) {
       return NextResponse.json({ error: 'Mobile number must be exactly 10 digits.' }, { status: 400 })
+    }
+
+    if (contactMobile && !isTenDigitMobile(contactMobile)) {
+      return NextResponse.json({ error: 'Contact number must be exactly 10 digits.' }, { status: 400 })
     }
 
     if (categoryIds.length === 0) {
@@ -69,6 +74,7 @@ export async function POST(request: NextRequest) {
         companyName,
         contactPerson,
         mobile,
+        contactMobile: contactMobile || mobile,
         city,
         categoryIds,
         status: 'pending',

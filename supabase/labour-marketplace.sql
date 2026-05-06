@@ -3,6 +3,9 @@ create table if not exists public.labour_categories (
   name text not null,
   slug text not null unique,
   description text,
+  image_url text,
+  show_on_home boolean not null default true,
+  home_order integer not null default 0,
   demand_level text not null default 'medium' check (demand_level in ('high', 'medium', 'low')),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -30,11 +33,14 @@ create table if not exists public.labour_workers (
   full_name text not null,
   mobile text not null unique,
   city text,
+  home_city text,
+  address text,
   profile_photo_path text not null default '',
   skills text[] not null default '{}',
   experience_years numeric(6, 2) not null default 0,
   expected_daily_wage numeric(10, 2) not null default 0,
   wallet_balance numeric(10, 2) not null default 0,
+  registration_fee_paid boolean not null default false,
   status text not null default 'pending' check (status in ('pending', 'active', 'inactive_wallet_empty', 'inactive_subscription_expired', 'blocked', 'rejected')),
   availability text not null default 'available_today' check (availability in ('available_today', 'available_this_week', 'not_available')),
   is_visible boolean not null default true,
@@ -63,6 +69,15 @@ alter table if exists public.labour_workers
 add column if not exists registration_completed_at timestamptz;
 
 alter table if exists public.labour_workers
+add column if not exists registration_fee_paid boolean not null default false;
+
+alter table if exists public.labour_workers
+add column if not exists home_city text;
+
+alter table if exists public.labour_workers
+add column if not exists address text;
+
+alter table if exists public.labour_workers
 drop constraint if exists labour_workers_identity_proof_type_check;
 
 alter table if exists public.labour_workers
@@ -80,7 +95,9 @@ create table if not exists public.labour_companies (
   id text primary key,
   company_name text not null,
   contact_person text not null,
+  email text,
   mobile text not null unique,
+  contact_mobile text,
   city text,
   category_ids text[] not null default '{}',
   status text not null default 'pending' check (status in ('pending', 'active', 'inactive', 'blocked')),
@@ -90,6 +107,16 @@ create table if not exists public.labour_companies (
   updated_at timestamptz not null default now()
 );
 
+alter table if exists public.labour_companies
+add column if not exists email text;
+
+alter table if exists public.labour_companies
+add column if not exists contact_mobile text;
+
+create unique index if not exists idx_labour_companies_email_unique
+on public.labour_companies (lower(email))
+where email is not null and btrim(email) <> '';
+
 create table if not exists public.labour_job_posts (
   id text primary key,
   company_id text not null references public.labour_companies(id) on delete cascade,
@@ -97,6 +124,9 @@ create table if not exists public.labour_job_posts (
   title text not null,
   description text,
   city text,
+  location_label text,
+  latitude double precision,
+  longitude double precision,
   workers_needed integer not null default 1,
   wage_amount numeric(10, 2) not null default 0,
   validity_days integer not null default 3,
@@ -172,7 +202,7 @@ create table if not exists public.labour_wallet_transactions (
 
 create table if not exists public.labour_recharge_requests (
   id text primary key,
-  request_type text not null check (request_type in ('worker_recharge', 'company_follow_up')),
+  request_type text not null check (request_type in ('worker_recharge', 'company_follow_up', 'worker_support')),
   related_entity_type text not null check (related_entity_type in ('worker', 'company')),
   related_entity_id text not null,
   name text not null,
@@ -186,6 +216,13 @@ create table if not exists public.labour_recharge_requests (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.labour_recharge_requests
+drop constraint if exists labour_recharge_requests_request_type_check;
+
+alter table if exists public.labour_recharge_requests
+add constraint labour_recharge_requests_request_type_check
+check (request_type in ('worker_recharge', 'company_follow_up', 'worker_support'));
 
 create table if not exists public.labour_website_content (
   id text primary key,

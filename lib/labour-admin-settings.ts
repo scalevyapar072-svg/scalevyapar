@@ -51,12 +51,36 @@ export type LabourAdminAutomationControls = {
   pendingKycEscalationHours: number
 }
 
+export type LabourAdminWorkerLanguageControls = {
+  enabledWorkerLanguageCodes: string[]
+  defaultWorkerLanguageCode: string
+  showLanguageSelectionOnFirstOpen: boolean
+}
+
+export type LabourAdminWorkerHomeControls = {
+  popularCitySuggestions: string[]
+}
+
+export type LabourAdminHelpControls = {
+  showHeaderHelpButton: boolean
+  supportTitle: string
+  supportSubtitle: string
+  supportWhatsappNumber: string
+  supportChatbotUrl: string
+  supportExtraLabel: string
+  supportExtraUrl: string
+  supportPrefilledMessage: string
+}
+
 export interface LabourAdminSettings {
   notificationTemplates: LabourAdminNotificationTemplates
   uploadRules: LabourAdminUploadRules
   kycRules: LabourAdminKycRules
   feeRules: LabourAdminFeeRules
   automationControls: LabourAdminAutomationControls
+  workerLanguageControls: LabourAdminWorkerLanguageControls
+  workerHomeControls: LabourAdminWorkerHomeControls
+  helpControls: LabourAdminHelpControls
 }
 
 export interface LabourAdminSettingsPayload {
@@ -112,6 +136,47 @@ export const defaultLabourAdminSettings: LabourAdminSettings = {
     autoCreateRechargeFollowUps: true,
     autoEscalatePendingKyc: true,
     pendingKycEscalationHours: 24
+  },
+  workerLanguageControls: {
+    enabledWorkerLanguageCodes: ['hi', 'en'],
+    defaultWorkerLanguageCode: 'hi',
+    showLanguageSelectionOnFirstOpen: true
+  },
+  workerHomeControls: {
+    popularCitySuggestions: [
+      'Jaipur',
+      'Delhi',
+      'Mumbai',
+      'Bengaluru',
+      'Pune',
+      'Kolkata',
+      'Ahmedabad',
+      'Hyderabad',
+      'Chennai',
+      'Surat',
+      'Lucknow',
+      'Nagpur',
+      'Vadodara',
+      'Indore',
+      'Patna',
+      'Rajkot',
+      'Chandigarh',
+      'Bhopal',
+      'Ludhiana',
+      'Kanpur',
+      'Nashik',
+      'Bhubaneswar'
+    ]
+  },
+  helpControls: {
+    showHeaderHelpButton: true,
+    supportTitle: 'Need help?',
+    supportSubtitle: 'Chat with our team or message us on WhatsApp.',
+    supportWhatsappNumber: '',
+    supportChatbotUrl: '',
+    supportExtraLabel: '',
+    supportExtraUrl: '',
+    supportPrefilledMessage: 'Hello Team, I need help with the Rozgar worker app.'
   }
 }
 
@@ -140,6 +205,33 @@ const normalizeStringArray = (value: unknown, fallback: string[]) => {
     .filter(Boolean)
 }
 
+const normalizeDisplayStringArray = (value: unknown, fallback: string[]) => {
+  if (!Array.isArray(value)) return fallback
+  const normalized = value
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+
+  return normalized.length > 0 ? Array.from(new Set(normalized)) : fallback
+}
+
+const supportedWorkerLanguageCodes = ['hi', 'en']
+
+const normalizeWorkerLanguageCodes = (value: unknown, fallback: string[]) => {
+  const normalized = normalizeStringArray(value, fallback)
+    .filter(code => supportedWorkerLanguageCodes.includes(code))
+
+  return normalized.length > 0 ? Array.from(new Set(normalized)) : fallback
+}
+
+const normalizeWorkerLanguageCode = (value: unknown, fallback: string, enabledCodes: string[]) => {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  if (enabledCodes.includes(normalized)) {
+    return normalized
+  }
+
+  return enabledCodes.includes(fallback) ? fallback : enabledCodes[0]
+}
+
 const normalizeSettings = (value: unknown): LabourAdminSettings => {
   const source = value && typeof value === 'object' ? value as Partial<LabourAdminSettings> : {}
   const notificationTemplates = (source.notificationTemplates ?? {}) as Partial<LabourAdminNotificationTemplates>
@@ -147,6 +239,13 @@ const normalizeSettings = (value: unknown): LabourAdminSettings => {
   const kycRules = (source.kycRules ?? {}) as Partial<LabourAdminKycRules>
   const feeRules = (source.feeRules ?? {}) as Partial<LabourAdminFeeRules>
   const automationControls = (source.automationControls ?? {}) as Partial<LabourAdminAutomationControls>
+  const workerLanguageControls = (source.workerLanguageControls ?? {}) as Partial<LabourAdminWorkerLanguageControls>
+  const workerHomeControls = (source.workerHomeControls ?? {}) as Partial<LabourAdminWorkerHomeControls>
+  const helpControls = (source.helpControls ?? {}) as Partial<LabourAdminHelpControls>
+  const enabledWorkerLanguageCodes = normalizeWorkerLanguageCodes(
+    workerLanguageControls.enabledWorkerLanguageCodes,
+    defaultLabourAdminSettings.workerLanguageControls.enabledWorkerLanguageCodes
+  )
 
   return {
     notificationTemplates: {
@@ -192,6 +291,58 @@ const normalizeSettings = (value: unknown): LabourAdminSettings => {
       autoCreateRechargeFollowUps: normalizeBoolean(automationControls.autoCreateRechargeFollowUps, defaultLabourAdminSettings.automationControls.autoCreateRechargeFollowUps),
       autoEscalatePendingKyc: normalizeBoolean(automationControls.autoEscalatePendingKyc, defaultLabourAdminSettings.automationControls.autoEscalatePendingKyc),
       pendingKycEscalationHours: normalizeNumber(automationControls.pendingKycEscalationHours, defaultLabourAdminSettings.automationControls.pendingKycEscalationHours)
+    },
+    workerLanguageControls: {
+      enabledWorkerLanguageCodes,
+      defaultWorkerLanguageCode: normalizeWorkerLanguageCode(
+        workerLanguageControls.defaultWorkerLanguageCode,
+        defaultLabourAdminSettings.workerLanguageControls.defaultWorkerLanguageCode,
+        enabledWorkerLanguageCodes
+      ),
+      showLanguageSelectionOnFirstOpen: normalizeBoolean(
+        workerLanguageControls.showLanguageSelectionOnFirstOpen,
+        defaultLabourAdminSettings.workerLanguageControls.showLanguageSelectionOnFirstOpen
+      )
+    },
+    workerHomeControls: {
+      popularCitySuggestions: normalizeDisplayStringArray(
+        workerHomeControls.popularCitySuggestions,
+        defaultLabourAdminSettings.workerHomeControls.popularCitySuggestions
+      )
+    },
+    helpControls: {
+      showHeaderHelpButton: normalizeBoolean(
+        helpControls.showHeaderHelpButton,
+        defaultLabourAdminSettings.helpControls.showHeaderHelpButton
+      ),
+      supportTitle: normalizeString(
+        helpControls.supportTitle,
+        defaultLabourAdminSettings.helpControls.supportTitle
+      ),
+      supportSubtitle: normalizeString(
+        helpControls.supportSubtitle,
+        defaultLabourAdminSettings.helpControls.supportSubtitle
+      ),
+      supportWhatsappNumber: normalizeString(
+        helpControls.supportWhatsappNumber,
+        defaultLabourAdminSettings.helpControls.supportWhatsappNumber
+      ),
+      supportChatbotUrl: normalizeString(
+        helpControls.supportChatbotUrl,
+        defaultLabourAdminSettings.helpControls.supportChatbotUrl
+      ),
+      supportExtraLabel: normalizeString(
+        helpControls.supportExtraLabel,
+        defaultLabourAdminSettings.helpControls.supportExtraLabel
+      ),
+      supportExtraUrl: normalizeString(
+        helpControls.supportExtraUrl,
+        defaultLabourAdminSettings.helpControls.supportExtraUrl
+      ),
+      supportPrefilledMessage: normalizeString(
+        helpControls.supportPrefilledMessage,
+        defaultLabourAdminSettings.helpControls.supportPrefilledMessage
+      )
     }
   }
 }

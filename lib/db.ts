@@ -19,6 +19,7 @@ export interface ModuleRecord {
   name: string
   slug: string
   description?: string
+  summary?: string
   status?: 'active' | 'coming_soon'
   type?: string
   icon?: string
@@ -49,6 +50,7 @@ interface ModuleInput {
   name: string
   slug: string
   description?: string
+  summary?: string
   status?: 'active' | 'coming_soon'
   type?: string
   icon?: string
@@ -58,6 +60,27 @@ interface ModuleInput {
   color?: string
   isActive?: boolean
 }
+
+const isMissingSummaryColumnError = (error: { message?: string } | null | undefined) =>
+  Boolean(error?.message && /summary/i.test(error.message) && /(column|schema cache)/i.test(error.message))
+
+type LegacyModuleRow = {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  status: string | null
+  type: string | null
+  icon: string | null
+  href: string | null
+  customer_link: string | null
+  features: string[] | null
+  color: string | null
+  is_active: boolean | null
+}
+
+const mapLegacyModuleRow = (row: LegacyModuleRow): ModuleRecord =>
+  mapModuleRow({ ...row, summary: null })
 
 const mapClientRow = (row: {
   id: string
@@ -85,6 +108,7 @@ const mapClientRow = (row: {
 const getDefaultModuleHref = (slug: string) => {
   if (slug === 'vizora') return '/vizora'
   if (slug === 'leads') return '/leads'
+  if (slug === 'rozgar') return '/labour/company/search'
   return '#'
 }
 
@@ -107,6 +131,7 @@ const mapModuleRow = (row: {
   name: string
   slug: string
   description: string | null
+  summary: string | null
   status: string | null
   type: string | null
   icon: string | null
@@ -120,6 +145,7 @@ const mapModuleRow = (row: {
   name: row.name,
   slug: row.slug,
   description: row.description || '',
+  summary: row.summary || '',
   status: (row.status as 'active' | 'coming_soon' | null) || undefined,
   type: row.type || undefined,
   icon: row.icon || undefined,
@@ -161,6 +187,7 @@ const mapJoinedUserRows = (
             name: string
             slug: string
             description: string | null
+            summary: string | null
             status: string | null
             type: string | null
             icon: string | null
@@ -175,6 +202,7 @@ const mapJoinedUserRows = (
             name: string
             slug: string
             description: string | null
+            summary: string | null
             status: string | null
             type: string | null
             icon: string | null
@@ -322,11 +350,24 @@ export const getAllUsers = async (): Promise<UserRecord[]> => {
 export const getAllModules = async (): Promise<ModuleRecord[]> => {
   const { data, error } = await supabaseAdmin
     .from('modules')
-    .select('id, name, slug, description, status, type, icon, href, customer_link, features, color, is_active')
+    .select('id, name, slug, description, summary, status, type, icon, href, customer_link, features, color, is_active')
     .order('created_at', { ascending: true })
 
   if (error) {
-    throw new Error(`Failed to fetch modules: ${error.message}`)
+    if (!isMissingSummaryColumnError(error)) {
+      throw new Error(`Failed to fetch modules: ${error.message}`)
+    }
+
+    const legacyResult = await supabaseAdmin
+      .from('modules')
+      .select('id, name, slug, description, status, type, icon, href, customer_link, features, color, is_active')
+      .order('created_at', { ascending: true })
+
+    if (legacyResult.error) {
+      throw new Error(`Failed to fetch modules: ${legacyResult.error.message}`)
+    }
+
+    return (legacyResult.data || []).map(row => mapLegacyModuleRow(row as LegacyModuleRow))
   }
 
   return (data || []).map(mapModuleRow)
@@ -337,14 +378,15 @@ export const getUserModules = async (userId: string): Promise<ModuleRecord[]> =>
     .from('client_modules')
     .select(`
       is_enabled,
-      modules (
-        id,
-        name,
-        slug,
-        description,
-        status,
-        type,
-        icon,
+        modules (
+         id,
+         name,
+         slug,
+         description,
+         summary,
+         status,
+         type,
+         icon,
         href,
         customer_link,
         features,
@@ -356,7 +398,47 @@ export const getUserModules = async (userId: string): Promise<ModuleRecord[]> =>
     .eq('is_enabled', true)
 
   if (error) {
-    throw new Error(`Failed to fetch user modules: ${error.message}`)
+    if (!isMissingSummaryColumnError(error)) {
+      throw new Error(`Failed to fetch user modules: ${error.message}`)
+    }
+
+    const legacyResult = await supabaseAdmin
+      .from('client_modules')
+      .select(`
+      is_enabled,
+        modules (
+         id,
+         name,
+         slug,
+         description,
+         status,
+         type,
+         icon,
+        href,
+        customer_link,
+        features,
+        color,
+        is_active
+      )
+    `)
+      .eq('client_id', userId)
+      .eq('is_enabled', true)
+
+    if (legacyResult.error) {
+      throw new Error(`Failed to fetch user modules: ${legacyResult.error.message}`)
+    }
+
+    return (legacyResult.data || [])
+      .flatMap(row => {
+        const nestedModules = row.modules
+        if (!nestedModules) {
+          return []
+        }
+
+        return Array.isArray(nestedModules)
+          ? nestedModules.map(moduleRecord => mapLegacyModuleRow(moduleRecord as LegacyModuleRow))
+          : [mapLegacyModuleRow(nestedModules as LegacyModuleRow)]
+      })
   }
 
   return (data || [])
@@ -427,6 +509,19 @@ export const updateUserModules = async (userId: string, moduleIds: string[]): Pr
 
   if (insertError) {
     throw new Error(`Failed to assign client modules: ${insertError.message}`)
+  }
+}
+
+export const updateUserPassword = async (userId: string, password: string): Promise<void> => {
+  const passwordHash = await bcrypt.hash(password, 10)
+
+  const { error } = await supabaseAdmin
+    .from('clients')
+    .update({ password_hash: passwordHash })
+    .eq('id', userId)
+
+  if (error) {
+    throw new Error(`Failed to update user password: ${error.message}`)
   }
 }
 
@@ -506,6 +601,7 @@ export const getAllUsersWithAssignedModules = async (): Promise<Array<ReturnType
           name,
           slug,
           description,
+          summary,
           status,
           type,
           icon,
@@ -520,7 +616,60 @@ export const getAllUsersWithAssignedModules = async (): Promise<Array<ReturnType
     .order('created_at', { ascending: true })
 
   if (error) {
-    throw new Error(`Failed to fetch users with assigned modules: ${error.message}`)
+    if (!isMissingSummaryColumnError(error)) {
+      throw new Error(`Failed to fetch users with assigned modules: ${error.message}`)
+    }
+
+    const legacyResult = await supabaseAdmin
+      .from('clients')
+      .select(`
+      id,
+      name,
+      email,
+      password_hash,
+      role,
+      created_at,
+      phone,
+      plan,
+      status,
+      client_modules (
+        is_enabled,
+        module_id,
+        modules (
+          id,
+          name,
+          slug,
+          description,
+          status,
+          type,
+          icon,
+          href,
+          customer_link,
+          features,
+          color,
+          is_active
+        )
+      )
+    `)
+      .order('created_at', { ascending: true })
+
+    if (legacyResult.error) {
+      throw new Error(`Failed to fetch users with assigned modules: ${legacyResult.error.message}`)
+    }
+
+    return mapJoinedUserRows(
+      ((legacyResult.data || []).map(row => ({
+        ...row,
+        client_modules: (row.client_modules || []).map(mapping => ({
+          ...mapping,
+          modules: Array.isArray(mapping.modules)
+            ? mapping.modules.map(moduleRecord => ({ ...moduleRecord, summary: null }))
+            : mapping.modules
+              ? { ...(mapping.modules as Record<string, unknown>), summary: null }
+              : null,
+        })),
+      })) as any)
+    )
   }
 
   return mapJoinedUserRows(data || [])
@@ -533,9 +682,10 @@ export const createModule = async (input: ModuleInput): Promise<ModuleRecord> =>
       id: `mod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: input.name,
       slug: input.slug,
-      description: input.description || '',
-      status: input.status || (input.isActive ? 'active' : 'coming_soon'),
-      type: input.type || 'Standard',
+        description: input.description || '',
+        summary: input.summary || '',
+        status: input.status || (input.isActive ? 'active' : 'coming_soon'),
+        type: input.type || 'Standard',
       icon: input.icon || '◆',
       href: input.href || '#',
       customer_link: input.customerLink || '',
@@ -543,11 +693,38 @@ export const createModule = async (input: ModuleInput): Promise<ModuleRecord> =>
       color: input.color || '#7c3aed',
       is_active: input.isActive ?? input.status === 'active'
     })
-    .select('id, name, slug, description, status, type, icon, href, customer_link, features, color, is_active')
+    .select('id, name, slug, description, summary, status, type, icon, href, customer_link, features, color, is_active')
     .single()
 
   if (error) {
-    throw new Error(`Failed to create module: ${error.message}`)
+    if (!isMissingSummaryColumnError(error)) {
+      throw new Error(`Failed to create module: ${error.message}`)
+    }
+
+    const legacyResult = await supabaseAdmin
+      .from('modules')
+      .insert({
+        id: `mod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: input.name,
+        slug: input.slug,
+        description: input.description || '',
+        status: input.status || (input.isActive ? 'active' : 'coming_soon'),
+        type: input.type || 'Standard',
+        icon: input.icon || '◆',
+        href: input.href || getDefaultModuleHref(input.slug),
+        customer_link: input.customerLink || '',
+        features: input.features || [],
+        color: input.color || '#7c3aed',
+        is_active: input.isActive ?? input.status === 'active'
+      })
+      .select('id, name, slug, description, status, type, icon, href, customer_link, features, color, is_active')
+      .single()
+
+    if (legacyResult.error) {
+      throw new Error(`Failed to create module: ${legacyResult.error.message}`)
+    }
+
+    return mapLegacyModuleRow(legacyResult.data as LegacyModuleRow)
   }
 
   return mapModuleRow(data)
@@ -555,12 +732,13 @@ export const createModule = async (input: ModuleInput): Promise<ModuleRecord> =>
 
 export const updateModule = async (id: string, input: Partial<ModuleInput>): Promise<boolean> => {
   const status = input.status
-  const updatePayload = {
-    name: input.name,
-    slug: input.slug,
-    description: input.description,
-    status,
-    type: input.type,
+    const updatePayload = {
+      name: input.name,
+      slug: input.slug,
+      description: input.description,
+      summary: input.summary,
+      status,
+      type: input.type,
     icon: input.icon,
     href: input.href,
     customer_link: input.customerLink,
@@ -577,7 +755,23 @@ export const updateModule = async (id: string, input: Partial<ModuleInput>): Pro
     .maybeSingle()
 
   if (error) {
-    throw new Error(`Failed to update module: ${error.message}`)
+    if (!isMissingSummaryColumnError(error)) {
+      throw new Error(`Failed to update module: ${error.message}`)
+    }
+
+    const { summary: _summary, ...legacyPayload } = updatePayload
+    const legacyResult = await supabaseAdmin
+      .from('modules')
+      .update(legacyPayload)
+      .eq('id', id)
+      .select('id')
+      .maybeSingle()
+
+    if (legacyResult.error) {
+      throw new Error(`Failed to update module: ${legacyResult.error.message}`)
+    }
+
+    return Boolean(legacyResult.data)
   }
 
   return Boolean(data)

@@ -45,6 +45,7 @@ type CompanyDashboard = {
     id: string
     companyName: string
     contactPerson: string
+    email: string
     mobile: string
     city: string
     status: string
@@ -93,7 +94,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
   const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
   const [dashboard, setDashboard] = useState<CompanyDashboard | null>(null)
-  const [mobile, setMobile] = useState('')
+  const [email, setEmail] = useState('')
   const [identity, setIdentity] = useState('')
   const [selectedJobId, setSelectedJobId] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
@@ -127,15 +128,53 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
 
     const stored = localStorage.getItem(COMPANY_TOKEN_KEY)
     if (!stored) {
-      setLoading(false)
+      fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
+        .then(async response => {
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error(data.error || 'Company dashboard session was not found.')
+          }
+
+          const authToken = String(data.token || '')
+          if (!authToken) {
+            throw new Error('Company token is missing from the dashboard session response.')
+          }
+
+          setDashboard(data.dashboard as CompanyDashboard)
+          setToken(authToken)
+          localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+        })
+        .catch(() => {
+          setToken(null)
+          setDashboard(null)
+        })
+        .finally(() => setLoading(false))
       return
     }
 
     loadDashboard(stored)
       .catch(() => {
         localStorage.removeItem(COMPANY_TOKEN_KEY)
-        setToken(null)
-        setDashboard(null)
+        return fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
+          .then(async response => {
+            const data = await response.json()
+            if (!response.ok) {
+              throw new Error(data.error || 'Company dashboard session was not found.')
+            }
+
+            const authToken = String(data.token || '')
+            if (!authToken) {
+              throw new Error('Company token is missing from the dashboard session response.')
+            }
+
+            setDashboard(data.dashboard as CompanyDashboard)
+            setToken(authToken)
+            localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+          })
+          .catch(() => {
+            setToken(null)
+            setDashboard(null)
+          })
       })
       .finally(() => setLoading(false))
   }, [signinMode])
@@ -152,7 +191,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          mobile,
+          email,
           identity
         })
       })
@@ -252,21 +291,33 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           <p className={styles.eyebrow}>Company panel</p>
           <h1 className={styles.pageTitle}>Receive worker applications in one place</h1>
           <p className={styles.textMuted} style={{ marginBottom: '20px' }}>
-            Sign in with your registered company mobile number and your company or contact name. This is the working company panel for viewing job applications.
+            Sign in with your registered company email and your company name or contact person. This screen does not use a password.
           </p>
           <form className={styles.stack} onSubmit={submitLogin}>
+            <label style={{ display: 'grid', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company email</span>
             <input
-              value={mobile}
-              onChange={event => setMobile(event.target.value)}
-              placeholder="Registered mobile number"
+              value={email}
+              onChange={event => setEmail(event.target.value)}
+              placeholder="Registered company email"
               style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
             />
+            </label>
+            <label style={{ display: 'grid', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company name or contact person</span>
             <input
               value={identity}
               onChange={event => setIdentity(event.target.value)}
               placeholder="Company name or contact person"
               style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
             />
+            </label>
+            <div className={styles.softCard} style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+              <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use company email + company/contact name.</p>
+              <p style={{ margin: '4px 0 0', color: '#475569', fontSize: '13px', lineHeight: 1.6 }}>
+                Example: <strong>neelufercreation@gmail.com</strong> with <strong>Neelufer Creations</strong> or <strong>Neelu</strong>.
+              </p>
+            </div>
             {error ? (
               <div className={styles.softCard} style={{ borderColor: '#fecaca', background: '#fef2f2' }}>
                 <p style={{ margin: 0, color: '#b91c1c', fontWeight: 700 }}>{error}</p>
@@ -310,7 +361,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           <p className={styles.eyebrow} style={{ color: 'rgba(255,255,255,0.75)' }}>{dashboard.profile.city}</p>
           <h1 className={styles.pageTitle} style={{ color: '#ffffff', marginBottom: '12px' }}>{dashboard.profile.companyName}</h1>
           <p className={styles.textMutedDark}>
-            Managed by {dashboard.profile.contactPerson}. Status: {dashboard.profile.status}. Active plan: {dashboard.profile.activePlan || 'Not assigned'}.
+            Managed by {dashboard.profile.contactPerson}. Email: {dashboard.profile.email || 'Not added'}. Status: {dashboard.profile.status}. Active plan: {dashboard.profile.activePlan || 'Not assigned'}.
           </p>
 
           <div className={styles.fourColGrid} style={{ marginTop: '24px' }}>

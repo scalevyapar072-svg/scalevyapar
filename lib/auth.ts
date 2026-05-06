@@ -2,7 +2,15 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { getUserByEmail } from './db'
 import bcrypt from 'bcryptjs'
-import { createAuthCookie, generateToken, getTokenFromCookieHeader, type User, verifyToken } from './auth-token'
+import {
+  AUTH_COOKIE_NAME,
+  LEGACY_AUTH_COOKIE_NAME,
+  createAuthCookie,
+  generateToken,
+  getTokenFromCookieHeader,
+  type User,
+  verifyToken
+} from './auth-token'
 
 export type { User } from './auth-token'
 
@@ -52,13 +60,14 @@ export async function login(email: string, password: string): Promise<AuthResult
 
 export async function logout(): Promise<void> {
   const cookieStore = await cookies()
-  cookieStore.delete('auth-token')
+  cookieStore.delete(AUTH_COOKIE_NAME)
+  cookieStore.delete(LEGACY_AUTH_COOKIE_NAME)
 }
 
 export async function getCurrentUser(): Promise<User | null> {
   try {
     const cookieStore = await cookies()
-    const token = cookieStore.get('auth-token')?.value
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value || cookieStore.get(LEGACY_AUTH_COOKIE_NAME)?.value
 
     if (!token) {
       return null
@@ -86,7 +95,8 @@ export async function getUserFromRequest(request: Request): Promise<User | null>
       cookies?: { get: (name: string) => { value?: string } | undefined }
     }
 
-    const token = nextRequest.cookies?.get?.('auth-token')?.value
+    const token = nextRequest.cookies?.get?.(AUTH_COOKIE_NAME)?.value
+      ?? nextRequest.cookies?.get?.(LEGACY_AUTH_COOKIE_NAME)?.value
       ?? getTokenFromCookieHeader(request.headers.get('cookie'))
 
     if (!token) {

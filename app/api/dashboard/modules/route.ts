@@ -21,9 +21,23 @@ export async function GET(request: NextRequest) {
       features: module.features || [],
     }))
 
-    return NextResponse.json({ modules })
+    return NextResponse.json(
+      { modules },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+        }
+      }
+    )
   } catch (error) {
     console.error('Dashboard modules error:', error)
-    return NextResponse.json({ modules: [] })
+    return NextResponse.json(
+      { modules: [] },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+        }
+      }
+    )
   }
 }

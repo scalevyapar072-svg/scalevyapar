@@ -3,18 +3,28 @@ import { verifyToken } from '@/lib/auth-token'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
   const isLocalDev =
     process.env.NODE_ENV !== 'production' &&
     (request.nextUrl.hostname === '127.0.0.1' || request.nextUrl.hostname === 'localhost')
 
+  // ✅ Public website pages — no auth needed
+  const publicPages = ['/', '/tools', '/pricing', '/about', '/contact']
+  if (publicPages.includes(pathname)) {
+    return NextResponse.next()
+  }
+
+  // ✅ Login and auth routes — public
   if (pathname === '/login' || pathname.startsWith('/api/auth')) {
     return NextResponse.next()
   }
 
+  // ✅ Local dev leads route
   if (isLocalDev && pathname.startsWith('/leads')) {
     return NextResponse.next()
   }
 
+  // 🔒 All other routes need auth
   const authToken = request.cookies.get('auth-token')?.value
   if (!authToken) {
     return NextResponse.redirect(new URL('/login', request.url))
@@ -37,13 +47,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/admin', request.url))
     }
     return NextResponse.next()
-  }
-
-  if (pathname === '/') {
-    if (user.role === 'ADMIN') {
-      return NextResponse.redirect(new URL('/admin', request.url))
-    }
-    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return NextResponse.next()

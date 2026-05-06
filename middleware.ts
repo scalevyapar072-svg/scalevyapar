@@ -54,7 +54,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (pathname.startsWith('/dashboard')) {
+  if (pathname.startsWith('/dashboard')) {redirectUrl.hostname = 'www.scalevyapar.in'
     if (user.role !== 'CLIENT') {
       return NextResponse.redirect(new URL('/admin', request.url))
     }

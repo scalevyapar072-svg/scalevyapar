@@ -16,7 +16,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl, 308)
   }
 
-  const publicPages = ['/', '/tools', '/pricing', '/about', '/contact']
+  const publicPages = [
+    '/',
+    '/tools',
+    '/pricing',
+    '/about',
+    '/contact',
+    '/privacy-policy',
+    '/terms-of-service',
+    '/user-data-deletion',
+    '/privacy/scalevyapar-rozgar'
+  ]
   if (publicPages.includes(pathname)) {
     return NextResponse.next()
   }

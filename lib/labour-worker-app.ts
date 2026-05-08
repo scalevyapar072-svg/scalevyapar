@@ -350,7 +350,17 @@ const buildWorkerApplicationConfirmationWhatsappMessage = (payload: {
   `City: ${payload.companyCity || 'Not added'}`,
   `Number: ${payload.companyMobile || 'Not available'}`,
   `${payload.workerName}, the company can contact you soon.`
-].filter(Boolean).join('\n')
+  ].filter(Boolean).join('\n')
+
+const getCompanyApplicationWhatsappTemplateConfig = () => {
+  const templateName = (process.env.WHATSAPP_COMPANY_APPLICATION_TEMPLATE_NAME || '').trim()
+  const languageCode = (process.env.WHATSAPP_COMPANY_APPLICATION_TEMPLATE_LANGUAGE || 'en').trim() || 'en'
+
+  return {
+    templateName,
+    languageCode
+  }
+}
 
 const getWorkerConfirmationWhatsappTemplateConfig = () => {
   const templateName = (process.env.WHATSAPP_WORKER_CONFIRMATION_TEMPLATE_NAME || '').trim()
@@ -447,6 +457,85 @@ const sendWorkerApplicationConfirmationWhatsapp = async (payload: {
 
       return sendWhatsappTextMessage(textFallbackPayload)
     }
+  }
+}
+
+const sendCompanyApplicationWhatsapp = async (payload: {
+  companyContactMobile: string
+  companyName: string
+  workerName: string
+  workerCity: string
+  workerMobile: string
+  workerCategories: string[]
+  expectedDailyWage: number
+  note: string
+  jobTitle: string
+  appliedAt: string
+}) => {
+  const companyApplicationTemplate = getCompanyApplicationWhatsappTemplateConfig()
+  const textFallbackPayload = {
+    to: payload.companyContactMobile,
+    body: buildCompanyApplicationWhatsappMessage({
+      companyName: payload.companyName,
+      workerName: payload.workerName,
+      workerCity: payload.workerCity,
+      workerMobile: payload.workerMobile,
+      workerCategories: payload.workerCategories,
+      expectedDailyWage: payload.expectedDailyWage,
+      note: payload.note,
+      jobTitle: payload.jobTitle,
+      appliedAt: payload.appliedAt
+    })
+  }
+
+  if (!companyApplicationTemplate.templateName) {
+    return sendWhatsappTextMessage(textFallbackPayload)
+  }
+
+  const bodyParameters = [
+    payload.companyName || 'Company',
+    payload.workerName || 'Worker',
+    payload.jobTitle || 'Job',
+    payload.workerCity || 'Not specified',
+    payload.workerMobile || 'Not available',
+    formatCategorySummary(payload.workerCategories) || 'Not specified',
+    `Rs ${Number(payload.expectedDailyWage || 0).toLocaleString('en-IN')}`,
+    payload.note || 'No note shared',
+    formatAppliedAtLabel(payload.appliedAt)
+  ]
+
+  try {
+    return await sendWhatsappTemplateMessage({
+      to: payload.companyContactMobile,
+      templateName: companyApplicationTemplate.templateName,
+      languageCode: companyApplicationTemplate.languageCode,
+      bodyParameters
+    })
+  } catch (error) {
+    if (!isWhatsappTemplateTranslationMissingError(error)) {
+      throw error
+    }
+
+    const normalizedLanguageCode = companyApplicationTemplate.languageCode.toLowerCase()
+    if (normalizedLanguageCode !== 'en') {
+      const retryLanguageCode = companyApplicationTemplate.languageCode.includes('_') ? 'en_US' : 'en'
+      try {
+        return await sendWhatsappTemplateMessage({
+          to: payload.companyContactMobile,
+          templateName: companyApplicationTemplate.templateName,
+          languageCode: retryLanguageCode,
+          bodyParameters
+        })
+      } catch (retryError) {
+        if (!isWhatsappTemplateTranslationMissingError(retryError)) {
+          throw retryError
+        }
+
+        return sendWhatsappTextMessage(textFallbackPayload)
+      }
+    }
+
+    return sendWhatsappTextMessage(textFallbackPayload)
   }
 }
 
@@ -1523,19 +1612,17 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
 
   try {
     const whatsappResults = await Promise.allSettled([
-      sendWhatsappTextMessage({
-        to: companyContactMobile,
-        body: buildCompanyApplicationWhatsappMessage({
-          companyName: company.companyName,
-          workerName: worker.fullName,
-          workerCity: worker.city,
-          workerMobile: worker.mobile,
-          workerCategories,
-          expectedDailyWage: worker.expectedDailyWage,
-          note: note || '',
-          jobTitle: jobPost.title,
-          appliedAt
-        })
+      sendCompanyApplicationWhatsapp({
+        companyContactMobile,
+        companyName: company.companyName,
+        workerName: worker.fullName,
+        workerCity: worker.city,
+        workerMobile: worker.mobile,
+        workerCategories,
+        expectedDailyWage: worker.expectedDailyWage,
+        note: note || '',
+        jobTitle: jobPost.title,
+        appliedAt
       }),
       sendWorkerApplicationConfirmationWhatsapp({
         workerMobile: worker.mobile,

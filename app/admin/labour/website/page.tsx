@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { LabourCompanyWebsiteContent, LabourCompanyWebsiteSection } from '@/lib/labour-company-website'
+import type { LabourCompanyLegalPageContent, LabourCompanyWebsiteContent, LabourCompanyWebsiteSection } from '@/lib/labour-company-website'
 
-type EditorTab = 'theme' | 'headerFooter' | 'home' | 'pricing' | 'search' | 'signin' | 'contact'
+type EditorTab = 'theme' | 'headerFooter' | 'home' | 'pricing' | 'search' | 'signin' | 'contact' | 'legal'
 
 const homeSections: LabourCompanyWebsiteSection[] = ['hero', 'trust', 'features', 'process', 'pricing', 'testimonials', 'faq', 'cta', 'intake']
 
@@ -37,6 +37,11 @@ const emptyContactCard = {
   description: '',
   ctaLabel: '',
   ctaHref: ''
+}
+
+const emptyLegalSection = {
+  title: '',
+  body: ''
 }
 
 const emptyLink = {
@@ -115,7 +120,8 @@ const tabs: Array<{ id: EditorTab; label: string }> = [
   { id: 'pricing', label: 'Pricing' },
   { id: 'search', label: 'Search Labour' },
   { id: 'signin', label: 'Sign In' },
-  { id: 'contact', label: 'Contact' }
+  { id: 'contact', label: 'Contact' },
+  { id: 'legal', label: 'Legal Pages' }
 ]
 
 function Field({ label, value, onChange, placeholder = '' }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
@@ -223,6 +229,12 @@ export default function LabourWebsiteEditorPage() {
       </div>
     )
   }
+
+  const legalPages: Array<{ key: keyof LabourCompanyWebsiteContent['legalPages']; label: string; page: LabourCompanyLegalPageContent }> = [
+    { key: 'privacyPolicy', label: 'Privacy Policy', page: content.legalPages.privacyPolicy },
+    { key: 'termsOfService', label: 'Terms of Service', page: content.legalPages.termsOfService },
+    { key: 'userDataDeletion', label: 'User Data Deletion', page: content.legalPages.userDataDeletion }
+  ]
 
   return (
     <div style={{ minHeight: '100vh', background: '#f6f8fb', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -877,6 +889,95 @@ export default function LabourWebsiteEditorPage() {
                 <button onClick={() => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, cards: [...current.contactPage.cards, emptyContactCard] } } : current)} style={subtleButtonStyle}>Add Contact Card</button>
               </div>
             </SectionCard>
+          </div>
+        )}
+
+        {activeTab === 'legal' && (
+          <div style={{ display: 'grid', gap: '20px' }}>
+            {legalPages.map(({ key, label, page }) => (
+              <SectionCard key={key} title={label} description={`Edit the full ${label.toLowerCase()} page content shown on the company website.`}>
+                <div style={{ display: 'grid', gap: '14px' }}>
+                  <Field label="Eyebrow" value={page.eyebrow} onChange={value => setContent(current => current ? {
+                    ...current,
+                    legalPages: {
+                      ...current.legalPages,
+                      [key]: {
+                        ...current.legalPages[key],
+                        eyebrow: value
+                      }
+                    }
+                  } : current)} />
+                  <TextAreaField label="Page Title" value={page.title} onChange={value => setContent(current => current ? {
+                    ...current,
+                    legalPages: {
+                      ...current.legalPages,
+                      [key]: {
+                        ...current.legalPages[key],
+                        title: value
+                      }
+                    }
+                  } : current)} rows={2} />
+                  <TextAreaField label="Page Subtitle" value={page.subtitle} onChange={value => setContent(current => current ? {
+                    ...current,
+                    legalPages: {
+                      ...current.legalPages,
+                      [key]: {
+                        ...current.legalPages[key],
+                        subtitle: value
+                      }
+                    }
+                  } : current)} rows={4} />
+
+                  {page.sections.map((section, index) => (
+                    <div key={`${key}-${section.title}-${index}`} style={cardStyle}>
+                      <div style={{ display: 'grid', gap: '12px' }}>
+                        <Field label={`Section ${index + 1} Title`} value={section.title} onChange={value => setContent(current => current ? {
+                          ...current,
+                          legalPages: {
+                            ...current.legalPages,
+                            [key]: {
+                              ...current.legalPages[key],
+                              sections: current.legalPages[key].sections.map((currentSection, currentIndex) => currentIndex === index ? { ...currentSection, title: value } : currentSection)
+                            }
+                          }
+                        } : current)} />
+                        <TextAreaField label={`Section ${index + 1} Body`} value={section.body} onChange={value => setContent(current => current ? {
+                          ...current,
+                          legalPages: {
+                            ...current.legalPages,
+                            [key]: {
+                              ...current.legalPages[key],
+                              sections: current.legalPages[key].sections.map((currentSection, currentIndex) => currentIndex === index ? { ...currentSection, body: value } : currentSection)
+                            }
+                          }
+                        } : current)} rows={5} />
+                        <button onClick={() => setContent(current => current ? {
+                          ...current,
+                          legalPages: {
+                            ...current.legalPages,
+                            [key]: {
+                              ...current.legalPages[key],
+                              sections: current.legalPages[key].sections.filter((_, currentIndex) => currentIndex !== index)
+                            }
+                          }
+                        } : current)} style={dangerButtonStyle}>Remove Section</button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button onClick={() => setContent(current => current ? {
+                    ...current,
+                    legalPages: {
+                      ...current.legalPages,
+                      [key]: {
+                        ...current.legalPages[key],
+                        sections: [...current.legalPages[key].sections, emptyLegalSection]
+                      }
+                    }
+                  } : current)} style={subtleButtonStyle}>Add Section</button>
+                </div>
+              </SectionCard>
+            ))}
           </div>
         )}
       </div>

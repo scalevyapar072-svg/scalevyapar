@@ -25,6 +25,7 @@ export async function middleware(request: NextRequest) {
     '/privacy-policy',
     '/terms-of-service',
     '/user-data-deletion',
+    '/data-deletion-status',
     '/privacy/scalevyapar-rozgar'
   ]
   if (publicPages.includes(pathname)) {

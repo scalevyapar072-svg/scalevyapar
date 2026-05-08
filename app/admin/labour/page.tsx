@@ -303,6 +303,18 @@ type AuditFilters = {
   entityType: 'all' | string
 }
 
+type ParsedWhatsappAuditSummary = {
+  messageId: string
+  status: string
+  waId: string
+  phoneNumberId: string
+  conversationId: string
+  origin: string
+  pricingCategory: string
+  billable: string
+  errors: string
+}
+
 type LabourAdminSettings = {
   notificationTemplates: {
     applicationSubmittedTitle: string
@@ -683,6 +695,73 @@ const titleCase = (value: string) =>
     .split('_')
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
+
+const isWhatsappAuditLog = (log: AuditLog) =>
+  log.actor === 'WHATSAPP_WEBHOOK' || log.summary.startsWith('WhatsApp status')
+
+const parseWhatsappAuditSummary = (summary: string): ParsedWhatsappAuditSummary => {
+  const parsed: ParsedWhatsappAuditSummary = {
+    messageId: '',
+    status: '',
+    waId: '',
+    phoneNumberId: '',
+    conversationId: '',
+    origin: '',
+    pricingCategory: '',
+    billable: '',
+    errors: ''
+  }
+
+  summary
+    .split('|')
+    .map(part => part.trim())
+    .forEach(part => {
+      if (!part.includes('=')) return
+      const [key, ...valueParts] = part.split('=')
+      const value = valueParts.join('=').trim()
+
+      switch (key.trim()) {
+        case 'messageId':
+          parsed.messageId = value
+          break
+        case 'status':
+          parsed.status = value
+          break
+        case 'waId':
+          parsed.waId = value
+          break
+        case 'phoneNumberId':
+          parsed.phoneNumberId = value
+          break
+        case 'conversationId':
+          parsed.conversationId = value
+          break
+        case 'origin':
+          parsed.origin = value
+          break
+        case 'pricingCategory':
+          parsed.pricingCategory = value
+          break
+        case 'billable':
+          parsed.billable = value
+          break
+        case 'errors':
+          parsed.errors = value
+          break
+      }
+    })
+
+  return parsed
+}
+
+const getWhatsappStatusTone = (status: string) => {
+  const normalized = status.trim().toLowerCase()
+  if (normalized === 'read') return { background: '#ecfeff', color: '#155e75', border: '#a5f3fc' }
+  if (normalized === 'delivered') return { background: '#ecfdf5', color: '#166534', border: '#86efac' }
+  if (normalized === 'sent' || normalized === 'accepted') return { background: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' }
+  if (normalized === 'failed') return { background: '#fff1f2', color: '#b91c1c', border: '#fecdd3' }
+  return { background: '#f8fafc', color: '#334155', border: '#cbd5e1' }
+}
 
 const getNotificationPriorityTone = (priority: WorkerNotificationPriority) => {
   if (priority === 'high') return { background: '#fff1f2', color: '#b91c1c', border: '#fecdd3' }
@@ -1478,6 +1557,12 @@ export default function LabourExchangeAdminPage() {
     if (auditFilters.entityType !== 'all' && log.entityType !== auditFilters.entityType) return false
     return matchesSearch(auditFilters.search, [log.summary, log.entityType, log.entityId, log.actor, log.action])
   })
+  const whatsappAuditLogs = snapshot.auditLogs
+    .filter(isWhatsappAuditLog)
+    .map(log => ({
+      log,
+      details: parseWhatsappAuditSummary(log.summary)
+    }))
   const unreadWorkerNotificationsCount = snapshot.workerNotifications.filter(notification => !notification.isRead).length
   const pendingWorkerKycCount = snapshot.workers.filter(worker => getWorkerKycState(worker) === 'ready_for_review').length
   const pendingCompanyApprovalsCount = snapshot.companies.filter(company => company.status === 'pending').length
@@ -4911,6 +4996,91 @@ export default function LabourExchangeAdminPage() {
                     <option key={entityType} value={entityType}>{entityType}</option>
                   ))}
                 </select>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gap: '12px', marginBottom: '18px' }}>
+              <div style={{ border: '1px solid #dbeafe', borderRadius: '16px', padding: '14px 16px', background: '#f8fbff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '16px' }}>WhatsApp delivery statuses</h3>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                      Live webhook updates from Meta are saved here automatically.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setAuditFilters(current => ({ ...current, search: 'WhatsApp status' }))}
+                    style={subtleButtonStyle}
+                  >
+                    Filter WhatsApp Logs
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {whatsappAuditLogs.length === 0 ? (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No WhatsApp webhook statuses have been recorded yet.</p>
+                  ) : (
+                    whatsappAuditLogs.slice(0, 8).map(({ log, details }) => {
+                      const statusTone = getWhatsappStatusTone(details.status)
+                      return (
+                        <div
+                          key={log.id}
+                          style={{
+                            border: '1px solid #dbeafe',
+                            borderRadius: '12px',
+                            background: '#ffffff',
+                            padding: '12px 14px',
+                            display: 'grid',
+                            gap: '8px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  borderRadius: '999px',
+                                  padding: '5px 10px',
+                                  background: statusTone.background,
+                                  color: statusTone.color,
+                                  border: `1px solid ${statusTone.border}`,
+                                  fontSize: '11px',
+                                  fontWeight: '800',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.04em'
+                                }}
+                              >
+                                {details.status || 'unknown'}
+                              </span>
+                              <span style={{ color: '#0f172a', fontSize: '12px', fontWeight: '700' }}>
+                                {details.waId ? `Recipient ${details.waId}` : 'Recipient unknown'}
+                              </span>
+                            </div>
+                            <span style={{ color: '#64748b', fontSize: '11px' }}>{formatDateTime(log.createdAt)}</span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                            <div style={{ color: '#334155', fontSize: '12px' }}>
+                              <strong>Message ID:</strong> {details.messageId || log.entityId}
+                            </div>
+                            <div style={{ color: '#334155', fontSize: '12px' }}>
+                              <strong>Conversation:</strong> {details.conversationId || '-'}
+                            </div>
+                            <div style={{ color: '#334155', fontSize: '12px' }}>
+                              <strong>Origin:</strong> {details.origin || '-'}
+                            </div>
+                            <div style={{ color: '#334155', fontSize: '12px' }}>
+                              <strong>Pricing:</strong> {details.pricingCategory || '-'}{details.billable ? ` | billable=${details.billable}` : ''}
+                            </div>
+                          </div>
+                          {details.errors ? (
+                            <div style={{ color: '#b91c1c', fontSize: '12px', background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '10px', padding: '10px 12px' }}>
+                              <strong>Errors:</strong> {details.errors}
+                            </div>
+                          ) : null}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
               </div>
             </div>
             <div style={{ display: 'grid', gap: '10px' }}>

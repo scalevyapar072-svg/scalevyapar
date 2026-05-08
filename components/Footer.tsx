@@ -55,6 +55,9 @@ export default function Footer() {
             <Link href="/about">About Us</Link>
             <Link href="/pricing">Pricing</Link>
             <Link href="/contact">Contact</Link>
+            <Link href="/privacy-policy">Privacy Policy</Link>
+            <Link href="/terms-of-service">Terms of Service</Link>
+            <Link href="/user-data-deletion">User Data Deletion</Link>
             <Link href="https://scalevyapar.vercel.app/login" target="_blank">Login</Link>
           </div>
 

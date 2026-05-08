@@ -321,6 +321,27 @@ export default function LabourWebsiteEditorPage() {
                   <Field label="Address" value={content.footer.address} onChange={value => setContent(current => current ? { ...current, footer: { ...current.footer, address: value } } : current)} />
                   <Field label="Copyright Text" value={content.footer.copyrightText} onChange={value => setContent(current => current ? { ...current, footer: { ...current.footer, copyrightText: value } } : current)} />
                 </div>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <p style={{ margin: '4px 0 0', color: '#0f172a', fontSize: '14px', fontWeight: '800' }}>Legal Footer Links</p>
+                  {content.footer.legalLinks.map((link, linkIndex) => (
+                    <div key={`${link.label}-${linkIndex}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                      <Field label={`Legal Link ${linkIndex + 1} Label`} value={link.label} onChange={value => setContent(current => current ? {
+                        ...current,
+                        footer: {
+                          ...current.footer,
+                          legalLinks: current.footer.legalLinks.map((currentLink, currentLinkIndex) => currentLinkIndex === linkIndex ? { ...currentLink, label: value } : currentLink)
+                        }
+                      } : current)} />
+                      <Field label={`Legal Link ${linkIndex + 1} URL`} value={link.href} onChange={value => setContent(current => current ? {
+                        ...current,
+                        footer: {
+                          ...current.footer,
+                          legalLinks: current.footer.legalLinks.map((currentLink, currentLinkIndex) => currentLinkIndex === linkIndex ? { ...currentLink, href: value } : currentLink)
+                        }
+                      } : current)} />
+                    </div>
+                  ))}
+                </div>
                 <div style={{ display: 'grid', gap: '14px' }}>
                   {content.footer.linkGroups.map((group, groupIndex) => (
                     <div key={`${group.title}-${groupIndex}`} style={cardStyle}>

@@ -36,6 +36,10 @@ export interface LabourCompanyWebsiteContent {
     phone: string
     address: string
     copyrightText: string
+    legalLinks: Array<{
+      label: string
+      href: string
+    }>
     linkGroups: Array<{
       title: string
       links: Array<{
@@ -188,6 +192,11 @@ const defaultContent: LabourCompanyWebsiteContent = {
     phone: '+91 98765 43210',
     address: 'Surat, Gujarat, India',
     copyrightText: '© 2026 ScaleVyapar Labour Exchange. All rights reserved.',
+    legalLinks: [
+      { label: 'Privacy Policy', href: '/labour/company/privacy-policy' },
+      { label: 'Terms of Service', href: '/labour/company/terms-of-service' },
+      { label: 'User Data Deletion', href: '/labour/company/user-data-deletion' }
+    ],
     linkGroups: [
       {
         title: 'Company',
@@ -455,6 +464,18 @@ const mergeLinkGroups = (input: unknown, fallback: LabourCompanyWebsiteContent['
   })
 }
 
+const mergeFooterLinks = (input: unknown, fallback: LabourCompanyWebsiteContent['footer']['legalLinks']) => {
+  if (!Array.isArray(input)) return fallback
+  return input.map((link, index) => {
+    const nextLink = typeof link === 'object' && link ? link as Record<string, unknown> : {}
+    const fallbackLink = fallback[index] || fallback[0]
+    return {
+      label: typeof nextLink.label === 'string' && nextLink.label.trim() ? nextLink.label : fallbackLink.label,
+      href: typeof nextLink.href === 'string' && nextLink.href.trim() ? nextLink.href : fallbackLink.href
+    }
+  })
+}
+
 const mapLegacyContent = (legacy: Record<string, unknown>): Partial<LabourCompanyWebsiteContent> => ({
   theme: {
     brandName: typeof legacy.theme === 'object' && legacy.theme && typeof (legacy.theme as Record<string, unknown>).brandName === 'string'
@@ -549,6 +570,7 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
       phone: merged.footer?.phone || defaultContent.footer.phone,
       address: merged.footer?.address || defaultContent.footer.address,
       copyrightText: merged.footer?.copyrightText || defaultContent.footer.copyrightText,
+      legalLinks: mergeFooterLinks(merged.footer?.legalLinks, defaultContent.footer.legalLinks),
       linkGroups: mergeLinkGroups(merged.footer?.linkGroups, defaultContent.footer.linkGroups)
     },
     home: {

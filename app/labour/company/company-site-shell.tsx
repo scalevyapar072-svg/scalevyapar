@@ -84,6 +84,14 @@ export function CompanySiteShell({ content, currentPath, children }: Props) {
           </div>
 
           <div className={styles.divider} />
+          <div className={styles.legalLinks}>
+            {content.footer.legalLinks.map(link => (
+              <Link key={`${link.label}-${link.href}`} href={link.href} className={styles.footerLink}>
+                {link.label}
+              </Link>
+            ))}
+          </div>
+          <div className={styles.divider} />
           <p className={styles.textMuted}>{content.footer.copyrightText}</p>
         </footer>
       </div>

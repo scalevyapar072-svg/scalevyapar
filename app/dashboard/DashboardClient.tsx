@@ -47,37 +47,37 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'Creative Studio',
     shortIcon: 'V',
     heroIcon: 'VA',
-    accent: '#6f5ef9',
-    surface: 'linear-gradient(135deg,#8f7dff 0%,#6f5ef9 52%,#5443df 100%)',
-    softSurface: 'linear-gradient(135deg,#f7f4ff,#efeaff)',
-    border: '#e3d9ff',
+    accent: '#6d5efc',
+    surface: 'linear-gradient(135deg,#8b80ff 0%,#6d5efc 55%,#5544de 100%)',
+    softSurface: 'linear-gradient(135deg,#f7f5ff,#f1eeff)',
+    border: '#e2dcff',
     description: 'Create polished product visuals, ad creatives, and motion content for your catalog from one workspace.',
     summary: 'AI-powered creative production for product photos, ads, and short-form selling content.',
-    features: ['AI Photo Generator', 'Photo Upscaler 4x', 'Video Ad Generator', 'UGC Ads Creator', 'Background Cleanup', 'Creative Variants'],
+    features: ['AI Photo Generation', 'Photo Upscaling 4x', 'Video Ads', 'UGC Creator Videos', 'Background Cleanup', 'Creative Variants'],
     href: '/vizora',
   },
   leads: {
     badge: 'Lead Engine',
     shortIcon: 'LG',
     heroIcon: 'LE',
-    accent: '#2f80ed',
-    surface: 'linear-gradient(135deg,#58b6ff 0%,#2f80ed 55%,#165dcb 100%)',
-    softSurface: 'linear-gradient(135deg,#eff8ff,#e8f3ff)',
-    border: '#cfe6ff',
+    accent: '#2787f5',
+    surface: 'linear-gradient(135deg,#59b6ff 0%,#2787f5 55%,#1b64d8 100%)',
+    softSurface: 'linear-gradient(135deg,#eff8ff,#eaf4ff)',
+    border: '#cde4fb',
     description: 'Search businesses by location, export lead lists, and build a reliable outbound pipeline.',
     summary: 'Google-sourced B2B lead collection with filtering, list management, and export support.',
-    features: ['Google Maps Scraper', 'Filter by Location', 'Filter by Business Type', 'Export to CSV', 'Lead List Cleanup', 'Quick Follow-up Prep'],
+    features: ['Google Maps Scraper', 'Location Filters', 'Business Type Filters', 'Export to CSV', 'Lead Cleanup', 'Follow-up Preparation'],
     href: '/leads',
   },
   rozgar: {
     badge: 'Labour Hiring',
     shortIcon: 'R',
     heroIcon: 'RZ',
-    accent: '#4678f6',
-    surface: 'linear-gradient(135deg,#6a98ff 0%,#4678f6 50%,#2f5de3 100%)',
+    accent: '#4177f6',
+    surface: 'linear-gradient(135deg,#6d9cff 0%,#4177f6 55%,#2d5fdf 100%)',
     softSurface: 'linear-gradient(135deg,#eef4ff,#e9f0ff)',
-    border: '#d7e4ff',
-    description: 'Search available workers, receive applications, and manage labour hiring without leaving your dashboard.',
+    border: '#d6e3ff',
+    description: 'Search workers, manage labour applications, and operate the hiring flow from one marketplace.',
     summary: 'Dedicated labour marketplace and company hiring panel for fast worker sourcing.',
     features: ['Search Labour', 'Receive Worker Applications', 'Company Hiring Panel', 'Rozgar Dashboard', 'Worker Shortlisting', 'Hiring Activity Review'],
     href: '/labour/company/search',
@@ -86,23 +86,23 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'CRM Workflow',
     shortIcon: 'CRM',
     heroIcon: 'CM',
-    accent: '#13a36b',
-    surface: 'linear-gradient(135deg,#39cf92 0%,#13a36b 55%,#0b8053 100%)',
-    softSurface: 'linear-gradient(135deg,#effcf7,#eafaf2)',
-    border: '#cff1e1',
+    accent: '#0f9f6e',
+    surface: 'linear-gradient(135deg,#41cf96 0%,#0f9f6e 55%,#0a7e57 100%)',
+    softSurface: 'linear-gradient(135deg,#effcf7,#e9faf1)',
+    border: '#d1f1e2',
     description: 'Track call outcomes, capture notes, and move every prospect through a clear follow-up pipeline.',
     summary: 'Daily sales follow-up workspace for call tracking, notes, and lead stage management.',
-    features: ['Call Tracking', 'Follow-up Reminders', 'Lead Status', 'Notes & History', 'Opportunity Tracking', 'Team Handover Notes'],
+    features: ['Call Tracking', 'Follow-up Reminders', 'Lead Status', 'Notes and History', 'Opportunity Tracking', 'Team Handover Notes'],
     href: '/leads',
   },
   whatsapp: {
     badge: 'Messaging Automation',
     shortIcon: 'WA',
     heroIcon: 'WA',
-    accent: '#1e9b66',
-    surface: 'linear-gradient(135deg,#48c98a 0%,#1e9b66 55%,#117b50 100%)',
+    accent: '#1b9a64',
+    surface: 'linear-gradient(135deg,#4cc989 0%,#1b9a64 55%,#11784f 100%)',
     softSurface: 'linear-gradient(135deg,#f1fcf5,#e9f9ef)',
-    border: '#d4f0df',
+    border: '#d4efde',
     description: 'Automate customer replies, nurture leads, and keep conversations moving on WhatsApp.',
     summary: 'WhatsApp-first outreach and auto-response workflows for customer communication.',
     features: ['Auto Replies', 'Bulk Messaging', 'Lead Nurturing', 'Message Templates', 'Customer Follow-up', 'Quick Response Queues'],
@@ -112,23 +112,23 @@ const MODULE_META: Record<string, ModuleMeta> = {
     badge: 'Store Operations',
     shortIcon: 'S',
     heroIcon: 'SP',
-    accent: '#8a9952',
-    surface: 'linear-gradient(135deg,#b4c86b 0%,#8a9952 55%,#6f7f3d 100%)',
+    accent: '#8d9750',
+    surface: 'linear-gradient(135deg,#b8c86d 0%,#8d9750 55%,#6e783d 100%)',
     softSurface: 'linear-gradient(135deg,#fbfdf2,#f6fae8)',
-    border: '#e4ebc8',
+    border: '#e4eabe',
     description: 'Organize catalog, pricing, and store operations for a cleaner Shopify workflow.',
     summary: 'Storefront operations support for listings, pricing, and order visibility.',
-    features: ['Catalog Setup', 'Product Organization', 'Pricing Workflow', 'Store Readiness Checklist', 'Order Snapshot', 'Collection Planning'],
+    features: ['Catalog Setup', 'Product Organization', 'Pricing Workflow', 'Store Readiness', 'Order Snapshot', 'Collection Planning'],
     href: '/leads',
   },
   inventory: {
     badge: 'Inventory Control',
     shortIcon: 'INV',
     heroIcon: 'IN',
-    accent: '#d0842d',
-    surface: 'linear-gradient(135deg,#efb15e 0%,#d0842d 55%,#a8671d 100%)',
-    softSurface: 'linear-gradient(135deg,#fff8ef,#fff3e4)',
-    border: '#f2dec5',
+    accent: '#d1862e',
+    surface: 'linear-gradient(135deg,#efb261 0%,#d1862e 55%,#a9671d 100%)',
+    softSurface: 'linear-gradient(135deg,#fff8ef,#fff3e6)',
+    border: '#f1dec4',
     description: 'Monitor stock, materials, and dispatch activity in a more organized operations dashboard.',
     summary: 'Inventory and production visibility for stock movement, materials, and dispatch planning.',
     features: ['Stock Monitoring', 'Material Tracking', 'Dispatch Planning', 'Low Stock Review', 'Batch Visibility', 'Movement Notes'],
@@ -139,9 +139,9 @@ const MODULE_META: Record<string, ModuleMeta> = {
     shortIcon: 'AI',
     heroIcon: 'AI',
     accent: '#d14f8a',
-    surface: 'linear-gradient(135deg,#ef8db6 0%,#d14f8a 55%,#ab376d 100%)',
-    softSurface: 'linear-gradient(135deg,#fff3f8,#fdebf3)',
-    border: '#f5d4e4',
+    surface: 'linear-gradient(135deg,#ed93bb 0%,#d14f8a 55%,#a8376c 100%)',
+    softSurface: 'linear-gradient(135deg,#fff4f8,#fdebf3)',
+    border: '#f4d4e4',
     description: 'Deploy a support assistant that handles first responses and helps qualify incoming prospects.',
     summary: 'AI chat assistant for fast first-touch customer support and lead qualification.',
     features: ['Customer Support Bot', 'Lead Qualification', 'FAQ Handling', 'Instant Replies', 'Escalation Routing', 'Chat Intake Capture'],
@@ -220,101 +220,38 @@ export default function DashboardClient({
   }
 
   const overviewCards = [
-    { label: 'Assigned', value: assignedModules.length, tone: '#ecfdf3', text: '#0f8a4b' },
-    { label: 'Inactive', value: inactiveModules.length, tone: '#fff7ed', text: '#c26b13' },
-    { label: 'Total', value: modules.length, tone: '#eef4ff', text: '#275fe6' },
-    { label: 'Status', value: user.status || 'active', tone: '#f5f3ff', text: '#6b46ff' },
-  ]
-
-  const heroStats = [
-    {
-      label: 'Workspace State',
-      value: activeModuleRecord?.isAssigned ? 'Live for your account' : 'Inactive for your account',
-    },
-    {
-      label: 'Primary Use',
-      value: activeMeta.badge,
-    },
-    {
-      label: 'Feature Coverage',
-      value: `${featureList.length} capabilities`,
-    },
+    { label: 'Assigned', value: assignedModules.length, bg: '#ecfdf3', color: '#0f8a4b' },
+    { label: 'Inactive', value: inactiveModules.length, bg: '#fff7ed', color: '#c26b13' },
+    { label: 'Total', value: modules.length, bg: '#eff6ff', color: '#2563eb' },
+    { label: 'Status', value: user.status || 'active', bg: '#f5f3ff', color: '#6d28d9' },
   ]
 
   return (
-    <div className="dashboard-shell">
+    <div className="dashboardShell">
       <style jsx>{`
-        .dashboard-shell {
+        .dashboardShell {
           min-height: 100vh;
           background:
-            radial-gradient(circle at top left, rgba(108, 92, 231, 0.08), transparent 24%),
-            radial-gradient(circle at top right, rgba(47, 128, 237, 0.09), transparent 22%),
-            linear-gradient(180deg, #f7f9fc 0%, #f2f5fa 52%, #eef2f8 100%);
+            radial-gradient(circle at top left, rgba(99, 102, 241, 0.06), transparent 24%),
+            radial-gradient(circle at top right, rgba(59, 130, 246, 0.05), transparent 22%),
+            linear-gradient(180deg, #f8fafc 0%, #f3f6fb 50%, #eef2f7 100%);
           color: #0f172a;
           font-family: Inter, "Segoe UI", Tahoma, sans-serif;
-        }
-
-        .promo-wrap {
-          padding: 18px 24px 0;
-        }
-
-        .promo-bar {
-          max-width: 1480px;
-          margin: 0 auto;
-          border: 1px solid rgba(226, 232, 240, 0.8);
-          border-radius: 18px;
-          background: rgba(255, 255, 255, 0.82);
-          backdrop-filter: blur(18px);
-          padding: 12px 16px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 14px;
-          box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
-          flex-wrap: wrap;
-        }
-
-        .promo-pill {
-          border-radius: 999px;
-          background: linear-gradient(135deg, #ff6b4a, #e43f3f);
-          color: white;
-          padding: 7px 12px;
-          font-size: 12px;
-          font-weight: 800;
-          letter-spacing: 0.03em;
-        }
-
-        .promo-text {
-          font-size: 14px;
-          color: #334155;
-          text-align: center;
-        }
-
-        .promo-cta {
-          text-decoration: none;
-          border-radius: 999px;
-          background: #111827;
-          color: white;
-          padding: 9px 14px;
-          font-size: 13px;
-          font-weight: 800;
         }
 
         .topbar {
           position: sticky;
           top: 0;
           z-index: 20;
-          margin-top: 18px;
-          background: rgba(248, 250, 252, 0.78);
           backdrop-filter: blur(18px);
-          border-top: 1px solid rgba(255, 255, 255, 0.7);
-          border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+          background: rgba(248, 250, 252, 0.88);
+          border-bottom: 1px solid rgba(226, 232, 240, 0.92);
         }
 
-        .topbar-inner {
+        .topbarInner {
           max-width: 1480px;
           margin: 0 auto;
-          padding: 18px 24px;
+          padding: 22px 28px;
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -324,232 +261,228 @@ export default function DashboardClient({
         .brand {
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 16px;
           min-width: 0;
         }
 
-        .brand-mark {
-          width: 52px;
-          height: 52px;
-          border-radius: 16px;
+        .brandMark {
+          width: 54px;
+          height: 54px;
+          border-radius: 18px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 18px;
-          font-weight: 900;
+          background: linear-gradient(135deg, #7fa3ef 0%, #5d7ed3 100%);
           color: white;
-          background: linear-gradient(135deg, #7d9fe8 0%, #5e7fd3 100%);
-          box-shadow: 0 20px 36px rgba(49, 83, 175, 0.25);
+          font-size: 19px;
+          font-weight: 900;
+          box-shadow: 0 18px 34px rgba(62, 94, 192, 0.22);
           flex-shrink: 0;
         }
 
-        .brand-title {
-          font-size: 30px;
+        .brandTitle {
+          font-size: 31px;
           line-height: 1;
           font-weight: 900;
-          color: #162236;
-          margin-bottom: 5px;
+          letter-spacing: -0.03em;
+          color: #142136;
+          margin-bottom: 6px;
         }
 
-        .brand-subtitle {
+        .brandSubtitle {
           font-size: 12px;
+          color: #64748b;
           letter-spacing: 0.16em;
           text-transform: uppercase;
-          color: #64748b;
         }
 
         .account {
           display: flex;
           align-items: center;
-          gap: 14px;
-          flex-shrink: 0;
+          gap: 16px;
         }
 
-        .account-block {
+        .accountText {
           text-align: right;
         }
 
-        .account-name {
+        .accountName {
           font-size: 16px;
           font-weight: 900;
-          color: #162236;
+          color: #142136;
           margin-bottom: 4px;
         }
 
-        .account-email {
+        .accountEmail {
           font-size: 13px;
           color: #64748b;
         }
 
-        .logout-btn {
+        .logoutButton {
           border: 1px solid #fecaca;
-          background: #fff1f2;
+          background: #fff5f5;
           color: #dc2626;
           border-radius: 14px;
           padding: 12px 18px;
           cursor: pointer;
           font-size: 13px;
           font-weight: 900;
-          transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+          transition: all 0.2s ease;
         }
 
-        .logout-btn:hover {
+        .logoutButton:hover {
+          background: #ffe9e9;
           transform: translateY(-1px);
-          box-shadow: 0 12px 26px rgba(220, 38, 38, 0.12);
-          background: #ffe7eb;
         }
 
-        .page {
+        .pageWrap {
           max-width: 1480px;
           margin: 0 auto;
-          padding: 24px;
+          padding: 24px 28px 38px;
         }
 
-        .layout {
+        .layoutGrid {
           display: grid;
-          grid-template-columns: 320px minmax(0, 1fr);
+          grid-template-columns: 310px minmax(0, 1fr);
           gap: 22px;
           align-items: start;
         }
 
         .sidebar {
           position: sticky;
-          top: 102px;
+          top: 104px;
           border-radius: 28px;
+          background: rgba(255, 255, 255, 0.86);
+          border: 1px solid rgba(226, 232, 240, 0.95);
+          box-shadow: 0 22px 48px rgba(15, 23, 42, 0.07);
           overflow: hidden;
-          background: linear-gradient(180deg, #0f172a 0%, #152238 100%);
-          border: 1px solid rgba(30, 41, 59, 0.86);
-          box-shadow: 0 28px 55px rgba(15, 23, 42, 0.18);
-          color: white;
         }
 
-        .sidebar-inner {
+        .sidebarInner {
           padding: 20px;
         }
 
-        .sidebar-card {
+        .overviewPanel {
           border-radius: 24px;
-          padding: 20px;
+          padding: 22px;
+          margin-bottom: 18px;
           background:
-            radial-gradient(circle at top right, rgba(255,255,255,0.14), transparent 40%),
-            linear-gradient(145deg, rgba(122, 154, 232, 0.34), rgba(53, 84, 156, 0.38));
-          border: 1px solid rgba(255,255,255,0.12);
-          margin-bottom: 16px;
+            radial-gradient(circle at top right, rgba(255,255,255,0.22), transparent 35%),
+            linear-gradient(145deg, #15233b 0%, #233556 55%, #30456f 100%);
+          color: white;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
         }
 
         .eyebrow {
           font-size: 11px;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: rgba(226, 232, 240, 0.82);
-          margin-bottom: 10px;
           font-weight: 800;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: rgba(226, 232, 240, 0.86);
+          margin-bottom: 12px;
         }
 
-        .sidebar-name {
-          font-size: 28px;
+        .overviewName {
+          font-size: 26px;
           line-height: 1.08;
           font-weight: 900;
-          margin-bottom: 10px;
+          margin-bottom: 12px;
+          letter-spacing: -0.02em;
         }
 
-        .sidebar-copy {
+        .overviewCopy {
           font-size: 13px;
-          line-height: 1.75;
-          color: rgba(226, 232, 240, 0.86);
+          line-height: 1.8;
+          color: rgba(226, 232, 240, 0.9);
+          margin-bottom: 16px;
         }
 
-        .plan-chip-row {
+        .miniPills {
           display: flex;
-          flex-wrap: wrap;
           gap: 8px;
-          margin-top: 14px;
+          flex-wrap: wrap;
         }
 
-        .plan-chip {
+        .miniPill {
           border-radius: 999px;
-          padding: 7px 10px;
+          padding: 8px 12px;
           font-size: 11px;
           font-weight: 800;
           background: rgba(255, 255, 255, 0.12);
-          border: 1px solid rgba(255, 255, 255, 0.14);
+          border: 1px solid rgba(255, 255, 255, 0.15);
           color: white;
         }
 
-        .overview-grid {
+        .statsGrid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 10px;
-          margin-bottom: 18px;
+          margin-bottom: 20px;
         }
 
-        .overview-box {
+        .statCard {
           border-radius: 18px;
           padding: 14px;
-          border: 1px solid rgba(255,255,255,0.05);
         }
 
-        .overview-label {
+        .statLabel {
           font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: 0.12em;
-          color: #64748b;
-          margin-bottom: 7px;
           font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: #64748b;
+          margin-bottom: 8px;
         }
 
-        .overview-value {
-          font-size: 20px;
+        .statValue {
+          font-size: 19px;
           font-weight: 900;
+          line-height: 1.2;
           text-transform: capitalize;
         }
 
-        .module-group-title {
+        .groupTitle {
           font-size: 11px;
+          font-weight: 900;
+          color: #94a3b8;
           text-transform: uppercase;
           letter-spacing: 0.16em;
-          color: #8da2c0;
-          margin: 0 0 12px;
-          font-weight: 800;
+          margin-bottom: 12px;
         }
 
-        .module-list {
+        .moduleList {
           display: flex;
           flex-direction: column;
           gap: 10px;
         }
 
-        .module-button {
+        .moduleItem {
           width: 100%;
           border-radius: 20px;
           padding: 14px;
+          border: 1px solid #e2e8f0;
+          background: #ffffff;
           text-align: left;
           cursor: pointer;
-          border: 1px solid rgba(148, 163, 184, 0.12);
-          background: rgba(255, 255, 255, 0.04);
-          color: white;
-          transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+          transition: all 0.2s ease;
         }
 
-        .module-button:hover {
+        .moduleItem:hover {
           transform: translateY(-1px);
-          border-color: rgba(255, 255, 255, 0.16);
-          background: rgba(255, 255, 255, 0.07);
-          box-shadow: 0 16px 28px rgba(15, 23, 42, 0.14);
+          box-shadow: 0 16px 28px rgba(15, 23, 42, 0.06);
         }
 
-        .module-button.is-selected {
-          background: rgba(255, 255, 255, 0.12);
-          box-shadow: 0 18px 28px rgba(15, 23, 42, 0.18);
+        .moduleItem.selected {
+          box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
         }
 
-        .module-button-inner {
+        .moduleRow {
           display: flex;
           gap: 12px;
           align-items: flex-start;
         }
 
-        .module-icon {
+        .moduleIcon {
           width: 42px;
           height: 42px;
           border-radius: 14px;
@@ -560,125 +493,97 @@ export default function DashboardClient({
           font-size: 12px;
           font-weight: 900;
           flex-shrink: 0;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
         }
 
-        .module-copy {
-          min-width: 0;
+        .moduleBody {
           flex: 1;
+          min-width: 0;
         }
 
-        .module-topline {
+        .moduleHead {
           display: flex;
           justify-content: space-between;
           gap: 10px;
           align-items: flex-start;
-          margin-bottom: 7px;
+          margin-bottom: 6px;
         }
 
-        .module-name {
+        .moduleName {
           font-size: 15px;
-          line-height: 1.35;
           font-weight: 900;
-          color: white;
+          line-height: 1.35;
+          color: #0f172a;
         }
 
-        .module-pill {
-          flex-shrink: 0;
-          min-width: 82px;
-          text-align: center;
+        .moduleBadge {
           border-radius: 999px;
+          min-width: 84px;
           padding: 5px 8px;
+          text-align: center;
           font-size: 9px;
           font-weight: 900;
           letter-spacing: 0.1em;
           text-transform: uppercase;
+          flex-shrink: 0;
         }
 
-        .module-status {
+        .moduleStatus {
           font-size: 12px;
-          color: rgba(226, 232, 240, 0.72);
-          line-height: 1.55;
+          line-height: 1.6;
+          color: #64748b;
         }
 
         .content {
           min-width: 0;
         }
 
-        .hero {
+        .heroCard {
           position: relative;
           overflow: hidden;
           border-radius: 30px;
-          padding: 28px;
+          background: white;
+          border: 1px solid rgba(226, 232, 240, 0.92);
+          box-shadow: 0 28px 56px rgba(15, 23, 42, 0.07);
           margin-bottom: 20px;
-          box-shadow: 0 30px 65px rgba(15, 23, 42, 0.18);
-          color: white;
         }
 
-        .hero-orb {
-          position: absolute;
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.14);
-          pointer-events: none;
+        .heroAccent {
+          height: 6px;
+          background: ${activeMeta.surface};
         }
 
-        .hero-orb.one {
-          width: 240px;
-          height: 240px;
-          top: -72px;
-          right: -34px;
+        .heroInner {
+          padding: 28px;
+          background:
+            radial-gradient(circle at top right, rgba(99,102,241,0.08), transparent 18%),
+            linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95));
         }
 
-        .hero-orb.two {
-          width: 210px;
-          height: 210px;
-          bottom: -68px;
-          right: 130px;
-          background: rgba(255,255,255,0.11);
-        }
-
-        .hero-orb.three {
-          width: 160px;
-          height: 160px;
-          top: 36px;
-          left: 55%;
-          background: rgba(255,255,255,0.08);
-        }
-
-        .hero-inner {
-          position: relative;
-          z-index: 1;
-        }
-
-        .hero-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
+        .heroTop {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
           gap: 18px;
-          margin-bottom: 24px;
-          flex-wrap: wrap;
+          align-items: start;
+          margin-bottom: 20px;
         }
 
-        .hero-left {
-          max-width: 760px;
-        }
-
-        .hero-badge {
+        .heroBadge {
           display: inline-flex;
           align-items: center;
           gap: 8px;
           border-radius: 999px;
-          padding: 7px 12px;
-          background: rgba(255,255,255,0.14);
-          border: 1px solid rgba(255,255,255,0.18);
+          padding: 8px 12px;
+          background: activeMeta.softSurface;
+          border: 1px solid ${activeMeta.border};
+          color: ${activeMeta.accent};
           font-size: 11px;
-          font-weight: 800;
+          font-weight: 900;
           letter-spacing: 0.12em;
           text-transform: uppercase;
           margin-bottom: 14px;
         }
 
-        .hero-title-row {
+        .heroTitleRow {
           display: flex;
           align-items: center;
           gap: 14px;
@@ -686,212 +591,224 @@ export default function DashboardClient({
           flex-wrap: wrap;
         }
 
-        .hero-icon {
+        .heroIcon {
           width: 58px;
           height: 58px;
           border-radius: 18px;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(255,255,255,0.16);
-          border: 1px solid rgba(255,255,255,0.18);
+          background: ${activeMeta.surface};
           color: white;
-          font-size: 17px;
+          font-size: 18px;
           font-weight: 900;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.16);
+          box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
         }
 
-        .hero-title {
-          font-size: 40px;
-          line-height: 0.98;
+        .heroTitle {
+          font-size: 42px;
           font-weight: 900;
-          letter-spacing: -0.03em;
+          line-height: 1;
+          letter-spacing: -0.04em;
+          color: #0f172a;
         }
 
-        .hero-description {
-          max-width: 720px;
+        .heroDescription {
           font-size: 15px;
           line-height: 1.8;
-          color: rgba(255, 255, 255, 0.88);
+          color: #475569;
+          max-width: 760px;
         }
 
-        .hero-right {
+        .heroActions {
           display: flex;
           flex-direction: column;
           gap: 12px;
           align-items: flex-end;
         }
 
-        .state-pill {
-          min-width: 180px;
+        .heroState {
+          min-width: 188px;
           text-align: center;
           border-radius: 999px;
           padding: 11px 16px;
-          background: rgba(255,255,255,0.16);
-          border: 1px solid rgba(255,255,255,0.2);
+          background: activeMeta.softSurface;
+          border: 1px solid ${activeMeta.border};
+          color: ${activeModuleRecord?.isAssigned ? '#15803d' : '#64748b'};
           font-size: 11px;
           font-weight: 900;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: white;
         }
 
-        .launch-btn {
+        .heroLaunch {
           text-decoration: none;
-          border-radius: 16px;
-          background: white;
-          color: #111827;
+          border-radius: 15px;
+          background: #0f172a;
+          color: white;
           padding: 14px 18px;
           font-size: 13px;
           font-weight: 900;
-          box-shadow: 0 18px 36px rgba(15, 23, 42, 0.2);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          box-shadow: 0 16px 30px rgba(15, 23, 42, 0.16);
+          transition: all 0.2s ease;
         }
 
-        .launch-btn:hover {
+        .heroLaunch:hover {
           transform: translateY(-1px);
-          box-shadow: 0 22px 40px rgba(15, 23, 42, 0.24);
         }
 
-        .waiting-chip {
-          border-radius: 16px;
+        .heroDisabled {
+          border-radius: 15px;
+          background: #e2e8f0;
+          color: #64748b;
           padding: 14px 18px;
-          background: rgba(255,255,255,0.16);
-          border: 1px solid rgba(255,255,255,0.14);
-          color: rgba(255,255,255,0.88);
           font-size: 13px;
           font-weight: 800;
         }
 
-        .hero-stats {
+        .metricsGrid {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 14px;
         }
 
-        .hero-stat {
+        .metricCard {
           border-radius: 20px;
           padding: 18px;
-          background: rgba(255,255,255,0.14);
-          border: 1px solid rgba(255,255,255,0.16);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
         }
 
-        .hero-stat-label {
+        .metricLabel {
           font-size: 11px;
+          font-weight: 800;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: rgba(255,255,255,0.76);
+          color: #64748b;
           margin-bottom: 8px;
-          font-weight: 800;
         }
 
-        .hero-stat-value {
-          font-size: 17px;
-          line-height: 1.45;
+        .metricValue {
+          font-size: 18px;
           font-weight: 900;
-          color: white;
+          line-height: 1.35;
+          color: #0f172a;
         }
 
-        .workspace {
-          border-radius: 28px;
-          border: 1px solid rgba(226, 232, 240, 0.9);
+        .workspaceCard {
+          border-radius: 30px;
           background: rgba(255, 255, 255, 0.88);
-          box-shadow: 0 24px 55px rgba(15, 23, 42, 0.06);
+          border: 1px solid rgba(226, 232, 240, 0.94);
+          box-shadow: 0 24px 52px rgba(15, 23, 42, 0.05);
           overflow: hidden;
         }
 
-        .workspace-head {
-          padding: 24px;
+        .workspaceHeader {
+          padding: 26px 28px 22px;
           border-bottom: 1px solid #edf2f7;
           display: grid;
-          grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+          grid-template-columns: minmax(0, 1fr) 360px;
           gap: 18px;
           align-items: start;
         }
 
-        .section-kicker {
+        .sectionKicker {
           font-size: 11px;
           font-weight: 900;
           letter-spacing: 0.12em;
           text-transform: uppercase;
+          color: ${activeMeta.accent};
           margin-bottom: 10px;
         }
 
-        .workspace-title {
-          font-size: 28px;
-          line-height: 1.05;
+        .sectionTitle {
+          font-size: 30px;
           font-weight: 900;
+          line-height: 1.05;
+          letter-spacing: -0.03em;
           color: #0f172a;
           margin-bottom: 10px;
         }
 
-        .workspace-copy {
+        .sectionCopy {
           font-size: 14px;
           line-height: 1.8;
           color: #475569;
         }
 
-        .assignment-card {
+        .statusCard {
           border-radius: 22px;
+          background: activeMeta.softSurface;
+          border: 1px solid ${activeMeta.border};
           padding: 18px;
         }
 
-        .assignment-title {
-          font-size: 12px;
+        .statusLabel {
+          font-size: 11px;
           font-weight: 900;
           letter-spacing: 0.1em;
           text-transform: uppercase;
+          color: ${activeMeta.accent};
           margin-bottom: 8px;
         }
 
-        .assignment-state {
+        .statusTitle {
           font-size: 22px;
-          line-height: 1.1;
           font-weight: 900;
+          line-height: 1.15;
           color: #0f172a;
           margin-bottom: 10px;
         }
 
-        .assignment-copy {
+        .statusCopy {
           font-size: 13px;
-          line-height: 1.72;
+          line-height: 1.75;
           color: #475569;
         }
 
-        .workspace-body {
-          padding: 24px;
+        .workspaceBody {
+          padding: 24px 28px 30px;
         }
 
-        .portfolio-strip {
+        .catalogTitle {
+          font-size: 16px;
+          font-weight: 900;
+          color: #0f172a;
+          margin-bottom: 14px;
+        }
+
+        .catalogGrid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-          gap: 12px;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 14px;
           margin-bottom: 24px;
         }
 
-        .portfolio-card {
-          border-radius: 20px;
-          padding: 15px;
-          background: #fff;
+        .catalogCard {
+          border-radius: 22px;
           border: 1px solid #e2e8f0;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          min-height: 118px;
+          background: white;
+          padding: 16px;
+          transition: all 0.2s ease;
         }
 
-        .portfolio-top {
+        .catalogCard:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 18px 30px rgba(15, 23, 42, 0.06);
+        }
+
+        .catalogTop {
           display: flex;
-          align-items: center;
           justify-content: space-between;
           gap: 10px;
+          align-items: center;
+          margin-bottom: 14px;
         }
 
-        .portfolio-icon {
-          width: 38px;
-          height: 38px;
-          border-radius: 12px;
+        .catalogIcon {
+          width: 40px;
+          height: 40px;
+          border-radius: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -900,66 +817,70 @@ export default function DashboardClient({
           font-weight: 900;
         }
 
-        .portfolio-label {
+        .catalogBadge {
           border-radius: 999px;
           padding: 5px 9px;
           font-size: 9px;
           font-weight: 900;
-          text-transform: uppercase;
           letter-spacing: 0.1em;
+          text-transform: uppercase;
         }
 
-        .portfolio-name {
-          font-size: 15px;
+        .catalogName {
+          font-size: 17px;
           font-weight: 900;
           color: #0f172a;
-          line-height: 1.4;
+          line-height: 1.35;
+          margin-bottom: 8px;
         }
 
-        .portfolio-status {
+        .catalogStatus {
           font-size: 12px;
           color: #64748b;
           line-height: 1.6;
         }
 
-        .quick-panel {
-          border-radius: 22px;
+        .quickPanel {
+          border-radius: 24px;
+          background: activeMeta.softSurface;
+          border: 1px solid ${activeMeta.border};
           padding: 20px;
-          margin-bottom: 22px;
+          margin-bottom: 24px;
         }
 
-        .quick-title {
-          font-size: 12px;
+        .quickLabel {
+          font-size: 11px;
           font-weight: 900;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          margin-bottom: 9px;
+          color: ${activeMeta.accent};
+          margin-bottom: 10px;
         }
 
-        .quick-headline {
+        .quickTitle {
           font-size: 22px;
-          line-height: 1.2;
           font-weight: 900;
+          line-height: 1.25;
           color: #0f172a;
           margin-bottom: 10px;
         }
 
-        .quick-copy {
-          max-width: 820px;
+        .quickCopy {
           font-size: 13px;
           line-height: 1.8;
           color: #475569;
+          max-width: 820px;
           margin-bottom: 16px;
         }
 
-        .quick-actions {
+        .quickActions {
           display: flex;
           gap: 12px;
           flex-wrap: wrap;
         }
 
-        .dark-action,
-        .light-action {
+        .primaryAction,
+        .secondaryAction {
           text-decoration: none;
           border-radius: 14px;
           padding: 12px 16px;
@@ -967,141 +888,144 @@ export default function DashboardClient({
           font-weight: 900;
         }
 
-        .dark-action {
+        .primaryAction {
           background: #0f172a;
           color: white;
         }
 
-        .light-action {
+        .secondaryAction {
           background: white;
+          color: ${activeMeta.accent};
+          border: 1px solid ${activeMeta.border};
         }
 
-        .block-title {
+        .blockTitle {
           font-size: 16px;
-          line-height: 1.2;
           font-weight: 900;
           color: #0f172a;
           margin-bottom: 14px;
         }
 
-        .feature-grid {
+        .featureGrid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
           gap: 14px;
-          margin-bottom: 22px;
+          margin-bottom: 24px;
         }
 
-        .feature-card {
-          border-radius: 22px;
+        .featureCard {
+          border-radius: 24px;
           padding: 18px;
-          min-height: 160px;
-          display: flex;
-          flex-direction: column;
-          border: 1px solid;
-          transition: transform 0.18s ease, box-shadow 0.18s ease;
+          min-height: 170px;
+          border: 1px solid ${activeMeta.border};
+          transition: all 0.2s ease;
         }
 
-        .feature-card:hover {
+        .featureCard:hover {
           transform: translateY(-2px);
-          box-shadow: 0 18px 32px rgba(15, 23, 42, 0.08);
+          box-shadow: 0 18px 30px rgba(15, 23, 42, 0.06);
         }
 
-        .feature-index {
-          width: 36px;
-          height: 36px;
+        .featureIndex {
+          width: 38px;
+          height: 38px;
           border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
+          background: ${activeMeta.surface};
           color: white;
           font-size: 11px;
           font-weight: 900;
           margin-bottom: 14px;
         }
 
-        .feature-name {
+        .featureName {
           font-size: 18px;
-          line-height: 1.3;
           font-weight: 900;
+          line-height: 1.35;
           color: #0f172a;
           margin-bottom: 8px;
         }
 
-        .feature-copy {
+        .featureCopy {
           font-size: 13px;
-          line-height: 1.75;
+          line-height: 1.8;
           color: #64748b;
         }
 
-        .insight-grid {
+        .summaryGrid {
           display: grid;
-          grid-template-columns: 1.15fr 0.85fr 0.9fr;
+          grid-template-columns: 1.2fr 0.8fr 0.9fr;
           gap: 14px;
         }
 
-        .insight-card {
-          border-radius: 22px;
-          padding: 20px;
+        .summaryCard {
+          border-radius: 24px;
           border: 1px solid #e2e8f0;
           background: white;
+          padding: 20px;
           min-height: 100%;
         }
 
-        .insight-card.soft {
-          background: #f8fafc;
+        .summaryCard.soft {
+          background: activeMeta.softSurface;
+          border-color: ${activeMeta.border};
         }
 
-        .insight-label {
+        .summaryLabel {
           font-size: 11px;
           font-weight: 900;
           letter-spacing: 0.12em;
           text-transform: uppercase;
+          color: ${activeMeta.accent};
           margin-bottom: 10px;
         }
 
-        .insight-headline {
+        .summaryTitle {
           font-size: 21px;
-          line-height: 1.2;
           font-weight: 900;
+          line-height: 1.2;
           color: #0f172a;
           margin-bottom: 10px;
         }
 
-        .insight-copy {
+        .summaryCopy {
           font-size: 13px;
-          line-height: 1.8;
+          line-height: 1.85;
           color: #475569;
         }
 
-        .cta-box {
+        .ctaCard {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
           gap: 16px;
         }
 
-        .cta-button {
+        .ctaButton {
           text-decoration: none;
           text-align: center;
           border-radius: 14px;
-          padding: 14px 16px;
+          background: ${activeMeta.accent};
           color: white;
+          padding: 14px 16px;
           font-size: 13px;
           font-weight: 900;
         }
 
-        .cta-disabled {
+        .ctaDisabled {
           text-align: center;
           border-radius: 14px;
-          padding: 14px 16px;
           background: #e2e8f0;
           color: #64748b;
+          padding: 14px 16px;
           font-size: 13px;
           font-weight: 900;
         }
 
-        @media (max-width: 1240px) {
-          .layout {
+        @media (max-width: 1260px) {
+          .layoutGrid {
             grid-template-columns: 1fr;
           }
 
@@ -1109,16 +1033,16 @@ export default function DashboardClient({
             position: static;
           }
 
-          .workspace-head,
-          .insight-grid {
+          .workspaceHeader,
+          .summaryGrid {
             grid-template-columns: 1fr;
           }
         }
 
-        @media (max-width: 860px) {
-          .topbar-inner {
-            align-items: flex-start;
+        @media (max-width: 900px) {
+          .topbarInner {
             flex-direction: column;
+            align-items: flex-start;
           }
 
           .account {
@@ -1126,131 +1050,108 @@ export default function DashboardClient({
             justify-content: space-between;
           }
 
-          .hero {
-            padding: 22px;
-          }
-
-          .hero-title {
-            font-size: 32px;
-          }
-
-          .hero-stats {
+          .heroTop {
             grid-template-columns: 1fr;
           }
 
-          .overview-grid {
-            grid-template-columns: 1fr 1fr;
+          .heroActions {
+            align-items: stretch;
+          }
+
+          .metricsGrid {
+            grid-template-columns: 1fr;
           }
         }
 
         @media (max-width: 640px) {
-          .promo-wrap,
-          .page {
+          .pageWrap,
+          .topbarInner {
             padding-left: 14px;
             padding-right: 14px;
           }
 
-          .topbar-inner {
-            padding: 16px 14px;
-          }
-
-          .brand-title {
+          .brandTitle {
             font-size: 24px;
           }
 
           .account {
-            align-items: flex-start;
             flex-direction: column;
-          }
-
-          .hero-title-row {
             align-items: flex-start;
           }
 
-          .hero-title {
-            font-size: 28px;
-          }
-
-          .hero-right {
-            width: 100%;
-            align-items: stretch;
-          }
-
-          .workspace-head,
-          .workspace-body,
-          .sidebar-inner {
-            padding: 18px;
-          }
-
-          .feature-grid,
-          .portfolio-strip,
-          .overview-grid {
+          .statsGrid,
+          .catalogGrid,
+          .featureGrid,
+          .summaryGrid {
             grid-template-columns: 1fr;
+          }
+
+          .heroTitle {
+            font-size: 31px;
+          }
+
+          .workspaceHeader,
+          .workspaceBody,
+          .sidebarInner,
+          .heroInner {
+            padding-left: 18px;
+            padding-right: 18px;
           }
         }
       `}</style>
 
-      <div className="promo-wrap">
-        <div className="promo-bar">
-          <span className="promo-pill">Limited Time Offer</span>
-          <span className="promo-text">Get 30% OFF on all plans. Upgrade your workspace access anytime.</span>
-          <a href="/pricing" className="promo-cta">
-            Claim Offer
-          </a>
-        </div>
-      </div>
-
       <header className="topbar">
-        <div className="topbar-inner">
+        <div className="topbarInner">
           <div className="brand">
-            <div className="brand-mark">SV</div>
+            <div className="brandMark">SV</div>
             <div>
-              <div className="brand-title">ScaleVyapar Client Hub</div>
-              <div className="brand-subtitle">Module Workspace</div>
+              <div className="brandTitle">ScaleVyapar Client Hub</div>
+              <div className="brandSubtitle">Module Workspace</div>
             </div>
           </div>
 
           <div className="account">
-            <div className="account-block">
-              <div className="account-name">{user.name}</div>
-              <div className="account-email">{user.email}</div>
+            <div className="accountText">
+              <div className="accountName">{user.name}</div>
+              <div className="accountEmail">{user.email}</div>
             </div>
-            <button onClick={logout} className="logout-btn">
+
+            <button onClick={logout} className="logoutButton">
               Logout
             </button>
           </div>
         </div>
       </header>
 
-      <div className="page">
-        <div className="layout">
+      <div className="pageWrap">
+        <div className="layoutGrid">
           <aside className="sidebar">
-            <div className="sidebar-inner">
-              <div className="sidebar-card">
+            <div className="sidebarInner">
+              <div className="overviewPanel">
                 <div className="eyebrow">Client Overview</div>
-                <div className="sidebar-name">{user.name}</div>
-                <div className="sidebar-copy">
+                <div className="overviewName">{user.name}</div>
+                <div className="overviewCopy">
                   Review every assigned module from one premium workspace, jump into tools quickly, and keep visibility on the full client setup.
                 </div>
-                <div className="plan-chip-row">
-                  <span className="plan-chip">{user.plan || 'Client Account'}</span>
-                  <span className="plan-chip">{(user.status || 'active').toUpperCase()}</span>
+                <div className="miniPills">
+                  <span className="miniPill">{user.plan || 'Client Account'}</span>
+                  <span className="miniPill">{(user.status || 'active').toUpperCase()}</span>
                 </div>
               </div>
 
-              <div className="overview-grid">
+              <div className="statsGrid">
                 {overviewCards.map(card => (
-                  <div key={card.label} className="overview-box" style={{ background: card.tone }}>
-                    <div className="overview-label">{card.label}</div>
-                    <div className="overview-value" style={{ color: card.text }}>
+                  <div key={card.label} className="statCard" style={{ background: card.bg }}>
+                    <div className="statLabel">{card.label}</div>
+                    <div className="statValue" style={{ color: card.color }}>
                       {card.value}
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="module-group-title">Assigned Modules</div>
-              <div className="module-list" style={{ marginBottom: inactiveModules.length > 0 ? 18 : 0 }}>
+              <div className="groupTitle">Assigned Modules</div>
+              <div className="moduleList" style={{ marginBottom: inactiveModules.length > 0 ? 18 : 0 }}>
                 {assignedModules.map(module => {
                   const moduleKey = resolveModuleKey(module)
                   const meta = MODULE_META[moduleKey] || MODULE_META.crm
@@ -1260,24 +1161,25 @@ export default function DashboardClient({
                     <button
                       key={module.id}
                       onClick={() => setActiveModule(moduleKey)}
-                      className={`module-button${selected ? ' is-selected' : ''}`}
+                      className={`moduleItem${selected ? ' selected' : ''}`}
                       style={{
-                        borderColor: selected ? meta.border : 'rgba(148,163,184,0.12)',
-                        background: selected ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.04)',
+                        borderColor: selected ? meta.border : '#e2e8f0',
+                        background: selected ? meta.softSurface : '#ffffff',
                       }}
                     >
-                      <div className="module-button-inner">
-                        <div className="module-icon" style={{ background: meta.surface }}>
+                      <div className="moduleRow">
+                        <div className="moduleIcon" style={{ background: meta.surface }}>
                           {module.icon || meta.shortIcon}
                         </div>
-                        <div className="module-copy">
-                          <div className="module-topline">
-                            <div className="module-name">{module.name}</div>
-                            <span className="module-pill" style={{ background: '#eaf8ef', color: '#208853' }}>
+
+                        <div className="moduleBody">
+                          <div className="moduleHead">
+                            <div className="moduleName">{module.name}</div>
+                            <span className="moduleBadge" style={{ background: '#eaf8ef', color: '#208853' }}>
                               Active
                             </span>
                           </div>
-                          <div className="module-status">{getModuleStatus(module)}</div>
+                          <div className="moduleStatus">{getModuleStatus(module)}</div>
                         </div>
                       </div>
                     </button>
@@ -1287,8 +1189,8 @@ export default function DashboardClient({
 
               {inactiveModules.length > 0 ? (
                 <>
-                  <div className="module-group-title">Inactive Modules</div>
-                  <div className="module-list">
+                  <div className="groupTitle">Inactive Modules</div>
+                  <div className="moduleList">
                     {inactiveModules.map(module => {
                       const moduleKey = resolveModuleKey(module)
                       const meta = MODULE_META[moduleKey] || MODULE_META.crm
@@ -1298,24 +1200,25 @@ export default function DashboardClient({
                         <button
                           key={module.id}
                           onClick={() => setActiveModule(moduleKey)}
-                          className={`module-button${selected ? ' is-selected' : ''}`}
+                          className={`moduleItem${selected ? ' selected' : ''}`}
                           style={{
-                            borderColor: selected ? meta.border : 'rgba(148,163,184,0.12)',
-                            background: selected ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)',
+                            borderColor: selected ? meta.border : '#e2e8f0',
+                            background: selected ? meta.softSurface : '#ffffff',
                           }}
                         >
-                          <div className="module-button-inner">
-                            <div className="module-icon" style={{ background: 'rgba(148,163,184,0.22)' }}>
+                          <div className="moduleRow">
+                            <div className="moduleIcon" style={{ background: '#cbd5e1', color: '#334155' }}>
                               {module.icon || meta.shortIcon}
                             </div>
-                            <div className="module-copy">
-                              <div className="module-topline">
-                                <div className="module-name">{module.name}</div>
-                                <span className="module-pill" style={{ background: '#eef2f7', color: '#64748b' }}>
+
+                            <div className="moduleBody">
+                              <div className="moduleHead">
+                                <div className="moduleName">{module.name}</div>
+                                <span className="moduleBadge" style={{ background: '#eef2f7', color: '#64748b' }}>
                                   Inactive
                                 </span>
                               </div>
-                              <div className="module-status">{getModuleStatus(module)}</div>
+                              <div className="moduleStatus">{getModuleStatus(module)}</div>
                             </div>
                           </div>
                         </button>
@@ -1328,96 +1231,93 @@ export default function DashboardClient({
           </aside>
 
           <main className="content">
-            <section className="hero" style={{ background: activeMeta.surface }}>
-              <div className="hero-orb one" />
-              <div className="hero-orb two" />
-              <div className="hero-orb three" />
+            <section className="heroCard">
+              <div className="heroAccent" />
+              <div className="heroInner">
+                <div className="heroTop">
+                  <div>
+                    <div className="heroBadge">{activeMeta.badge}</div>
 
-              <div className="hero-inner">
-                <div className="hero-header">
-                  <div className="hero-left">
-                    <div className="hero-badge">{activeMeta.badge}</div>
-
-                    <div className="hero-title-row">
-                      <div className="hero-icon">{activeMeta.heroIcon}</div>
-                      <div className="hero-title">{activeModuleRecord?.name || 'Module Workspace'}</div>
+                    <div className="heroTitleRow">
+                      <div className="heroIcon">{activeMeta.heroIcon}</div>
+                      <div className="heroTitle">{activeModuleRecord?.name || 'Module Workspace'}</div>
                     </div>
 
-                    <div className="hero-description">{moduleDescription}</div>
+                    <div className="heroDescription">{moduleDescription}</div>
                   </div>
 
-                  <div className="hero-right">
-                    <div className="state-pill">
-                      {activeModuleRecord?.isAssigned ? 'Assigned To Client' : 'Pending Assignment'}
+                  <div className="heroActions">
+                    <div className="heroState">
+                      {activeModuleRecord?.isAssigned ? 'Assigned to Client' : 'Not Assigned Yet'}
                     </div>
 
                     {activeModuleRecord?.isAssigned ? (
-                      <a href={activeHref} target="_blank" rel="noreferrer" className="launch-btn">
+                      <a href={activeHref} target="_blank" rel="noreferrer" className="heroLaunch">
                         Open module in new tab
                       </a>
                     ) : (
-                      <div className="waiting-chip">Waiting for assignment</div>
+                      <div className="heroDisabled">Waiting for assignment</div>
                     )}
                   </div>
                 </div>
 
-                <div className="hero-stats">
-                  {heroStats.map(card => (
-                    <div key={card.label} className="hero-stat">
-                      <div className="hero-stat-label">{card.label}</div>
-                      <div className="hero-stat-value">{card.value}</div>
+                <div className="metricsGrid">
+                  <div className="metricCard">
+                    <div className="metricLabel">Workspace State</div>
+                    <div className="metricValue">
+                      {activeModuleRecord?.isAssigned ? 'Live for your account' : 'Inactive for your account'}
                     </div>
-                  ))}
+                  </div>
+
+                  <div className="metricCard">
+                    <div className="metricLabel">Primary Use</div>
+                    <div className="metricValue">{activeMeta.badge}</div>
+                  </div>
+
+                  <div className="metricCard">
+                    <div className="metricLabel">Feature Coverage</div>
+                    <div className="metricValue">{featureList.length} capabilities</div>
+                  </div>
                 </div>
               </div>
             </section>
 
-            <section className="workspace">
-              <div className="workspace-head">
+            <section className="workspaceCard">
+              <div className="workspaceHeader">
                 <div>
-                  <div className="section-kicker" style={{ color: activeMeta.accent }}>
-                    Module Detail
-                  </div>
-                  <div className="workspace-title">{activeModuleRecord?.name || 'Module Overview'}</div>
-                  <div className="workspace-copy">{moduleDescription}</div>
+                  <div className="sectionKicker">Module Detail</div>
+                  <div className="sectionTitle">{activeModuleRecord?.name || 'Module Overview'}</div>
+                  <div className="sectionCopy">{moduleDescription}</div>
                 </div>
 
-                <div
-                  className="assignment-card"
-                  style={{
-                    background: activeMeta.softSurface,
-                    border: `1px solid ${activeMeta.border}`,
-                  }}
-                >
-                  <div className="assignment-title" style={{ color: activeMeta.accent }}>
-                    Assignment Status
-                  </div>
-                  <div className="assignment-state">
+                <div className="statusCard">
+                  <div className="statusLabel">Assignment Status</div>
+                  <div className="statusTitle">
                     {activeModuleRecord?.isAssigned ? 'Enabled for you' : 'Inactive for now'}
                   </div>
-                  <div className="assignment-copy">
+                  <div className="statusCopy">
                     {activeModuleRecord?.isAssigned
-                      ? 'This module is already assigned to your account. You can open it directly and use the tools listed below.'
-                      : 'This module exists in ScaleVyapar, but it is not assigned to your client account yet. You can review what it includes before activation.'}
+                      ? 'This module is already assigned to your account. You can open it directly and continue your workflow without changes.'
+                      : 'This module exists in ScaleVyapar, but it is not assigned to your client account yet. You can still review what it includes.'}
                   </div>
                 </div>
               </div>
 
-              <div className="workspace-body">
-                <div className="block-title">Your module portfolio</div>
-                <div className="portfolio-strip">
+              <div className="workspaceBody">
+                <div className="catalogTitle">Module Catalog</div>
+                <div className="catalogGrid">
                   {modules.map(module => {
                     const moduleKey = resolveModuleKey(module)
                     const meta = MODULE_META[moduleKey] || MODULE_META.crm
 
                     return (
-                      <div key={module.id} className="portfolio-card">
-                        <div className="portfolio-top">
-                          <div className="portfolio-icon" style={{ background: meta.surface }}>
+                      <div key={module.id} className="catalogCard">
+                        <div className="catalogTop">
+                          <div className="catalogIcon" style={{ background: meta.surface }}>
                             {module.icon || meta.shortIcon}
                           </div>
                           <div
-                            className="portfolio-label"
+                            className="catalogBadge"
                             style={{
                               background: module.isAssigned ? '#eaf8ef' : '#eef2f7',
                               color: module.isAssigned ? '#208853' : '#64748b',
@@ -1426,137 +1326,94 @@ export default function DashboardClient({
                             {module.isAssigned ? 'Active' : 'Inactive'}
                           </div>
                         </div>
-                        <div className="portfolio-name">{module.name}</div>
-                        <div className="portfolio-status">{getModuleStatus(module)}</div>
+
+                        <div className="catalogName">{module.name}</div>
+                        <div className="catalogStatus">{getModuleStatus(module)}</div>
                       </div>
                     )
                   })}
                 </div>
 
                 {activeKey === 'rozgar' ? (
-                  <div
-                    className="quick-panel"
-                    style={{
-                      background: activeMeta.softSurface,
-                      border: `1px solid ${activeMeta.border}`,
-                    }}
-                  >
-                    <div className="quick-title" style={{ color: activeMeta.accent }}>
-                      Rozgar Quick Actions
-                    </div>
-                    <div className="quick-headline">
-                      Hiring tools for labour sourcing and worker applications
-                    </div>
-                    <div className="quick-copy">
+                  <div className="quickPanel">
+                    <div className="quickLabel">Rozgar Quick Actions</div>
+                    <div className="quickTitle">Hiring tools for labour sourcing and worker applications</div>
+                    <div className="quickCopy">
                       Open the labour search interface to browse available workers, or jump directly into the company panel to review incoming applications, shortlist workers, and continue the hiring flow.
                     </div>
-                    <div className="quick-actions">
-                      <a href="/labour/company/search" target="_blank" rel="noreferrer" className="dark-action">
+
+                    <div className="quickActions">
+                      <a href="/labour/company/search" target="_blank" rel="noreferrer" className="primaryAction">
                         Search Labour
                       </a>
-                      <a
-                        href="/labour/company/panel"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="light-action"
-                        style={{ color: activeMeta.accent, border: `1px solid ${activeMeta.border}` }}
-                      >
+                      <a href="/labour/company/panel" target="_blank" rel="noreferrer" className="secondaryAction">
                         Receive Worker Applications
                       </a>
                     </div>
                   </div>
                 ) : null}
 
-                <div className="block-title">What you can do in this module</div>
-                <div className="feature-grid">
+                <div className="blockTitle">What you can do in this module</div>
+                <div className="featureGrid">
                   {featureList.map((feature, index) => (
                     <div
                       key={feature}
-                      className="feature-card"
-                      style={{
-                        borderColor: activeMeta.border,
-                        background: index % 2 === 0 ? 'white' : activeMeta.softSurface,
-                      }}
+                      className="featureCard"
+                      style={{ background: index % 2 === 0 ? '#ffffff' : activeMeta.softSurface }}
                     >
-                      <div className="feature-index" style={{ background: activeMeta.surface }}>
-                        {String(index + 1).padStart(2, '0')}
-                      </div>
-                      <div className="feature-name">{feature}</div>
-                      <div className="feature-copy">
+                      <div className="featureIndex">{String(index + 1).padStart(2, '0')}</div>
+                      <div className="featureName">{feature}</div>
+                      <div className="featureCopy">
                         {activeModuleRecord?.isAssigned
                           ? `Use ${feature.toLowerCase()} from your assigned ${activeModuleRecord?.name || 'module'} workspace whenever you need it.`
-                          : `This capability is part of ${activeModuleRecord?.name || 'this module'} and becomes available after the module is assigned to your account.`}
+                          : `This capability is part of ${activeModuleRecord?.name || 'this module'} and becomes available once the module is assigned to your account.`}
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="insight-grid">
-                  <div className="insight-card">
-                    <div className="insight-label" style={{ color: activeMeta.accent }}>
-                      Module Summary
-                    </div>
-                    <div className="insight-headline">Premium visibility across your workspace</div>
-                    <div className="insight-copy">
+                <div className="summaryGrid">
+                  <div className="summaryCard">
+                    <div className="summaryLabel">Module Summary</div>
+                    <div className="summaryTitle">Premium visibility across your workspace</div>
+                    <div className="summaryCopy">
                       {moduleSummary} {activeModuleRecord?.isAssigned
                         ? 'Your account already has access, so you can open the module directly from this dashboard.'
                         : 'It is shown here in inactive mode so you can review it clearly before it is assigned.'}
                     </div>
                   </div>
 
-                  <div
-                    className="insight-card soft"
-                    style={{
-                      background: activeMeta.softSurface,
-                      borderColor: activeMeta.border,
-                    }}
-                  >
-                    <div className="insight-label" style={{ color: activeMeta.accent }}>
-                      Workspace Behavior
-                    </div>
-                    <div className="insight-headline">
+                  <div className="summaryCard soft">
+                    <div className="summaryLabel">Workspace Behavior</div>
+                    <div className="summaryTitle">
                       {activeModuleRecord?.isAssigned ? 'Ready to operate' : 'Visible but locked'}
                     </div>
-                    <div className="insight-copy">
+                    <div className="summaryCopy">
                       {activeModuleRecord?.isAssigned
                         ? 'This module is active for your client account, and all existing workflows, links, and permissions remain unchanged.'
                         : 'This module remains inactive until assigned, while still allowing you to understand its purpose and capabilities in the workspace.'}
                     </div>
                   </div>
 
-                  <div
-                    className="insight-card cta-box"
-                    style={{
-                      background: 'white',
-                      borderColor: activeMeta.border,
-                    }}
-                  >
+                  <div className="summaryCard ctaCard">
                     <div>
-                      <div className="insight-label" style={{ color: activeMeta.accent }}>
-                        Next Step
-                      </div>
-                      <div className="insight-headline">
+                      <div className="summaryLabel">Next Step</div>
+                      <div className="summaryTitle">
                         {activeModuleRecord?.isAssigned ? 'Open and continue your work' : 'Keep this module on standby'}
                       </div>
-                      <div className="insight-copy">
+                      <div className="summaryCopy">
                         {activeModuleRecord?.isAssigned
                           ? 'You already have access. Open the module in a new tab and continue from the current workflow without interruption.'
-                          : 'This module is visible for planning and awareness, but it will stay inactive until it is assigned to this client account.'}
+                          : 'This module stays inactive until it is assigned to this client account.'}
                       </div>
                     </div>
 
                     {activeModuleRecord?.isAssigned ? (
-                      <a
-                        href={activeHref}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="cta-button"
-                        style={{ background: activeMeta.accent }}
-                      >
+                      <a href={activeHref} target="_blank" rel="noreferrer" className="ctaButton">
                         Open {activeModuleRecord?.name}
                       </a>
                     ) : (
-                      <div className="cta-disabled">Inactive for this client</div>
+                      <div className="ctaDisabled">Inactive for this client</div>
                     )}
                   </div>
                 </div>

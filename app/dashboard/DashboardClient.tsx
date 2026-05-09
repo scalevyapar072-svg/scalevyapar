@@ -169,7 +169,25 @@ function resolveModuleKey(mod: DashboardModule) {
 
 function pickModuleHref(moduleKey: string, mod?: DashboardModule) {
   const candidates = [mod?.customerLink, mod?.href, MODULE_META[moduleKey]?.href]
-  return candidates.find((value): value is string => typeof value === 'string' && value.trim().length > 0 && value.trim() !== '#') || '#'
+  const rawHref =
+    candidates.find(
+      (value): value is string =>
+        typeof value === 'string' && value.trim().length > 0 && value.trim() !== '#'
+    ) || '#'
+
+  if (rawHref === '#') return rawHref
+
+  try {
+    const url = new URL(rawHref)
+
+    if (url.hostname.includes('vercel.app')) {
+      return `https://www.scalevyapar.in${url.pathname}${url.search}${url.hash}`
+    }
+
+    return `${url.origin}${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return rawHref
+  }
 }
 
 function getModuleStatus(module: DashboardModule) {

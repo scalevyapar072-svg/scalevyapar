@@ -251,7 +251,7 @@ export default function DashboardClient({
         .topbarInner {
           max-width: 1480px;
           margin: 0 auto;
-          padding: 22px 28px;
+          padding: 20px 28px;
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -261,45 +261,46 @@ export default function DashboardClient({
         .brand {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 14px;
           min-width: 0;
         }
 
         .brandMark {
-          width: 54px;
-          height: 54px;
-          border-radius: 18px;
+          width: 50px;
+          height: 50px;
+          border-radius: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
           background: linear-gradient(135deg, #7fa3ef 0%, #5d7ed3 100%);
           color: white;
-          font-size: 19px;
-          font-weight: 900;
-          box-shadow: 0 18px 34px rgba(62, 94, 192, 0.22);
+          font-size: 18px;
+          font-weight: 800;
+          box-shadow: 0 16px 30px rgba(62, 94, 192, 0.2);
           flex-shrink: 0;
         }
 
         .brandTitle {
-          font-size: 31px;
+          font-size: 28px;
           line-height: 1;
-          font-weight: 900;
+          font-weight: 800;
           letter-spacing: -0.03em;
           color: #142136;
-          margin-bottom: 6px;
+          margin-bottom: 5px;
         }
 
         .brandSubtitle {
-          font-size: 12px;
+          font-size: 11px;
           color: #64748b;
           letter-spacing: 0.16em;
           text-transform: uppercase;
+          font-weight: 500;
         }
 
         .account {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 14px;
         }
 
         .accountText {
@@ -307,14 +308,14 @@ export default function DashboardClient({
         }
 
         .accountName {
-          font-size: 16px;
-          font-weight: 900;
+          font-size: 14px;
+          font-weight: 700;
           color: #142136;
           margin-bottom: 4px;
         }
 
         .accountEmail {
-          font-size: 13px;
+          font-size: 12px;
           color: #64748b;
         }
 
@@ -322,11 +323,11 @@ export default function DashboardClient({
           border: 1px solid #fecaca;
           background: #fff5f5;
           color: #dc2626;
-          border-radius: 14px;
-          padding: 12px 18px;
+          border-radius: 12px;
+          padding: 11px 16px;
           cursor: pointer;
-          font-size: 13px;
-          font-weight: 900;
+          font-size: 12px;
+          font-weight: 600;
           transition: all 0.2s ease;
         }
 
@@ -338,20 +339,20 @@ export default function DashboardClient({
         .pageWrap {
           max-width: 1480px;
           margin: 0 auto;
-          padding: 24px 28px 38px;
+          padding: 22px 28px 34px;
         }
 
         .layoutGrid {
           display: grid;
-          grid-template-columns: 310px minmax(0, 1fr);
-          gap: 22px;
+          grid-template-columns: 300px minmax(0, 1fr);
+          gap: 20px;
           align-items: start;
         }
 
         .sidebar {
           position: sticky;
-          top: 104px;
-          border-radius: 28px;
+          top: 98px;
+          border-radius: 26px;
           background: rgba(255, 255, 255, 0.86);
           border: 1px solid rgba(226, 232, 240, 0.95);
           box-shadow: 0 22px 48px rgba(15, 23, 42, 0.07);
@@ -359,42 +360,41 @@ export default function DashboardClient({
         }
 
         .sidebarInner {
-          padding: 20px;
+          padding: 18px;
         }
 
         .overviewPanel {
-          border-radius: 24px;
-          padding: 22px;
+          border-radius: 22px;
+          padding: 20px;
           margin-bottom: 18px;
           background:
             radial-gradient(circle at top right, rgba(255,255,255,0.22), transparent 35%),
             linear-gradient(145deg, #15233b 0%, #233556 55%, #30456f 100%);
           color: white;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
         }
 
         .eyebrow {
-          font-size: 11px;
-          font-weight: 800;
+          font-size: 10px;
+          font-weight: 700;
           letter-spacing: 0.14em;
           text-transform: uppercase;
           color: rgba(226, 232, 240, 0.86);
-          margin-bottom: 12px;
+          margin-bottom: 10px;
         }
 
         .overviewName {
-          font-size: 26px;
+          font-size: 22px;
           line-height: 1.08;
-          font-weight: 900;
-          margin-bottom: 12px;
+          font-weight: 800;
+          margin-bottom: 10px;
           letter-spacing: -0.02em;
         }
 
         .overviewCopy {
-          font-size: 13px;
-          line-height: 1.8;
+          font-size: 12px;
+          line-height: 1.75;
           color: rgba(226, 232, 240, 0.9);
-          margin-bottom: 16px;
+          margin-bottom: 14px;
         }
 
         .miniPills {
@@ -405,9 +405,9 @@ export default function DashboardClient({
 
         .miniPill {
           border-radius: 999px;
-          padding: 8px 12px;
-          font-size: 11px;
-          font-weight: 800;
+          padding: 7px 11px;
+          font-size: 10px;
+          font-weight: 600;
           background: rgba(255, 255, 255, 0.12);
           border: 1px solid rgba(255, 255, 255, 0.15);
           color: white;
@@ -417,17 +417,17 @@ export default function DashboardClient({
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 10px;
-          margin-bottom: 20px;
+          margin-bottom: 18px;
         }
 
         .statCard {
-          border-radius: 18px;
+          border-radius: 16px;
           padding: 14px;
         }
 
         .statLabel {
           font-size: 10px;
-          font-weight: 800;
+          font-weight: 600;
           letter-spacing: 0.12em;
           text-transform: uppercase;
           color: #64748b;
@@ -435,15 +435,15 @@ export default function DashboardClient({
         }
 
         .statValue {
-          font-size: 19px;
-          font-weight: 900;
+          font-size: 18px;
+          font-weight: 700;
           line-height: 1.2;
           text-transform: capitalize;
         }
 
         .groupTitle {
-          font-size: 11px;
-          font-weight: 900;
+          font-size: 10px;
+          font-weight: 700;
           color: #94a3b8;
           text-transform: uppercase;
           letter-spacing: 0.16em;
@@ -458,8 +458,8 @@ export default function DashboardClient({
 
         .moduleItem {
           width: 100%;
-          border-radius: 20px;
-          padding: 14px;
+          border-radius: 18px;
+          padding: 13px;
           border: 1px solid #e2e8f0;
           background: #ffffff;
           text-align: left;
@@ -469,11 +469,11 @@ export default function DashboardClient({
 
         .moduleItem:hover {
           transform: translateY(-1px);
-          box-shadow: 0 16px 28px rgba(15, 23, 42, 0.06);
+          box-shadow: 0 14px 24px rgba(15, 23, 42, 0.05);
         }
 
         .moduleItem.selected {
-          box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+          box-shadow: 0 16px 28px rgba(15, 23, 42, 0.07);
         }
 
         .moduleRow {
@@ -483,15 +483,15 @@ export default function DashboardClient({
         }
 
         .moduleIcon {
-          width: 42px;
-          height: 42px;
-          border-radius: 14px;
+          width: 40px;
+          height: 40px;
+          border-radius: 13px;
           display: flex;
           align-items: center;
           justify-content: center;
           color: white;
-          font-size: 12px;
-          font-weight: 900;
+          font-size: 11px;
+          font-weight: 700;
           flex-shrink: 0;
         }
 
@@ -509,27 +509,27 @@ export default function DashboardClient({
         }
 
         .moduleName {
-          font-size: 15px;
-          font-weight: 900;
+          font-size: 14px;
+          font-weight: 700;
           line-height: 1.35;
           color: #0f172a;
         }
 
         .moduleBadge {
           border-radius: 999px;
-          min-width: 84px;
+          min-width: 80px;
           padding: 5px 8px;
           text-align: center;
           font-size: 9px;
-          font-weight: 900;
-          letter-spacing: 0.1em;
+          font-weight: 700;
+          letter-spacing: 0.08em;
           text-transform: uppercase;
           flex-shrink: 0;
         }
 
         .moduleStatus {
-          font-size: 12px;
-          line-height: 1.6;
+          font-size: 11px;
+          line-height: 1.55;
           color: #64748b;
         }
 
@@ -540,20 +540,20 @@ export default function DashboardClient({
         .heroCard {
           position: relative;
           overflow: hidden;
-          border-radius: 30px;
+          border-radius: 28px;
           background: white;
           border: 1px solid rgba(226, 232, 240, 0.92);
-          box-shadow: 0 28px 56px rgba(15, 23, 42, 0.07);
-          margin-bottom: 20px;
+          box-shadow: 0 24px 50px rgba(15, 23, 42, 0.06);
+          margin-bottom: 18px;
         }
 
         .heroAccent {
-          height: 6px;
+          height: 5px;
           background: ${activeMeta.surface};
         }
 
         .heroInner {
-          padding: 28px;
+          padding: 24px;
           background:
             radial-gradient(circle at top right, rgba(99,102,241,0.08), transparent 18%),
             linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95));
@@ -562,9 +562,9 @@ export default function DashboardClient({
         .heroTop {
           display: grid;
           grid-template-columns: minmax(0, 1fr) auto;
-          gap: 18px;
+          gap: 16px;
           align-items: start;
-          margin-bottom: 20px;
+          margin-bottom: 18px;
         }
 
         .heroBadge {
@@ -572,15 +572,15 @@ export default function DashboardClient({
           align-items: center;
           gap: 8px;
           border-radius: 999px;
-          padding: 8px 12px;
-          background: activeMeta.softSurface;
+          padding: 7px 11px;
+          background: ${activeMeta.softSurface};
           border: 1px solid ${activeMeta.border};
           color: ${activeMeta.accent};
-          font-size: 11px;
-          font-weight: 900;
+          font-size: 10px;
+          font-weight: 700;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          margin-bottom: 14px;
+          margin-bottom: 12px;
         }
 
         .heroTitleRow {
@@ -592,32 +592,33 @@ export default function DashboardClient({
         }
 
         .heroIcon {
-          width: 58px;
-          height: 58px;
-          border-radius: 18px;
+          width: 54px;
+          height: 54px;
+          border-radius: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
           background: ${activeMeta.surface};
           color: white;
-          font-size: 18px;
-          font-weight: 900;
-          box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+          font-size: 16px;
+          font-weight: 800;
+          box-shadow: 0 16px 28px rgba(15, 23, 42, 0.1);
         }
 
         .heroTitle {
-          font-size: 42px;
-          font-weight: 900;
+          font-size: 36px;
+          font-weight: 800;
           line-height: 1;
           letter-spacing: -0.04em;
           color: #0f172a;
         }
 
         .heroDescription {
-          font-size: 15px;
-          line-height: 1.8;
+          font-size: 14px;
+          line-height: 1.75;
           color: #475569;
           max-width: 760px;
+          font-weight: 400;
         }
 
         .heroActions {
@@ -628,28 +629,28 @@ export default function DashboardClient({
         }
 
         .heroState {
-          min-width: 188px;
+          min-width: 180px;
           text-align: center;
           border-radius: 999px;
-          padding: 11px 16px;
-          background: activeMeta.softSurface;
+          padding: 10px 14px;
+          background: ${activeMeta.softSurface};
           border: 1px solid ${activeMeta.border};
           color: ${activeModuleRecord?.isAssigned ? '#15803d' : '#64748b'};
-          font-size: 11px;
-          font-weight: 900;
+          font-size: 10px;
+          font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
         }
 
         .heroLaunch {
           text-decoration: none;
-          border-radius: 15px;
+          border-radius: 14px;
           background: #0f172a;
           color: white;
-          padding: 14px 18px;
-          font-size: 13px;
-          font-weight: 900;
-          box-shadow: 0 16px 30px rgba(15, 23, 42, 0.16);
+          padding: 13px 17px;
+          font-size: 12px;
+          font-weight: 700;
+          box-shadow: 0 14px 26px rgba(15, 23, 42, 0.14);
           transition: all 0.2s ease;
         }
 
@@ -658,12 +659,12 @@ export default function DashboardClient({
         }
 
         .heroDisabled {
-          border-radius: 15px;
+          border-radius: 14px;
           background: #e2e8f0;
           color: #64748b;
-          padding: 14px 18px;
-          font-size: 13px;
-          font-weight: 800;
+          padding: 13px 17px;
+          font-size: 12px;
+          font-weight: 600;
         }
 
         .metricsGrid {
@@ -673,15 +674,15 @@ export default function DashboardClient({
         }
 
         .metricCard {
-          border-radius: 20px;
-          padding: 18px;
+          border-radius: 18px;
+          padding: 16px;
           background: #ffffff;
           border: 1px solid #e2e8f0;
         }
 
         .metricLabel {
-          font-size: 11px;
-          font-weight: 800;
+          font-size: 10px;
+          font-weight: 600;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           color: #64748b;
@@ -689,32 +690,32 @@ export default function DashboardClient({
         }
 
         .metricValue {
-          font-size: 18px;
-          font-weight: 900;
+          font-size: 16px;
+          font-weight: 700;
           line-height: 1.35;
           color: #0f172a;
         }
 
         .workspaceCard {
-          border-radius: 30px;
+          border-radius: 28px;
           background: rgba(255, 255, 255, 0.88);
           border: 1px solid rgba(226, 232, 240, 0.94);
-          box-shadow: 0 24px 52px rgba(15, 23, 42, 0.05);
+          box-shadow: 0 22px 48px rgba(15, 23, 42, 0.05);
           overflow: hidden;
         }
 
         .workspaceHeader {
-          padding: 26px 28px 22px;
+          padding: 24px 24px 20px;
           border-bottom: 1px solid #edf2f7;
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 360px;
+          grid-template-columns: minmax(0, 1fr) 340px;
           gap: 18px;
           align-items: start;
         }
 
         .sectionKicker {
-          font-size: 11px;
-          font-weight: 900;
+          font-size: 10px;
+          font-weight: 700;
           letter-spacing: 0.12em;
           text-transform: uppercase;
           color: ${activeMeta.accent};
@@ -722,8 +723,8 @@ export default function DashboardClient({
         }
 
         .sectionTitle {
-          font-size: 30px;
-          font-weight: 900;
+          font-size: 28px;
+          font-weight: 800;
           line-height: 1.05;
           letter-spacing: -0.03em;
           color: #0f172a;
@@ -731,21 +732,22 @@ export default function DashboardClient({
         }
 
         .sectionCopy {
-          font-size: 14px;
-          line-height: 1.8;
+          font-size: 13px;
+          line-height: 1.75;
           color: #475569;
+          font-weight: 400;
         }
 
         .statusCard {
-          border-radius: 22px;
-          background: activeMeta.softSurface;
+          border-radius: 20px;
+          background: ${activeMeta.softSurface};
           border: 1px solid ${activeMeta.border};
-          padding: 18px;
+          padding: 16px;
         }
 
         .statusLabel {
-          font-size: 11px;
-          font-weight: 900;
+          font-size: 10px;
+          font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           color: ${activeMeta.accent};
@@ -753,104 +755,35 @@ export default function DashboardClient({
         }
 
         .statusTitle {
-          font-size: 22px;
-          font-weight: 900;
+          font-size: 19px;
+          font-weight: 700;
           line-height: 1.15;
           color: #0f172a;
           margin-bottom: 10px;
         }
 
         .statusCopy {
-          font-size: 13px;
-          line-height: 1.75;
+          font-size: 12px;
+          line-height: 1.7;
           color: #475569;
+          font-weight: 400;
         }
 
         .workspaceBody {
-          padding: 24px 28px 30px;
-        }
-
-        .catalogTitle {
-          font-size: 16px;
-          font-weight: 900;
-          color: #0f172a;
-          margin-bottom: 14px;
-        }
-
-        .catalogGrid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 14px;
-          margin-bottom: 24px;
-        }
-
-        .catalogCard {
-          border-radius: 22px;
-          border: 1px solid #e2e8f0;
-          background: white;
-          padding: 16px;
-          transition: all 0.2s ease;
-        }
-
-        .catalogCard:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 18px 30px rgba(15, 23, 42, 0.06);
-        }
-
-        .catalogTop {
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-          align-items: center;
-          margin-bottom: 14px;
-        }
-
-        .catalogIcon {
-          width: 40px;
-          height: 40px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-size: 12px;
-          font-weight: 900;
-        }
-
-        .catalogBadge {
-          border-radius: 999px;
-          padding: 5px 9px;
-          font-size: 9px;
-          font-weight: 900;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-        }
-
-        .catalogName {
-          font-size: 17px;
-          font-weight: 900;
-          color: #0f172a;
-          line-height: 1.35;
-          margin-bottom: 8px;
-        }
-
-        .catalogStatus {
-          font-size: 12px;
-          color: #64748b;
-          line-height: 1.6;
+          padding: 22px 24px 28px;
         }
 
         .quickPanel {
-          border-radius: 24px;
-          background: activeMeta.softSurface;
+          border-radius: 22px;
+          background: ${activeMeta.softSurface};
           border: 1px solid ${activeMeta.border};
-          padding: 20px;
-          margin-bottom: 24px;
+          padding: 18px;
+          margin-bottom: 22px;
         }
 
         .quickLabel {
-          font-size: 11px;
-          font-weight: 900;
+          font-size: 10px;
+          font-weight: 700;
           letter-spacing: 0.12em;
           text-transform: uppercase;
           color: ${activeMeta.accent};
@@ -858,16 +791,16 @@ export default function DashboardClient({
         }
 
         .quickTitle {
-          font-size: 22px;
-          font-weight: 900;
-          line-height: 1.25;
+          font-size: 18px;
+          font-weight: 700;
+          line-height: 1.3;
           color: #0f172a;
           margin-bottom: 10px;
         }
 
         .quickCopy {
-          font-size: 13px;
-          line-height: 1.8;
+          font-size: 12px;
+          line-height: 1.75;
           color: #475569;
           max-width: 820px;
           margin-bottom: 16px;
@@ -882,10 +815,10 @@ export default function DashboardClient({
         .primaryAction,
         .secondaryAction {
           text-decoration: none;
-          border-radius: 14px;
-          padding: 12px 16px;
-          font-size: 13px;
-          font-weight: 900;
+          border-radius: 13px;
+          padding: 11px 15px;
+          font-size: 12px;
+          font-weight: 700;
         }
 
         .primaryAction {
@@ -900,35 +833,35 @@ export default function DashboardClient({
         }
 
         .blockTitle {
-          font-size: 16px;
-          font-weight: 900;
+          font-size: 15px;
+          font-weight: 700;
           color: #0f172a;
           margin-bottom: 14px;
         }
 
         .featureGrid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
           gap: 14px;
-          margin-bottom: 24px;
+          margin-bottom: 22px;
         }
 
         .featureCard {
-          border-radius: 24px;
-          padding: 18px;
-          min-height: 170px;
+          border-radius: 22px;
+          padding: 16px;
+          min-height: 158px;
           border: 1px solid ${activeMeta.border};
           transition: all 0.2s ease;
         }
 
         .featureCard:hover {
           transform: translateY(-2px);
-          box-shadow: 0 18px 30px rgba(15, 23, 42, 0.06);
+          box-shadow: 0 16px 28px rgba(15, 23, 42, 0.05);
         }
 
         .featureIndex {
-          width: 38px;
-          height: 38px;
+          width: 36px;
+          height: 36px;
           border-radius: 12px;
           display: flex;
           align-items: center;
@@ -936,22 +869,23 @@ export default function DashboardClient({
           background: ${activeMeta.surface};
           color: white;
           font-size: 11px;
-          font-weight: 900;
-          margin-bottom: 14px;
+          font-weight: 700;
+          margin-bottom: 12px;
         }
 
         .featureName {
-          font-size: 18px;
-          font-weight: 900;
+          font-size: 15px;
+          font-weight: 700;
           line-height: 1.35;
           color: #0f172a;
           margin-bottom: 8px;
         }
 
         .featureCopy {
-          font-size: 13px;
-          line-height: 1.8;
+          font-size: 12px;
+          line-height: 1.75;
           color: #64748b;
+          font-weight: 400;
         }
 
         .summaryGrid {
@@ -961,21 +895,21 @@ export default function DashboardClient({
         }
 
         .summaryCard {
-          border-radius: 24px;
+          border-radius: 22px;
           border: 1px solid #e2e8f0;
           background: white;
-          padding: 20px;
+          padding: 18px;
           min-height: 100%;
         }
 
         .summaryCard.soft {
-          background: activeMeta.softSurface;
+          background: ${activeMeta.softSurface};
           border-color: ${activeMeta.border};
         }
 
         .summaryLabel {
-          font-size: 11px;
-          font-weight: 900;
+          font-size: 10px;
+          font-weight: 700;
           letter-spacing: 0.12em;
           text-transform: uppercase;
           color: ${activeMeta.accent};
@@ -983,17 +917,18 @@ export default function DashboardClient({
         }
 
         .summaryTitle {
-          font-size: 21px;
-          font-weight: 900;
-          line-height: 1.2;
+          font-size: 18px;
+          font-weight: 700;
+          line-height: 1.25;
           color: #0f172a;
           margin-bottom: 10px;
         }
 
         .summaryCopy {
-          font-size: 13px;
-          line-height: 1.85;
+          font-size: 12px;
+          line-height: 1.8;
           color: #475569;
+          font-weight: 400;
         }
 
         .ctaCard {
@@ -1009,9 +944,9 @@ export default function DashboardClient({
           border-radius: 14px;
           background: ${activeMeta.accent};
           color: white;
-          padding: 14px 16px;
-          font-size: 13px;
-          font-weight: 900;
+          padding: 13px 15px;
+          font-size: 12px;
+          font-weight: 700;
         }
 
         .ctaDisabled {
@@ -1019,9 +954,9 @@ export default function DashboardClient({
           border-radius: 14px;
           background: #e2e8f0;
           color: #64748b;
-          padding: 14px 16px;
-          font-size: 13px;
-          font-weight: 900;
+          padding: 13px 15px;
+          font-size: 12px;
+          font-weight: 700;
         }
 
         @media (max-width: 1260px) {
@@ -1071,7 +1006,7 @@ export default function DashboardClient({
           }
 
           .brandTitle {
-            font-size: 24px;
+            font-size: 23px;
           }
 
           .account {
@@ -1080,14 +1015,13 @@ export default function DashboardClient({
           }
 
           .statsGrid,
-          .catalogGrid,
           .featureGrid,
           .summaryGrid {
             grid-template-columns: 1fr;
           }
 
           .heroTitle {
-            font-size: 31px;
+            font-size: 30px;
           }
 
           .workspaceHeader,
@@ -1304,36 +1238,6 @@ export default function DashboardClient({
               </div>
 
               <div className="workspaceBody">
-                <div className="catalogTitle">Module Catalog</div>
-                <div className="catalogGrid">
-                  {modules.map(module => {
-                    const moduleKey = resolveModuleKey(module)
-                    const meta = MODULE_META[moduleKey] || MODULE_META.crm
-
-                    return (
-                      <div key={module.id} className="catalogCard">
-                        <div className="catalogTop">
-                          <div className="catalogIcon" style={{ background: meta.surface }}>
-                            {module.icon || meta.shortIcon}
-                          </div>
-                          <div
-                            className="catalogBadge"
-                            style={{
-                              background: module.isAssigned ? '#eaf8ef' : '#eef2f7',
-                              color: module.isAssigned ? '#208853' : '#64748b',
-                            }}
-                          >
-                            {module.isAssigned ? 'Active' : 'Inactive'}
-                          </div>
-                        </div>
-
-                        <div className="catalogName">{module.name}</div>
-                        <div className="catalogStatus">{getModuleStatus(module)}</div>
-                      </div>
-                    )
-                  })}
-                </div>
-
                 {activeKey === 'rozgar' ? (
                   <div className="quickPanel">
                     <div className="quickLabel">Rozgar Quick Actions</div>

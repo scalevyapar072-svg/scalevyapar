@@ -7,6 +7,7 @@ import {
   LabourJobApplicationRecord,
   JobApplicationStatus,
   LabourWorkerNotificationRecord,
+  WorkerAvailability,
   updateLabourEntity
 } from './labour-marketplace'
 import { sendWorkerPushNotification } from './labour-worker-push'

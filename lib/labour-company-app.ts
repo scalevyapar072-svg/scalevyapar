@@ -315,9 +315,12 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
           availability: worker?.availability || 'not_available',
           walletBalance: worker?.walletBalance || 0,
           profilePhotoPath: worker?.profilePhotoPath || ''
-               } satisfies CompanyAppApplicant
+                      } satisfies CompanyAppApplicant
       })
-      .filter((applicant): applicant is CompanyAppApplicant => Boolean(applicant))
+
+    const filteredApplicants = applicants.filter(
+      (applicant): applicant is CompanyAppApplicant => applicant !== null
+    )
 
     return {
       id: jobPost.id,
@@ -328,10 +331,10 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
       wageAmount: jobPost.wageAmount,
       publishedAt: jobPost.publishedAt,
       expiresAt: jobPost.expiresAt,
-      totalApplications: applicants.length,
-      shortlistedCount: applicants.filter(item => item.status === 'shortlisted').length,
-      hiredCount: applicants.filter(item => item.status === 'hired').length,
-      applicants
+      totalApplications: filteredApplicants.length,
+      shortlistedCount: filteredApplicants.filter(item => item.status === 'shortlisted').length,
+      hiredCount: filteredApplicants.filter(item => item.status === 'hired').length,
+      applicants: filteredApplicants
     } satisfies CompanyAppJobPost
   })
 

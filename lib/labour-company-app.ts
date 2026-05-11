@@ -68,7 +68,6 @@ export type CompanyAppJobPost = {
   applicants: CompanyAppApplicant[]
 }
 
-
 export type CompanyAppDashboard = {
   profile: CompanyAppProfile
   stats: {
@@ -320,6 +319,15 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
         } satisfies CompanyAppApplicant]
       })
 
+    const normalizedJobCity = jobPost.city.trim().toLowerCase()
+
+    const databaseMatches = snapshot.workers.filter(worker =>
+      worker.status === 'active' &&
+      worker.isVisible &&
+      worker.categoryIds.includes(jobPost.categoryId) &&
+      worker.city.trim().toLowerCase() === normalizedJobCity
+    ).length
+
     return {
       id: jobPost.id,
       title: jobPost.title,
@@ -332,6 +340,7 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
       totalApplications: applicants.length,
       shortlistedCount: applicants.filter(item => item.status === 'shortlisted').length,
       hiredCount: applicants.filter(item => item.status === 'hired').length,
+      databaseMatches,
       applicants
     } satisfies CompanyAppJobPost
   })

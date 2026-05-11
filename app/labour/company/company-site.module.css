@@ -720,3 +720,7 @@
     transform: translateY(0) scale(1);
   }
 }
+.page section[id] {
+  scroll-margin-top: 132px;
+}
+

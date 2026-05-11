@@ -62,14 +62,6 @@ type CompanyDashboard = {
   jobs: CompanyJob[]
   recentApplications: CompanyApplicant[]
 }
-const PhoneIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path
-      d="M6.62 10.79a15.054 15.054 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24c1.12.37 2.32.56 3.57.56a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.06 21 3 13.94 3 5a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.19 2.45.56 3.57a1 1 0 0 1-.24 1.02l-2.2 2.2Z"
-      fill="currentColor"
-    />
-  </svg>
-)
 
 type Props = {
   signinMode?: boolean

@@ -98,6 +98,7 @@ export interface LabourCompanyRecord {
   status: CompanyStatus
   registrationFeePaid: boolean
   activePlan: string
+  planExpiresAt: string
   createdAt: string
   updatedAt: string
 }

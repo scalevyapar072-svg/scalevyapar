@@ -1215,7 +1215,6 @@ const readJsonData = async (): Promise<LabourMarketplaceData> => {
     auditLogs: parsed.auditLogs || []
   }
 }
-
 const writeJsonData = async (data: LabourMarketplaceData) => {
   await fs.writeFile(DATA_FILE_PATH, JSON.stringify(data, null, 2), 'utf8')
 }
@@ -1348,9 +1347,6 @@ const buildSnapshot = (data: LabourMarketplaceData, storage: 'supabase' | 'json'
     storage
   }
 }
-})
-
-const isMissingSupabaseTableError = (message: string | undefined) =>
   typeof message === 'string' && (
     message.includes('schema cache') ||
     message.includes('relation') ||

@@ -1,32 +1,33 @@
 {
   "theme": {
-    "brandName": "ScaleVyapar Labour Exchange",
+    "brandName": "ScaleVyapar Rozgar",
     "brandTagline": "Hire daily-basis labour faster across industries",
-    "accentColor": "#0f172a",
+    "accentColor": "#2563eb",
     "accentSoft": "#e0ecff",
-    "highlightColor": "#2563eb"
+    "highlightColor": "#1d4ed8"
   },
   "header": {
     "announcement": "Daily worker hiring for factories, workshops, contractors and growing businesses",
-    "primaryCtaLabel": "Post Requirement",
+    "primaryCtaLabel": "Register Company",
     "primaryCtaHref": "/labour/company#company-intake",
     "navItems": [
       { "label": "Home", "href": "/labour/company" },
-      { "label": "Pricing", "href": "/labour/company/pricing" },
-      { "label": "Search Labour", "href": "/labour/company/search" },
-      { "label": "Sign In", "href": "/labour/company/signin" },
-      { "label": "Contact", "href": "/labour/company/contact" }
+      { "label": "About", "href": "/labour/company#about" },
+      { "label": "Industries", "href": "/labour/company#industries" },
+      { "label": "How It Works", "href": "/labour/company#process" },
+      { "label": "Employers", "href": "/labour/company#features" },
+      { "label": "Workers", "href": "/labour/company/search" }
     ]
   },
   "footer": {
-    "description": "A company hiring website for stitching karighar, embroidery worker, electrician, printer labour, machine setup staff, contractor labour and other daily-basis workforce needs.",
+    "description": "ScaleVyapar Rozgar is a modern labour hiring platform for textile, factory, warehouse, logistics, delivery, hospitality and multi-industry workforce needs.",
     "supportEmail": "support@scalevyapar.com",
     "phone": "+91 98765 43210",
     "address": "Surat, Gujarat, India",
-    "copyrightText": "© 2026 ScaleVyapar Labour Exchange. All rights reserved.",
+    "copyrightText": "© 2026 ScaleVyapar Rozgar. All rights reserved.",
     "linkGroups": [
       {
-        "title": "Company",
+        "title": "Platform",
         "links": [
           { "label": "Home", "href": "/labour/company" },
           { "label": "Pricing", "href": "/labour/company/pricing" },
@@ -38,60 +39,65 @@
         "links": [
           { "label": "Sign In", "href": "/labour/company/signin" },
           { "label": "Contact Us", "href": "/labour/company/contact" },
-          { "label": "Admin Website Editor", "href": "/admin/labour/website" }
+          { "label": "Company Registration", "href": "/labour/company#company-intake" }
         ]
       }
+    ],
+    "legalLinks": [
+      { "label": "Privacy Policy", "href": "/labour/company/privacy-policy" },
+      { "label": "Terms of Service", "href": "/labour/company/terms-of-service" },
+      { "label": "User Data Deletion", "href": "/labour/company/user-data-deletion" }
     ]
   },
   "home": {
     "sectionOrder": ["hero", "trust", "features", "process", "pricing", "testimonials", "faq", "cta", "intake"],
     "hero": {
-      "eyebrow": "Hiring for factories, workshops and contractors",
-      "title": "Hire daily-basis labour faster across stitching, embroidery, machine setup, printer work, electrician jobs and more.",
-      "subtitle": "A dedicated company hiring website for labour demand. Post your requirement, choose a low-cost plan, and connect with relevant workers in your city.",
-      "primaryCtaLabel": "Post Requirement",
-      "primaryCtaHref": "#company-intake",
-      "secondaryCtaLabel": "See Pricing",
-      "secondaryCtaHref": "/labour/company/pricing"
+      "eyebrow": "ScaleVyapar Rozgar",
+      "title": "Hire Daily-Basis Labour Faster Across Industries",
+      "subtitle": "ScaleVyapar Rozgar connects businesses with verified and skilled workers instantly. Post your requirement and hire the right workforce for your business anytime, anywhere.",
+      "primaryCtaLabel": "Hire Workers Now",
+      "primaryCtaHref": "/labour/company/search",
+      "secondaryCtaLabel": "Post a Requirement",
+      "secondaryCtaHref": "/labour/company#company-intake"
     },
     "trustStrip": {
-      "title": "Built for fast, local and category-specific labour hiring",
+      "title": "Built for faster workforce coordination",
       "items": [
-        "Daily-basis labour categories",
-        "Company plan control from admin",
-        "City-wise demand matching",
-        "Short-validity urgent hiring flow"
+        "Daily labour hiring for growing businesses",
+        "Smart workforce solutions across categories",
+        "Fast hiring for companies and contractors",
+        "Connected employer and worker ecosystem"
       ]
     },
     "features": {
       "title": "What companies get",
-      "subtitle": "A practical employer website inspired by modern hiring pages, but adapted to the labour market and daily workforce needs.",
+      "subtitle": "A premium labour hiring experience designed for daily operations, fast workforce demand and category-specific business hiring.",
       "cards": [
         {
-          "title": "Category-specific hiring",
-          "description": "Post labour requirements for stitching karighar, embroidery worker, electrician, printer labour, machine setup, contractor labour and more.",
+          "title": "Industry-specific hiring",
+          "description": "Hire labour across textile, factory, warehouse, logistics, manufacturing, hospitality and delivery operations.",
           "bullets": [
-            "Multiple labour categories",
-            "City and role based demand",
-            "Fast short-term requirement posting"
+            "Multiple hiring categories",
+            "City and demand based discovery",
+            "Fast workforce activation"
           ]
         },
         {
-          "title": "Affordable company plans",
-          "description": "Keep pricing simple for businesses that hire often but still want low upfront cost and clear validity windows.",
+          "title": "Business-ready plan flow",
+          "description": "Keep company onboarding, plan selection and labour posting connected to the admin approval workflow.",
           "bullets": [
-            "Registration fee tracking",
-            "3-day and priority plans",
-            "Admin editable plan pricing"
+            "Registration and plan mapping",
+            "Short-term and priority hiring support",
+            "Editable admin-linked pricing"
           ]
         },
         {
-          "title": "Search live labour",
-          "description": "Companies can browse active workers on the website, filter them by city and category, and shortlist relevant people quickly.",
+          "title": "Visible workforce search",
+          "description": "Browse active workers, explore labour categories and shortlist candidates before posting or expanding requirements.",
           "bullets": [
-            "Visible active workers only",
-            "Search by city and labour category",
-            "Useful for urgent workforce demand"
+            "Search by city and category",
+            "Employer-friendly browsing flow",
+            "Useful for urgent staffing demand"
           ]
         }
       ]
@@ -100,41 +106,41 @@
       "title": "How the company flow works",
       "steps": [
         {
-          "title": "Submit company details",
-          "description": "Add your company, contact person, mobile, city and the labour categories you want to hire."
+          "title": "Register company",
+          "description": "Submit your company identity, contact person and core hiring information."
         },
         {
-          "title": "Choose your plan",
-          "description": "Select the right company plan based on category and hiring urgency."
+          "title": "Post labour requirement",
+          "description": "Add your first workforce demand with category, city, count and requirement details."
         },
         {
-          "title": "Post the first requirement",
-          "description": "Add workers needed, wage amount, validity days and job description."
+          "title": "Get worker responses",
+          "description": "Browse workforce availability and connect with relevant labour candidates faster."
         },
         {
-          "title": "Get activated from admin",
-          "description": "Your profile appears in the admin panel for review, follow-up and publishing."
+          "title": "Manage through dashboard",
+          "description": "Track plans, requirements and labour workflow inside the connected ScaleVyapar ecosystem."
         }
       ]
     },
     "pricing": {
       "title": "Company pricing",
-      "subtitle": "Keep plans clear, short-validity and easy to understand for market hiring.",
+      "subtitle": "Keep plans clear, business-friendly and easy to understand for labour hiring operations.",
       "footnote": "Displayed plans below are connected to live active company plans from the labour database."
     },
     "testimonials": {
       "title": "Why this model works",
       "items": [
         {
-          "quote": "We needed a hiring flow that works for urgent production labour instead of generic corporate recruitment. This structure is made for that speed.",
+          "quote": "This platform is built for practical labour hiring, not slow traditional recruitment. That makes it useful for production and operations teams.",
           "name": "Operations Team",
-          "role": "Garment Production",
+          "role": "Industrial Hiring",
           "company": "ScaleVyapar Demo"
         },
         {
-          "quote": "Short validity, category filters and direct local requirements make daily labour hiring much more realistic for small and medium businesses.",
-          "name": "Factory Hiring Desk",
-          "role": "Workshop Hiring",
+          "quote": "Fast category-based requirements and a clear company flow make daily workforce hiring much more efficient for SMEs and contractors.",
+          "name": "Hiring Desk",
+          "role": "Factory Workforce Planning",
           "company": "ScaleVyapar Demo"
         }
       ]
@@ -157,21 +163,21 @@
       ]
     },
     "finalCta": {
-      "title": "Start hiring your next labour team",
-      "subtitle": "Post your first requirement and let the admin team review, activate and publish it from ScaleVyapar Labour Exchange.",
-      "buttonLabel": "Submit Company Requirement",
-      "buttonHref": "#company-intake"
+      "title": "Ready to hire faster with ScaleVyapar Rozgar?",
+      "subtitle": "Launch your company profile, publish a labour requirement, and move into a premium dashboard experience backed by the existing ScaleVyapar ecosystem.",
+      "buttonLabel": "Register Company",
+      "buttonHref": "/labour/company#company-intake"
     },
     "intake": {
-      "title": "Post company requirement",
-      "description": "Submit your company and first job requirement in one go. The labour admin team can review, approve and publish it from the admin panel.",
+      "title": "Register Company & Post Requirement",
+      "description": "Start with a polished employer intake flow and send your first labour requirement into the existing ScaleVyapar admin review system.",
       "submitLabel": "Create company enquiry"
     }
   },
   "pricingPage": {
     "eyebrow": "Simple pricing for labour hiring",
     "title": "Choose the right company plan for your hiring volume and urgency.",
-    "subtitle": "Clear pricing, short validity windows and category-specific options inspired by employer pricing pages, but tailored for labour exchange workflows.",
+    "subtitle": "Clear pricing, short validity windows and category-specific options tailored for business labour hiring workflows.",
     "badgeText": "Most popular for growing businesses",
     "customPlanTitle": "Need a custom plan?",
     "customPlanDescription": "Use a personalised plan if you hire across many categories or cities and want additional admin support.",
@@ -190,7 +196,7 @@
   "signinPage": {
     "eyebrow": "Existing company access",
     "title": "Sign in to manage your company profile, plans and labour requirements.",
-    "subtitle": "Keep this page simple for employers. Use it as a branded login page with clear actions for existing customers and new enquiries.",
+    "subtitle": "Use a clean employer sign-in flow to access your connected labour company dashboard.",
     "infoTitle": "What you can do after sign in",
     "infoDescription": "View active plans, manage requirements, follow job status and connect with the admin team.",
     "benefits": [
@@ -206,7 +212,7 @@
   },
   "contactPage": {
     "eyebrow": "Get in touch",
-    "title": "Contact the ScaleVyapar labour hiring team",
+    "title": "Contact the ScaleVyapar Rozgar team",
     "subtitle": "Use this page for support, sales follow-up, activation help and pricing discussions.",
     "supportEmail": "support@scalevyapar.com",
     "escalationEmail": "escalations@scalevyapar.com",

@@ -404,6 +404,7 @@ const defaultData: LabourMarketplaceData = {
       status: 'active',
       registrationFeePaid: true,
       activePlan: 'plan-company-stitching',
+      planExpiresAt: '2026-04-28',
       createdAt: '2026-04-25T00:00:00.000Z',
       updatedAt: '2026-04-25T00:00:00.000Z'
     },

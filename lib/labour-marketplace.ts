@@ -404,7 +404,6 @@ const defaultData: LabourMarketplaceData = {
       status: 'active',
       registrationFeePaid: true,
       activePlan: 'plan-company-stitching',
-      planExpiresAt: '2026-04-28',
       createdAt: '2026-04-25T00:00:00.000Z',
       updatedAt: '2026-04-25T00:00:00.000Z'
     },
@@ -420,7 +419,6 @@ const defaultData: LabourMarketplaceData = {
       status: 'pending',
       registrationFeePaid: false,
       activePlan: 'plan-company-basic',
-      planExpiresAt: '2026-04-28',
       createdAt: '2026-04-25T00:00:00.000Z',
       updatedAt: '2026-04-25T00:00:00.000Z'
     }
@@ -727,7 +725,6 @@ const mapCompanyRow = (row: {
   status: string | null
   registration_fee_paid: boolean | null
   active_plan: string | null
-  plan_expires_at?: string | null
   created_at: string
   updated_at: string
 }): LabourCompanyRecord => ({
@@ -742,10 +739,10 @@ const mapCompanyRow = (row: {
   status: (row.status as CompanyStatus | null) || 'pending',
   registrationFeePaid: row.registration_fee_paid ?? false,
   activePlan: row.active_plan || '',
-  planExpiresAt: row.plan_expires_at || '',
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })
+
 const mapJobPostRow = (row: {
   id: string
   company_id: string
@@ -805,7 +802,6 @@ const mapJobApplicationRow = (row: {
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })
-
 const mapSavedJobRow = (row: {
   id: string
   worker_id: string

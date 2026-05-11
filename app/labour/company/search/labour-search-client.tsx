@@ -23,6 +23,13 @@ type WorkerAccess = {
   profilePhotoPath: string
 }
 
+type CompanyAccessProfile = {
+  companyName: string
+  status: string
+  activePlan: string
+  activePlanName: string
+}
+
 type Props = {
   workers: WorkerItem[]
   categories: string[]
@@ -64,6 +71,7 @@ export function LabourSearchClient({
   const [accessGranted, setAccessGranted] = useState(false)
   const [accessMessage, setAccessMessage] = useState('')
   const [unlockedWorkers, setUnlockedWorkers] = useState<Record<string, WorkerAccess>>({})
+  const [companyProfile, setCompanyProfile] = useState<CompanyAccessProfile | null>(null)
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem(COMPANY_TOKEN_KEY) : null
@@ -71,6 +79,7 @@ export function LabourSearchClient({
       setAccessChecked(true)
       setAccessGranted(false)
       setAccessMessage('Sign in with an active company plan to unlock worker phone numbers and WhatsApp.')
+      setCompanyProfile(null)
       return
     }
 
@@ -91,11 +100,13 @@ export function LabourSearchClient({
         )
 
         setUnlockedWorkers(workerMap)
+        setCompanyProfile((data.profile || null) as CompanyAccessProfile | null)
         setAccessGranted(Boolean(data.access?.granted))
         setAccessMessage(String(data.access?.message || ''))
       })
       .catch(error => {
         setUnlockedWorkers({})
+        setCompanyProfile(null)
         setAccessGranted(false)
         setAccessMessage(error instanceof Error ? error.message : 'Failed to load direct worker access.')
       })
@@ -134,6 +145,20 @@ export function LabourSearchClient({
             {accessChecked ? accessMessage : 'Checking whether this company account has an active plan...'}
           </p>
         </div>
+
+        {companyProfile ? (
+          <div
+            className={styles.softCard}
+            style={{ marginTop: '16px', background: '#ffffff', borderColor: '#dbeafe' }}
+          >
+            <p style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '15px', fontWeight: '900' }}>
+              Logged in company: {companyProfile.companyName}
+            </p>
+            <p className={styles.textMuted}>
+              Status: {companyProfile.status} • Active plan: {companyProfile.activePlanName || companyProfile.activePlan || 'Not assigned'}
+            </p>
+          </div>
+        ) : null}
 
         <div className={styles.threeColGrid} style={{ marginTop: '20px' }}>
           <div>

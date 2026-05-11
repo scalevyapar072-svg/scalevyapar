@@ -272,19 +272,23 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
 
   const jobs = companyJobPosts.map(jobPost => {
     const applicants = snapshot.jobApplications
-      .filter(application => application.companyId === companyId && application.jobPostId === jobPost.id)
-      .sort((left, right) => right.appliedAt.localeCompare(left.appliedAt))
-      .map(application => {
-        const worker = snapshot.workers.find(item => item.id === application.workerId)
-        const workerCategoryLabels = (worker?.categoryIds || [])
-          .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name || categoryId)
+  .filter(application => application.companyId === companyId && application.jobPostId === jobPost.id)
+  .sort((left, right) => right.appliedAt.localeCompare(left.appliedAt))
+  .map(application => {
+    const worker = snapshot.workers.find(item => item.id === application.workerId)
 
-        const canContactDirectly = Boolean(
-          hasDirectWorkerAccess &&
-          worker &&
-          worker.status === 'active' &&
-          worker.isVisible
-        )
+    if (!worker || !worker.categoryIds.includes(jobPost.categoryId)) {
+      return null
+    }
+
+    const workerCategoryLabels = worker.categoryIds
+      .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name || categoryId)
+
+    const canContactDirectly = Boolean(
+      hasDirectWorkerAccess &&
+      worker.status === 'active' &&
+      worker.isVisible
+    )
 
         const whatsappUrl = canContactDirectly && worker?.mobile
           ? buildWhatsappUrl(

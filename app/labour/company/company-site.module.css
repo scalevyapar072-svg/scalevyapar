@@ -723,7 +723,16 @@
 .page section[id] {
   scroll-margin-top: 132px;
 }
-.page section[id] {
-  scroll-margin-top: 132px;
+
+.heroGrid {
+  align-items: start;
 }
+
+.darkCard {
+  height: auto;
+  min-height: unset;
+  align-self: start;
+  padding-bottom: 32px;
+}
+
 

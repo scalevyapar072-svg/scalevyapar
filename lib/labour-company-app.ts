@@ -4,7 +4,6 @@ import {
   createLabourEntity,
   getLabourMarketplaceSnapshot,
   LabourCompanyRecord,
-  LabourJobApplicationRecord,
   JobApplicationStatus,
   LabourWorkerNotificationRecord,
   WorkerAvailability,
@@ -48,7 +47,7 @@ export type CompanyAppApplicant = {
   skills: string[]
   experienceYears: number
   expectedDailyWage: number
-  availability: string
+  availability: WorkerAvailability
   walletBalance: number
   profilePhotoPath: string
 }
@@ -273,55 +272,51 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
 
   const jobs = companyJobPosts.map(jobPost => {
     const applicants = snapshot.jobApplications
-  .filter(application => application.companyId === companyId && application.jobPostId === jobPost.id)
-  .sort((left, right) => right.appliedAt.localeCompare(left.appliedAt))
-  .map(application => {
-    const worker = snapshot.workers.find(item => item.id === application.workerId)
+      .filter(application => application.companyId === companyId && application.jobPostId === jobPost.id)
+      .sort((left, right) => right.appliedAt.localeCompare(left.appliedAt))
+      .flatMap(application => {
+        const worker = snapshot.workers.find(item => item.id === application.workerId)
 
-    if (!worker || !worker.categoryIds.includes(jobPost.categoryId)) {
-      return null
-    }
+        if (!worker || !worker.categoryIds.includes(jobPost.categoryId)) {
+          return []
+        }
 
-    const workerCategoryLabels = worker.categoryIds
-      .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name || categoryId)
+        const workerCategoryLabels = worker.categoryIds
+          .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name || categoryId)
 
-    const canContactDirectly = Boolean(
-      hasDirectWorkerAccess &&
-      worker.status === 'active' &&
-      worker.isVisible
-    )
+        const canContactDirectly = Boolean(
+          hasDirectWorkerAccess &&
+          worker.status === 'active' &&
+          worker.isVisible
+        )
 
-        const whatsappUrl = canContactDirectly && worker?.mobile
+        const whatsappUrl = canContactDirectly && worker.mobile
           ? buildWhatsappUrl(
               worker.mobile,
               `Namaste ${worker.fullName || 'worker'}, this is ${company.companyName} from ScaleVyapar. We would like to discuss a labour opportunity with you.`
             )
           : null
 
-        return {
+        return [{
           applicationId: application.id,
           appliedAt: application.appliedAt,
           status: application.status,
           note: application.note,
           workerId: application.workerId,
-          fullName: worker?.fullName || 'Unknown worker',
-          city: worker?.city || '',
-          mobile: canContactDirectly ? worker?.mobile || null : null,
+          fullName: worker.fullName || 'Unknown worker',
+          city: worker.city || '',
+          mobile: canContactDirectly ? worker.mobile || null : null,
           canContactDirectly,
           whatsappUrl,
           categoryLabels: workerCategoryLabels,
-          skills: worker?.skills || [],
-          experienceYears: worker?.experienceYears || 0,
-          expectedDailyWage: worker?.expectedDailyWage || 0,
-          availability: worker?.availability || 'not_available',
-          walletBalance: worker?.walletBalance || 0,
-          profilePhotoPath: worker?.profilePhotoPath || ''
-                      } satisfies CompanyAppApplicant
+          skills: worker.skills || [],
+          experienceYears: worker.experienceYears || 0,
+          expectedDailyWage: worker.expectedDailyWage || 0,
+          availability: worker.availability || 'not_available',
+          walletBalance: worker.walletBalance || 0,
+          profilePhotoPath: worker.profilePhotoPath || ''
+        } satisfies CompanyAppApplicant]
       })
-
-    const filteredApplicants = applicants.filter(
-      (applicant): applicant is CompanyAppApplicant => applicant !== null
-    )
 
     return {
       id: jobPost.id,
@@ -332,10 +327,10 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
       wageAmount: jobPost.wageAmount,
       publishedAt: jobPost.publishedAt,
       expiresAt: jobPost.expiresAt,
-      totalApplications: filteredApplicants.length,
-      shortlistedCount: filteredApplicants.filter(item => item.status === 'shortlisted').length,
-      hiredCount: filteredApplicants.filter(item => item.status === 'hired').length,
-      applicants: filteredApplicants
+      totalApplications: applicants.length,
+      shortlistedCount: applicants.filter(item => item.status === 'shortlisted').length,
+      hiredCount: applicants.filter(item => item.status === 'hired').length,
+      applicants
     } satisfies CompanyAppJobPost
   })
 

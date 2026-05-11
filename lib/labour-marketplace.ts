@@ -1347,6 +1347,7 @@ const buildSnapshot = (data: LabourMarketplaceData, storage: 'supabase' | 'json'
     storage
   }
 }
+ const isMissingSupabaseTableError = (message: string | undefined) =>
   typeof message === 'string' && (
     message.includes('schema cache') ||
     message.includes('relation') ||

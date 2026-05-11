@@ -1052,7 +1052,6 @@ const normalizeCompany = (
     status: (payload.status || existing?.status || 'pending') as CompanyStatus,
     registrationFeePaid: toBoolean(payload.registrationFeePaid, existing?.registrationFeePaid ?? false),
     activePlan: String(payload.activePlan || existing?.activePlan || '').trim(),
-    planExpiresAt: String(payload.planExpiresAt || existing?.planExpiresAt || '').trim(),
     createdAt: existing?.createdAt || now,
     updatedAt: now
   }
@@ -1589,7 +1588,6 @@ export const syncLabourJsonToSupabase = async (): Promise<LabourMarketplaceSnaps
   const supabaseData = await readSupabaseData()
   return buildSnapshot(supabaseData, 'supabase')
 }
-
 const readDataWithStorage = async (): Promise<{ data: LabourMarketplaceData; storage: 'supabase' | 'json' }> => {
   const backend = await getStorageBackend()
   if (backend === 'supabase') {

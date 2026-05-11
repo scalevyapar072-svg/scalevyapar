@@ -420,6 +420,7 @@ const defaultData: LabourMarketplaceData = {
       status: 'pending',
       registrationFeePaid: false,
       activePlan: 'plan-company-basic',
+      planExpiresAt: '2026-04-28',
       createdAt: '2026-04-25T00:00:00.000Z',
       updatedAt: '2026-04-25T00:00:00.000Z'
     }

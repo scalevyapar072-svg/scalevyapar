@@ -1220,17 +1220,134 @@ const writeJsonData = async (data: LabourMarketplaceData) => {
   await fs.writeFile(DATA_FILE_PATH, JSON.stringify(data, null, 2), 'utf8')
 }
 
-const buildSnapshot = (data: LabourMarketplaceData, storage: 'supabase' | 'json'): LabourMarketplaceSnapshot => ({
-  ...data,
-  stats: {
-    activeWorkers: data.workers.filter(worker => worker.status === 'active').length,
-    inactiveWorkers: data.workers.filter(worker => worker.status !== 'active').length,
-    activeCompanies: data.companies.filter(company => company.status === 'active').length,
-    liveJobPosts: data.jobPosts.filter(job => job.status === 'live').length,
-    totalWalletBalance: data.workers.reduce((sum, worker) => sum + worker.walletBalance, 0),
-    recentAuditLogs: data.auditLogs.slice(0, 8)
-  },
-  storage
+const parseDateOnlyValue = (value: string) => {
+  if (!value) return null
+  const parsed = new Date(`${value}T00:00:00.000Z`)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+const toDateOnlyString = (value: string) => {
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10)
+}
+
+const isDateOnlyExpired = (value: string, today: string) => {
+  return Boolean(value) && value < today
+}
+
+const getCompanyPlanWindow = (
+  company: LabourCompanyRecord,
+  plans: LabourPlanRecord[],
+  walletTransactions: LabourWalletTransactionRecord[]
+) => {
+  const activePlanRecord = plans.find(plan =>
+    plan.id === company.activePlan &&
+    plan.audience === 'company' &&
+    plan.isActive
+  )
+
+  if (!activePlanRecord) {
+    return {
+      activePlanRecord: null,
+      chosenDate: '',
+      expiresAt: '',
+      isExpired: true
+    }
+  }
+
+  const companyPlanTransactions = walletTransactions
+    .filter(transaction =>
+      transaction.entityType === 'company' &&
+      transaction.entityId === company.id &&
+      transaction.transactionType === 'plan_purchase' &&
+      transaction.status === 'completed'
+    )
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+
+  const matchingPlanTransaction = companyPlanTransactions.find(transaction => transaction.reference === company.activePlan)
+  const fallbackTransaction = companyPlanTransactions[0]
+  const chosenDate =
+    toDateOnlyString(matchingPlanTransaction?.createdAt || '') ||
+    toDateOnlyString(fallbackTransaction?.createdAt || '') ||
+    toDateOnlyString(company.updatedAt) ||
+    toDateOnlyString(company.createdAt)
+
+  const chosenDateValue = parseDateOnlyValue(chosenDate)
+  if (!chosenDateValue) {
+    return {
+      activePlanRecord,
+      chosenDate: '',
+      expiresAt: '',
+      isExpired: true
+    }
+  }
+
+  const expiresAtValue = new Date(chosenDateValue)
+  expiresAtValue.setUTCDate(expiresAtValue.getUTCDate() + activePlanRecord.validityDays)
+  const expiresAt = expiresAtValue.toISOString().slice(0, 10)
+
+  return {
+    activePlanRecord,
+    chosenDate,
+    expiresAt,
+    isExpired: isDateOnlyExpired(expiresAt, new Date().toISOString().slice(0, 10))
+  }
+}
+
+const buildSnapshot = (data: LabourMarketplaceData, storage: 'supabase' | 'json'): LabourMarketplaceSnapshot => {
+  const today = new Date().toISOString().slice(0, 10)
+
+  const companies = data.companies.map(company => {
+    if (company.status !== 'active') {
+      return company
+    }
+
+    const planWindow = getCompanyPlanWindow(company, data.plans, data.walletTransactions)
+    if (!planWindow.activePlanRecord || planWindow.isExpired) {
+      return {
+        ...company,
+        status: 'inactive' as CompanyStatus
+      }
+    }
+
+    return company
+  })
+
+  const activeCompanyIds = new Set(
+    companies
+      .filter(company => company.status === 'active')
+      .map(company => company.id)
+  )
+
+  const jobPosts = data.jobPosts.map(jobPost => {
+    const isCompanyInactive = !activeCompanyIds.has(jobPost.companyId)
+    const isJobExpiredByDate = isDateOnlyExpired(jobPost.expiresAt, today)
+
+    if (jobPost.status === 'live' && (isCompanyInactive || isJobExpiredByDate)) {
+      return {
+        ...jobPost,
+        status: 'expired' as JobPostStatus
+      }
+    }
+
+    return jobPost
+  })
+
+  return {
+    ...data,
+    companies,
+    jobPosts,
+    stats: {
+      activeWorkers: data.workers.filter(worker => worker.status === 'active').length,
+      inactiveWorkers: data.workers.filter(worker => worker.status !== 'active').length,
+      activeCompanies: companies.filter(company => company.status === 'active').length,
+      liveJobPosts: jobPosts.filter(job => job.status === 'live').length,
+      totalWalletBalance: data.workers.reduce((sum, worker) => sum + worker.walletBalance, 0),
+      recentAuditLogs: data.auditLogs.slice(0, 8)
+    },
+    storage
+  }
+}
 })
 
 const isMissingSupabaseTableError = (message: string | undefined) =>

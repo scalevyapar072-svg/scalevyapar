@@ -82,6 +82,9 @@ export type CompanyAppDashboard = {
 const normalizeName = (value: string) => value.trim().toLowerCase()
 const normalizeEmail = (value: string) => value.trim().toLowerCase()
 const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+const sanitizeMobile = (value: string) => value.replace(/\D/g, '').slice(-10)
+const buildWhatsappUrl = (mobile: string, message: string) =>
+  `https://wa.me/91${sanitizeMobile(mobile)}?text=${encodeURIComponent(message)}`
 
 const signCompanyToken = async (payload: Omit<CompanyAppTokenPayload, 'role'>) =>
   new SignJWT({
@@ -141,6 +144,28 @@ const toCompanyProfile = (company: LabourCompanyRecord, categoryLabels: string[]
   activePlan: company.activePlan,
   categoryLabels
 })
+
+const getCompanyActivePlan = async (companyId: string) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const company = snapshot.companies.find(item => item.id === companyId)
+
+  if (!company) {
+    throw new Error('Company account not found.')
+  }
+
+  const activePlanRecord = snapshot.plans.find(plan =>
+    plan.id === company.activePlan &&
+    plan.audience === 'company' &&
+    plan.isActive
+  )
+
+  return {
+    snapshot,
+    company,
+    activePlanRecord,
+    hasDirectWorkerAccess: Boolean(company.status === 'active' && company.activePlan && activePlanRecord)
+  }
+}
 
 export const loginCompanyApp = async (email: string, identity: string) => {
   const snapshot = await getLabourMarketplaceSnapshot()
@@ -236,12 +261,7 @@ export const requireCompanyApp = async (request: NextRequest): Promise<CompanyAp
 }
 
 export const getCompanyAppDashboard = async (companyId: string): Promise<CompanyAppDashboard> => {
-  const snapshot = await getLabourMarketplaceSnapshot()
-  const company = snapshot.companies.find(item => item.id === companyId)
-
-  if (!company) {
-    throw new Error('Company account not found.')
-  }
+  const { snapshot, company, hasDirectWorkerAccess } = await getCompanyActivePlan(companyId)
 
   const categoryLabels = company.categoryIds
     .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name || categoryId)
@@ -258,12 +278,20 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
         const worker = snapshot.workers.find(item => item.id === application.workerId)
         const workerCategoryLabels = (worker?.categoryIds || [])
           .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name || categoryId)
+
         const canContactDirectly = Boolean(
+          hasDirectWorkerAccess &&
           worker &&
           worker.status === 'active' &&
-          worker.isVisible &&
-          worker.walletBalance > 0
+          worker.isVisible
         )
+
+        const whatsappUrl = canContactDirectly && worker?.mobile
+          ? buildWhatsappUrl(
+              worker.mobile,
+              `Namaste ${worker.fullName || 'worker'}, this is ${company.companyName} from ScaleVyapar. We would like to discuss a labour opportunity with you.`
+            )
+          : null
 
         return {
           applicationId: application.id,
@@ -275,6 +303,7 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
           city: worker?.city || '',
           mobile: canContactDirectly ? worker?.mobile || null : null,
           canContactDirectly,
+          whatsappUrl,
           categoryLabels: workerCategoryLabels,
           skills: worker?.skills || [],
           experienceYears: worker?.experienceYears || 0,
@@ -310,12 +339,47 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
     profile: toCompanyProfile(company, categoryLabels),
     stats: {
       liveJobPosts: jobs.filter(job => job.status === 'live').length,
-      totalApplications: recentApplications.length ? jobs.reduce((sum, job) => sum + job.totalApplications, 0) : jobs.reduce((sum, job) => sum + job.totalApplications, 0),
+      totalApplications: jobs.reduce((sum, job) => sum + job.totalApplications, 0),
       shortlistedApplications: jobs.reduce((sum, job) => sum + job.shortlistedCount, 0),
       hiredApplications: jobs.reduce((sum, job) => sum + job.hiredCount, 0)
     },
     jobs,
     recentApplications
+  }
+}
+
+export const getCompanyWorkerSearchAccess = async (companyId: string) => {
+  const { snapshot, company, activePlanRecord, hasDirectWorkerAccess } = await getCompanyActivePlan(companyId)
+
+  const workers = hasDirectWorkerAccess
+    ? snapshot.workers
+        .filter(worker => worker.status === 'active' && worker.isVisible)
+        .map(worker => ({
+          workerId: worker.id,
+          mobile: worker.mobile,
+          whatsappUrl: buildWhatsappUrl(
+            worker.mobile,
+            `Namaste ${worker.fullName || 'worker'}, this is ${company.companyName} from ScaleVyapar. We would like to discuss a labour opportunity with you.`
+          ),
+          skills: worker.skills,
+          profilePhotoPath: worker.profilePhotoPath
+        }))
+    : []
+
+  return {
+    profile: {
+      companyName: company.companyName,
+      status: company.status,
+      activePlan: company.activePlan,
+      activePlanName: activePlanRecord?.name || ''
+    },
+    access: {
+      granted: hasDirectWorkerAccess,
+      message: hasDirectWorkerAccess
+        ? 'Your active company plan unlocks direct worker contact.'
+        : 'Direct worker contact is available only to companies with an active company plan.'
+    },
+    workers
   }
 }
 

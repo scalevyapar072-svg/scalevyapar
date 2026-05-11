@@ -86,8 +86,8 @@ export default async function LabourCompanyHomePage() {
     }
 
     if (section === 'features') {
-      return (
-        <section key={section} id="industries" className={styles.card}>
+  return (
+    <section key={section} id="features" className={styles.card}>
           <div className={styles.sectionFooter}>
             <div>
               <h2 className={styles.sectionTitle}>{content.home.features.title}</h2>

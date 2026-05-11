@@ -67,6 +67,29 @@ type Props = {
   signinMode?: boolean
 }
 
+const PhoneIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M6.62 10.79a15.054 15.054 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24c1.12.37 2.32.56 3.57.56a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.06 21 3 13.94 3 5a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.19 2.45.56 3.57a1 1 0 0 1-.24 1.02l-2.2 2.2Z"
+      fill="currentColor"
+    />
+  </svg>
+)
+
+const WhatsAppIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M12 2C6.49 2 2 6.3 2 11.62c0 1.87.56 3.68 1.62 5.23L2.5 22l5.35-1.08A10.2 10.2 0 0 0 12 21.25c5.51 0 10-4.3 10-9.63S17.51 2 12 2Z"
+      fill="currentColor"
+      opacity="0.18"
+    />
+    <path
+      d="M17.58 14.42c-.3-.15-1.79-.88-2.07-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.35.22-.65.07-.3-.15-1.27-.46-2.42-1.48-.9-.79-1.5-1.76-1.67-2.06-.18-.3-.02-.46.13-.61.14-.14.3-.35.45-.53.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.68-1.61-.93-2.2-.24-.58-.49-.5-.68-.5h-.58c-.2 0-.53.07-.8.38-.28.3-1.05 1.03-1.05 2.51 0 1.48 1.08 2.91 1.23 3.11.15.2 2.12 3.33 5.25 4.53.74.29 1.32.46 1.77.59.74.23 1.42.2 1.95.12.6-.09 1.79-.73 2.04-1.44.25-.71.25-1.32.18-1.44-.08-.12-.28-.2-.58-.35Z"
+      fill="currentColor"
+    />
+  </svg>
+)
+
 const formatDateTime = (value: string) =>
   new Date(value).toLocaleString('en-IN', {
     dateStyle: 'medium',
@@ -297,21 +320,21 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           <form className={styles.stack} onSubmit={submitLogin}>
             <label style={{ display: 'grid', gap: '8px' }}>
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company email</span>
-            <input
-              value={email}
-              onChange={event => setEmail(event.target.value)}
-              placeholder="Registered company email"
-              style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
-            />
+              <input
+                value={email}
+                onChange={event => setEmail(event.target.value)}
+                placeholder="Registered company email"
+                style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
+              />
             </label>
             <label style={{ display: 'grid', gap: '8px' }}>
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company name or contact person</span>
-            <input
-              value={identity}
-              onChange={event => setIdentity(event.target.value)}
-              placeholder="Company name or contact person"
-              style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
-            />
+              <input
+                value={identity}
+                onChange={event => setIdentity(event.target.value)}
+                placeholder="Company name or contact person"
+                style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
+              />
             </label>
             <div className={styles.softCard} style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
               <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use company email + company/contact name.</p>
@@ -415,6 +438,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           </div>
         </div>
       </div>
+
       <div className={styles.card}>
         <div className={styles.sectionFooter}>
           <div>
@@ -452,6 +476,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
             <p style={{ margin: 0, color: '#b91c1c', fontWeight: 700 }}>{error}</p>
           </div>
         ) : null}
+
         <div className={styles.stack}>
           {filteredJobs.length === 0 ? (
             <div className={styles.softCard}>
@@ -474,85 +499,83 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                 </div>
               </div>
 
-             <div className={styles.stack}>
-                      {job.applicants.length === 0 ? (
-                        <div className={styles.softCard}>
-                          <p style={{ margin: 0, color: '#64748b', fontWeight: 700 }}>No applicants yet for this job.</p>
-                        </div>
-                      ) : job.applicants.map(applicant => (
-                        <div key={applicant.applicationId} className={styles.softCard}>
-                          <div className={styles.sectionFooter}>
-                            <div>
-                              <p style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: 900 }}>{applicant.fullName}</p>
-                              <p className={styles.textMuted}>
-                                {applicant.city} • {formatCurrency(applicant.expectedDailyWage)} expected • {availabilityLabel(applicant.availability)}
-                              </p>
-                            </div>
-                            <span className={styles.chip} style={statusTone(applicant.status)}>{applicant.status}</span>
-                          </div>
-                          <div className={styles.twoColGrid}>
-                            <div className={styles.stack}>
-                              <span className={styles.textMuted}>Skills: {applicant.skills.length ? applicant.skills.join(', ') : 'Not added'}</span>
-                              <span className={styles.textMuted}>Experience: {applicant.experienceYears} years</span>
-                              <span className={styles.textMuted}>Applied: {formatDateTime(applicant.appliedAt)}</span>
-                              <span className={styles.textMuted}>Worker wallet: {formatCurrency(applicant.walletBalance)}</span>
-                            </div>
-                            <div className={styles.stack}>
-                              <span className={styles.textMuted}>
-                                Contact: {applicant.canContactDirectly ? (applicant.mobile || 'Unavailable') : 'Locked until worker account is active'}
-                              </span>
-                              <span className={styles.textMuted}>Categories: {applicant.categoryLabels.join(', ') || 'Not mapped'}</span>
-                              <span className={styles.textMuted}>Application note: {applicant.note || 'No note added by worker'}</span>
-                            </div>
-                          </div>
-                    
-                          <div className={styles.companyDashboardApplicantActions} style={{ marginTop: '16px' }}>
-                            <div className={styles.companyDashboardContactButtons}>
-                              {dashboard.profile.status === 'active' && applicant.canContactDirectly && applicant.mobile ? (
-                                <a
-                                  href={`tel:${applicant.mobile}`}
-                                  className={styles.companyDashboardViewNumberButton}
-                                >
-                                  <PhoneIcon />
-                                  <span>View Number</span>
-                                </a>
-                              ) : null}
-                    
-                              {dashboard.profile.status === 'active' && applicant.whatsappUrl ? (
-                                <a
-                                  href={applicant.whatsappUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className={styles.companyDashboardWhatsappButton}
-                                  aria-label={`Open WhatsApp chat for ${applicant.fullName}`}
-                                >
-                                  <WhatsAppIcon />
-                                </a>
-                              ) : null}
-                            </div>
-                    
-                            <div className={styles.companyDashboardDecisionButtons}>
-                              <button
-                                type="button"
-                                className={styles.companyDashboardRejectButton}
-                                disabled={submitting || applicant.status === 'rejected'}
-                                onClick={() => updateStatus(applicant.applicationId, 'rejected')}
-                              >
-                                Reject
-                              </button>
-                    
-                              <button
-                                type="button"
-                                className={styles.companyDashboardShortlistButton}
-                                disabled={submitting || applicant.status === 'shortlisted'}
-                                onClick={() => updateStatus(applicant.applicationId, 'shortlisted')}
-                              >
-                                Shortlist
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+              <div className={styles.stack}>
+                {job.applicants.length === 0 ? (
+                  <div className={styles.softCard}>
+                    <p style={{ margin: 0, color: '#64748b', fontWeight: 700 }}>No applicants yet for this job.</p>
+                  </div>
+                ) : job.applicants.map(applicant => (
+                  <div key={applicant.applicationId} className={styles.softCard}>
+                    <div className={styles.sectionFooter}>
+                      <div>
+                        <p style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: 900 }}>{applicant.fullName}</p>
+                        <p className={styles.textMuted}>
+                          {applicant.city} • {formatCurrency(applicant.expectedDailyWage)} expected • {availabilityLabel(applicant.availability)}
+                        </p>
+                      </div>
+                      <span className={styles.chip} style={statusTone(applicant.status)}>{applicant.status}</span>
+                    </div>
+
+                    <div className={styles.twoColGrid}>
+                      <div className={styles.stack}>
+                        <span className={styles.textMuted}>Skills: {applicant.skills.length ? applicant.skills.join(', ') : 'Not added'}</span>
+                        <span className={styles.textMuted}>Experience: {applicant.experienceYears} years</span>
+                        <span className={styles.textMuted}>Applied: {formatDateTime(applicant.appliedAt)}</span>
+                        <span className={styles.textMuted}>Worker wallet: {formatCurrency(applicant.walletBalance)}</span>
+                      </div>
+                      <div className={styles.stack}>
+                        <span className={styles.textMuted}>
+                          Contact: {applicant.canContactDirectly ? (applicant.mobile || 'Unavailable') : 'Locked until worker account is active'}
+                        </span>
+                        <span className={styles.textMuted}>Categories: {applicant.categoryLabels.join(', ') || 'Not mapped'}</span>
+                        <span className={styles.textMuted}>Application note: {applicant.note || 'No note added by worker'}</span>
+                      </div>
+                    </div>
+
+                    <div className={styles.companyDashboardApplicantActions} style={{ marginTop: '16px' }}>
+                      <div className={styles.companyDashboardContactButtons}>
+                        {dashboard.profile.status === 'active' && applicant.canContactDirectly && applicant.mobile ? (
+                          <a
+                            href={`tel:${applicant.mobile}`}
+                            className={styles.companyDashboardViewNumberButton}
+                          >
+                            <PhoneIcon />
+                            <span>View Number</span>
+                          </a>
+                        ) : null}
+
+                        {dashboard.profile.status === 'active' && applicant.whatsappUrl ? (
+                          <a
+                            href={applicant.whatsappUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={styles.companyDashboardWhatsappButton}
+                            aria-label={`Open WhatsApp chat for ${applicant.fullName}`}
+                          >
+                            <WhatsAppIcon />
+                          </a>
+                        ) : null}
+                      </div>
+
+                      <div className={styles.companyDashboardDecisionButtons}>
+                        <button
+                          type="button"
+                          className={styles.companyDashboardRejectButton}
+                          disabled={submitting || applicant.status === 'rejected'}
+                          onClick={() => updateStatus(applicant.applicationId, 'rejected')}
+                        >
+                          Reject
+                        </button>
+
+                        <button
+                          type="button"
+                          className={styles.companyDashboardShortlistButton}
+                          disabled={submitting || applicant.status === 'shortlisted'}
+                          onClick={() => updateStatus(applicant.applicationId, 'shortlisted')}
+                        >
+                          Shortlist
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -564,28 +587,3 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
     </section>
   )
 }
-type PanelTab = 'jobs' | 'usage' | 'billing' | 'support'
-const PhoneIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path
-      d="M6.62 10.79a15.054 15.054 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24c1.12.37 2.32.56 3.57.56a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.06 21 3 13.94 3 5a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.19 2.45.56 3.57a1 1 0 0 1-.24 1.02l-2.2 2.2Z"
-      fill="currentColor"
-    />
-  </svg>
-)
-
-const WhatsAppIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path
-      d="M12 2C6.49 2 2 6.3 2 11.62c0 1.87.56 3.68 1.62 5.23L2.5 22l5.35-1.08A10.2 10.2 0 0 0 12 21.25c5.51 0 10-4.3 10-9.63S17.51 2 12 2Z"
-      fill="currentColor"
-      opacity="0.18"
-    />
-    <path
-      d="M17.58 14.42c-.3-.15-1.79-.88-2.07-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.35.22-.65.07-.3-.15-1.27-.46-2.42-1.48-.9-.79-1.5-1.76-1.67-2.06-.18-.3-.02-.46.13-.61.14-.14.3-.35.45-.53.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.68-1.61-.93-2.2-.24-.58-.49-.5-.68-.5h-.58c-.2 0-.53.07-.8.38-.28.3-1.05 1.03-1.05 2.51 0 1.48 1.08 2.91 1.23 3.11.15.2 2.12 3.33 5.25 4.53.74.29 1.32.46 1.77.59.74.23 1.42.2 1.95.12.6-.09 1.79-.73 2.04-1.44.25-.71.25-1.32.18-1.44-.08-.12-.28-.2-.58-.35Z"
-      fill="currentColor"
-    />
-  </svg>
-)
-
-

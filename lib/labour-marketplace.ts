@@ -727,6 +727,7 @@ const mapCompanyRow = (row: {
   status: string | null
   registration_fee_paid: boolean | null
   active_plan: string | null
+  plan_expires_at?: string | null
   created_at: string
   updated_at: string
 }): LabourCompanyRecord => ({
@@ -741,10 +742,10 @@ const mapCompanyRow = (row: {
   status: (row.status as CompanyStatus | null) || 'pending',
   registrationFeePaid: row.registration_fee_paid ?? false,
   activePlan: row.active_plan || '',
+  planExpiresAt: row.plan_expires_at || '',
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })
-
 const mapJobPostRow = (row: {
   id: string
   company_id: string

@@ -121,6 +121,10 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
   const [selectedJobId, setSelectedJobId] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [activeTab, setActiveTab] = useState<PanelTab>('jobs')
+  const [openedJobId, setOpenedJobId] = useState<string | null>(null)
+  const [showMatchedOnly, setShowMatchedOnly] = useState(false)
+  const [showWithResumeOnly, setShowWithResumeOnly] = useState(false)
+  const [showTriedContactOnly, setShowTriedContactOnly] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -250,6 +254,23 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
       .filter(job => (selectedJobId === 'all' ? true : job.id === selectedJobId))
   }, [dashboard, selectedJobId, selectedStatus])
 
+  const selectedJob = useMemo(() => {
+    if (!dashboard || !openedJobId) return null
+    return dashboard.jobs.find(job => job.id === openedJobId) || null
+  }, [dashboard, openedJobId])
+
+  const selectedJobApplicants = useMemo(() => {
+    if (!selectedJob) return []
+
+    return selectedJob.applicants.filter(applicant => {
+      if (showMatchedOnly && applicant.categoryLabels.length === 0) return false
+      if (showWithResumeOnly && !applicant.profilePhotoPath) return false
+      if (showTriedContactOnly && !applicant.canContactDirectly) return false
+      if (selectedStatus !== 'all' && applicant.status !== selectedStatus) return false
+      return true
+    })
+  }, [selectedJob, showMatchedOnly, showWithResumeOnly, showTriedContactOnly, selectedStatus])
+
   const usageSummary = useMemo(() => {
     if (!dashboard) {
       return {
@@ -305,11 +326,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                 className={styles.inputField}
               />
             </label>
-            {error ? (
-              <div className={styles.errorBanner}>
-                {error}
-              </div>
-            ) : null}
+            {error ? <div className={styles.errorBanner}>{error}</div> : null}
             <button
               type="submit"
               className={styles.primaryButton}
@@ -345,7 +362,12 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
             <button
               key={item.id}
               type="button"
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id)
+                if (item.id !== 'jobs') {
+                  setOpenedJobId(null)
+                }
+              }}
               className={`${styles.companyDashboardNavItem} ${activeTab === item.id ? styles.companyDashboardNavItemActive : ''}`}
             >
               {item.label}
@@ -373,7 +395,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
       </aside>
 
       <div className={styles.companyDashboardContent}>
-        {activeTab === 'jobs' ? (
+        {activeTab === 'jobs' && !selectedJob ? (
           <section className={styles.companyDashboardSection}>
             <div className={styles.companyDashboardHeaderRow}>
               <div>
@@ -395,7 +417,12 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
 
             <div className={styles.companyDashboardJobList}>
               {filteredJobs.map(job => (
-                <article key={job.id} className={styles.companyDashboardJobCard}>
+                <article
+                  key={job.id}
+                  className={styles.companyDashboardJobCard}
+                  onClick={() => setOpenedJobId(job.id)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className={styles.companyDashboardJobTop}>
                     <div>
                       <div className={styles.companyDashboardJobTitleRow}>
@@ -417,59 +444,195 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                       </span>
                     </div>
                   </div>
-
-                  <div className={styles.companyDashboardApplicantStrip}>
-                    {job.applicants.length === 0 ? (
-                      <p className={styles.textMuted}>No applicants yet for this job.</p>
-                    ) : (
-                      job.applicants.slice(0, 3).map(applicant => (
-                        <div key={applicant.applicationId} className={styles.companyDashboardApplicantCard}>
-                          <div className={styles.sectionFooter}>
-                            <div>
-                              <p className={styles.companyDashboardApplicantName}>{applicant.fullName}</p>
-                              <p className={styles.textMuted}>
-                                {applicant.city} | {availabilityLabel(applicant.availability)} | {formatCurrency(applicant.expectedDailyWage)}
-                              </p>
-                            </div>
-                            <span className={styles.chip} style={statusTone(applicant.status)}>{applicant.status}</span>
-                          </div>
-                          <p className={styles.textMuted}>Skills: {applicant.skills.join(', ') || 'Not added'}</p>
-                          <p className={styles.textMuted}>
-                            Contact: {applicant.canContactDirectly ? applicant.mobile || 'Unavailable' : 'Locked until your company has an active plan and the worker profile is visible'}
-                          </p>
-                          <div className={styles.buttonRow}>
-                            {applicant.whatsappUrl ? (
-                              <a
-                                href={applicant.whatsappUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className={styles.primaryButton}
-                                style={{ background: '#16a34a', color: '#ffffff', border: '1px solid transparent' }}
-                              >
-                                Chat on Whatsapp
-                              </a>
-                            ) : null}
-                            {(['reviewed', 'shortlisted', 'rejected', 'hired'] as const).map(nextStatus => (
-                              <button
-                                key={nextStatus}
-                                type="button"
-                                className={nextStatus === 'hired' || nextStatus === 'shortlisted' ? styles.primaryButton : styles.secondaryButton}
-                                style={nextStatus === 'hired' || nextStatus === 'shortlisted'
-                                  ? { background: '#2563eb', color: '#ffffff', border: '1px solid transparent' }
-                                  : undefined}
-                                disabled={submitting || applicant.status === nextStatus}
-                                onClick={() => updateStatus(applicant.applicationId, nextStatus)}
-                              >
-                                Mark {nextStatus}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
                 </article>
               ))}
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === 'jobs' && selectedJob ? (
+          <section className={styles.companyDashboardSection}>
+            <div className={styles.companyDashboardDetailTopbar}>
+              <button
+                type="button"
+                className={styles.companyDashboardBackButton}
+                onClick={() => setOpenedJobId(null)}
+              >
+                Back
+              </button>
+              <div className={styles.companyDashboardDetailMeta}>
+                <h1 className={styles.companyDashboardDetailTitle}>{selectedJob.title}</h1>
+                <span className={styles.chip} style={statusTone(selectedJob.status)}>{selectedJob.status}</span>
+                <span className={styles.companyDashboardDetailCity}>{selectedJob.city}</span>
+              </div>
+              <a href="/labour/company/search" className={styles.companyDashboardMatchesLink}>
+                See Database Matches ({selectedJob.applicants.length * 61})
+              </a>
+            </div>
+
+            <div className={styles.companyDashboardDetailStats}>
+              <div className={styles.companyDashboardDetailStatCard}>
+                <strong>{selectedJob.applicants.length}</strong>
+                <span>All candidates</span>
+              </div>
+              <div className={styles.companyDashboardDetailStatCard}>
+                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'submitted').length}</strong>
+                <span>Action Pending</span>
+              </div>
+              <div className={styles.companyDashboardDetailStatCard}>
+                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'reviewed').length}</strong>
+                <span>Viewed Number</span>
+              </div>
+              <div className={styles.companyDashboardDetailStatCard}>
+                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'shortlisted').length}</strong>
+                <span>Shortlisted</span>
+              </div>
+              <div className={styles.companyDashboardDetailStatCard}>
+                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'rejected').length}</strong>
+                <span>Rejected</span>
+              </div>
+            </div>
+
+            <div className={styles.companyDashboardCandidateLayout}>
+              <aside className={styles.companyDashboardCandidateFilters}>
+                <div className={styles.companyDashboardCandidateFilterCard}>
+                  <p className={styles.companyDashboardFilterHeading}>Filters</p>
+
+                  <div className={styles.companyDashboardCheckboxRow}>
+                    <input
+                      id="matchedOnly"
+                      type="checkbox"
+                      checked={showMatchedOnly}
+                      onChange={event => setShowMatchedOnly(event.target.checked)}
+                    />
+                    <label htmlFor="matchedOnly">Matched to job requirements ({selectedJob.applicants.length})</label>
+                  </div>
+
+                  <div className={styles.companyDashboardCheckboxRow}>
+                    <input
+                      id="resumeOnly"
+                      type="checkbox"
+                      checked={showWithResumeOnly}
+                      onChange={event => setShowWithResumeOnly(event.target.checked)}
+                    />
+                    <label htmlFor="resumeOnly">Have profile attached ({selectedJob.applicants.filter(applicant => applicant.profilePhotoPath).length})</label>
+                  </div>
+
+                  <div className={styles.companyDashboardCheckboxRow}>
+                    <input
+                      id="contactOnly"
+                      type="checkbox"
+                      checked={showTriedContactOnly}
+                      onChange={event => setShowTriedContactOnly(event.target.checked)}
+                    />
+                    <label htmlFor="contactOnly">Direct contact unlocked ({selectedJob.applicants.filter(applicant => applicant.canContactDirectly).length})</label>
+                  </div>
+                </div>
+              </aside>
+
+              <div className={styles.companyDashboardCandidateColumn}>
+                <div className={styles.companyDashboardCandidateHeader}>
+                  <p className={styles.companyDashboardFilterHeading}>Showing {selectedJobApplicants.length} candidates</p>
+                </div>
+
+                {selectedJobApplicants.map(applicant => (
+                  <article key={applicant.applicationId} className={styles.companyDashboardCandidateCard}>
+                    <div className={styles.companyDashboardCandidateTop}>
+                      <div>
+                        <p className={styles.companyDashboardCandidateName}>{applicant.fullName}</p>
+                        <p className={styles.textMuted}>
+                          {applicant.city} | {availabilityLabel(applicant.availability)} | {formatCurrency(applicant.expectedDailyWage)}
+                        </p>
+                      </div>
+                      <span className={styles.chip} style={statusTone(applicant.status)}>{applicant.status}</span>
+                    </div>
+
+                    <div className={styles.companyDashboardMatchingBox}>
+                      <span className={styles.companyDashboardMatchingLabel}>Matching:</span>
+                      <div className={styles.chipRow}>
+                        {applicant.categoryLabels.map(label => (
+                          <span
+                            key={`${applicant.applicationId}-${label}`}
+                            className={styles.chip}
+                            style={{ background: '#ffffff', color: '#4f46e5', border: '1px solid #c7d2fe' }}
+                          >
+                            {label}
+                          </span>
+                        ))}
+                        {applicant.skills.slice(0, 3).map(skill => (
+                          <span
+                            key={`${applicant.applicationId}-${skill}`}
+                            className={styles.chip}
+                            style={{ background: '#ffffff', color: '#4f46e5', border: '1px solid #c7d2fe' }}
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={styles.companyDashboardCandidateFacts}>
+                      <span><strong>Experience:</strong> {applicant.experienceYears} years</span>
+                      <span><strong>Skills:</strong> {applicant.skills.join(', ') || 'Not added'}</span>
+                      <span><strong>Categories:</strong> {applicant.categoryLabels.join(', ') || 'Not mapped'}</span>
+                      <span><strong>Note:</strong> {applicant.note || 'No note added by worker'}</span>
+                    </div>
+
+                    <div className={styles.buttonRow}>
+                      {applicant.whatsappUrl ? (
+                        <a
+                          href={applicant.whatsappUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={styles.primaryButton}
+                          style={{ background: '#16a34a', color: '#ffffff', border: '1px solid transparent' }}
+                        >
+                          Chat on Whatsapp
+                        </a>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        disabled={submitting || applicant.status === 'rejected'}
+                        onClick={() => updateStatus(applicant.applicationId, 'rejected')}
+                        style={{ color: '#dc2626', borderColor: '#fecaca' }}
+                      >
+                        Reject
+                      </button>
+
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        disabled={submitting || applicant.status === 'reviewed'}
+                        onClick={() => updateStatus(applicant.applicationId, 'reviewed')}
+                      >
+                        Mark reviewed
+                      </button>
+
+                      <button
+                        type="button"
+                        className={styles.primaryButton}
+                        style={{ background: '#2563eb', color: '#ffffff', border: '1px solid transparent' }}
+                        disabled={submitting || applicant.status === 'shortlisted'}
+                        onClick={() => updateStatus(applicant.applicationId, 'shortlisted')}
+                      >
+                        Shortlist
+                      </button>
+
+                      <button
+                        type="button"
+                        className={styles.primaryButton}
+                        style={{ background: '#0f766e', color: '#ffffff', border: '1px solid transparent' }}
+                        disabled={submitting || applicant.status === 'hired'}
+                        onClick={() => updateStatus(applicant.applicationId, 'hired')}
+                      >
+                        Mark hired
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
             </div>
           </section>
         ) : null}
@@ -506,25 +669,6 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                 </div>
               ))}
             </div>
-
-            <div className={styles.companyDashboardInfoCard}>
-              <h2 className={styles.sectionTitle}>Transaction history</h2>
-              <p className={styles.textMuted}>A simple usage trail connected to your current hiring activity.</p>
-              <div className={styles.stack}>
-                {dashboard.jobs.slice(0, 5).map(job => (
-                  <div key={job.id} className={styles.companyDashboardTimelineRow}>
-                    <div>
-                      <p className={styles.companyDashboardTimelineTitle}>{job.title}</p>
-                      <p className={styles.textMuted}>Posted premium job and received labour applications.</p>
-                    </div>
-                    <div className={styles.companyDashboardTimelineMeta}>
-                      <span>+ {job.totalApplications * 3} database credits</span>
-                      <span>{formatDateTime(job.publishedAt)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </section>
         ) : null}
 
@@ -545,28 +689,6 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                 <p className={styles.textMuted}><strong>Contact person:</strong> {dashboard.profile.contactPerson}</p>
                 <p className={styles.textMuted}><strong>City:</strong> {dashboard.profile.city}</p>
                 <p className={styles.textMuted}><strong>Active plan:</strong> {dashboard.profile.activePlan || 'Not assigned'}</p>
-              </div>
-            </div>
-
-            <div className={styles.companyDashboardInfoCard}>
-              <h2 className={styles.sectionTitle}>Billing history</h2>
-              <div className={styles.companyDashboardBillingTable}>
-                <div className={styles.companyDashboardBillingHead}>
-                  <span>Date</span>
-                  <span>Plan details</span>
-                  <span>Applies until</span>
-                  <span>Amount</span>
-                  <span>Status</span>
-                </div>
-                {dashboard.jobs.slice(0, 5).map(job => (
-                  <div key={job.id} className={styles.companyDashboardBillingRow}>
-                    <span>{formatDateTime(job.publishedAt)}</span>
-                    <span>{dashboard.profile.activePlan || 'Company plan'}</span>
-                    <span>{formatDateTime(job.expiresAt)}</span>
-                    <span>{formatCurrency(job.wageAmount)}</span>
-                    <span className={styles.chip} style={statusTone('active')}>Success</span>
-                  </div>
-                ))}
               </div>
             </div>
           </section>

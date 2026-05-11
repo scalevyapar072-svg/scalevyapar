@@ -16,6 +16,7 @@ type CompanyApplicant = {
   city: string
   mobile: string | null
   canContactDirectly: boolean
+  whatsappUrl: string | null
   categoryLabels: string[]
   skills: string[]
   experienceYears: number
@@ -84,8 +85,11 @@ const statusTone = (value: string) => {
   if (value === 'shortlisted' || value === 'active' || value === 'hired') {
     return { background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }
   }
-  if (value === 'rejected' || value === 'blocked') {
+  if (value === 'rejected' || value === 'blocked' || value === 'expired') {
     return { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }
+  }
+  if (value === 'reviewed') {
+    return { background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74' }
   }
   return { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }
 }
@@ -269,9 +273,9 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
     return dashboard.jobs
       .map(job => ({
         ...job,
-        applicants: job.applicants.filter(applicant => selectedStatus === 'all' ? true : applicant.status === selectedStatus)
+        applicants: job.applicants.filter(applicant => (selectedStatus === 'all' ? true : applicant.status === selectedStatus))
       }))
-      .filter(job => selectedJobId === 'all' ? true : job.id === selectedJobId)
+      .filter(job => (selectedJobId === 'all' ? true : job.id === selectedJobId))
       .filter(job => job.applicants.length > 0 || selectedStatus === 'all')
   }, [dashboard, selectedJobId, selectedStatus])
 
@@ -296,21 +300,21 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           <form className={styles.stack} onSubmit={submitLogin}>
             <label style={{ display: 'grid', gap: '8px' }}>
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company email</span>
-            <input
-              value={email}
-              onChange={event => setEmail(event.target.value)}
-              placeholder="Registered company email"
-              style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
-            />
+              <input
+                value={email}
+                onChange={event => setEmail(event.target.value)}
+                placeholder="Registered company email"
+                style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
+              />
             </label>
             <label style={{ display: 'grid', gap: '8px' }}>
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company name or contact person</span>
-            <input
-              value={identity}
-              onChange={event => setIdentity(event.target.value)}
-              placeholder="Company name or contact person"
-              style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
-            />
+              <input
+                value={identity}
+                onChange={event => setIdentity(event.target.value)}
+                placeholder="Company name or contact person"
+                style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
+              />
             </label>
             <div className={styles.softCard} style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
               <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use company email + company/contact name.</p>
@@ -340,7 +344,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
             {[
               'View every worker application per job post',
               'Shortlist, review, reject, or hire applicants',
-              'See direct worker contact when the worker account is active',
+              'See direct worker contact when your company plan is active and the worker profile is visible',
               'Track recent applicant movement across live job posts'
             ].map(item => (
               <div key={item} className={styles.bullet} style={{ color: '#ffffff' }}>
@@ -502,7 +506,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                       </div>
                       <div className={styles.stack}>
                         <span className={styles.textMuted}>
-                          Contact: {applicant.canContactDirectly ? (applicant.mobile || 'Unavailable') : 'Locked until worker account is active'}
+                          Contact: {applicant.canContactDirectly ? (applicant.mobile || 'Unavailable') : 'Locked until your company has an active plan and the worker profile is visible'}
                         </span>
                         <span className={styles.textMuted}>Categories: {applicant.categoryLabels.join(', ') || 'Not mapped'}</span>
                         <span className={styles.textMuted}>Application note: {applicant.note || 'No note added by worker'}</span>
@@ -510,6 +514,17 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                     </div>
 
                     <div className={styles.buttonRow} style={{ marginTop: '16px' }}>
+                      {applicant.whatsappUrl ? (
+                        <a
+                          href={applicant.whatsappUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={styles.primaryButton}
+                          style={{ background: '#16a34a', color: '#ffffff', border: '1px solid transparent' }}
+                        >
+                          WhatsApp Worker
+                        </a>
+                      ) : null}
                       {(['reviewed', 'shortlisted', 'rejected', 'hired'] as const).map(nextStatus => (
                         <button
                           key={nextStatus}

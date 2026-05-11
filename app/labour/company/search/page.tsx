@@ -10,6 +10,12 @@ export default async function LabourCompanySearchPage() {
   ])
 
   const content = website.content
+  const activeCategoryMap = new Map(
+    snapshot.categories
+      .filter(category => category.isActive)
+      .map(category => [category.id, category.name])
+  )
+
   const activeWorkers = snapshot.workers
     .filter(worker => worker.status === 'active' && worker.isVisible)
     .map(worker => ({
@@ -20,12 +26,29 @@ export default async function LabourCompanySearchPage() {
       expectedDailyWage: worker.expectedDailyWage,
       availability: worker.availability,
       categoryLabels: worker.categoryIds
-        .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name)
+        .map(categoryId => activeCategoryMap.get(categoryId))
         .filter((value): value is string => Boolean(value))
     }))
 
-  const cities = Array.from(new Set(activeWorkers.map(worker => worker.city).filter(Boolean))).sort()
-  const categories = Array.from(new Set(activeWorkers.flatMap(worker => worker.categoryLabels))).sort()
+  const cities = Array.from(
+    new Set(
+      [
+        ...activeWorkers.map(worker => worker.city),
+        ...snapshot.companies
+          .filter(company => company.status === 'active')
+          .map(company => company.city),
+        ...snapshot.jobPosts
+          .filter(jobPost => jobPost.status === 'live')
+          .flatMap(jobPost => [jobPost.city, jobPost.locationLabel])
+      ]
+        .map(value => value?.trim())
+        .filter((value): value is string => Boolean(value))
+    )
+  ).sort((left, right) => left.localeCompare(right))
+
+  const categories = Array.from(activeCategoryMap.values()).sort((left, right) =>
+    left.localeCompare(right)
+  )
 
   return (
     <CompanySiteShell content={content} currentPath="/labour/company/search">

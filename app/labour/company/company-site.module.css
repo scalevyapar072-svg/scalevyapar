@@ -1242,11 +1242,16 @@
 }
 
 .companyDashboardCandidateFilterCard {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 16px 18px;
   border: 1px solid #dbe2ea;
   border-radius: 20px;
   background: #ffffff;
-  overflow: hidden;
 }
+
 
 .companyDashboardFilterHeading {
   margin: 0;

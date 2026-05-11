@@ -52,13 +52,7 @@ export default async function LabourCompanyHomePage() {
                 </div>
               ))}
             </div>
-
-            <div className={styles.chipRow}>
-              {categories.map(category => (
-                <span key={category.id} className={styles.chip}>{category.name}</span>
-              ))}
             </div>
-          </div>
 
           <HeroServiceShowcase />
         </section>

@@ -1056,6 +1056,7 @@ const normalizeCompany = (
     status: (payload.status || existing?.status || 'pending') as CompanyStatus,
     registrationFeePaid: toBoolean(payload.registrationFeePaid, existing?.registrationFeePaid ?? false),
     activePlan: String(payload.activePlan || existing?.activePlan || '').trim(),
+    planExpiresAt: String(payload.planExpiresAt || existing?.planExpiresAt || '').trim(),
     createdAt: existing?.createdAt || now,
     updatedAt: now
   }

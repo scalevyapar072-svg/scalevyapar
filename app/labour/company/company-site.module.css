@@ -1263,18 +1263,20 @@
 }
 
 .companyDashboardCheckboxRow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 20px;
-  border-top: 1px solid #eef2f7;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
   color: #334155;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
+  background: #f8fafc;
 }
 
 .companyDashboardCheckboxRow:first-of-type {
-  border-top: 0;
+  border-top: 1px solid #e2e8f0;
 }
 
 .companyDashboardCheckboxRow input {

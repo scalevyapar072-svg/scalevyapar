@@ -315,8 +315,9 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
           availability: worker?.availability || 'not_available',
           walletBalance: worker?.walletBalance || 0,
           profilePhotoPath: worker?.profilePhotoPath || ''
-        } satisfies CompanyAppApplicant
+               } satisfies CompanyAppApplicant
       })
+      .filter((applicant): applicant is CompanyAppApplicant => Boolean(applicant))
 
     return {
       id: jobPost.id,

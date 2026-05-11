@@ -87,7 +87,7 @@ export default async function LabourCompanyHomePage() {
 
     if (section === 'features') {
       return (
-        <section key={section} className={styles.card}>
+        <section key={section} id="features" className={styles.card}>
           <div className={styles.sectionFooter}>
             <div>
               <h2 className={styles.sectionTitle}>{content.home.features.title}</h2>
@@ -120,7 +120,7 @@ export default async function LabourCompanyHomePage() {
 
     if (section === 'process') {
       return (
-        <section key={section} className={styles.card}>
+        <section key={section} id="process" className={styles.card}>
           <h2 className={styles.sectionTitle}>{content.home.process.title}</h2>
           <div className={styles.fourColGrid}>
             {content.home.process.steps.map((step, index) => (

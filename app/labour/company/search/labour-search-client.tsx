@@ -244,21 +244,16 @@ export function LabourSearchClient({
                 </div>
 
                 <div className={styles.buttonRow}>
-                  {unlockedWorkers[worker.id]?.whatsappUrl ? (
-                    <>
-                      <a
-                        href={unlockedWorkers[worker.id].whatsappUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={styles.primaryButton}
-                        style={{ background: '#16a34a', color: '#ffffff', border: '1px solid transparent' }}
-                      >
-                        WhatsApp Worker
-                      </a>
-                      <a href={`tel:${unlockedWorkers[worker.id].mobile}`} className={styles.secondaryButton}>
-                        Call Worker
-                      </a>
-                    </>
+                 {unlockedWorkers[worker.id]?.whatsappUrl ? (
+                    <a
+                      href={unlockedWorkers[worker.id].whatsappUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={styles.primaryButton}
+                      style={{ background: '#16a34a', color: '#ffffff', border: '1px solid transparent' }}
+                    >
+                      WhatsApp Worker
+                    </a>
                   ) : (
                     <>
                       <a href="/labour/company#company-intake" className={styles.primaryButton} style={{ background: accentColor, color: '#ffffff', border: '1px solid transparent' }}>

@@ -510,20 +510,51 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                       </div>
                     </div>
 
-                    <div className={styles.buttonRow} style={{ marginTop: '16px' }}>
-                      {(['reviewed', 'shortlisted', 'rejected', 'hired'] as const).map(nextStatus => (
-                        <button
-                          key={nextStatus}
-                          type="button"
-                          className={nextStatus === 'hired' || nextStatus === 'shortlisted' ? styles.primaryButton : styles.secondaryButton}
-                          style={nextStatus === 'hired' || nextStatus === 'shortlisted'
-                            ? { background: '#2563eb', color: '#ffffff', border: '1px solid transparent' }
-                            : undefined}
-                          disabled={submitting || applicant.status === nextStatus}
-                          onClick={() => updateStatus(applicant.applicationId, nextStatus)}
-                        >
-                          Mark {nextStatus}
-                        </button>
+                   <div className={styles.companyDashboardApplicantActions} style={{ marginTop: '16px' }}>
+                        <div className={styles.companyDashboardContactButtons}>
+                          {dashboard.profile.status === 'active' && applicant.canContactDirectly && applicant.mobile ? (
+                            <a
+                              href={`tel:${applicant.mobile}`}
+                              className={styles.companyDashboardViewNumberButton}
+                            >
+                              <PhoneIcon />
+                              <span>View Number</span>
+                            </a>
+                          ) : null}
+                      
+                          {dashboard.profile.status === 'active' && applicant.whatsappUrl ? (
+                            <a
+                              href={applicant.whatsappUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={styles.companyDashboardWhatsappButton}
+                              aria-label={`Open WhatsApp chat for ${applicant.fullName}`}
+                            >
+                              <WhatsAppIcon />
+                            </a>
+                          ) : null}
+                        </div>
+                      
+                        <div className={styles.companyDashboardDecisionButtons}>
+                          <button
+                            type="button"
+                            className={styles.companyDashboardRejectButton}
+                            disabled={submitting || applicant.status === 'rejected'}
+                            onClick={() => updateStatus(applicant.applicationId, 'rejected')}
+                          >
+                            Reject
+                          </button>
+                      
+                          <button
+                            type="button"
+                            className={styles.companyDashboardShortlistButton}
+                            disabled={submitting || applicant.status === 'shortlisted'}
+                            onClick={() => updateStatus(applicant.applicationId, 'shortlisted')}
+                          >
+                            Shortlist
+                          </button>
+                        </div>
+                      </div>
                       ))}
                     </div>
                   </div>

@@ -68,6 +68,7 @@ export type CompanyAppJobPost = {
   applicants: CompanyAppApplicant[]
 }
 
+
 export type CompanyAppDashboard = {
   profile: CompanyAppProfile
   stats: {

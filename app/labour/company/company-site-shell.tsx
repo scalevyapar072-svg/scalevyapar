@@ -14,7 +14,7 @@ const siteNavigation = [
   { label: 'About', href: '/labour/company#about' },
   { label: 'Industries', href: '/labour/company#industries' },
   { label: 'How It Works', href: '/labour/company#process' },
-  { label: 'How It Works', href: '/labour/company#process' },
+  { label: 'Employers', href: '/labour/company#features' },
   { label: 'Pricing', href: '/labour/company/pricing' },
   { label: 'Workers', href: '/labour/company/search' },
   { label: 'Contact', href: '/labour/company/contact' }

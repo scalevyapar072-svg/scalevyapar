@@ -292,4 +292,4 @@ export default async function LabourCompanyHomePage() {
       {content.home.sectionOrder.map(renderSection)}
     </CompanySiteShell>
   )
-}
+} 

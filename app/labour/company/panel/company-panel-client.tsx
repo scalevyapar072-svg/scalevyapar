@@ -396,7 +396,6 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
               Log out
             </button>
           </div>
-
           <div className={styles.stack}>
             {dashboard.recentApplications.length === 0 ? (
               <div className={styles.softCard}>
@@ -416,7 +415,6 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
           </div>
         </div>
       </div>
-
       <div className={styles.card}>
         <div className={styles.sectionFooter}>
           <div>
@@ -454,7 +452,6 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
             <p style={{ margin: 0, color: '#b91c1c', fontWeight: 700 }}>{error}</p>
           </div>
         ) : null}
-
         <div className={styles.stack}>
           {filteredJobs.length === 0 ? (
             <div className={styles.softCard}>
@@ -477,84 +474,84 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                 </div>
               </div>
 
-              <div className={styles.stack}>
-                {job.applicants.length === 0 ? (
-                  <div className={styles.softCard}>
-                    <p style={{ margin: 0, color: '#64748b', fontWeight: 700 }}>No applicants yet for this job.</p>
-                  </div>
-                ) : job.applicants.map(applicant => (
-                  <div key={applicant.applicationId} className={styles.softCard}>
-                    <div className={styles.sectionFooter}>
-                      <div>
-                        <p style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: 900 }}>{applicant.fullName}</p>
-                        <p className={styles.textMuted}>
-                          {applicant.city} • {formatCurrency(applicant.expectedDailyWage)} expected • {availabilityLabel(applicant.availability)}
-                        </p>
-                      </div>
-                      <span className={styles.chip} style={statusTone(applicant.status)}>{applicant.status}</span>
-                    </div>
-
-                    <div className={styles.twoColGrid}>
-                      <div className={styles.stack}>
-                        <span className={styles.textMuted}>Skills: {applicant.skills.length ? applicant.skills.join(', ') : 'Not added'}</span>
-                        <span className={styles.textMuted}>Experience: {applicant.experienceYears} years</span>
-                        <span className={styles.textMuted}>Applied: {formatDateTime(applicant.appliedAt)}</span>
-                        <span className={styles.textMuted}>Worker wallet: {formatCurrency(applicant.walletBalance)}</span>
-                      </div>
-                      <div className={styles.stack}>
-                        <span className={styles.textMuted}>
-                          Contact: {applicant.canContactDirectly ? (applicant.mobile || 'Unavailable') : 'Locked until worker account is active'}
-                        </span>
-                        <span className={styles.textMuted}>Categories: {applicant.categoryLabels.join(', ') || 'Not mapped'}</span>
-                        <span className={styles.textMuted}>Application note: {applicant.note || 'No note added by worker'}</span>
-                      </div>
-                    </div>
-
-                   <div className={styles.companyDashboardApplicantActions} style={{ marginTop: '16px' }}>
-                        <div className={styles.companyDashboardContactButtons}>
-                          {dashboard.profile.status === 'active' && applicant.canContactDirectly && applicant.mobile ? (
-                            <a
-                              href={`tel:${applicant.mobile}`}
-                              className={styles.companyDashboardViewNumberButton}
-                            >
-                              <PhoneIcon />
-                              <span>View Number</span>
-                            </a>
-                          ) : null}
-                      
-                          {dashboard.profile.status === 'active' && applicant.whatsappUrl ? (
-                            <a
-                              href={applicant.whatsappUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className={styles.companyDashboardWhatsappButton}
-                              aria-label={`Open WhatsApp chat for ${applicant.fullName}`}
-                            >
-                              <WhatsAppIcon />
-                            </a>
-                          ) : null}
+             <div className={styles.stack}>
+                      {job.applicants.length === 0 ? (
+                        <div className={styles.softCard}>
+                          <p style={{ margin: 0, color: '#64748b', fontWeight: 700 }}>No applicants yet for this job.</p>
                         </div>
-                      
-                        <div className={styles.companyDashboardDecisionButtons}>
-                          <button
-                            type="button"
-                            className={styles.companyDashboardRejectButton}
-                            disabled={submitting || applicant.status === 'rejected'}
-                            onClick={() => updateStatus(applicant.applicationId, 'rejected')}
-                          >
-                            Reject
-                          </button>
-                      
-                          <button
-                            type="button"
-                            className={styles.companyDashboardShortlistButton}
-                            disabled={submitting || applicant.status === 'shortlisted'}
-                            onClick={() => updateStatus(applicant.applicationId, 'shortlisted')}
-                          >
-                            Shortlist
-                          </button>
+                      ) : job.applicants.map(applicant => (
+                        <div key={applicant.applicationId} className={styles.softCard}>
+                          <div className={styles.sectionFooter}>
+                            <div>
+                              <p style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: 900 }}>{applicant.fullName}</p>
+                              <p className={styles.textMuted}>
+                                {applicant.city} • {formatCurrency(applicant.expectedDailyWage)} expected • {availabilityLabel(applicant.availability)}
+                              </p>
+                            </div>
+                            <span className={styles.chip} style={statusTone(applicant.status)}>{applicant.status}</span>
+                          </div>
+                          <div className={styles.twoColGrid}>
+                            <div className={styles.stack}>
+                              <span className={styles.textMuted}>Skills: {applicant.skills.length ? applicant.skills.join(', ') : 'Not added'}</span>
+                              <span className={styles.textMuted}>Experience: {applicant.experienceYears} years</span>
+                              <span className={styles.textMuted}>Applied: {formatDateTime(applicant.appliedAt)}</span>
+                              <span className={styles.textMuted}>Worker wallet: {formatCurrency(applicant.walletBalance)}</span>
+                            </div>
+                            <div className={styles.stack}>
+                              <span className={styles.textMuted}>
+                                Contact: {applicant.canContactDirectly ? (applicant.mobile || 'Unavailable') : 'Locked until worker account is active'}
+                              </span>
+                              <span className={styles.textMuted}>Categories: {applicant.categoryLabels.join(', ') || 'Not mapped'}</span>
+                              <span className={styles.textMuted}>Application note: {applicant.note || 'No note added by worker'}</span>
+                            </div>
+                          </div>
+                    
+                          <div className={styles.companyDashboardApplicantActions} style={{ marginTop: '16px' }}>
+                            <div className={styles.companyDashboardContactButtons}>
+                              {dashboard.profile.status === 'active' && applicant.canContactDirectly && applicant.mobile ? (
+                                <a
+                                  href={`tel:${applicant.mobile}`}
+                                  className={styles.companyDashboardViewNumberButton}
+                                >
+                                  <PhoneIcon />
+                                  <span>View Number</span>
+                                </a>
+                              ) : null}
+                    
+                              {dashboard.profile.status === 'active' && applicant.whatsappUrl ? (
+                                <a
+                                  href={applicant.whatsappUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={styles.companyDashboardWhatsappButton}
+                                  aria-label={`Open WhatsApp chat for ${applicant.fullName}`}
+                                >
+                                  <WhatsAppIcon />
+                                </a>
+                              ) : null}
+                            </div>
+                    
+                            <div className={styles.companyDashboardDecisionButtons}>
+                              <button
+                                type="button"
+                                className={styles.companyDashboardRejectButton}
+                                disabled={submitting || applicant.status === 'rejected'}
+                                onClick={() => updateStatus(applicant.applicationId, 'rejected')}
+                              >
+                                Reject
+                              </button>
+                    
+                              <button
+                                type="button"
+                                className={styles.companyDashboardShortlistButton}
+                                disabled={submitting || applicant.status === 'shortlisted'}
+                                onClick={() => updateStatus(applicant.applicationId, 'shortlisted')}
+                              >
+                                Shortlist
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
                       ))}
                     </div>
                   </div>

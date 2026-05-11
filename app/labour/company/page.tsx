@@ -67,7 +67,7 @@ export default async function LabourCompanyHomePage() {
 
     if (section === 'trust') {
       return (
-        <section key={section} className={styles.card}>
+        <section key={section} id="about" className={styles.card}>
           <div className={styles.splitGrid}>
             <div>
               <h2 className={styles.sectionTitle}>{content.home.trustStrip.title}</h2>
@@ -87,7 +87,7 @@ export default async function LabourCompanyHomePage() {
 
     if (section === 'features') {
       return (
-        <section key={section} id="features" className={styles.card}>
+        <section key={section} id="industries" className={styles.card}>
           <div className={styles.sectionFooter}>
             <div>
               <h2 className={styles.sectionTitle}>{content.home.features.title}</h2>

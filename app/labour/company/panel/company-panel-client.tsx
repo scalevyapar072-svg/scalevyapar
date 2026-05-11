@@ -16,6 +16,7 @@ type CompanyApplicant = {
   city: string
   mobile: string | null
   canContactDirectly: boolean
+  whatsappUrl: string | null
   categoryLabels: string[]
   skills: string[]
   experienceYears: number

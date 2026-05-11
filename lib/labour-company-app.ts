@@ -356,9 +356,24 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
 export const getCompanyWorkerSearchAccess = async (companyId: string) => {
   const { snapshot, company, activePlanRecord, hasDirectWorkerAccess } = await getCompanyActivePlan(companyId)
 
-  const workers = hasDirectWorkerAccess
+  const postedJobCategoryIds = Array.from(
+    new Set(
+      snapshot.jobPosts
+        .filter(jobPost => jobPost.companyId === companyId && jobPost.status === 'live')
+        .map(jobPost => jobPost.categoryId)
+        .filter(Boolean)
+    )
+  )
+
+  const canSearchPostedJobWorkers = hasDirectWorkerAccess && postedJobCategoryIds.length > 0
+
+  const workers = canSearchPostedJobWorkers
     ? snapshot.workers
-        .filter(worker => worker.status === 'active' && worker.isVisible)
+        .filter(worker =>
+          worker.status === 'active' &&
+          worker.isVisible &&
+          worker.categoryIds.some(categoryId => postedJobCategoryIds.includes(categoryId))
+        )
         .map(worker => ({
           workerId: worker.id,
           mobile: worker.mobile,
@@ -379,10 +394,12 @@ export const getCompanyWorkerSearchAccess = async (companyId: string) => {
       activePlanName: activePlanRecord?.name || ''
     },
     access: {
-      granted: hasDirectWorkerAccess,
-      message: hasDirectWorkerAccess
-        ? 'Your active company plan unlocks direct worker contact.'
-        : 'Direct worker contact is available only to companies with an active company plan.'
+      granted: canSearchPostedJobWorkers,
+      message: canSearchPostedJobWorkers
+        ? 'Your active company plan and live job posts unlock direct contact for matching workers.'
+        : hasDirectWorkerAccess
+          ? 'Post a live job first to unlock direct contact for workers in that job category.'
+          : 'Direct worker contact is available only to companies with an active company plan.'
     },
     workers
   }

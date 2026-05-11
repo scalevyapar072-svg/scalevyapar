@@ -734,5 +734,424 @@
   align-self: start;
   padding-bottom: 32px;
 }
+.fieldLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.inputField,
+.selectField {
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 14px;
+  border: 1px solid #dbe2ea;
+  border-radius: 14px;
+  font-size: 14px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.statusBadgeMuted {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.errorBanner {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.panelLoadingShell,
+.panelAuthShell {
+  min-height: calc(100vh - 120px);
+  display: grid;
+  place-items: center;
+}
+
+.panelLoadingCard,
+.panelAuthCard {
+  width: min(720px, 100%);
+  padding: 32px;
+  border-radius: 28px;
+  border: 1px solid rgba(219, 226, 234, 0.95);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 252, 255, 0.96) 100%);
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.055);
+}
+
+.companyDashboardShell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.companyDashboardSidebar {
+  position: sticky;
+  top: 18px;
+  display: grid;
+  gap: 18px;
+  padding: 24px 20px;
+  border-radius: 28px;
+  border: 1px solid rgba(219, 226, 234, 0.95);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 46px rgba(15, 23, 42, 0.06);
+}
+
+.companyDashboardBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.companyDashboardLogo {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f766e, #0f172a);
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 900;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.16);
+}
+
+.companyDashboardName {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.companyDashboardMeta {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.companyDashboardNav {
+  display: grid;
+  gap: 10px;
+}
+
+.companyDashboardNavItem {
+  min-height: 50px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1px solid #dbe2ea;
+  background: #ffffff;
+  color: #334155;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.companyDashboardNavItem:hover {
+  transform: translateY(-1px);
+  border-color: #bfdbfe;
+}
+
+.companyDashboardNavItemActive {
+  background: #e6fffb;
+  border-color: #99f6e4;
+  color: #0f766e;
+}
+
+.companyDashboardSupportCard,
+.companyDashboardInfoCard {
+  padding: 20px;
+  border-radius: 22px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.companyDashboardSupportTitle,
+.companyDashboardFaqQuestion,
+.companyDashboardTimelineTitle,
+.companyDashboardApplicantName {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.companyDashboardSupportText {
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.companyDashboardRecommended {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f3e8ff;
+  color: #7c3aed;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.companyDashboardContent {
+  display: grid;
+  gap: 24px;
+}
+
+.companyDashboardSection {
+  display: grid;
+  gap: 20px;
+}
+
+.companyDashboardHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.companyDashboardHeading {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 46px;
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.companyDashboardFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.companyDashboardFilterPill {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid #dbe2ea;
+  background: #ffffff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.companyDashboardJobList {
+  display: grid;
+  gap: 18px;
+}
+
+.companyDashboardJobCard {
+  padding: 26px 28px;
+  border-radius: 26px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.05);
+}
+
+.companyDashboardJobTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.companyDashboardJobTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.companyDashboardJobTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.companyDashboardJobActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.companyDashboardMetricBox {
+  min-width: 160px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: grid;
+  gap: 6px;
+}
+
+.companyDashboardMetricBox strong {
+  color: #0f172a;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.companyDashboardMetricBox span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.companyDashboardApplicantStrip {
+  display: grid;
+  gap: 14px;
+}
+
+.companyDashboardApplicantCard {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #fbfdff;
+}
+
+.companyDashboardWarning {
+  display: grid;
+  gap: 6px;
+  padding: 18px 20px;
+  border-left: 4px solid #d97706;
+  border-radius: 18px;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.companyDashboardUsageGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.companyDashboardUsageCard {
+  padding: 24px;
+  border-radius: 24px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.04);
+}
+
+.companyDashboardUsageLabel {
+  margin: 0 0 12px;
+  color: #334155;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.companyDashboardUsageValue {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 44px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.companyDashboardTimelineRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.companyDashboardTimelineRow:first-child {
+  border-top: 0;
+}
+
+.companyDashboardTimelineMeta {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.companyDashboardBillingTable {
+  display: grid;
+  gap: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.companyDashboardBillingHead,
+.companyDashboardBillingRow {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr 1fr 0.8fr 0.7fr;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+}
+
+.companyDashboardBillingHead {
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.companyDashboardBillingRow {
+  border-top: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.companyDashboardSupportGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+}
+
+@media (max-width: 1180px) {
+  .companyDashboardShell {
+    grid-template-columns: 1fr;
+  }
+
+  .companyDashboardSidebar {
+    position: static;
+  }
+
+  .companyDashboardUsageGrid,
+  .companyDashboardSupportGrid,
+  .companyDashboardBillingHead,
+  .companyDashboardBillingRow {
+    grid-template-columns: 1fr;
+  }
+}
 
 

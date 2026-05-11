@@ -64,6 +64,7 @@ export type CompanyAppJobPost = {
   totalApplications: number
   shortlistedCount: number
   hiredCount: number
+  databaseMatches: number
   applicants: CompanyAppApplicant[]
 }
 

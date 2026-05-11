@@ -526,3 +526,198 @@
     width: 100%;
   }
 }
+.heroShowcaseCard {
+  position: relative;
+  overflow: hidden;
+  border-radius: 30px;
+  border: 1px solid rgba(219, 226, 234, 0.95);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  min-height: 620px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(20, 184, 166, 0.16), transparent 26%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.heroVisualBackdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 24% 28%, rgba(59, 130, 246, 0.18), transparent 18%),
+    radial-gradient(circle at 74% 24%, rgba(29, 78, 216, 0.14), transparent 20%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.02) 0%, rgba(15, 23, 42, 0.04) 100%);
+  pointer-events: none;
+}
+
+.heroVisualStage {
+  position: relative;
+  min-height: 100%;
+  display: grid;
+  align-items: stretch;
+  justify-items: stretch;
+  padding: 0;
+  overflow: visible;
+}
+
+.heroVisualHalo {
+  position: absolute;
+  inset: 14% 12% 20% 16%;
+  border-radius: 999px;
+  filter: blur(14px);
+  opacity: 0.7;
+}
+
+.heroAccentIndigo {
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.16), transparent 64%);
+}
+
+.heroAccentBlue {
+  background: radial-gradient(circle, rgba(29, 78, 216, 0.18), transparent 64%);
+}
+
+.heroAccentTeal {
+  background: radial-gradient(circle, rgba(20, 184, 166, 0.18), transparent 64%);
+}
+
+.heroAccentSky {
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 64%);
+}
+
+.heroTemplateBadgeRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.heroTemplateDots {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.heroTemplateDot {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.42);
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.heroTemplateDotActive {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.14);
+}
+
+.heroTemplateBody {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 20px;
+  min-height: 100%;
+  animation: heroTemplateIn 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.heroServiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.heroServiceChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(219, 226, 234, 0.92);
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+}
+
+.heroServiceDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #14b8a6);
+  flex-shrink: 0;
+}
+
+.heroVisualMetricStrip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-top: auto;
+}
+
+.heroVisualMetricCard {
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #0f172a, #1d4ed8);
+  color: #ffffff;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.2);
+}
+
+.heroVisualMetricValue {
+  margin: 0 0 6px;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.heroVisualMetricLabel {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.heroVisualMainCard {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 34px;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 251, 255, 0.98) 100%);
+  border: 1px solid rgba(219, 226, 234, 0.95);
+  box-shadow:
+    0 28px 60px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+.heroVisualTitle {
+  margin: 0 0 10px;
+  color: #0f172a;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+@keyframes heroTemplateIn {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+

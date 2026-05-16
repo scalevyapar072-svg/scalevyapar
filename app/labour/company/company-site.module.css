@@ -1612,16 +1612,19 @@
 }
 
 .jobPostAuthOverlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 8;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 96px 16px 24px;
+  background: rgba(255, 255, 255, 0.64);
+  backdrop-filter: blur(10px);
 }
 
 .jobPostAuthModal {
-  width: min(100%, 460px);
+  width: min(100%, 520px);
   display: grid;
   gap: 14px;
   padding: 28px;
@@ -1663,6 +1666,21 @@
   flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .jobPostAuthOverlay {
+    padding-top: 80px;
+  }
+
+  .jobPostAuthModal {
+    width: min(100%, 100%);
+    padding: 24px 20px;
+  }
+
+  .jobPostAuthActions {
+    flex-direction: column;
+  }
 }
 
 .jobPostShell .companyRegisterSplit {

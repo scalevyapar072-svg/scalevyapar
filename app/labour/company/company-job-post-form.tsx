@@ -755,6 +755,7 @@ export function CompanyJobPostForm({
     'Not selected'
   const isCompanySessionChecking = autofillState === 'loading'
   const showJobPostAuthGate = !companyToken && autofillState === 'not-found'
+  const showFixedAuthOverlay = isCompanySessionChecking || showJobPostAuthGate
   const previewItems = [
     ['Company', form.companyName || 'Not filled'],
     ['Job Title', form.jobTitle || 'Not filled'],
@@ -984,6 +985,19 @@ export function CompanyJobPostForm({
       </label>
     )
   }
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || !showFixedAuthOverlay) {
+      return
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [showFixedAuthOverlay])
 
   return (
     <section className={`${styles.companyRegisterShell} ${styles.jobPostShell}`}>

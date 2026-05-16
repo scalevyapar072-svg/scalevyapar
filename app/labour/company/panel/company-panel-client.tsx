@@ -253,6 +253,10 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
       }
 
       localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+      if (data.dashboard?.profile) {
+        localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(data.dashboard.profile))
+      }
+      window.dispatchEvent(new Event('labour-company-auth-change'))
 
       if (signinMode) {
         router.push('/labour/company/panel')
@@ -272,6 +276,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
   const handleLogout = () => {
     localStorage.removeItem(COMPANY_TOKEN_KEY)
     localStorage.removeItem(COMPANY_PROFILE_KEY)
+    window.dispatchEvent(new Event('labour-company-auth-change'))
     setToken(null)
     setDashboard(null)
     setError('')

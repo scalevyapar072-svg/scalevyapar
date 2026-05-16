@@ -2759,6 +2759,813 @@
   letter-spacing: 0.02em;
 }
 
+.companyDashboardShell {
+  display: grid;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.companyDashboardSidebar {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  gap: 20px;
+  align-content: start;
+  padding: 24px 18px;
+  border-radius: 30px;
+  border: 1px solid rgba(219, 226, 234, 0.96);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(246, 249, 255, 0.98) 100%);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.06);
+}
+
+.companyDashboardSidebarBrand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+}
+
+.companyDashboardSidebarMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.companyDashboardSidebarBrandTitle {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.companyDashboardSidebarBrandMeta {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 400;
+}
+
+.companyDashboardSidebarNav {
+  display: grid;
+  gap: 10px;
+}
+
+.companyDashboardSidebarItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+  color: #475569;
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.companyDashboardSidebarItem:hover {
+  background: #f8fbff;
+  border-color: rgba(148, 163, 184, 0.92);
+  color: #0f172a;
+  transform: translateX(2px);
+}
+
+.companyDashboardSidebarItemActive {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: rgba(37, 99, 235, 0.16);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+}
+
+.companyDashboardSidebarIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #2563eb;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.companyDashboardSidebarItemActive .companyDashboardSidebarIcon {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.companyDashboardSidebarUpgrade {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 18px 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(191, 219, 254, 0.96);
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+}
+
+.companyDashboardSidebarUpgradeTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.companyDashboardSidebarUpgradeText {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.companyDashboardSidebarUpgradeButton,
+.companyDashboardSidebarLogout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border-radius: 14px;
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.companyDashboardSidebarUpgradeButton {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.2);
+}
+
+.companyDashboardSidebarLogout {
+  border: 1px solid rgba(203, 213, 225, 0.98);
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+}
+
+.companyDashboardMain {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.companyDashboardTopbar,
+.companyDashboardSectionCard,
+.companyDashboardHelpCard,
+.companyDashboardPlanBar {
+  border-radius: 28px;
+  border: 1px solid rgba(219, 226, 234, 0.95);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 251, 255, 0.97) 100%);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.05);
+}
+
+.companyDashboardTopbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 24px;
+}
+
+.companyDashboardTopbarIdentity,
+.companyDashboardTopbarUtilities,
+.companyDashboardTopbarTitleRow,
+.companyDashboardActionRow,
+.companyDashboardSectionHeader,
+.companyDashboardJobTitleRow,
+.companyDashboardJobActions,
+.companyDashboardApplicationIdentity,
+.companyDashboardApplicationTitleRow {
+  display: flex;
+  align-items: center;
+}
+
+.companyDashboardTopbarIdentity,
+.companyDashboardApplicationIdentity {
+  gap: 14px;
+}
+
+.companyDashboardTopbarAvatar,
+.companyDashboardTopbarAvatarSmall {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #e0ecff 0%, #dbeafe 100%);
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.companyDashboardTopbarAvatar {
+  width: 56px;
+  height: 56px;
+  font-size: 18px;
+}
+
+.companyDashboardTopbarAvatarSmall {
+  width: 40px;
+  height: 40px;
+  font-size: 13px;
+}
+
+.companyDashboardTopbarTitleRow {
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.companyDashboardTopbarTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(24px, 2.4vw, 28px);
+  line-height: 1.18;
+  font-weight: 600;
+}
+
+.companyDashboardVerifiedBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.companyDashboardTopbarMeta {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 400;
+}
+
+.companyDashboardTopbarUtilities {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.companyDashboardTopbarNotice,
+.companyDashboardTopbarHelp {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+  color: #334155;
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.companyDashboardActionRow {
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.companyDashboardPageTitle {
+  margin: 6px 0 0;
+  color: #0f172a;
+  font-size: clamp(28px, 3vw, 33px);
+  line-height: 1.14;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.companyDashboardPageText {
+  margin: 8px 0 0;
+  max-width: 680px;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.65;
+  font-weight: 400;
+}
+
+.companyDashboardHeaderButtons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.companyDashboardPrimaryButton,
+.companyDashboardSecondaryButton,
+.companyDashboardHelpButton,
+.companyDashboardPlanButton,
+.companyDashboardListButton,
+.companyDashboardMoreButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.companyDashboardPrimaryButton,
+.companyDashboardPlanButton {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.18);
+}
+
+.companyDashboardSecondaryButton,
+.companyDashboardHelpButton,
+.companyDashboardListButton,
+.companyDashboardMoreButton {
+  border: 1px solid rgba(191, 219, 254, 0.98);
+  background: #ffffff;
+  color: #1d4ed8;
+}
+
+.companyDashboardHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 44%);
+  gap: 22px;
+  align-items: center;
+  padding: 24px 26px;
+  border-radius: 32px;
+  border: 1px solid rgba(219, 226, 234, 0.94);
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(246, 250, 255, 0.98) 100%);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.06);
+}
+
+.companyDashboardHeroContent {
+  display: grid;
+  gap: 14px;
+}
+
+.companyDashboardHeroTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(30px, 3.4vw, 38px);
+  line-height: 1.14;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.companyDashboardHeroTitle span {
+  color: #2563eb;
+}
+
+.companyDashboardHeroText {
+  margin: 0;
+  max-width: 480px;
+  color: #475569;
+  font-size: 15px;
+  line-height: 1.7;
+  font-weight: 400;
+}
+
+.companyDashboardHeroChips {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.companyDashboardHeroChipGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.companyDashboardHeroChipGroup small {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+.companyDashboardHeroChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.companyDashboardHeroMedia {
+  position: relative;
+  min-height: 320px;
+}
+
+.companyDashboardHeroImage {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  border-radius: 28px;
+  object-fit: cover;
+  display: block;
+}
+
+.companyDashboardHeroFloatingCard {
+  position: absolute;
+  right: -18px;
+  bottom: -18px;
+  width: min(300px, calc(100% - 28px));
+  padding: 16px 16px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.12);
+}
+
+.companyDashboardHeroFloatingTitle {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.companyDashboardHeroFloatingMeta {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 400;
+}
+
+.companyDashboardHeroFloatingFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.companyDashboardHeroFloatingFaces,
+.companyDashboardHeroFloatingRating {
+  color: #1d4ed8;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.companyDashboardStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.companyDashboardStatCard {
+  display: grid;
+  gap: 8px;
+  padding: 18px 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
+}
+
+.companyDashboardStatIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.companyDashboardStatLabel {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.companyDashboardStatValue {
+  color: #0f172a;
+  font-size: clamp(26px, 2.8vw, 32px);
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.companyDashboardStatDescription {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+.companyDashboardStatLink,
+.companyDashboardSectionLink {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.companyDashboardSectionCard {
+  display: grid;
+  gap: 16px;
+  padding: 20px 22px;
+}
+
+.companyDashboardSectionHeader {
+  gap: 16px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.companyDashboardSectionTitle {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.companyDashboardSectionText {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.companyDashboardJobList,
+.companyDashboardApplicationsList,
+.companyDashboardQuickActions,
+.companyDashboardSideColumn {
+  display: grid;
+  gap: 14px;
+}
+
+.companyDashboardJobRow,
+.companyDashboardApplicationRow {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+}
+
+.companyDashboardJobRow {
+  grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr) auto;
+  align-items: center;
+}
+
+.companyDashboardJobTitleRow,
+.companyDashboardApplicationTitleRow {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.companyDashboardJobTitle,
+.companyDashboardApplicationName {
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.companyDashboardJobMeta,
+.companyDashboardApplicationMeta {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.65;
+  font-weight: 500;
+}
+
+.companyDashboardJobMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.companyDashboardJobMetrics span {
+  display: grid;
+  gap: 4px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(226, 232, 240, 0.95);
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.companyDashboardJobMetrics strong {
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.companyDashboardJobActions {
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.companyDashboardMoreButton {
+  min-width: 46px;
+  padding-inline: 0;
+}
+
+.companyDashboardSplitGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.95fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.companyDashboardApplicationRow {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.companyDashboardApplicationAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.companyDashboardApplicationAvatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.companyDashboardApplicationStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.companyDashboardQuickAction {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 66px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+  color: #0f172a;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.companyDashboardQuickActionIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.companyDashboardQuickAction strong {
+  display: block;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.companyDashboardQuickAction small {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+.companyDashboardQuickAction em {
+  color: #94a3b8;
+  font-size: 20px;
+  line-height: 1;
+  font-style: normal;
+}
+
+.companyDashboardHelpCard {
+  display: grid;
+  gap: 16px;
+  padding: 20px 22px;
+  background:
+    radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.12), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(245, 249, 255, 0.98) 100%);
+}
+
+.companyDashboardHelpImage {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 18px;
+  justify-self: end;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.16);
+}
+
+.companyDashboardPlanBar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 20px;
+}
+
+.companyDashboardPlanItem {
+  display: grid;
+  gap: 6px;
+}
+
+.companyDashboardPlanLabel {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.companyDashboardPlanItem strong {
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
 .companySnapshotCard {
   position: relative;
   overflow: hidden;
@@ -2977,9 +3784,9 @@
 .companyPanelSidebarName {
   margin: 0 0 4px;
   color: #0f172a;
-  font-size: 20px;
-  line-height: 1.15;
-  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 600;
 }
 
 .companyPanelSidebarMeta {
@@ -3009,8 +3816,8 @@
   background: #ffffff;
   color: #475569;
   font-size: 14px;
-  line-height: 1.2;
-  font-weight: 400;
+  line-height: 1.35;
+  font-weight: 500;
   text-decoration: none;
 }
 
@@ -3108,8 +3915,8 @@
 .companyPanelSidebarPromoTitle {
   margin: 0;
   color: #7c2d12;
-  font-size: 15px;
-  line-height: 1.35;
+  font-size: 14px;
+  line-height: 1.45;
   font-weight: 500;
 }
 
@@ -3133,13 +3940,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 12px 18px;
-  border-radius: 16px;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 14px;
   text-decoration: none;
-  font-size: 16px;
+  font-size: 13px;
   line-height: 1.2;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .companyPanelSidebarLogout {
@@ -3158,7 +3965,7 @@
 
 .companyPanelMain {
   display: grid;
-  gap: 18px;
+  gap: 16px;
   min-width: 0;
 }
 
@@ -3175,11 +3982,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 22px;
+  padding: 16px 20px;
   cursor: pointer;
   list-style: none;
   color: #0f172a;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.3;
   font-weight: 500;
 }
@@ -3228,8 +4035,8 @@
 }
 
 .companyPanelCanvas {
-  padding: 22px;
-  border-radius: 28px;
+  padding: 20px;
+  border-radius: 24px;
   border: 1px solid rgba(219, 226, 234, 0.95);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 251, 255, 0.97) 100%);
   box-shadow: 0 18px 44px rgba(15, 23, 42, 0.05);
@@ -3241,16 +4048,16 @@
   align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .companyPanelTitle {
   margin: 0 0 10px;
   color: #0f172a;
-  font-size: 36px;
-  line-height: 1.02;
-  font-weight: 500;
-  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 3vw, 34px);
+  line-height: 1.1;
+  font-weight: 600;
+  font-family: inherit;
 }
 
 .companyPanelFilterRow {
@@ -3259,7 +4066,7 @@
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .companyPanelSelect {
@@ -3272,6 +4079,7 @@
   padding: 10px 14px;
   font-size: 14px;
   line-height: 1.4;
+  font-weight: 400;
 }
 
 .companyPanelStatusPills {
@@ -3319,8 +4127,8 @@
   display: flex;
   align-items: stretch;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 20px;
+  gap: 14px;
+  padding: 16px 18px;
   cursor: pointer;
   list-style: none;
 }
@@ -3363,9 +4171,9 @@
 .companyPanelJobTitle {
   margin: 0 0 6px;
   color: #0f172a;
-  font-size: 14px;
-  line-height: 1.2;
-  font-weight: 500;
+  font-size: 15px;
+  line-height: 1.3;
+  font-weight: 600;
 }
 
 .companyPanelJobMeta {
@@ -3406,9 +4214,9 @@
 
 .companyPanelSummaryMetric strong {
   color: #0f172a;
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .companyPanelSummaryMetric span {
@@ -3448,14 +4256,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
+  min-height: 40px;
   border-radius: 12px;
   border: 1px solid rgba(203, 213, 225, 0.95);
   background: #ffffff;
   color: #0f172a;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.2;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .companyPanelSummaryButton {
@@ -4113,6 +4921,40 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .companyDashboardShell,
+  .companyDashboardSplitGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .companyDashboardSidebar {
+    position: static;
+  }
+
+  .companyDashboardHero {
+    grid-template-columns: 1fr;
+  }
+
+  .companyDashboardStatsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .companyDashboardJobRow,
+  .companyDashboardPlanBar {
+    grid-template-columns: 1fr;
+  }
+
+  .companyDashboardTopbar,
+  .companyDashboardActionRow,
+  .companyDashboardSectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .companyDashboardHeroFloatingCard {
+    right: 18px;
+    bottom: 18px;
+  }
+
   .companySnapshotMetrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4165,6 +5007,60 @@
 @media (max-width: 760px) {
   .container {
     padding: 14px 14px 42px;
+  }
+
+  .companyDashboardTopbar,
+  .companyDashboardSectionCard,
+  .companyDashboardHelpCard,
+  .companyDashboardPlanBar,
+  .companyDashboardHero,
+  .companyDashboardSidebar {
+    padding: 18px;
+  }
+
+  .companyDashboardStatsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .companyDashboardJobMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .companyDashboardApplicationRow,
+  .companyDashboardQuickAction {
+    grid-template-columns: 1fr;
+  }
+
+  .companyDashboardActionRow,
+  .companyDashboardHeaderButtons,
+  .companyDashboardJobActions,
+  .companyDashboardTopbarUtilities {
+    width: 100%;
+  }
+
+  .companyDashboardHeaderButtons {
+    flex-direction: column;
+  }
+
+  .companyDashboardPrimaryButton,
+  .companyDashboardSecondaryButton,
+  .companyDashboardHelpButton,
+  .companyDashboardPlanButton {
+    width: 100%;
+  }
+
+  .companyDashboardHeroMedia {
+    min-height: 220px;
+  }
+
+  .companyDashboardHeroImage {
+    min-height: 220px;
+  }
+
+  .companyDashboardHeroFloatingCard {
+    position: static;
+    width: 100%;
+    margin-top: 14px;
   }
 
   .masthead {
@@ -4755,6 +5651,9 @@
 }
 
 .homeHeroVisualImage {
+  width: 100%;
+  height: 100%;
+  display: block;
   object-fit: cover;
 }
 
@@ -6647,14 +7546,16 @@
 
 .homeHeroInsightCard {
   position: absolute;
-  left: 28px;
-  bottom: 20px;
-  width: min(320px, calc(100% - 56px));
+  left: -18px;
+  bottom: -22px;
+  right: auto;
+  width: min(320px, calc(100% - 72px));
   padding: 22px 22px 18px;
   border-radius: 22px;
   border: 1px solid rgba(226, 232, 240, 0.9);
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 26px 48px rgba(15, 23, 42, 0.16);
+  z-index: 2;
 }
 
 .homeHeroInsightCard strong {
@@ -7388,5 +8289,2282 @@
   .homeFooterBottom {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* Refinement pass: smaller typography, full-width footer, cleaner hero banner */
+.homeLandingMain {
+  width: min(1280px, calc(100% - 32px));
+  gap: 56px;
+}
+
+.homeHeroSection {
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 34px;
+}
+
+.homeHeroTitle {
+  max-width: 560px;
+  font-size: clamp(40px, 4.6vw, 56px);
+  font-weight: 800;
+}
+
+.homeHeroText {
+  max-width: 560px;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.homeSectionTitle,
+.homeCompanyBannerTitle {
+  font-size: clamp(26px, 3.2vw, 38px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.homeSectionText,
+.homeCompanyBannerText,
+.homeWorkerCtaPanel p,
+.homeBenefitCard p,
+.homeCategoryCard p,
+.homeHowTimelineCard p,
+.homeTestimonialQuote {
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.homeLandingDesktopNav {
+  gap: 24px;
+}
+
+.homeLandingDesktopNav .homeLandingNavLink {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.homeHeroShowcase {
+  align-self: stretch;
+}
+
+.homeHeroVisualGrid {
+  min-height: 455px;
+}
+
+.homeHeroVisualGridSingle {
+  grid-template-columns: 1fr;
+}
+
+.homeHeroImagePrimary,
+.homeHeroImageSecondary {
+  min-height: 455px;
+  border-radius: 28px;
+}
+
+.homeHeroImagePrimarySingle {
+  min-height: 455px;
+}
+
+.homeSearchTitle {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.homeSearchBar {
+  grid-template-columns: minmax(0, 1.35fr) minmax(170px, 0.7fr) minmax(170px, 0.7fr) minmax(170px, 0.7fr) auto;
+}
+
+.homeStatsSection {
+  margin-top: -8px;
+}
+
+.homeStatsCard strong {
+  font-size: clamp(28px, 3vw, 40px);
+}
+
+.homeBenefitsGrid,
+.homeCategoryGrid {
+  gap: 16px;
+}
+
+.homeBenefitCard,
+.homeCategoryCard,
+.homeTestimonialCard {
+  padding: 22px 16px;
+}
+
+.homeBenefitCard h3,
+.homeCategoryCard h3,
+.homeHowTimelineCard h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.homeHowSection {
+  gap: 18px;
+}
+
+.homeHowTimeline {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.homeHowTimeline::before {
+  top: 38px;
+  left: calc(10% + 18px);
+  right: calc(10% + 18px);
+}
+
+.homeHowTimelineCard {
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.homeHowTimelineDot {
+  width: 62px;
+  height: 62px;
+}
+
+.homeHowTimelineCard h3 {
+  max-width: 180px;
+  text-align: center;
+}
+
+.homeHowTimelineCard p {
+  max-width: 190px;
+  text-align: center;
+}
+
+.homeCompanyBanner {
+  border-radius: 22px;
+}
+
+.homeFooter {
+  width: 100%;
+  margin: 0;
+  padding: 48px 24px 24px;
+  border-top: 0;
+  background: linear-gradient(180deg, #071a3a 0%, #0f2f66 100%);
+}
+
+.homeFooterGrid,
+.homeFooterBottom {
+  width: min(1280px, calc(100% - 8px));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.homeFooterBrandRow h3,
+.homeFooterTitle,
+.homeFooterLinks a:hover,
+.homeFooterSocial {
+  color: #ffffff;
+}
+
+.homeFooterBrandRow p,
+.homeFooterLinks a,
+.homeFooterContact span,
+.homeFooterBottom span {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.homeFooterSocial {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 10px 12px;
+  border-radius: 999px;
+}
+
+.homeSocialMark {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+@media (max-width: 1180px) {
+  .homeSearchBar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .homeSearchButton {
+    width: 100%;
+  }
+}
+
+@media (max-width: 960px) {
+  .homeHeroSection {
+    grid-template-columns: 1fr;
+  }
+
+  .homeHeroVisualGrid,
+  .homeHeroImagePrimary,
+  .homeHeroImageSecondary,
+  .homeHeroImagePrimarySingle {
+    min-height: 360px;
+  }
+
+  .homeHowTimeline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+  }
+
+  .homeHowTimeline::before {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .homeLandingMain {
+    width: min(100%, calc(100% - 20px));
+    gap: 42px;
+  }
+
+  .homeHeroTitle {
+    font-size: clamp(32px, 10vw, 44px);
+  }
+
+  .homeSectionTitle,
+  .homeCompanyBannerTitle {
+    font-size: clamp(24px, 8vw, 32px);
+  }
+
+  .homeSearchBar,
+  .homeHowTimeline {
+    grid-template-columns: 1fr;
+  }
+
+  .homeFooter {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+
+.homeHeroSliderDots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.homeHeroSliderDot {
+  width: 10px;
+  height: 10px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.45);
+  cursor: pointer;
+  transition: transform 0.22s ease, width 0.22s ease, background-color 0.22s ease;
+}
+
+.homeHeroSliderDot:hover {
+  transform: scale(1.08);
+  background: rgba(59, 130, 246, 0.6);
+}
+
+.homeHeroSliderDotActive {
+  width: 28px;
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
+}
+
+.homeHeroAnimatedButton {
+  transform-origin: center;
+  animation: homeHeroButtonPulseShake 4.8s ease-in-out infinite;
+}
+
+.homeHeroAnimatedButtonDelay {
+  animation-delay: 0.6s;
+}
+
+@keyframes homeHeroButtonPulseShake {
+  0%,
+  100% {
+    transform: scale(1) translateX(0);
+  }
+
+  12% {
+    transform: scale(0.94) translateX(0);
+  }
+
+  24% {
+    transform: scale(1.06) translateX(0);
+  }
+
+  34% {
+    transform: scale(1) translateX(0);
+  }
+
+  40% {
+    transform: scale(1) translateX(-2px) rotate(-1.2deg);
+  }
+
+  46% {
+    transform: scale(1) translateX(2px) rotate(1.2deg);
+  }
+
+  52% {
+    transform: scale(1) translateX(-2px) rotate(-0.8deg);
+  }
+
+  58% {
+    transform: scale(1) translateX(0) rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .homeHeroAnimatedButton {
+    animation: none;
+  }
+}
+
+/* Alignment refinements for stats row and how-it-works section */
+.homeStatsBand {
+  align-items: start;
+}
+
+.homeStatsCard {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  grid-template-rows: auto auto auto;
+  min-height: 172px;
+  padding-top: 12px;
+}
+
+.homeStatsIconWrap {
+  margin: 0 auto 16px;
+}
+
+.homeStatsCard strong {
+  margin-bottom: 10px;
+}
+
+.homeStatsCard span:last-child {
+  max-width: 190px;
+  margin-top: 0;
+  text-align: center;
+}
+
+.homeHowSection {
+  padding-top: 36px;
+}
+
+.homeHowTimeline {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 28px;
+  align-items: start;
+  padding-top: 26px;
+}
+
+.homeHowTimeline::before {
+  top: 36px;
+  left: 8%;
+  right: 8%;
+}
+
+.homeHowTimelineCard {
+  grid-template-rows: 72px minmax(46px, auto) minmax(120px, auto);
+  align-items: start;
+  justify-items: center;
+  gap: 16px;
+  padding: 0 10px;
+}
+
+.homeHowTimelineCard h3 {
+  min-height: 46px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: center;
+}
+
+.homeHowTimelineCard p {
+  max-width: 210px;
+  min-height: 120px;
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .homeStatsCard {
+    min-height: 0;
+  }
+
+  .homeHowTimelineCard {
+    grid-template-rows: auto auto auto;
+  }
+
+  .homeHowTimelineCard h3,
+  .homeHowTimelineCard p {
+    min-height: 0;
+  }
+}
+
+/* Final alignment lock for homepage stats + how-it-works */
+.homeStatsSection {
+  padding-top: 6px;
+}
+
+.homeStatsBand {
+  width: 100%;
+  align-items: start;
+  justify-items: stretch;
+  gap: 24px;
+}
+
+.homeStatsCard {
+  display: grid;
+  grid-template-rows: 68px 52px 48px;
+  width: 100%;
+  justify-items: center;
+  align-content: start;
+  min-height: auto;
+  padding: 0 8px;
+}
+
+.homeStatsIconWrap {
+  width: 68px;
+  height: 68px;
+  margin: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.homeStatsIcon {
+  width: 22px;
+  height: 22px;
+  display: block;
+  flex: none;
+  margin: 0;
+  position: static;
+  transform: none;
+}
+
+.homeStatsCard strong {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.homeStatsCard span:last-child {
+  max-width: 210px;
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.45;
+}
+
+.homeHowSection {
+  padding-top: 18px;
+}
+
+.homeHowTimeline {
+  width: 100%;
+  justify-items: center;
+  gap: 18px;
+  align-items: start;
+  padding-top: 12px;
+}
+
+.homeHowTimeline::before {
+  top: 36px;
+  left: 7%;
+  right: 7%;
+}
+
+.homeHowTimelineCard {
+  display: grid;
+  grid-template-rows: 72px 58px 116px;
+  align-items: start;
+  justify-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 260px;
+  margin: 0 auto;
+  padding: 0 4px;
+  text-align: center;
+}
+
+.homeHowTimelineDot {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  align-self: start;
+  justify-self: center;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.homeHowTimelineDot :global(svg) {
+  position: static;
+  width: 20px;
+  height: 20px;
+  transform: none;
+}
+
+.homeHowTimelineLine {
+  display: none;
+}
+
+.homeHowTimelineCard h3 {
+  width: 100%;
+  max-width: 240px;
+  min-height: 58px;
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  justify-self: center;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.homeHowTimelineCard p {
+  width: 100%;
+  max-width: 240px;
+  min-height: 116px;
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  justify-self: center;
+  text-align: center;
+  line-height: 1.5;
+}
+
+@media (max-width: 960px) {
+  .homeStatsBand {
+    gap: 18px;
+  }
+
+  .homeStatsCard {
+    grid-template-rows: auto auto auto;
+    min-height: 0;
+  }
+
+  .homeHowTimeline {
+    gap: 22px;
+  }
+
+  .homeHowTimelineCard {
+    grid-template-rows: auto auto auto;
+    padding: 0;
+  }
+
+  .homeHowTimelineCard h3,
+  .homeHowTimelineCard p {
+    min-height: 0;
+  }
+}
+
+/* Pricing page */
+.pricingPage {
+  display: grid;
+  gap: 28px;
+}
+
+.pricingHeroSection {
+  position: relative;
+  overflow: hidden;
+  padding: 46px 28px 30px;
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 26%),
+    radial-gradient(circle at top right, rgba(224, 236, 255, 0.88), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.98));
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.05);
+}
+
+.pricingHeroGlow {
+  position: absolute;
+  right: -40px;
+  top: 36px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: rgba(191, 219, 254, 0.42);
+  filter: blur(10px);
+}
+
+.pricingHeroInner {
+  position: relative;
+  z-index: 1;
+  max-width: 820px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.pricingHeroEyebrow,
+.pricingSectionEyebrow {
+  margin: 0 0 12px;
+  color: #2563eb;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pricingHeroTitle,
+.pricingSectionTitle {
+  margin: 0;
+  color: #0f172a;
+  letter-spacing: -0.03em;
+}
+
+.pricingHeroTitle {
+  font-size: clamp(34px, 4vw, 46px);
+  line-height: 1.12;
+  font-weight: 700;
+}
+
+.pricingHeroText {
+  margin: 14px auto 0;
+  max-width: 720px;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.pricingBenefitsBar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  padding: 24px 28px;
+  border-radius: 28px;
+  border: 1px solid rgba(226, 232, 240, 0.86);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.04);
+}
+
+.pricingBenefitItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 10px;
+}
+
+.pricingBenefitIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff5ff;
+  border: 1px solid rgba(191, 219, 254, 0.96);
+  color: #2563eb;
+  flex: none;
+}
+
+.pricingBenefitCopy h2 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.pricingBenefitCopy p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pricingBillingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pricingBillingToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+.pricingBillingOption {
+  min-height: 38px;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pricingBillingOptionActive {
+  background: linear-gradient(135deg, #0f3fbf, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
+}
+
+.pricingBillingSavings {
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #eafbf0;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pricingCurrencyNote {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pricingPlansGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.pricingPlanCard {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 28px 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
+}
+
+.pricingPlanCardFeatured {
+  border-color: rgba(59, 130, 246, 0.42);
+  box-shadow: 0 22px 46px rgba(37, 99, 235, 0.12);
+}
+
+.pricingPlanBadge {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-height: 28px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0f3fbf, #2563eb);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pricingPlanTop h2 {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.pricingPlanTop p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.pricingPlanPriceWrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.pricingPlanPriceWrap strong {
+  color: #0f172a;
+  font-size: clamp(34px, 4vw, 42px);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.pricingPlanPriceWrap span {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pricingPlanButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  width: 100%;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0f3fbf, #2563eb);
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.18);
+}
+
+.pricingPlanFeatures {
+  display: grid;
+  gap: 11px;
+}
+
+.pricingPlanFeature {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.pricingPlanFeature svg {
+  margin-top: 2px;
+  color: #2563eb;
+  flex: none;
+}
+
+.pricingCompareSection,
+.pricingFaqSection {
+  display: grid;
+  gap: 20px;
+}
+
+.pricingSectionIntro {
+  text-align: center;
+}
+
+.pricingSectionTitle {
+  font-size: clamp(28px, 3vw, 34px);
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.pricingCompareScroller {
+  overflow-x: auto;
+  border-radius: 26px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.04);
+}
+
+.pricingCompareTable {
+  width: 100%;
+  min-width: 840px;
+  border-collapse: collapse;
+}
+
+.pricingCompareTable th,
+.pricingCompareTable td {
+  padding: 18px 16px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.86);
+  text-align: left;
+  vertical-align: middle;
+  color: #334155;
+  font-size: 14px;
+}
+
+.pricingCompareTable thead th {
+  background: rgba(248, 251, 255, 0.98);
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pricingCompareTable thead th span,
+.pricingCompareTable thead th small {
+  display: block;
+}
+
+.pricingCompareTable thead th small {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pricingCompareTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.pricingCompareFeature {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.pricingCompareStatusYes,
+.pricingCompareStatusNo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.pricingCompareStatusYes {
+  color: #1d4ed8;
+}
+
+.pricingCompareStatusNo {
+  color: #94a3b8;
+}
+
+.pricingFaqGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.pricingFaqCard {
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.04);
+}
+
+.pricingFaqButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  color: #0f172a;
+  text-align: left;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pricingFaqAnswer {
+  margin: 0;
+  padding: 0 20px 18px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.72;
+}
+
+.pricingFinalCta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px 30px;
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(8, 20, 39, 0.98), rgba(29, 78, 216, 0.96)),
+    linear-gradient(180deg, #081427, #102a54);
+  box-shadow: 0 26px 48px rgba(15, 23, 42, 0.16);
+}
+
+.pricingFinalCtaCopy h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.pricingFinalCtaCopy p {
+  margin: 8px 0 0;
+  max-width: 620px;
+  color: rgba(226, 232, 240, 0.88);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.pricingFinalCtaButtons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pricingFinalCtaButtons .homeHeaderSecondaryButton,
+.pricingFinalCtaButtons .homeHeaderGhostButton {
+  min-height: 48px;
+}
+
+@media (max-width: 1180px) {
+  .pricingBenefitsBar,
+  .pricingPlansGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pricingFaqGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .pricingHeroSection {
+    padding: 38px 24px 28px;
+  }
+
+  .pricingBenefitsBar,
+  .pricingPlansGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pricingFinalCta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .pricingPage {
+    gap: 24px;
+  }
+
+  .pricingHeroTitle {
+    font-size: clamp(30px, 9vw, 38px);
+  }
+
+  .pricingHeroText {
+    font-size: 15px;
+  }
+
+  .pricingHeroSection,
+  .pricingBenefitsBar,
+  .pricingFinalCta {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .pricingBillingRow {
+    align-items: flex-start;
+  }
+
+  .pricingBillingToggle {
+    flex-wrap: wrap;
+    border-radius: 20px;
+  }
+
+  .pricingPlanCard {
+    padding: 24px 20px;
+  }
+
+  .pricingFinalCtaCopy h2 {
+    font-size: 26px;
+  }
+}
+
+/* About page */
+.aboutPage {
+  display: grid;
+  gap: 28px;
+  padding: 2px 0 10px;
+}
+
+.aboutBreadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.aboutBreadcrumb a {
+  color: #64748b;
+  text-decoration: none;
+}
+
+.aboutHeroSection {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 28px;
+}
+
+.aboutHeroContent {
+  display: grid;
+  gap: 16px;
+}
+
+.aboutHeroEyebrow,
+.aboutSectionEyebrow {
+  margin: 0;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.aboutHeroTitle,
+.aboutSectionTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(38px, 4.2vw, 50px);
+  line-height: 1.14;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.aboutSectionTitle {
+  font-size: clamp(28px, 3vw, 34px);
+  text-align: center;
+}
+
+.aboutHeroTitleHighlight {
+  color: #2563eb;
+}
+
+.aboutHeroText {
+  max-width: 620px;
+  margin: 0;
+  color: #475569;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.aboutHeroBulletList {
+  display: grid;
+  gap: 12px;
+}
+
+.aboutHeroBulletItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #0f172a;
+  font-size: 15px;
+  line-height: 1.65;
+  font-weight: 500;
+}
+
+.aboutHeroBulletItem svg {
+  margin-top: 3px;
+  color: #2563eb;
+  flex: none;
+}
+
+.aboutHeroMedia {
+  position: relative;
+  min-height: 500px;
+  padding-right: 26px;
+  padding-bottom: 26px;
+}
+
+.aboutHeroImageFrame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 30px;
+  min-height: 500px;
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  box-shadow: 0 26px 58px rgba(15, 23, 42, 0.12);
+}
+
+.aboutHeroImage {
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  object-fit: cover;
+  display: block;
+}
+
+.aboutHeroFloatingCard {
+  position: absolute;
+  right: -12px;
+  bottom: -28px;
+  width: min(100%, 330px);
+  padding: 18px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 42px rgba(15, 23, 42, 0.16);
+}
+
+.aboutHeroFloatingCard h2 {
+  margin: 0 0 14px;
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.aboutHeroFloatingItems {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.aboutHeroFloatingItem {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.aboutHeroFloatingIcon,
+.aboutMissionIconWrap,
+.aboutWhyIconWrap,
+.aboutStatsIconWrap,
+.aboutProcessDot {
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff5ff;
+  color: #2563eb;
+  border: 1px solid rgba(191, 219, 254, 0.96);
+}
+
+.aboutMissionGrid,
+.aboutWhyGrid,
+.aboutTestimonialsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.aboutMissionCard,
+.aboutWhyCard,
+.aboutTestimonialCard {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 24px 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.06);
+}
+
+.aboutMissionCard h2,
+.aboutWhyCard h3,
+.aboutProcessCard h3,
+.aboutFinalCtaCopy h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 19px;
+  line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.aboutWhyCard h3,
+.aboutProcessCard h3 {
+  font-size: 17px;
+  text-align: center;
+}
+
+.aboutMissionCard p,
+.aboutWhyCard p,
+.aboutProcessCard p,
+.aboutTestimonialQuote,
+.aboutFinalCtaCopy p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.aboutStatsBanner,
+.aboutFinalCta {
+  padding: 26px 30px;
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(8, 20, 39, 0.98), rgba(29, 78, 216, 0.96)),
+    linear-gradient(180deg, #081427, #102a54);
+  box-shadow: 0 26px 48px rgba(15, 23, 42, 0.16);
+}
+
+.aboutStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.aboutStatsItem {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 8px;
+  padding: 8px 12px;
+  text-align: center;
+  position: relative;
+}
+
+.aboutStatsItem:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 22px;
+  right: -11px;
+  width: 1px;
+  height: calc(100% - 44px);
+  background: rgba(191, 219, 254, 0.3);
+}
+
+.aboutStatsIconWrap {
+  background: rgba(255, 255, 255, 0.12);
+  color: #dbeafe;
+  border-color: rgba(191, 219, 254, 0.16);
+}
+
+.aboutStatsItem strong {
+  color: #ffffff;
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.aboutStatsItem span:last-child {
+  color: rgba(226, 232, 240, 0.9);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 500;
+  max-width: 220px;
+}
+
+.aboutSection {
+  display: grid;
+  gap: 20px;
+}
+
+.aboutSectionIntro {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  text-align: center;
+}
+
+.aboutWhyGrid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.aboutWhyCard {
+  justify-items: center;
+  text-align: center;
+  padding: 22px 16px;
+}
+
+.aboutWhyCard h3 {
+  font-size: 17px;
+}
+
+.aboutWhyCard p {
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.aboutProcessTimeline {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+  padding-top: 16px;
+}
+
+.aboutProcessTimeline::before {
+  content: "";
+  position: absolute;
+  top: 40px;
+  left: 7%;
+  right: 7%;
+  height: 2px;
+  background: rgba(191, 219, 254, 0.92);
+}
+
+.aboutProcessCard {
+  position: relative;
+  display: grid;
+  grid-template-rows: 78px 48px 112px;
+  gap: 12px;
+  justify-items: center;
+  align-items: start;
+  width: 100%;
+  max-width: 240px;
+  margin: 0 auto;
+  padding: 0 6px;
+  text-align: center;
+}
+
+.aboutProcessDot {
+  position: relative;
+  z-index: 1;
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.08);
+}
+
+.aboutProcessCard h3 {
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: center;
+  font-size: 16px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.aboutProcessCard p {
+  width: 100%;
+  max-width: 220px;
+  min-height: 112px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.aboutTestimonialsGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.aboutTestimonialCard {
+  gap: 16px;
+}
+
+.aboutTestimonialTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #0f172a;
+}
+
+.aboutStars {
+  color: #f59e0b;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+}
+
+.aboutTestimonialQuote {
+  min-height: 96px;
+}
+
+.aboutTestimonialMeta {
+  display: grid;
+  gap: 4px;
+}
+
+.aboutTestimonialMeta strong {
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.aboutTestimonialMeta span {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.aboutFinalCta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.aboutFinalCtaCopy h2,
+.aboutFinalCtaCopy p {
+  color: #ffffff;
+}
+
+.aboutFinalCtaCopy p {
+  margin-top: 10px;
+  max-width: 620px;
+  color: rgba(226, 232, 240, 0.88);
+}
+
+.aboutFinalCtaButtons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.aboutFinalCtaButtons .homeHeaderSecondaryButton,
+.aboutFinalCtaButtons .homeHeaderGhostButton {
+  min-height: 48px;
+}
+
+@media (max-width: 1180px) {
+  .aboutHeroSection {
+    grid-template-columns: 1fr;
+  }
+
+  .aboutHeroMedia {
+    min-height: auto;
+    padding-right: 16px;
+    padding-bottom: 36px;
+  }
+
+  .aboutHeroFloatingCard {
+    right: -8px;
+    bottom: -20px;
+  }
+
+  .aboutMissionGrid,
+  .aboutTestimonialsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .aboutWhyGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .aboutStatsGrid,
+  .aboutMissionGrid,
+  .aboutTestimonialsGrid,
+  .aboutWhyGrid,
+  .aboutProcessTimeline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .aboutProcessTimeline::before {
+    display: none;
+  }
+
+  .aboutProcessCard {
+    grid-template-rows: auto auto auto;
+  }
+
+  .aboutProcessCard p,
+  .aboutProcessCard h3 {
+    min-height: 0;
+  }
+
+  .aboutStatsItem:not(:last-child)::after {
+    display: none;
+  }
+
+  .aboutFinalCta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .aboutPage {
+    gap: 26px;
+  }
+
+  .aboutHeroTitle {
+    font-size: clamp(30px, 9vw, 36px);
+  }
+
+  .aboutSectionTitle {
+    font-size: clamp(26px, 8vw, 32px);
+  }
+
+  .aboutHeroImageFrame,
+  .aboutHeroImage {
+    min-height: 340px;
+  }
+
+  .aboutHeroFloatingCard {
+    position: static;
+    width: 100%;
+    margin-top: 16px;
+  }
+
+  .aboutHeroFloatingItems,
+  .aboutStatsGrid,
+  .aboutMissionGrid,
+  .aboutTestimonialsGrid,
+  .aboutWhyGrid,
+  .aboutProcessTimeline {
+    grid-template-columns: 1fr;
+  }
+
+  .aboutStatsBanner,
+  .aboutFinalCta {
+    padding: 24px 20px;
+  }
+}
+
+.searchHeroSection,
+.searchDirectorySection {
+  max-width: 1240px;
+  margin: 0 auto;
+  width: min(100%, calc(100vw - 48px));
+}
+
+.searchHeroSection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 560px);
+  gap: 34px;
+  align-items: center;
+  padding: 26px 0 18px;
+}
+
+.searchHeroContent {
+  display: grid;
+  gap: 18px;
+}
+
+.searchHeroEyebrow {
+  margin: 0;
+  color: #2563eb;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.searchHeroTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(34px, 5vw, 52px);
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.searchHeroTitleHighlight {
+  color: #2563eb;
+}
+
+.searchHeroText {
+  margin: 0;
+  max-width: 620px;
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.85;
+  font-weight: 400;
+}
+
+.searchHeroTrustRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.searchHeroTrustItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(191, 219, 254, 0.95);
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.searchHeroTrustItem svg {
+  color: #2563eb;
+  flex: 0 0 auto;
+}
+
+.searchHeroMedia {
+  min-width: 0;
+}
+
+.searchHeroImageFrame {
+  position: relative;
+  min-height: 360px;
+  border-radius: 34px;
+  overflow: visible;
+}
+
+.searchHeroImage {
+  display: block;
+  width: 100%;
+  min-height: 360px;
+  border-radius: 34px;
+  object-fit: cover;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+}
+
+.searchHeroFloatingCard {
+  position: absolute;
+  right: -26px;
+  bottom: -26px;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  width: min(360px, calc(100% - 28px));
+  padding: 18px 20px;
+  border-radius: 26px;
+  border: 1px solid rgba(219, 226, 234, 0.95);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 26px 58px rgba(15, 23, 42, 0.16);
+}
+
+.searchHeroFloatingIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  color: #2563eb;
+}
+
+.searchHeroFloatingContent {
+  display: grid;
+  gap: 6px;
+}
+
+.searchHeroFloatingContent strong {
+  color: #0f172a;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.searchHeroFloatingContent p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.7;
+  font-weight: 400;
+}
+
+.searchDirectorySection {
+  padding: 16px 0 28px;
+}
+
+.searchResultsToolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.searchResultsCount {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 20px;
+  line-height: 1.1;
+  font-weight: 600;
+}
+
+.searchResultsHint {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.7;
+  font-weight: 400;
+}
+
+.searchResultsActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.searchSortSelect {
+  min-width: 200px;
+  border-radius: 16px;
+  border: 1px solid #dbe2ea;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 13px 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 500;
+  outline: none;
+}
+
+.searchInputWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 16px;
+  border: 1px solid #dbe2ea;
+  background: #ffffff;
+  padding: 0 15px;
+}
+
+.searchInputWrap svg {
+  color: #64748b;
+  flex: 0 0 auto;
+}
+
+.searchInputField {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  padding: 13px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  outline: none;
+}
+
+.searchWorkerCardList {
+  display: grid;
+  gap: 18px;
+}
+
+.searchWorkerCard {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr) 210px;
+  gap: 20px;
+  align-items: start;
+  padding: 20px;
+  border-radius: 28px;
+  border: 1px solid rgba(226, 232, 240, 0.98);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 251, 255, 0.96) 100%);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.05);
+}
+
+.searchWorkerMedia {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: 176px;
+  flex-shrink: 0;
+  align-self: start;
+}
+
+.searchWorkerAvatarWrap {
+  position: relative;
+  width: 176px;
+  height: 220px;
+  min-height: 220px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(219, 226, 234, 0.95);
+  background: linear-gradient(135deg, #e0ecff 0%, #dbeafe 100%);
+}
+
+.searchWorkerAvatarImage,
+.searchWorkerAvatarFallback {
+  width: 100%;
+  height: 100%;
+}
+
+.searchWorkerAvatarImage {
+  display: block;
+  object-fit: cover;
+}
+
+.searchWorkerAvatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1d4ed8;
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.searchWorkerActiveDot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  background: #22c55e;
+  box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.15);
+}
+
+.searchWorkerVerifiedPill {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 600;
+  box-shadow: 0 10px 24px rgba(21, 128, 61, 0.24);
+}
+
+.searchWorkerBody {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.searchWorkerIdentityRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.searchWorkerNameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.searchWorkerName {
+  margin: 0;
+  color: #0f172a;
+  font-size: 28px;
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.searchWorkerVerifiedIcon {
+  color: #2563eb;
+  flex: 0 0 auto;
+}
+
+.searchWorkerRole {
+  margin: 4px 0 0;
+  color: #334155;
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.searchWorkerMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+
+.searchWorkerMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.searchWorkerMetaItem svg {
+  color: #2563eb;
+  flex: 0 0 auto;
+}
+
+.searchWorkerChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.searchWorkerChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.searchWorkerExpandedPanel {
+  display: grid;
+  gap: 14px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.searchWorkerExpandedGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.searchWorkerExpandedItem {
+  display: grid;
+  gap: 6px;
+  padding: 14px 15px;
+  border-radius: 18px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+}
+
+.searchWorkerExpandedItem span {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.searchWorkerExpandedItem strong {
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.7;
+  font-weight: 500;
+}
+
+.searchWorkerExpandedActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.searchWorkerActions {
+  display: grid;
+  align-content: start;
+  justify-items: stretch;
+  gap: 14px;
+  padding-left: 20px;
+  border-left: 1px solid rgba(226, 232, 240, 0.95);
+}
+
+.searchWorkerAvailabilityLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.searchWorkerAvailabilityToday {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.searchWorkerAvailabilitySoon {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.searchWorkerAvailabilityMuted {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.searchWorkerWageBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.searchWorkerWageBlock span {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.searchWorkerWageBlock strong {
+  color: #0f172a;
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.searchWorkerPrimaryButton,
+.searchWorkerShortlistButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.2;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.searchWorkerPrimaryButton {
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1d4ed8;
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.09);
+}
+
+.searchWorkerShortlistButton {
+  border: 1px solid rgba(226, 232, 240, 0.98);
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+}
+
+.searchWorkerPrimaryButton:hover,
+.searchWorkerShortlistButton:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 1180px) {
+  .searchHeroSection {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .searchHeroMedia {
+    order: -1;
+  }
+
+  .searchHeroFloatingCard {
+    right: 18px;
+    bottom: 18px;
+    width: min(340px, calc(100% - 36px));
+  }
+
+  .searchWorkerCard {
+    grid-template-columns: 132px minmax(0, 1fr);
+  }
+
+  .searchWorkerMedia {
+    width: 152px;
+  }
+
+  .searchWorkerAvatarWrap {
+    width: 152px;
+    height: 196px;
+    min-height: 196px;
+  }
+
+  .searchWorkerActions {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: 0;
+    border-top: 1px solid rgba(226, 232, 240, 0.95);
+  }
+}
+
+@media (max-width: 920px) {
+  .searchHeroSection,
+  .searchDirectorySection {
+    width: min(100%, calc(100vw - 32px));
+  }
+
+  .searchHeroTitle {
+    font-size: clamp(30px, 6vw, 42px);
+  }
+
+  .searchHeroImageFrame,
+  .searchHeroImage {
+    min-height: 300px;
+  }
+
+  .searchResultsToolbar,
+  .searchResultsActions {
+    align-items: stretch;
+  }
+
+  .searchSortSelect,
+  .searchResultsActions .searchPanelMiniButton {
+    width: 100%;
+  }
+
+  .searchWorkerExpandedGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .searchHeroSection,
+  .searchDirectorySection {
+    width: min(100%, calc(100vw - 24px));
+  }
+
+  .searchHeroTrustRow {
+    gap: 10px;
+  }
+
+  .searchHeroTrustItem {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .searchHeroImageFrame,
+  .searchHeroImage {
+    min-height: 240px;
+    border-radius: 24px;
+  }
+
+  .searchHeroFloatingCard {
+    position: static;
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  .searchWorkerCard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .searchWorkerMedia {
+    width: 180px;
+    max-width: none;
+  }
+
+  .searchWorkerAvatarWrap {
+    width: 180px;
+    height: 220px;
+    min-height: 220px;
+  }
+
+  .searchWorkerName {
+    font-size: 24px;
+  }
+
+  .searchWorkerExpandedGrid,
+  .searchWorkerActions {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

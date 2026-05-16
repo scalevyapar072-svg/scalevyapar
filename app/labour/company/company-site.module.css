@@ -2214,6 +2214,313 @@
   flex-wrap: wrap;
 }
 
+.companyRegistrationShell {
+  gap: 26px;
+}
+
+.companyRegistrationShell .companyRegisterSplit {
+  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.52fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.companyRegistrationShell .companyRegisterAside {
+  padding: 0;
+  overflow: visible;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.companyRegistrationShell .companyRegisterFormWrap {
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.companyRegistrationHero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(320px, 0.85fr);
+  gap: 28px;
+  align-items: center;
+}
+
+.companyRegistrationHeroCopy {
+  display: grid;
+  gap: 14px;
+}
+
+.companyRegistrationEyebrow {
+  margin: 0;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.companyRegistrationHeroTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(2.3rem, 4vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+}
+
+.companyRegistrationHeroTitle span {
+  color: #2563eb;
+}
+
+.companyRegistrationHeroText {
+  margin: 0;
+  max-width: 620px;
+  color: #475569;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.companyRegistrationHeroVisual {
+  position: relative;
+  min-height: 280px;
+  border-radius: 30px;
+  border: 1px solid rgba(219, 234, 254, 0.95);
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f1f6ff 100%);
+  overflow: hidden;
+  box-shadow: 0 22px 54px rgba(15, 23, 42, 0.08);
+}
+
+.companyRegistrationHeroDots {
+  position: absolute;
+  top: 42px;
+  left: 38px;
+  width: 90px;
+  height: 72px;
+  background-image: radial-gradient(rgba(96, 165, 250, 0.75) 1.6px, transparent 1.6px);
+  background-size: 14px 14px;
+  opacity: 0.55;
+}
+
+.companyRegistrationHeroSkyline {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  bottom: 34px;
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.companyRegistrationHeroSkyline span {
+  flex: 1;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, rgba(191, 219, 254, 0.7), rgba(148, 163, 184, 0.16));
+}
+
+.companyRegistrationHeroSkyline span:nth-child(1) { height: 72px; }
+.companyRegistrationHeroSkyline span:nth-child(2) { height: 116px; }
+.companyRegistrationHeroSkyline span:nth-child(3) { height: 150px; }
+.companyRegistrationHeroSkyline span:nth-child(4) { height: 98px; }
+.companyRegistrationHeroSkyline span:nth-child(5) { height: 82px; }
+
+.companyRegistrationHeroShield {
+  position: absolute;
+  right: 116px;
+  top: 40px;
+  width: 118px;
+  height: 132px;
+  clip-path: polygon(50% 0%, 92% 16%, 92% 56%, 50% 100%, 8% 56%, 8% 16%);
+  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  box-shadow: 0 24px 44px rgba(37, 99, 235, 0.24);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.companyRegistrationHeroShieldBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.companyRegistrationTrustCard {
+  position: absolute;
+  right: 28px;
+  bottom: 24px;
+  min-width: 246px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(219, 234, 254, 0.96);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 20px 42px rgba(15, 23, 42, 0.12);
+}
+
+.companyRegistrationTrustTitle {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+.companyRegistrationTrustMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.companyRegistrationTrustFaces {
+  display: flex;
+  align-items: center;
+}
+
+.companyRegistrationTrustFaces span {
+  width: 32px;
+  height: 32px;
+  margin-left: -8px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1d4ed8, #0f766e);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.companyRegistrationTrustFaces span:first-child {
+  margin-left: 0;
+}
+
+.companyRegistrationTrustMeta strong {
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.companyRegistrationSectionHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.companyRegistrationSectionIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(59, 130, 246, 0.22));
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.companyRegistrationShell .companyRegisterSectionTitle {
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+
+.companyRegistrationBenefitsCard {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 32px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 26%),
+    linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  box-shadow: 0 24px 58px rgba(15, 23, 42, 0.08);
+}
+
+.companyRegistrationBenefitsTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.companyRegistrationBenefitsText {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.companyRegistrationBenefitsList {
+  display: grid;
+  gap: 12px;
+}
+
+.companyRegistrationBenefitRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(219, 234, 254, 0.95);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.companyRegistrationBenefitIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.companyRegistrationBenefitRow h3 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.companyRegistrationBenefitRow p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.companyRegistrationLoginPrompt {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.companyRegistrationLoginPrompt a {
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .companyRegisterDropdownWrap {
   position: relative;
 }
@@ -2280,11 +2587,13 @@
 }
 
 @media (max-width: 1180px) {
+  .companyRegistrationHero,
   .jobPostHero,
   .jobPostStatsStrip {
     grid-template-columns: 1fr;
   }
 
+  .companyRegistrationShell .companyRegisterSplit,
   .jobPostShell .companyRegisterSplit,
   .companyRegisterUploadGrid,
   .companyRegisterUploadGridCompact {
@@ -2313,6 +2622,17 @@
   .jobPostPreviewGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .companyRegistrationTrustCard {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    margin: 168px 24px 24px;
+  }
+
+  .companyRegistrationHeroShield {
+    right: 48px;
+  }
 }
 
 @media (max-width: 860px) {
@@ -2335,11 +2655,38 @@
     border-radius: 26px;
   }
 
+  .companyRegistrationHeroTitle,
   .companyRegisterIllustrationHeadline,
   .companyRegisterTitle,
   .jobPostHeroTitle {
     font-size: 30px;
     line-height: 1.08;
+  }
+
+  .companyRegistrationHeroVisual {
+    min-height: 250px;
+  }
+
+  .companyRegistrationHeroShield {
+    right: 28px;
+    top: 28px;
+    width: 96px;
+    height: 108px;
+  }
+
+  .companyRegistrationHeroShieldBadge {
+    width: 46px;
+    height: 46px;
+    font-size: 13px;
+  }
+
+  .companyRegistrationTrustCard {
+    min-width: 0;
+    margin: 152px 18px 18px;
+  }
+
+  .companyRegistrationSectionHeader {
+    flex-direction: column;
   }
 
   .jobPostActionRow {

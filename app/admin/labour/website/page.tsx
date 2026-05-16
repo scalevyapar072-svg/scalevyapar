@@ -2182,7 +2182,18 @@ export default function LabourWebsiteEditorPage() {
                 <TextAreaField label="Title" value={content.contactPage.title} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, title: value } } : current)} rows={3} />
                 <Field label="Highlighted Text" value={content.contactPage.highlightedText} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, highlightedText: value } } : current)} />
                 <TextAreaField label="Subtitle" value={content.contactPage.subtitle} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, subtitle: value } } : current)} rows={4} />
-                <Field label="Hero Image" value={content.contactPage.imageSrc} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, imageSrc: value } } : current)} />
+                <ImageUploadField
+                  label="Hero Image"
+                  value={content.contactPage.imageSrc}
+                  onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, imageSrc: value } } : current)}
+                  uploadKey="contact-hero-image"
+                  onUpload={async (file, uploadKey) => {
+                    const publicUrl = await uploadWebsiteImage(file, uploadKey)
+                    if (!publicUrl) return
+                    setContent(current => current ? { ...current, contactPage: { ...current.contactPage, imageSrc: publicUrl } } : current)
+                  }}
+                  uploading={uploadingField === 'contact-hero-image'}
+                />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
                   <Field label="Floating Card Title" value={content.contactPage.floatingCardTitle} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, floatingCardTitle: value } } : current)} />
                   <Field label="Floating Card Description" value={content.contactPage.floatingCardDescription} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, floatingCardDescription: value } } : current)} />

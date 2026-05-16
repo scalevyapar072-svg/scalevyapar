@@ -19,6 +19,7 @@ import {
   Zap
 } from 'lucide-react'
 import styles from './company-site.module.css'
+import type { LabourCompanyPostJobPageContent } from '@/lib/labour-company-website'
 import {
   LabourCategoryDependency,
   LabourIndustryBusinessDependency,
@@ -54,6 +55,7 @@ type Props = {
   categoryDependencies: LabourCategoryDependency[]
   industryBusinessDependencies: LabourIndustryBusinessDependency[]
   accentColor?: string
+  pageContent: LabourCompanyPostJobPageContent
   supportPhone: string
   supportEmail: string
   supportHours: string
@@ -310,6 +312,7 @@ export function CompanyJobPostForm({
   categoryDependencies,
   industryBusinessDependencies,
   accentColor = '#2563eb',
+  pageContent,
   supportPhone,
   supportEmail,
   supportHours,
@@ -396,6 +399,10 @@ export function CompanyJobPostForm({
       ),
     [businessTypeOptions, categories, categoryDependencies, form.businessType, form.industryType, industryCategoryOptions]
   )
+
+  const simpleSteps = pageContent.simpleSteps.items.length
+    ? pageContent.simpleSteps.items
+    : JOB_POST_SIMPLE_STEPS.map(title => ({ title, description: '' }))
 
   useEffect(() => {
     let cancelled = false
@@ -746,6 +753,8 @@ export function CompanyJobPostForm({
     visibleLabourCategories.find(category => category.id === form.labourCategoryId)?.name ||
     categories.find(category => category.id === form.labourCategoryId)?.name ||
     'Not selected'
+  const isCompanySessionChecking = autofillState === 'loading'
+  const showJobPostAuthGate = !companyToken && autofillState === 'not-found'
   const previewItems = [
     ['Company', form.companyName || 'Not filled'],
     ['Job Title', form.jobTitle || 'Not filled'],
@@ -978,15 +987,18 @@ export function CompanyJobPostForm({
 
   return (
     <section className={`${styles.companyRegisterShell} ${styles.jobPostShell}`}>
-      <div className={styles.jobPostHero}>
-        <div className={styles.jobPostHeroCopy}>
-          <p className={styles.jobPostHeroEyebrow}>Registered companies only</p>
-          <h1 className={styles.jobPostHeroTitle}>Post Worker Requirement</h1>
-          <p className={styles.jobPostHeroText}>
-            Post your worker requirements and connect with verified, active and skilled workers quickly.
-          </p>
-        </div>
-        <div className={styles.jobPostHeroVisual} aria-hidden="true">
+      <div className={showJobPostAuthGate ? styles.jobPostLockedBackdrop : ''}>
+        <div className={styles.jobPostHero}>
+          <div className={styles.jobPostHeroCopy}>
+            <p className={styles.jobPostHeroEyebrow}>{pageContent.hero.eyebrow}</p>
+            <h1 className={styles.jobPostHeroTitle}>{pageContent.hero.title}</h1>
+            <p className={styles.jobPostHeroText}>{pageContent.hero.subtitle}</p>
+          </div>
+        <div
+          className={styles.jobPostHeroVisual}
+          aria-hidden="true"
+          style={pageContent.hero.imageSrc ? { backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.85), rgba(239,246,255,0.92)), url(${pageContent.hero.imageSrc})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+        >
           <div className={styles.jobPostHeroSkyline}>
             <span />
             <span />
@@ -1009,17 +1021,17 @@ export function CompanyJobPostForm({
         </div>
       </div>
 
-      <div className={styles.companyRegisterSplit}>
-        <aside className={styles.companyRegisterAside}>
-          <div className={styles.jobPostSidebarPrimary}>
-            <h2>Why Post with ScaleVyapar Rozgar?</h2>
-            <div className={styles.jobPostSidebarBenefitList}>
-              {JOB_POST_SIDEBAR_BENEFITS.map(item => {
-                const Icon = item.icon
+        <div className={styles.companyRegisterSplit}>
+          <aside className={styles.companyRegisterAside}>
+            <div className={styles.jobPostSidebarPrimary}>
+              <h2>{pageContent.sidebarBenefits.title}</h2>
+              <div className={styles.jobPostSidebarBenefitList}>
+              {(pageContent.sidebarBenefits.items.length ? pageContent.sidebarBenefits.items : JOB_POST_SIDEBAR_BENEFITS).map((item, index) => {
+                const Icon = 'icon' in item && item.icon ? item.icon : JOB_POST_SIDEBAR_BENEFITS[index]?.icon || BadgeCheck
                 return (
                   <article key={item.title} className={styles.jobPostSidebarBenefit}>
                     <span className={styles.jobPostSidebarBenefitIcon}>
-                      <Icon size={16} />
+                      {Icon ? <Icon size={16} /> : <BadgeCheck size={16} />}
                     </span>
                     <div>
                       <h3>{item.title}</h3>
@@ -1032,24 +1044,14 @@ export function CompanyJobPostForm({
           </div>
 
           <div className={styles.jobPostSidebarCard}>
-            <h2>Simple Steps to Post a Job</h2>
+            <h2>{pageContent.simpleSteps.title}</h2>
             <div className={styles.jobPostSidebarStepList}>
-              {JOB_POST_SIMPLE_STEPS.map((step, index) => (
-                <article key={step} className={styles.jobPostSidebarStep}>
+              {simpleSteps.map((step, index) => (
+                <article key={step.title} className={styles.jobPostSidebarStep}>
                   <span>{index + 1}</span>
                   <div>
-                    <h3>{step}</h3>
-                    <p>
-                      {index === 0
-                        ? 'Your company info is auto-filled from your profile.'
-                        : index === 1
-                          ? 'Tell us what kind of workers you need and job conditions.'
-                          : index === 2
-                            ? 'Mention salary, facilities, and other employee benefits.'
-                            : index === 3
-                              ? 'Add work location and requirement details for better matching.'
-                              : 'Preview your post and submit for admin review.'}
-                    </p>
+                    <h3>{step.title}</h3>
+                    <p>{step.description}</p>
                   </div>
                 </article>
               ))}
@@ -1057,20 +1059,20 @@ export function CompanyJobPostForm({
           </div>
 
           <div className={styles.jobPostSidebarHelpCard}>
-            <h2>Need Help?</h2>
-            <p>Our support team is here to help you at every step.</p>
+            <h2>{pageContent.helpCard.title}</h2>
+            <p>{pageContent.helpCard.description}</p>
             <div className={styles.jobPostSidebarHelpList}>
               <div>
                 <Phone size={15} />
-                <span>{supportPhone}</span>
+                <span>{pageContent.helpCard.phone || supportPhone}</span>
               </div>
               <div>
                 <Mail size={15} />
-                <span>{supportEmail}</span>
+                <span>{pageContent.helpCard.email || supportEmail}</span>
               </div>
               <div>
                 <Headphones size={15} />
-                <span>{supportHours}</span>
+                <span>{pageContent.helpCard.supportHours || supportHours}</span>
               </div>
             </div>
           </div>
@@ -1143,8 +1145,8 @@ export function CompanyJobPostForm({
             <div className={styles.companyRegisterSection}>
               <div className={styles.jobPostSectionHeader}>
                 <div>
-                  <p className={styles.companyRegisterSectionTitle}>1. Company Details</p>
-                  <p className={styles.companyRegisterSectionNote}>Some details are auto-filled from your company profile.</p>
+                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.companyDetailsTitle}</p>
+                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.companyDetailsHelper}</p>
                 </div>
                 {companyFieldsLocked ? (
                   <span className={styles.jobPostLockPill}>
@@ -1234,7 +1236,8 @@ export function CompanyJobPostForm({
             <div className={styles.companyRegisterSection}>
               <div className={styles.jobPostSectionHeader}>
                 <div>
-                  <p className={styles.companyRegisterSectionTitle}>2. Job Requirement Details</p>
+                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.jobRequirementTitle}</p>
+                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.jobRequirementHelper}</p>
                 </div>
               </div>
               <div className={styles.jobPostGridThree}>
@@ -1325,7 +1328,8 @@ export function CompanyJobPostForm({
             <div className={styles.companyRegisterSection}>
               <div className={styles.jobPostSectionHeader}>
                 <div>
-                  <p className={styles.companyRegisterSectionTitle}>3. Work Details</p>
+                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.workDetailsTitle}</p>
+                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.workDetailsHelper}</p>
                 </div>
               </div>
               <div className={styles.jobPostGridThree}>
@@ -1373,7 +1377,8 @@ export function CompanyJobPostForm({
             <div className={styles.companyRegisterSection}>
               <div className={styles.jobPostSectionHeader}>
                 <div>
-                  <p className={styles.companyRegisterSectionTitle}>4. Salary & Facilities</p>
+                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.salaryFacilitiesTitle}</p>
+                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.salaryFacilitiesHelper}</p>
                 </div>
               </div>
               <div className={styles.jobPostGridThree}>
@@ -1428,8 +1433,8 @@ export function CompanyJobPostForm({
             <div className={styles.companyRegisterSection}>
               <div className={styles.jobPostSectionHeader}>
                 <div>
-                  <p className={styles.companyRegisterSectionTitle}>5. Job Description</p>
-                  <p className={styles.companyRegisterSectionNote}>Add notes, responsibilities, and language preferences so workers understand the role clearly.</p>
+                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.jobDescriptionTitle}</p>
+                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.jobDescriptionHelper}</p>
                 </div>
               </div>
               <div className={styles.companyRegisterGridTwo}>
@@ -1486,14 +1491,14 @@ export function CompanyJobPostForm({
                   disabled={submitting}
                   onClick={() => void submitForm('draft')}
                 >
-                  {submitting && submitMode === 'draft' ? 'Saving Draft...' : 'Save Draft'}
+                  {submitting && submitMode === 'draft' ? 'Saving Draft...' : pageContent.buttonLabels.saveDraft}
                 </button>
                 <button
                   type="button"
                   className={styles.companyRegisterSecondaryButton}
                   onClick={() => setShowPreview(current => !current)}
                 >
-                  {showPreview ? 'Hide Preview' : 'Preview Post'}
+                  {showPreview ? pageContent.buttonLabels.hidePreview : pageContent.buttonLabels.previewPost}
                 </button>
                 <button
                   type="submit"
@@ -1503,7 +1508,7 @@ export function CompanyJobPostForm({
                 >
                   {submitting && submitMode === 'publish'
                     ? (isEditMode ? 'Updating Job Requirement...' : 'Submitting Job Requirement...')
-                    : (isEditMode ? 'Update Job Requirement' : 'Submit Job Post')}
+                    : (isEditMode ? pageContent.buttonLabels.updateJobPost : pageContent.buttonLabels.submitJobPost)}
                 </button>
               </div>
               <p className={styles.companyRegisterSubmitNote}>
@@ -1516,36 +1521,69 @@ export function CompanyJobPostForm({
         </div>
       </div>
 
-      <section className={styles.jobPostStatsStrip}>
+        <section className={styles.jobPostStatsStrip}>
         <article className={styles.jobPostStatsItem}>
-          <span className={styles.jobPostStatsIcon}><Users size={18} /></span>
-          <div>
-            <strong>{formatCompactNumber(stats.verifiedWorkers)}+</strong>
-            <p>Verified Workers</p>
-          </div>
-        </article>
+            <span className={styles.jobPostStatsIcon}><Users size={18} /></span>
+            <div>
+              <strong>{formatCompactNumber(stats.verifiedWorkers)}+</strong>
+              <p>{pageContent.statsLabels.verifiedWorkers}</p>
+            </div>
+          </article>
         <article className={styles.jobPostStatsItem}>
-          <span className={styles.jobPostStatsIcon}><BriefcaseBusiness size={18} /></span>
-          <div>
-            <strong>{formatCompactNumber(stats.companiesTrustUs)}+</strong>
-            <p>Companies Trust Us</p>
-          </div>
-        </article>
+            <span className={styles.jobPostStatsIcon}><BriefcaseBusiness size={18} /></span>
+            <div>
+              <strong>{formatCompactNumber(stats.companiesTrustUs)}+</strong>
+              <p>{pageContent.statsLabels.companiesTrustUs}</p>
+            </div>
+          </article>
         <article className={styles.jobPostStatsItem}>
-          <span className={styles.jobPostStatsIcon}><Sparkles size={18} /></span>
-          <div>
-            <strong>{formatCompactNumber(stats.jobsPosted)}+</strong>
-            <p>Jobs Posted</p>
-          </div>
-        </article>
+            <span className={styles.jobPostStatsIcon}><Sparkles size={18} /></span>
+            <div>
+              <strong>{formatCompactNumber(stats.jobsPosted)}+</strong>
+              <p>{pageContent.statsLabels.jobsPosted}</p>
+            </div>
+          </article>
         <article className={styles.jobPostStatsItem}>
-          <span className={styles.jobPostStatsIcon}><BadgeCheck size={18} /></span>
-          <div>
-            <strong>{stats.averageRating}</strong>
-            <p>Avg. Company Rating</p>
-          </div>
-        </article>
+            <span className={styles.jobPostStatsIcon}><BadgeCheck size={18} /></span>
+            <div>
+              <strong>{stats.averageRating}</strong>
+              <p>{pageContent.statsLabels.averageCompanyRating}</p>
+            </div>
+          </article>
       </section>
+      </div>
+      {isCompanySessionChecking ? (
+        <div className={styles.jobPostAuthOverlay}>
+          <div className={styles.jobPostAuthModal}>
+            <div className={styles.jobPostAuthIcon}>
+              <Lock size={22} />
+            </div>
+            <p className={styles.jobPostAuthTitle}>Checking company access</p>
+            <p className={styles.jobPostAuthText}>Please wait while we verify your company session for job posting.</p>
+          </div>
+        </div>
+      ) : null}
+      {showJobPostAuthGate ? (
+        <div className={styles.jobPostAuthOverlay}>
+          <div className={styles.jobPostAuthModal}>
+            <div className={styles.jobPostAuthIcon}>
+              <Lock size={22} />
+            </div>
+            <p className={styles.jobPostAuthTitle}>Register & Login to Post a Job</p>
+            <p className={styles.jobPostAuthText}>
+              Please register your company or log in to your account before posting a job requirement.
+            </p>
+            <div className={styles.jobPostAuthActions}>
+              <Link href="/labour/company/signin" className={styles.companyRegisterPrimaryButton}>
+                Login Here
+              </Link>
+              <Link href="/labour/company/company-registration" className={styles.companyRegisterSecondaryButton}>
+                Register Company
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

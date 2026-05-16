@@ -9,6 +9,8 @@ import {
   LabourWorkerNotificationRecord,
   updateLabourEntity
 } from './labour-marketplace'
+import { getUserByEmail } from './db'
+import bcrypt from 'bcryptjs'
 import { sendWorkerPushNotification } from './labour-worker-push'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
@@ -26,10 +28,17 @@ export type CompanyAppProfile = {
   email: string
   mobile: string
   contactMobile: string
+  businessType: string
+  industryCategory: string
+  companyAddress: string
+  state: string
+  pincode: string
   city: string
+  area: string
   status: string
   activePlan: string
   categoryLabels: string[]
+  activeJobCategoryLabels: string[]
 }
 
 export type CompanyAppApplicant = {
@@ -54,7 +63,11 @@ export type CompanyAppApplicant = {
 export type CompanyAppJobPost = {
   id: string
   title: string
+  description: string
   city: string
+  locationLabel: string
+  categoryId: string
+  categoryLabel: string
   status: string
   workersNeeded: number
   wageAmount: number
@@ -128,34 +141,57 @@ const createWorkerNotification = async (
   })
 }
 
-const toCompanyProfile = (company: LabourCompanyRecord, categoryLabels: string[]): CompanyAppProfile => ({
+const toCompanyProfile = (
+  company: LabourCompanyRecord,
+  categoryLabels: string[],
+  activePlanLabel: string,
+  activeJobCategoryLabels: string[]
+): CompanyAppProfile => ({
   id: company.id,
   companyName: company.companyName,
   contactPerson: company.contactPerson,
   email: company.email,
   mobile: company.mobile,
   contactMobile: company.contactMobile || company.mobile,
+  businessType: company.businessType,
+  industryCategory: company.industryCategory,
+  companyAddress: company.companyAddress,
+  state: company.state,
+  pincode: company.pincode,
   city: company.city,
+  area: company.area,
   status: company.status,
-  activePlan: company.activePlan,
-  categoryLabels
+  activePlan: activePlanLabel,
+  categoryLabels,
+  activeJobCategoryLabels
 })
 
-export const loginCompanyApp = async (email: string, identity: string) => {
-  const snapshot = await getLabourMarketplaceSnapshot()
+export const loginCompanyApp = async (email: string, password: string) => {
   const normalizedEmail = normalizeEmail(email)
-  const normalizedIdentity = normalizeName(identity)
+  const rawPassword = String(password || '')
+
+  if (!normalizedEmail || !rawPassword) {
+    throw new Error('Company email and password are required.')
+  }
+
+  const user = await getUserByEmail(normalizedEmail)
+  if (!user) {
+    throw new Error('Invalid company email or password.')
+  }
+
+  const isValidPassword = await bcrypt.compare(rawPassword, user.password_hash)
+  if (!isValidPassword) {
+    throw new Error('Invalid company email or password.')
+  }
+
+  const snapshot = await getLabourMarketplaceSnapshot()
 
   const company = snapshot.companies.find(item =>
-    normalizeEmail(item.email) === normalizedEmail &&
-    (
-      normalizeName(item.companyName) === normalizedIdentity ||
-      normalizeName(item.contactPerson) === normalizedIdentity
-    )
+    normalizeEmail(item.email) === normalizedEmail
   )
 
   if (!company) {
-    throw new Error('Company account not found. Use your registered company email and your company name or contact person. Password is not used on this screen.')
+    throw new Error('No company account was found for this email address.')
   }
 
   if (company.status === 'blocked') {
@@ -244,10 +280,20 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
 
   const categoryLabels = company.categoryIds
     .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name || categoryId)
+  const activePlanLabel = snapshot.plans.find(plan => plan.id === company.activePlan)?.name || company.activePlan || 'Not assigned'
 
   const companyJobPosts = snapshot.jobPosts
     .filter(jobPost => jobPost.companyId === companyId)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+
+  const activeJobCategoryLabels = Array.from(
+    new Set(
+      companyJobPosts
+        .filter(jobPost => jobPost.status === 'live')
+        .map(jobPost => snapshot.categories.find(category => category.id === jobPost.categoryId)?.name || jobPost.categoryId)
+        .filter(Boolean)
+    )
+  )
 
   const jobs = companyJobPosts.map(jobPost => {
     const applicants = snapshot.jobApplications
@@ -287,7 +333,11 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
     return {
       id: jobPost.id,
       title: jobPost.title,
+      description: jobPost.description,
       city: jobPost.city,
+      locationLabel: jobPost.locationLabel,
+      categoryId: jobPost.categoryId,
+      categoryLabel: snapshot.categories.find(category => category.id === jobPost.categoryId)?.name || jobPost.categoryId,
       status: jobPost.status,
       workersNeeded: jobPost.workersNeeded,
       wageAmount: jobPost.wageAmount,
@@ -306,7 +356,7 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
     .slice(0, 12)
 
   return {
-    profile: toCompanyProfile(company, categoryLabels),
+    profile: toCompanyProfile(company, categoryLabels, activePlanLabel, activeJobCategoryLabels),
     stats: {
       liveJobPosts: jobs.filter(job => job.status === 'live').length,
       totalApplications: recentApplications.length ? jobs.reduce((sum, job) => sum + job.totalApplications, 0) : jobs.reduce((sum, job) => sum + job.totalApplications, 0),

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import styles from './company-site.module.css'
+import type { LabourCompanyRegisterCompanyPageContent } from '@/lib/labour-company-website'
 import {
   LabourIndustryBusinessDependency,
   LabourMasterOption,
@@ -37,6 +38,7 @@ type Props = {
   industryBusinessDependencies: LabourIndustryBusinessDependency[]
   companyCount?: number
   accentColor?: string
+  pageContent: LabourCompanyRegisterCompanyPageContent
 }
 
 type UploadKey = 'gstCertificate' | 'companyProof' | 'ownerIdProof'
@@ -135,7 +137,8 @@ export function CompanyRegistrationForm({
   businessTypeOptions,
   industryBusinessDependencies,
   companyCount = 1000,
-  accentColor = '#1d4ed8'
+  accentColor = '#1d4ed8',
+  pageContent
 }: Props) {
   const [form, setForm] = useState<FormState>(initialFormState)
   const [errors, setErrors] = useState<Partial<Record<keyof FormState | UploadKey | 'submit', string>>>({})
@@ -372,6 +375,7 @@ export function CompanyRegistrationForm({
           companyName: form.companyName.trim(),
           contactPerson: form.contactPerson.trim(),
           email: form.companyEmail.trim().toLowerCase(),
+          password: form.password,
           mobile: form.mobile.trim(),
           contactMobile: form.whatsAppNumber.trim(),
           city: form.city.trim(),
@@ -399,7 +403,7 @@ export function CompanyRegistrationForm({
         throw new Error(data.error || 'Failed to submit company registration.')
       }
 
-      setSuccess('Your company registration has been submitted successfully. Our team will review and activate your account shortly.')
+      setSuccess('Your company registration has been submitted successfully. You can now sign in and access your company account.')
       setForm(initialFormState)
       setErrors({})
       setUploads({
@@ -461,22 +465,34 @@ export function CompanyRegistrationForm({
     `${styles.companyRegisterInput} ${errors[name] ? styles.companyRegisterInputError : ''}`
 
   const trustedCompanyCount = `${Math.max(companyCount, 1000)}+`
+  const hasHighlightedTitle = pageContent.hero.title.includes(pageContent.hero.highlightedText)
+  const heroTitleParts = hasHighlightedTitle
+    ? pageContent.hero.title.split(pageContent.hero.highlightedText)
+    : [pageContent.hero.title, '']
 
   return (
     <section className={`${styles.companyRegisterShell} ${styles.companyRegistrationShell}`}>
       <div className={styles.companyRegistrationHero}>
         <div className={styles.companyRegistrationHeroCopy}>
-          <p className={styles.companyRegistrationEyebrow}>Register Company</p>
+          <p className={styles.companyRegistrationEyebrow}>{pageContent.hero.eyebrow}</p>
           <h1 className={styles.companyRegistrationHeroTitle}>
-            Create Your Company Account and Start Hiring <span>Verified Workers</span>
+            {hasHighlightedTitle ? (
+              <>
+                {heroTitleParts[0]}
+                <span>{pageContent.hero.highlightedText}</span>
+                {heroTitleParts[1] || ''}
+              </>
+            ) : (
+              pageContent.hero.title
+            )}
           </h1>
-          <p className={styles.companyRegistrationHeroText}>
-            Join thousands of companies already using ScaleVyapar Rozgar to find skilled, verified and
-            available workers for their requirements.
-          </p>
+          <p className={styles.companyRegistrationHeroText}>{pageContent.hero.subtitle}</p>
         </div>
 
-        <div className={styles.companyRegistrationHeroVisual}>
+        <div
+          className={styles.companyRegistrationHeroVisual}
+          style={pageContent.hero.imageSrc ? { backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.84), rgba(239,246,255,0.9)), url(${pageContent.hero.imageSrc})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+        >
           <div className={styles.companyRegistrationHeroDots} />
           <div className={styles.companyRegistrationHeroSkyline}>
             <span />
@@ -489,7 +505,9 @@ export function CompanyRegistrationForm({
             <span className={styles.companyRegistrationHeroShieldBadge}>OK</span>
           </div>
           <div className={styles.companyRegistrationTrustCard}>
-            <p className={styles.companyRegistrationTrustTitle}>Trusted by {trustedCompanyCount} Companies Across India</p>
+            <p className={styles.companyRegistrationTrustTitle}>
+              {pageContent.hero.trustCardTitle.replace('1000+', trustedCompanyCount)}
+            </p>
             <div className={styles.companyRegistrationTrustMeta}>
               <div className={styles.companyRegistrationTrustFaces}>
                 <span>A</span>
@@ -497,7 +515,7 @@ export function CompanyRegistrationForm({
                 <span>R</span>
                 <span>C</span>
               </div>
-              <strong>4.8/5</strong>
+              <strong>{pageContent.hero.trustCardRating}</strong>
             </div>
           </div>
         </div>
@@ -522,10 +540,8 @@ export function CompanyRegistrationForm({
               <div className={styles.companyRegistrationSectionHeader}>
                 <div className={styles.companyRegistrationSectionIcon}>01</div>
                 <div>
-                  <p className={styles.companyRegisterSectionTitle}>Company Information</p>
-                  <p className={styles.companyRegisterSectionNote}>
-                    Share your company identity so the registration stays aligned with labour admin review.
-                  </p>
+                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.companyInformationTitle}</p>
+                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.companyInformationHelper}</p>
                 </div>
               </div>
               <div className={styles.companyRegisterGridTwo}>
@@ -582,10 +598,8 @@ export function CompanyRegistrationForm({
               <div className={styles.companyRegistrationSectionHeader}>
                 <div className={styles.companyRegistrationSectionIcon}>02</div>
                 <div>
-                  <p className={styles.companyRegisterSectionTitle}>Company Address</p>
-                  <p className={styles.companyRegisterSectionNote}>
-                    Accurate address, city, and area details help the review team connect your company faster.
-                  </p>
+                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.companyAddressTitle}</p>
+                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.companyAddressHelper}</p>
                 </div>
               </div>
               <div className={styles.companyRegisterGridTwo}>
@@ -624,10 +638,8 @@ export function CompanyRegistrationForm({
               <div className={styles.companyRegistrationSectionHeader}>
                 <div className={styles.companyRegistrationSectionIcon}>03</div>
                 <div>
-                  <p className={styles.companyRegisterSectionTitle}>Account Setup</p>
-                  <p className={styles.companyRegisterSectionNote}>
-                    Password fields stay connected to the existing registration validation and account setup flow.
-                  </p>
+                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.accountSetupTitle}</p>
+                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.accountSetupHelper}</p>
                 </div>
               </div>
               <div className={styles.companyRegisterGridTwo}>
@@ -648,10 +660,8 @@ export function CompanyRegistrationForm({
               <div className={styles.companyRegistrationSectionHeader}>
                 <div className={styles.companyRegistrationSectionIcon}>04</div>
                 <div>
-                  <p className={styles.companyRegisterSectionTitle}>Document Uploads</p>
-                  <p className={styles.companyRegisterSectionNote}>
-                    Optional. Share supporting company documents now or submit the registration without uploads.
-                  </p>
+                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.additionalDetailsTitle}</p>
+                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.additionalDetailsHelper}</p>
                 </div>
               </div>
               <div className={styles.companyRegisterUploadGridCompact}>
@@ -668,15 +678,18 @@ export function CompanyRegistrationForm({
                 className={styles.companyRegisterPrimaryButton}
                 style={{ background: submitting ? '#94a3b8' : `linear-gradient(135deg, ${accentColor}, #1d4ed8)` }}
               >
-                {submitting ? 'Submitting Registration...' : 'Register Company'}
+                {submitting ? 'Submitting Registration...' : pageContent.submitArea.registerCompanyLabel}
               </button>
+              <p className={styles.companyRegisterSubmitNote}>
+                By registering, you agree to our <Link href="/labour/company/terms-of-service">{pageContent.submitArea.termsLabel}</Link> and <Link href="/labour/company/privacy-policy">{pageContent.submitArea.privacyPolicyLabel}</Link>.
+              </p>
               <p className={styles.companyRegisterSubmitNote}>
                 {isValid
                   ? 'Your company registration is ready to submit.'
                   : 'Complete the required fields below. GST number and document uploads can be left blank if not available.'}
               </p>
               <p className={styles.companyRegistrationLoginPrompt}>
-                Already have an account? <Link href="/labour/company/signin">Login</Link>
+                {pageContent.submitArea.alreadyHaveAccountText} <Link href="/labour/company/signin">{pageContent.submitArea.loginLabel}</Link>
               </p>
               {errors.submit ? <p className={styles.companyRegisterFieldError}>{errors.submit}</p> : null}
             </div>
@@ -685,12 +698,10 @@ export function CompanyRegistrationForm({
 
         <aside className={styles.companyRegisterAside}>
           <div className={styles.companyRegistrationBenefitsCard}>
-            <h2 className={styles.companyRegistrationBenefitsTitle}>Why Register Your Company</h2>
-            <p className={styles.companyRegistrationBenefitsText}>
-              Get access to the best workforce and power your business growth.
-            </p>
+            <h2 className={styles.companyRegistrationBenefitsTitle}>{pageContent.benefitsPanel.title}</h2>
+            <p className={styles.companyRegistrationBenefitsText}>{pageContent.benefitsPanel.description}</p>
             <div className={styles.companyRegistrationBenefitsList}>
-              {REGISTRATION_PANEL_ITEMS.map((item, index) => (
+              {(pageContent.benefitsPanel.items.length ? pageContent.benefitsPanel.items : REGISTRATION_PANEL_ITEMS).map((item, index) => (
                 <div key={item.title} className={styles.companyRegistrationBenefitRow}>
                   <span className={styles.companyRegistrationBenefitIcon}>{index + 1}</span>
                   <div>

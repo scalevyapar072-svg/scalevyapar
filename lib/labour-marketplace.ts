@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs'
 import path from 'path'
+import { seededLabourCategoryCatalog } from './labour-dependency-seeds'
 import { supabaseAdmin } from './supabase-admin'
 
 export type LabourEntityType =
@@ -67,6 +68,9 @@ export interface LabourWorkerRecord {
   mobile: string
   city: string
   homeCity: string
+  companyId: string
+  industryCategory: string
+  businessType: string
   address: string
   profilePhotoPath: string
   skills: string[]
@@ -93,7 +97,20 @@ export interface LabourCompanyRecord {
   email: string
   mobile: string
   contactMobile: string
+  businessType: string
+  industryCategory: string
+  gstNumber: string
+  companyAddress: string
+  state: string
   city: string
+  area: string
+  pincode: string
+  workersNeeded: number
+  hiringType: string
+  businessDescription: string
+  gstCertificatePath: string
+  companyProofPath: string
+  ownerIdProofPath: string
   categoryIds: string[]
   status: CompanyStatus
   registrationFeePaid: boolean
@@ -348,6 +365,9 @@ const defaultData: LabourMarketplaceData = {
       mobile: '9876543210',
       city: 'Surat',
       homeCity: 'Surat',
+      companyId: 'company-neelufer',
+      industryCategory: 'Textile',
+      businessType: 'Textile Business',
       address: 'Textile Market, Surat',
       profilePhotoPath: 'workers/worker-sajid/profile-photo-demo.jpg',
       skills: ['Ladies kurti stitching', 'Machine handling', 'Finishing'],
@@ -372,6 +392,9 @@ const defaultData: LabourMarketplaceData = {
       mobile: '9812345678',
       city: 'Jaipur',
       homeCity: 'Jaipur',
+      companyId: 'company-printerhub',
+      industryCategory: 'Manufacturing',
+      businessType: 'Manufacturer',
       address: 'Mansarovar, Jaipur',
       profilePhotoPath: 'workers/worker-rahul/profile-photo-demo.jpg',
       skills: ['Site wiring', 'Repair work'],
@@ -399,7 +422,20 @@ const defaultData: LabourMarketplaceData = {
       email: 'neelufer@example.com',
       mobile: '9898989898',
       contactMobile: '9898989898',
+      businessType: 'Textile Business',
+      industryCategory: 'Textile',
+      gstNumber: '',
+      companyAddress: 'Ring Road, Surat',
+      state: 'Gujarat',
       city: 'Surat',
+      area: '',
+      pincode: '395002',
+      workersNeeded: 12,
+      hiringType: 'Daily Basis',
+      businessDescription: 'Garment production company hiring stitching and embroidery labour.',
+      gstCertificatePath: '',
+      companyProofPath: '',
+      ownerIdProofPath: '',
       categoryIds: ['cat-stitching', 'cat-embroidery'],
       status: 'active',
       registrationFeePaid: true,
@@ -414,7 +450,20 @@ const defaultData: LabourMarketplaceData = {
       email: 'printerhub@example.com',
       mobile: '9765432100',
       contactMobile: '9765432100',
+      businessType: 'Manufacturer',
+      industryCategory: 'Manufacturing',
+      gstNumber: '',
+      companyAddress: 'Narol industrial area, Ahmedabad',
+      state: 'Gujarat',
       city: 'Ahmedabad',
+      area: '',
+      pincode: '382405',
+      workersNeeded: 6,
+      hiringType: 'Daily Basis',
+      businessDescription: 'Printing and finishing company looking for printer labour.',
+      gstCertificatePath: '',
+      companyProofPath: '',
+      ownerIdProofPath: '',
       categoryIds: ['cat-printer-labour'],
       status: 'pending',
       registrationFeePaid: false,
@@ -671,6 +720,9 @@ const mapWorkerRow = (row: {
   mobile: string
   city: string | null
   home_city: string | null
+  company_id: string | null
+  industry_category: string | null
+  business_type: string | null
   address: string | null
   profile_photo_path: string | null
   skills: string[] | null
@@ -694,6 +746,9 @@ const mapWorkerRow = (row: {
   mobile: row.mobile,
   city: row.city || '',
   homeCity: row.home_city || '',
+  companyId: row.company_id || '',
+  industryCategory: row.industry_category || '',
+  businessType: row.business_type || '',
   address: row.address || '',
   profilePhotoPath: row.profile_photo_path || '',
   skills: row.skills || [],
@@ -713,6 +768,41 @@ const mapWorkerRow = (row: {
   updatedAt: row.updated_at
 })
 
+const COMPANY_AREA_MARKER = '[[SV_AREA]]'
+
+const splitCompanyAddressAndArea = (addressValue: string | null | undefined, explicitAreaValue: string | null | undefined) => {
+  const rawAddress = String(addressValue || '')
+  const explicitArea = String(explicitAreaValue || '').trim()
+  const markerIndex = rawAddress.indexOf(COMPANY_AREA_MARKER)
+
+  if (markerIndex === -1) {
+    return {
+      companyAddress: rawAddress,
+      area: explicitArea
+    }
+  }
+
+  const address = rawAddress.slice(0, markerIndex).trimEnd()
+  const markerArea = rawAddress.slice(markerIndex + COMPANY_AREA_MARKER.length).trim()
+
+  return {
+    companyAddress: address,
+    area: explicitArea || markerArea
+  }
+}
+
+const mergeCompanyAddressAndArea = (companyAddress: string, area: string) => {
+  const address = companyAddress.trim()
+  const cleanedArea = area.trim()
+  if (!cleanedArea) {
+    return address
+  }
+
+  return address
+    ? `${address}\n${COMPANY_AREA_MARKER}${cleanedArea}`
+    : `${COMPANY_AREA_MARKER}${cleanedArea}`
+}
+
 const mapCompanyRow = (row: {
   id: string
   company_name: string
@@ -720,28 +810,58 @@ const mapCompanyRow = (row: {
   email: string | null
   mobile: string
   contact_mobile?: string | null
+  business_type?: string | null
+  industry_category?: string | null
+  gst_number?: string | null
+  company_address?: string | null
+  state?: string | null
   city: string | null
+  area?: string | null
+  pincode?: string | null
+  workers_needed?: number | null
+  hiring_type?: string | null
+  business_description?: string | null
+  gst_certificate_path?: string | null
+  company_proof_path?: string | null
+  owner_id_proof_path?: string | null
   category_ids: string[] | null
   status: string | null
   registration_fee_paid: boolean | null
   active_plan: string | null
   created_at: string
   updated_at: string
-}): LabourCompanyRecord => ({
-  id: row.id,
-  companyName: row.company_name,
-  contactPerson: row.contact_person,
-  email: row.email || '',
-  mobile: row.mobile,
-  contactMobile: row.contact_mobile || row.mobile || '',
-  city: row.city || '',
-  categoryIds: row.category_ids || [],
-  status: (row.status as CompanyStatus | null) || 'pending',
-  registrationFeePaid: row.registration_fee_paid ?? false,
-  activePlan: row.active_plan || '',
-  createdAt: row.created_at,
-  updatedAt: row.updated_at
-})
+}): LabourCompanyRecord => {
+  const locationFields = splitCompanyAddressAndArea(row.company_address, row.area)
+
+  return {
+    id: row.id,
+    companyName: row.company_name,
+    contactPerson: row.contact_person,
+    email: row.email || '',
+    mobile: row.mobile,
+    contactMobile: row.contact_mobile || row.mobile || '',
+    businessType: row.business_type || '',
+    industryCategory: row.industry_category || '',
+    gstNumber: row.gst_number || '',
+    companyAddress: locationFields.companyAddress,
+    state: row.state || '',
+    city: row.city || '',
+    area: locationFields.area,
+    pincode: row.pincode || '',
+    workersNeeded: row.workers_needed ?? 0,
+    hiringType: row.hiring_type || '',
+    businessDescription: row.business_description || '',
+    gstCertificatePath: row.gst_certificate_path || '',
+    companyProofPath: row.company_proof_path || '',
+    ownerIdProofPath: row.owner_id_proof_path || '',
+    categoryIds: row.category_ids || [],
+    status: (row.status as CompanyStatus | null) || 'pending',
+    registrationFeePaid: row.registration_fee_paid ?? false,
+    activePlan: row.active_plan || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
+}
 
 const mapJobPostRow = (row: {
   id: string
@@ -998,6 +1118,9 @@ const normalizeWorker = (
     mobile: String(payload.mobile || existing?.mobile || '').trim(),
     city: String(payload.city || existing?.city || '').trim(),
     homeCity: String(payload.homeCity || existing?.homeCity || '').trim(),
+    companyId: String(payload.companyId || existing?.companyId || '').trim(),
+    industryCategory: String(payload.industryCategory || existing?.industryCategory || '').trim(),
+    businessType: String(payload.businessType || existing?.businessType || '').trim(),
     address: String(payload.address || existing?.address || '').trim(),
     profilePhotoPath: String(payload.profilePhotoPath || existing?.profilePhotoPath || '').trim(),
     skills: toStringArray(payload.skills || existing?.skills || []),
@@ -1026,11 +1149,53 @@ const isMissingWorkerRegistrationFeePaidColumnError = (message: string) => {
   )
 }
 
+const isMissingWorkerProfileMappingColumnsError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  ) && (
+    normalized.includes('company_id') ||
+    normalized.includes('industry_category') ||
+    normalized.includes('business_type')
+  )
+}
+
 const isMissingCompanyContactMobileColumnError = (message: string) => {
   const normalized = message.toLowerCase()
   return normalized.includes('contact_mobile') && (
     normalized.includes('column') ||
     normalized.includes('schema cache')
+  )
+}
+
+const isMissingCompanyAreaColumnError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return normalized.includes('area') && (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  )
+}
+
+const isMissingCompanyRegistrationFieldsError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  ) && (
+    normalized.includes('business_type') ||
+    normalized.includes('industry_category') ||
+    normalized.includes('gst_number') ||
+    normalized.includes('company_address') ||
+    normalized.includes('state') ||
+    normalized.includes('pincode') ||
+    normalized.includes('area') ||
+    normalized.includes('workers_needed') ||
+    normalized.includes('hiring_type') ||
+    normalized.includes('business_description') ||
+    normalized.includes('gst_certificate_path') ||
+    normalized.includes('company_proof_path') ||
+    normalized.includes('owner_id_proof_path')
   )
 }
 
@@ -1048,9 +1213,22 @@ const normalizeCompany = (
     email: String(payload.email || existing?.email || '').trim().toLowerCase(),
     mobile: primaryMobile,
     contactMobile,
+    businessType: String(payload.businessType || existing?.businessType || '').trim(),
+    industryCategory: String(payload.industryCategory || existing?.industryCategory || '').trim(),
+    gstNumber: String(payload.gstNumber || existing?.gstNumber || '').trim().toUpperCase(),
+    companyAddress: String(payload.companyAddress || existing?.companyAddress || '').trim(),
+    state: String(payload.state || existing?.state || '').trim(),
     city: String(payload.city || existing?.city || '').trim(),
+    area: String(payload.area || existing?.area || '').trim(),
+    pincode: String(payload.pincode || existing?.pincode || '').trim(),
+    workersNeeded: Math.max(0, Number(payload.workersNeeded ?? existing?.workersNeeded ?? 0) || 0),
+    hiringType: String(payload.hiringType || existing?.hiringType || '').trim(),
+    businessDescription: String(payload.businessDescription || existing?.businessDescription || '').trim(),
+    gstCertificatePath: String(payload.gstCertificatePath || existing?.gstCertificatePath || '').trim(),
+    companyProofPath: String(payload.companyProofPath || existing?.companyProofPath || '').trim(),
+    ownerIdProofPath: String(payload.ownerIdProofPath || existing?.ownerIdProofPath || '').trim(),
     categoryIds: toStringArray(payload.categoryIds || existing?.categoryIds || []),
-    status: (payload.status || existing?.status || 'pending') as CompanyStatus,
+    status: (payload.status || existing?.status || 'active') as CompanyStatus,
     registrationFeePaid: toBoolean(payload.registrationFeePaid, existing?.registrationFeePaid ?? false),
     activePlan: String(payload.activePlan || existing?.activePlan || '').trim(),
     createdAt: existing?.createdAt || now,
@@ -1067,6 +1245,79 @@ const addDays = (dateValue: string, days: number) => {
   base.setDate(base.getDate() + days)
   return base.toISOString().slice(0, 10)
 }
+
+const isExpiredJobPostRecord = (jobPost: LabourJobPostRecord) => {
+  if (jobPost.status === 'expired') return true
+  if (!jobPost.expiresAt) return false
+
+  const expiresAt = new Date(jobPost.expiresAt)
+  if (Number.isNaN(expiresAt.getTime())) return false
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  expiresAt.setHours(0, 0, 0, 0)
+  return expiresAt < today
+}
+
+const getEffectiveCompanyStatus = (
+  company: LabourCompanyRecord,
+  plans: LabourPlanRecord[],
+  walletTransactions: LabourWalletTransactionRecord[]
+): CompanyStatus => {
+  if (company.status !== 'active') {
+    return company.status
+  }
+
+  if (!company.activePlan) {
+    return 'inactive'
+  }
+
+  const companyPlan = plans.find(plan =>
+    plan.id === company.activePlan &&
+    plan.audience === 'company' &&
+    plan.isActive
+  )
+
+  if (!companyPlan || companyPlan.validityDays <= 0) {
+    return 'inactive'
+  }
+
+  const latestPlanPurchase = walletTransactions
+    .filter(transaction =>
+      transaction.entityType === 'company' &&
+      transaction.entityId === company.id &&
+      transaction.transactionType === 'plan_purchase' &&
+      (!transaction.reference || transaction.reference === company.activePlan)
+    )
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+
+  const planStartDate = latestPlanPurchase?.createdAt || company.createdAt
+  const expiresAt = addDays(planStartDate, companyPlan.validityDays)
+
+  if (!expiresAt) {
+    return 'inactive'
+  }
+
+  const expiryDate = new Date(expiresAt)
+  if (Number.isNaN(expiryDate.getTime())) {
+    return 'inactive'
+  }
+
+  expiryDate.setHours(23, 59, 59, 999)
+  return new Date() > expiryDate ? 'inactive' : 'active'
+}
+
+const applyEffectiveCompanyStatuses = (data: LabourMarketplaceData): LabourMarketplaceData => ({
+  ...data,
+  companies: data.companies.map(company => ({
+    ...company,
+    status: getEffectiveCompanyStatus(company, data.plans, data.walletTransactions)
+  })),
+  jobPosts: data.jobPosts.map(jobPost => ({
+    ...jobPost,
+    status: isExpiredJobPostRecord(jobPost) ? 'expired' : jobPost.status
+  }))
+})
 
 const normalizeJobPost = (
   payload: Partial<LabourJobPostRecord>,
@@ -1173,6 +1424,76 @@ const normalizeWalletTransaction = (
   }
 }
 
+const mergeSeededCategories = (categories: LabourCategoryRecord[]) => {
+  const timestamp = new Date().toISOString()
+  const nextCategories = [...categories]
+
+  seededLabourCategoryCatalog.forEach((seed, index) => {
+    const existing = nextCategories.find(category =>
+      category.id === seed.id ||
+      slugify(category.slug || category.name) === seed.slug ||
+      category.name.trim().toLowerCase() === seed.label.trim().toLowerCase() ||
+      (seed.aliases || []).some(alias => category.name.trim().toLowerCase() === alias.trim().toLowerCase())
+    )
+
+    if (existing) {
+      existing.name = seed.label
+      existing.slug = seed.slug
+      existing.description = existing.description || seed.description
+      existing.isActive = true
+      existing.demandLevel = existing.demandLevel || seed.demandLevel
+      existing.updatedAt = existing.updatedAt || timestamp
+      return
+    }
+
+    nextCategories.push({
+      id: seed.id,
+      name: seed.label,
+      slug: seed.slug,
+      description: seed.description,
+      imageUrl: '',
+      showOnHome: false,
+      homeOrder: 1000 + index,
+      demandLevel: seed.demandLevel,
+      isActive: true,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    })
+  })
+
+  return nextCategories
+}
+
+const buildCompanyPlanPurchaseTransaction = (
+  company: LabourCompanyRecord,
+  plans: LabourPlanRecord[],
+  createdAt: string
+): LabourWalletTransactionRecord | null => {
+  if (company.status !== 'active' || !company.activePlan) {
+    return null
+  }
+
+  const plan = plans.find(item => item.id === company.activePlan && item.audience === 'company')
+  if (!plan) {
+    return null
+  }
+
+  return normalizeWalletTransaction({
+    entityType: 'company',
+    entityId: company.id,
+    entityName: company.companyName,
+    city: company.city,
+    transactionType: 'plan_purchase',
+    amount: plan.planAmount,
+    direction: 'credit',
+    status: 'completed',
+    reference: plan.id,
+    note: `Company plan ${plan.name} activated from labour admin.`,
+    createdAt,
+    updatedAt: createdAt
+  })
+}
+
 const normalizeRechargeRequest = (
   payload: Partial<LabourRechargeRequestRecord>,
   existing?: LabourRechargeRequestRecord
@@ -1203,7 +1524,7 @@ const readJsonData = async (): Promise<LabourMarketplaceData> => {
   const parsed = JSON.parse(raw) as LabourMarketplaceData
 
   return {
-    categories: parsed.categories || [],
+    categories: mergeSeededCategories(parsed.categories || []),
     plans: parsed.plans || [],
     workers: parsed.workers || [],
     companies: parsed.companies || [],
@@ -1221,18 +1542,22 @@ const writeJsonData = async (data: LabourMarketplaceData) => {
   await fs.writeFile(DATA_FILE_PATH, JSON.stringify(data, null, 2), 'utf8')
 }
 
-const buildSnapshot = (data: LabourMarketplaceData, storage: 'supabase' | 'json'): LabourMarketplaceSnapshot => ({
-  ...data,
+const buildSnapshot = (data: LabourMarketplaceData, storage: 'supabase' | 'json'): LabourMarketplaceSnapshot => {
+  const effectiveData = applyEffectiveCompanyStatuses(data)
+
+  return {
+  ...effectiveData,
   stats: {
-    activeWorkers: data.workers.filter(worker => worker.status === 'active').length,
-    inactiveWorkers: data.workers.filter(worker => worker.status !== 'active').length,
-    activeCompanies: data.companies.filter(company => company.status === 'active').length,
-    liveJobPosts: data.jobPosts.filter(job => job.status === 'live').length,
-    totalWalletBalance: data.workers.reduce((sum, worker) => sum + worker.walletBalance, 0),
-    recentAuditLogs: data.auditLogs.slice(0, 8)
+    activeWorkers: effectiveData.workers.filter(worker => worker.status === 'active').length,
+    inactiveWorkers: effectiveData.workers.filter(worker => worker.status !== 'active').length,
+    activeCompanies: effectiveData.companies.filter(company => company.status === 'active').length,
+    liveJobPosts: effectiveData.jobPosts.filter(job => job.status === 'live').length,
+    totalWalletBalance: effectiveData.workers.reduce((sum, worker) => sum + worker.walletBalance, 0),
+    recentAuditLogs: effectiveData.auditLogs.slice(0, 8)
   },
   storage
-})
+}
+}
 
 const isMissingSupabaseTableError = (message: string | undefined) =>
   typeof message === 'string' && (
@@ -1361,7 +1686,7 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
   }
 
   return {
-    categories: (categoriesResult.data || []).map(mapCategoryRow),
+    categories: mergeSeededCategories((categoriesResult.data || []).map(mapCategoryRow)),
     plans: (plansResult.data || []).map(mapPlanRow),
     workers: (workersResult.data || []).map(mapWorkerRow),
     companies: (companiesResult.data || []).map(mapCompanyRow),
@@ -1411,6 +1736,11 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     full_name: worker.fullName,
     mobile: worker.mobile,
     city: worker.city,
+    home_city: worker.homeCity,
+    company_id: worker.companyId || null,
+    industry_category: worker.industryCategory || null,
+    business_type: worker.businessType || null,
+    address: worker.address,
     profile_photo_path: worker.profilePhotoPath,
     skills: worker.skills,
     experience_years: worker.experienceYears,
@@ -1436,7 +1766,20 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     email: company.email || null,
     mobile: company.mobile,
     contact_mobile: company.contactMobile || company.mobile,
+    business_type: company.businessType || null,
+    industry_category: company.industryCategory || null,
+    gst_number: company.gstNumber || null,
+    company_address: mergeCompanyAddressAndArea(company.companyAddress, company.area) || null,
+    state: company.state || null,
     city: company.city,
+    area: company.area || null,
+    pincode: company.pincode || null,
+    workers_needed: company.workersNeeded,
+    hiring_type: company.hiringType || null,
+    business_description: company.businessDescription || null,
+    gst_certificate_path: company.gstCertificatePath || null,
+    company_proof_path: company.companyProofPath || null,
+    owner_id_proof_path: company.ownerIdProofPath || null,
     category_ids: company.categoryIds,
     status: company.status,
     registration_fee_paid: company.registrationFeePaid,
@@ -1663,6 +2006,10 @@ export const createLabourEntity = async (
       case 'companies': {
         const record = normalizeCompany(payload)
         data.companies.unshift(record)
+        const planPurchase = buildCompanyPlanPurchaseTransaction(record, data.plans, record.createdAt)
+        if (planPurchase) {
+          data.walletTransactions.unshift(planPurchase)
+        }
         appendAuditLog(data, 'create', entityType, record.id, `Created company ${record.companyName}`, actor)
         break
       }
@@ -1751,12 +2098,17 @@ export const createLabourEntity = async (
     }
     case 'workers': {
       const record = normalizeWorker(payload)
-      const workerPayload = {
-        id: record.id,
-        full_name: record.fullName,
-        mobile: record.mobile,
-        city: record.city,
-        profile_photo_path: record.profilePhotoPath,
+        const workerPayload = {
+          id: record.id,
+          full_name: record.fullName,
+          mobile: record.mobile,
+          city: record.city,
+          home_city: record.homeCity,
+          company_id: record.companyId || null,
+          industry_category: record.industryCategory || null,
+          business_type: record.businessType || null,
+          address: record.address,
+          profile_photo_path: record.profilePhotoPath,
         skills: record.skills,
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
@@ -1772,12 +2124,20 @@ export const createLabourEntity = async (
         registration_completed_at: record.registrationCompletedAt || null,
         created_at: record.createdAt,
         updated_at: record.updatedAt
-      }
-      let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(workerPayload)
-      if (error && isMissingWorkerRegistrationFeePaidColumnError(error.message)) {
-        const { registration_fee_paid, ...legacyWorkerPayload } = workerPayload
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(legacyWorkerPayload))
-      }
+        }
+        let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(workerPayload)
+        if (error && isMissingWorkerProfileMappingColumnsError(error.message)) {
+          const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
+          delete legacyWorkerPayload.company_id
+          delete legacyWorkerPayload.industry_category
+          delete legacyWorkerPayload.business_type
+          ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(legacyWorkerPayload))
+        }
+        if (error && isMissingWorkerRegistrationFeePaidColumnError(error.message)) {
+          const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
+          delete legacyWorkerPayload.registration_fee_paid
+          ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(legacyWorkerPayload))
+        }
       if (error) throw new Error(`Failed to create labour worker: ${error.message}`)
       await writeSupabaseAuditLog('create', entityType, record.id, `Created worker ${record.fullName}`, actor)
       break
@@ -1791,7 +2151,20 @@ export const createLabourEntity = async (
         email: record.email || null,
         mobile: record.mobile,
         contact_mobile: record.contactMobile || record.mobile,
+        business_type: record.businessType || null,
+        industry_category: record.industryCategory || null,
+        gst_number: record.gstNumber || null,
+        company_address: mergeCompanyAddressAndArea(record.companyAddress, record.area) || null,
+        state: record.state || null,
         city: record.city,
+        area: record.area || null,
+        pincode: record.pincode || null,
+        workers_needed: record.workersNeeded,
+        hiring_type: record.hiringType || null,
+        business_description: record.businessDescription || null,
+        gst_certificate_path: record.gstCertificatePath || null,
+        company_proof_path: record.companyProofPath || null,
+        owner_id_proof_path: record.ownerIdProofPath || null,
         category_ids: record.categoryIds,
         status: record.status,
         registration_fee_paid: record.registrationFeePaid,
@@ -1799,12 +2172,58 @@ export const createLabourEntity = async (
         created_at: record.createdAt,
         updated_at: record.updatedAt
       }
-      let { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(companyPayload)
+      let companyPayloadToWrite: Record<string, unknown> = companyPayload
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(companyPayloadToWrite)
       if (error && isMissingCompanyContactMobileColumnError(error.message)) {
-        const { contact_mobile, ...legacyCompanyPayload } = companyPayload
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(legacyCompanyPayload))
+        const { contact_mobile, ...legacyCompanyPayload } = companyPayloadToWrite as typeof companyPayload
+        companyPayloadToWrite = legacyCompanyPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(companyPayloadToWrite))
+      }
+      if (error && isMissingCompanyAreaColumnError(error.message)) {
+        const { area, ...legacyCompanyPayload } = companyPayloadToWrite as typeof companyPayload
+        companyPayloadToWrite = legacyCompanyPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(companyPayloadToWrite))
+      }
+      if (error && isMissingCompanyRegistrationFieldsError(error.message)) {
+        const {
+          business_type,
+          industry_category,
+          gst_number,
+          company_address,
+          state,
+          area,
+          pincode,
+          workers_needed,
+          hiring_type,
+          business_description,
+          gst_certificate_path,
+          company_proof_path,
+          owner_id_proof_path,
+          ...legacyCompanyPayload
+        } = companyPayloadToWrite as typeof companyPayload
+        companyPayloadToWrite = legacyCompanyPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(companyPayloadToWrite))
       }
       if (error) throw new Error(`Failed to create labour company: ${error.message}`)
+      const planPurchase = buildCompanyPlanPurchaseTransaction(record, (await readSupabaseData()).plans, record.createdAt)
+      if (planPurchase) {
+        const { error: transactionError } = await supabaseAdmin.from(STORAGE_TABLES.walletTransactions).insert({
+          id: planPurchase.id,
+          entity_type: planPurchase.entityType,
+          entity_id: planPurchase.entityId,
+          entity_name: planPurchase.entityName,
+          city: planPurchase.city,
+          transaction_type: planPurchase.transactionType,
+          amount: planPurchase.amount,
+          direction: planPurchase.direction,
+          status: planPurchase.status,
+          reference: planPurchase.reference,
+          note: planPurchase.note,
+          created_at: planPurchase.createdAt,
+          updated_at: planPurchase.updatedAt
+        })
+        if (transactionError) throw new Error(`Failed to create company plan transaction: ${transactionError.message}`)
+      }
       await writeSupabaseAuditLog('create', entityType, record.id, `Created company ${record.companyName}`, actor)
       break
     }
@@ -1969,8 +2388,19 @@ export const updateLabourEntity = async (
       case 'companies': {
         const index = data.companies.findIndex(record => record.id === id)
         if (index === -1) return null
+        const existing = data.companies[index]
         const updated = normalizeCompany(payload, data.companies[index])
         data.companies[index] = updated
+        const shouldCreatePlanPurchase = updated.status === 'active' && Boolean(updated.activePlan) && (
+          existing.activePlan !== updated.activePlan ||
+          existing.status !== 'active'
+        )
+        if (shouldCreatePlanPurchase) {
+          const planPurchase = buildCompanyPlanPurchaseTransaction(updated, data.plans, updated.updatedAt)
+          if (planPurchase) {
+            data.walletTransactions.unshift(planPurchase)
+          }
+        }
         appendAuditLog(data, 'update', entityType, id, `Updated company ${updated.companyName}`, actor)
         break
       }
@@ -2073,11 +2503,16 @@ export const updateLabourEntity = async (
       const existing = (await readSupabaseData()).workers.find(record => record.id === id)
       if (!existing) return null
       const record = normalizeWorker(payload, existing)
-      const workerPayload = {
-        full_name: record.fullName,
-        mobile: record.mobile,
-        city: record.city,
-        profile_photo_path: record.profilePhotoPath,
+        const workerPayload = {
+          full_name: record.fullName,
+          mobile: record.mobile,
+          city: record.city,
+          home_city: record.homeCity,
+          company_id: record.companyId || null,
+          industry_category: record.industryCategory || null,
+          business_type: record.businessType || null,
+          address: record.address,
+          profile_photo_path: record.profilePhotoPath,
         skills: record.skills,
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
@@ -2092,18 +2527,27 @@ export const updateLabourEntity = async (
         identity_proof_path: record.identityProofPath,
         registration_completed_at: record.registrationCompletedAt || null,
         updated_at: record.updatedAt
-      }
-      let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(workerPayload).eq('id', id)
-      if (error && isMissingWorkerRegistrationFeePaidColumnError(error.message)) {
-        const { registration_fee_paid, ...legacyWorkerPayload } = workerPayload
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(legacyWorkerPayload).eq('id', id))
-      }
+        }
+        let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(workerPayload).eq('id', id)
+        if (error && isMissingWorkerProfileMappingColumnsError(error.message)) {
+          const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
+          delete legacyWorkerPayload.company_id
+          delete legacyWorkerPayload.industry_category
+          delete legacyWorkerPayload.business_type
+          ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(legacyWorkerPayload).eq('id', id))
+        }
+        if (error && isMissingWorkerRegistrationFeePaidColumnError(error.message)) {
+          const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
+          delete legacyWorkerPayload.registration_fee_paid
+          ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(legacyWorkerPayload).eq('id', id))
+        }
       if (error) throw new Error(`Failed to update labour worker: ${error.message}`)
       await writeSupabaseAuditLog('update', entityType, id, `Updated worker ${record.fullName}`, actor)
       break
     }
     case 'companies': {
-      const existing = (await readSupabaseData()).companies.find(record => record.id === id)
+      const supabaseData = await readSupabaseData()
+      const existing = supabaseData.companies.find(record => record.id === id)
       if (!existing) return null
       const record = normalizeCompany(payload, existing)
       const companyPayload = {
@@ -2112,19 +2556,84 @@ export const updateLabourEntity = async (
         email: record.email || null,
         mobile: record.mobile,
         contact_mobile: record.contactMobile || record.mobile,
+        business_type: record.businessType || null,
+        industry_category: record.industryCategory || null,
+        gst_number: record.gstNumber || null,
+        company_address: mergeCompanyAddressAndArea(record.companyAddress, record.area) || null,
+        state: record.state || null,
         city: record.city,
+        area: record.area || null,
+        pincode: record.pincode || null,
+        workers_needed: record.workersNeeded,
+        hiring_type: record.hiringType || null,
+        business_description: record.businessDescription || null,
+        gst_certificate_path: record.gstCertificatePath || null,
+        company_proof_path: record.companyProofPath || null,
+        owner_id_proof_path: record.ownerIdProofPath || null,
         category_ids: record.categoryIds,
         status: record.status,
         registration_fee_paid: record.registrationFeePaid,
         active_plan: record.activePlan,
         updated_at: record.updatedAt
       }
-      let { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(companyPayload).eq('id', id)
+      let companyPayloadToWrite: Record<string, unknown> = companyPayload
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(companyPayloadToWrite).eq('id', id)
       if (error && isMissingCompanyContactMobileColumnError(error.message)) {
-        const { contact_mobile, ...legacyCompanyPayload } = companyPayload
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(legacyCompanyPayload).eq('id', id))
+        const { contact_mobile, ...legacyCompanyPayload } = companyPayloadToWrite as typeof companyPayload
+        companyPayloadToWrite = legacyCompanyPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(companyPayloadToWrite).eq('id', id))
+      }
+      if (error && isMissingCompanyAreaColumnError(error.message)) {
+        const { area, ...legacyCompanyPayload } = companyPayloadToWrite as typeof companyPayload
+        companyPayloadToWrite = legacyCompanyPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(companyPayloadToWrite).eq('id', id))
+      }
+      if (error && isMissingCompanyRegistrationFieldsError(error.message)) {
+        const {
+          business_type,
+          industry_category,
+          gst_number,
+          company_address,
+          state,
+          area,
+          pincode,
+          workers_needed,
+          hiring_type,
+          business_description,
+          gst_certificate_path,
+          company_proof_path,
+          owner_id_proof_path,
+          ...legacyCompanyPayload
+        } = companyPayloadToWrite as typeof companyPayload
+        companyPayloadToWrite = legacyCompanyPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(companyPayloadToWrite).eq('id', id))
       }
       if (error) throw new Error(`Failed to update labour company: ${error.message}`)
+      const shouldCreatePlanPurchase = record.status === 'active' && Boolean(record.activePlan) && (
+        existing.activePlan !== record.activePlan ||
+        existing.status !== 'active'
+      )
+      if (shouldCreatePlanPurchase) {
+        const planPurchase = buildCompanyPlanPurchaseTransaction(record, supabaseData.plans, record.updatedAt)
+        if (planPurchase) {
+          const { error: transactionError } = await supabaseAdmin.from(STORAGE_TABLES.walletTransactions).insert({
+            id: planPurchase.id,
+            entity_type: planPurchase.entityType,
+            entity_id: planPurchase.entityId,
+            entity_name: planPurchase.entityName,
+            city: planPurchase.city,
+            transaction_type: planPurchase.transactionType,
+            amount: planPurchase.amount,
+            direction: planPurchase.direction,
+            status: planPurchase.status,
+            reference: planPurchase.reference,
+            note: planPurchase.note,
+            created_at: planPurchase.createdAt,
+            updated_at: planPurchase.updatedAt
+          })
+          if (transactionError) throw new Error(`Failed to create company plan transaction: ${transactionError.message}`)
+        }
+      }
       await writeSupabaseAuditLog('update', entityType, id, `Updated company ${record.companyName}`, actor)
       break
     }

@@ -130,7 +130,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
   const [token, setToken] = useState<string | null>(null)
   const [dashboard, setDashboard] = useState<CompanyDashboard | null>(null)
   const [email, setEmail] = useState('')
-  const [identity, setIdentity] = useState('')
+  const [password, setPassword] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [openJobMenuId, setOpenJobMenuId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState('')
@@ -238,7 +238,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
         },
         body: JSON.stringify({
           email,
-          identity
+          password
         })
       })
 
@@ -589,7 +589,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
           <p className={styles.eyebrow}>Company panel</p>
           <h1 className={styles.pageTitle}>Receive worker applications in one place</h1>
           <p className={styles.textMuted} style={{ marginBottom: '20px' }}>
-            Sign in with your registered company email and your company name or contact person. This screen does not use a password.
+            Sign in with your registered company email and password to open the company dashboard.
           </p>
           <form className={styles.stack} onSubmit={submitLogin}>
             <label style={{ display: 'grid', gap: '8px' }}>
@@ -602,16 +602,17 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
               />
             </label>
             <label style={{ display: 'grid', gap: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company name or contact person</span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Password</span>
               <input
-                value={identity}
-                onChange={event => setIdentity(event.target.value)}
-                placeholder="Company name or contact person"
+                type="password"
+                value={password}
+                onChange={event => setPassword(event.target.value)}
+                placeholder="Enter your password"
                 style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
               />
             </label>
             <div className={styles.softCard} style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
-              <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use company email + company/contact name.</p>
+              <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use your company email and password.</p>
             </div>
             {error ? (
               <div className={styles.softCard} style={{ borderColor: '#fecaca', background: '#fef2f2' }}>
@@ -631,9 +632,9 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
                 type="button"
                 className={styles.secondaryButton}
                 style={{ flex: '1 1 220px' }}
-                onClick={() => router.push('/login')}
+                onClick={() => router.push('/labour/company/company-registration')}
               >
-                Login In Dashboard
+                Register Company
               </button>
             </div>
           </form>
@@ -663,13 +664,13 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
             <div className={styles.softCard} style={{ background: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.16)' }}>
               <p style={{ margin: '0 0 6px', color: '#ffffff', fontSize: '14px', fontWeight: 700 }}>How access works</p>
               <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.82)', fontSize: '13px', lineHeight: 1.7 }}>
-                Sign in using the registered company email together with the company name or contact person saved in worker admin.
+                Sign in using the registered company email and password linked to your company account.
               </p>
             </div>
             <div className={styles.softCard} style={{ background: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.16)' }}>
               <p style={{ margin: '0 0 6px', color: '#ffffff', fontSize: '14px', fontWeight: 700 }}>What to do next</p>
               <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.82)', fontSize: '13px', lineHeight: 1.7 }}>
-                Open the company panel for hiring activity, or use Login In Dashboard to move into the main ScaleVyapar dashboard flow.
+                Open the company panel for hiring activity, or use Register Company if you need to create a new company account first.
               </p>
             </div>
           </div>

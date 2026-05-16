@@ -16,7 +16,7 @@ type Props = {
 export function CompanySigninFormClient({ content }: Props) {
   const router = useRouter()
   const [email, setEmail] = useState('')
-  const [identity, setIdentity] = useState('')
+  const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -34,7 +34,7 @@ export function CompanySigninFormClient({ content }: Props) {
         },
         body: JSON.stringify({
           email,
-          identity
+          password
         })
       })
 
@@ -86,8 +86,9 @@ export function CompanySigninFormClient({ content }: Props) {
         <label className={styles.signinField}>
           <span className={styles.signinFieldLabel}>{content.passwordLabel}</span>
           <input
-            value={identity}
-            onChange={event => setIdentity(event.target.value)}
+            type="password"
+            value={password}
+            onChange={event => setPassword(event.target.value)}
             placeholder={content.passwordPlaceholder}
             className={styles.signinInput}
           />

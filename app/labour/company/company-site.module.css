@@ -1191,9 +1191,9 @@
 }
 
 .companyRegisterAside {
-  padding: 0;
   display: grid;
   align-self: start;
+  padding: 0;
   background:
     radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 26%),
     linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
@@ -1600,6 +1600,479 @@
   gap: 12px;
 }
 
+.jobPostShell {
+  gap: 24px;
+}
+
+.jobPostShell .companyRegisterSplit {
+  grid-template-columns: minmax(280px, 0.36fr) minmax(0, 0.64fr);
+}
+
+.jobPostShell .companyRegisterAside {
+  gap: 16px;
+  overflow: visible;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.jobPostShell .companyRegisterFormWrap {
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.jobPostShell .companyRegisterSection {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+.jobPostHero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(300px, 0.85fr);
+  gap: 28px;
+  align-items: end;
+}
+
+.jobPostHeroCopy {
+  display: grid;
+  gap: 12px;
+}
+
+.jobPostHeroEyebrow {
+  margin: 0;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.jobPostHeroTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(2.2rem, 4vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+}
+
+.jobPostHeroText {
+  margin: 0;
+  max-width: 560px;
+  color: #475569;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.jobPostHeroVisual {
+  position: relative;
+  min-height: 220px;
+  border-radius: 28px;
+  border: 1px solid rgba(191, 219, 254, 0.82);
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 30%),
+    linear-gradient(180deg, #f9fbff 0%, #eef5ff 100%);
+  overflow: hidden;
+}
+
+.jobPostHeroSkyline {
+  position: absolute;
+  inset: auto 18px 26px 18px;
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.jobPostHeroSkyline span {
+  flex: 1;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, rgba(191, 219, 254, 0.6), rgba(148, 163, 184, 0.18));
+}
+
+.jobPostHeroSkyline span:nth-child(1) { height: 64px; }
+.jobPostHeroSkyline span:nth-child(2) { height: 88px; }
+.jobPostHeroSkyline span:nth-child(3) { height: 118px; }
+.jobPostHeroSkyline span:nth-child(4) { height: 86px; }
+.jobPostHeroSkyline span:nth-child(5) { height: 72px; }
+
+.jobPostHeroWorkers {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+}
+
+.jobPostHeroShield {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 20px;
+  color: #2563eb;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.14);
+}
+
+.jobPostHeroWorkerRow {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.jobPostHeroWorkerRow span {
+  position: relative;
+  display: inline-flex;
+  width: 26px;
+  height: 64px;
+  border-radius: 999px 999px 10px 10px;
+  background: linear-gradient(180deg, #1d4ed8, #1e3a8a);
+}
+
+.jobPostHeroWorkerRow span::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #60a5fa;
+}
+
+.jobPostSidebarPrimary,
+.jobPostSidebarCard,
+.jobPostSidebarHelpCard {
+  border-radius: 26px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.06);
+}
+
+.jobPostSidebarPrimary {
+  padding: 22px;
+  background: linear-gradient(180deg, #0f2e6e 0%, #15407f 48%, #115e7c 100%);
+  color: #ffffff;
+}
+
+.jobPostSidebarPrimary h2,
+.jobPostSidebarCard h2,
+.jobPostSidebarHelpCard h2 {
+  margin: 0 0 18px;
+  font-size: 23px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.jobPostSidebarPrimary h2 {
+  color: #ffffff;
+}
+
+.jobPostSidebarBenefitList,
+.jobPostSidebarStepList,
+.jobPostSidebarHelpList {
+  display: grid;
+  gap: 12px;
+}
+
+.jobPostSidebarBenefit {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(191, 219, 254, 0.14);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.jobPostSidebarBenefitIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.jobPostSidebarBenefit h3,
+.jobPostSidebarStep h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.jobPostSidebarBenefit p {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.85);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.jobPostSidebarCard,
+.jobPostSidebarHelpCard {
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.jobPostSidebarCard h2,
+.jobPostSidebarHelpCard h2 {
+  color: #0f172a;
+}
+
+.jobPostSidebarStep {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.jobPostSidebarStep > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.jobPostSidebarStep p,
+.jobPostSidebarHelpCard p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.jobPostSidebarHelpList div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.jobPostSidebarHelpList svg {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.jobPostTopCard {
+  margin-bottom: 18px;
+  padding: 22px 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+}
+
+.jobPostStepRail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  align-items: center;
+}
+
+.jobPostStepItem {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.jobPostStepLabel {
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.jobPostStepConnector {
+  position: absolute;
+  top: 12px;
+  left: calc(50% + 22px);
+  width: calc(100% - 44px);
+  border-top: 2px dashed rgba(191, 219, 254, 0.95);
+}
+
+.jobPostSectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.jobPostLockPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #eff6ff;
+  border: 1px solid rgba(191, 219, 254, 0.95);
+  color: #1d4ed8;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.jobPostGridThree {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.jobPostGridThree .companyRegisterGridWide {
+  grid-column: 1 / -1;
+}
+
+.jobPostTipBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: #f8fbff;
+  border: 1px solid rgba(219, 234, 254, 0.96);
+  color: #2563eb;
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 600;
+}
+
+.jobPostPreviewCard {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(191, 219, 254, 0.95);
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.jobPostPreviewHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.jobPostPreviewEyebrow {
+  margin: 0 0 4px;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.jobPostPreviewHeader h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.jobPostPreviewClose {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(203, 213, 225, 0.92);
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jobPostPreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.jobPostPreviewItem {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+}
+
+.jobPostPreviewItem span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.jobPostPreviewItem strong {
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.jobPostStatsStrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  padding: 18px;
+  border-radius: 26px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.06);
+}
+
+.jobPostStatsItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 84px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(219, 234, 254, 0.95);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.jobPostStatsIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  flex-shrink: 0;
+}
+
+.jobPostStatsItem strong {
+  display: block;
+  color: #0f172a;
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.jobPostStatsItem p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .jobPostStepRow {
   display: flex;
   flex-wrap: wrap;
@@ -1807,7 +2280,12 @@
 }
 
 @media (max-width: 1180px) {
-  .companyRegisterSplit,
+  .jobPostHero,
+  .jobPostStatsStrip {
+    grid-template-columns: 1fr;
+  }
+
+  .jobPostShell .companyRegisterSplit,
   .companyRegisterUploadGrid,
   .companyRegisterUploadGridCompact {
     grid-template-columns: 1fr;
@@ -1816,10 +2294,35 @@
   .jobPostUploadGrid {
     grid-template-columns: 1fr;
   }
+
+  .jobPostStepRail {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .jobPostStepItem {
+    justify-items: start;
+    text-align: left;
+    padding-left: 0;
+  }
+
+  .jobPostStepConnector {
+    display: none;
+  }
+
+  .jobPostPreviewGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 860px) {
   .companyRegisterGridTwo {
+    grid-template-columns: 1fr;
+  }
+
+  .jobPostGridThree,
+  .jobPostStatsStrip,
+  .jobPostPreviewGrid {
     grid-template-columns: 1fr;
   }
 
@@ -1828,12 +2331,13 @@
   }
 
   .companyRegisterFormWrap,
-  .companyRegisterAside {
+  .jobPostShell .companyRegisterAside {
     border-radius: 26px;
   }
 
   .companyRegisterIllustrationHeadline,
-  .companyRegisterTitle {
+  .companyRegisterTitle,
+  .jobPostHeroTitle {
     font-size: 30px;
     line-height: 1.08;
   }
@@ -1844,6 +2348,11 @@
 
   .companyRegisterIllustration {
     padding: 22px;
+  }
+
+  .jobPostSectionHeader,
+  .jobPostPreviewHeader {
+    display: grid;
   }
 }
 

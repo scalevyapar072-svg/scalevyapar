@@ -1127,27 +1127,6 @@ export function CompanyJobPostForm({
             </div>
           ) : null}
 
-          {successState ? (
-            <div className={styles.companyRegisterSuccessCard}>
-              <div className={styles.companyRegisterSuccessIcon}>✓</div>
-              <p className={styles.companyRegisterSuccessTitle}>
-                {isEditMode
-                  ? 'Job requirement updated successfully'
-                  : successState.statusLabel.toLowerCase() === 'draft'
-                    ? 'Job requirement saved successfully'
-                    : 'Job requirement submitted successfully'}
-              </p>
-              <p className={styles.companyRegisterSuccessText}>{successState.message}</p>
-              <p className={styles.jobPostSuccessMeta}>
-                Current status: <strong>{successState.statusLabel}</strong>{successState.jobId ? ` | Job ID: ${successState.jobId}` : ''}
-              </p>
-              <div className={styles.companyRegisterSuccessActions}>
-                <Link href="/labour/company/panel" className={styles.companyRegisterPrimaryButton}>Open Company Panel</Link>
-                <Link href="/labour/company/search" className={styles.companyRegisterSecondaryButton}>Search Workers</Link>
-              </div>
-            </div>
-          ) : null}
-
           <form
             className={styles.companyRegisterForm}
             onSubmit={event => {
@@ -1261,14 +1240,6 @@ export function CompanyJobPostForm({
                   {errors.jobTitle ? <p className={styles.companyRegisterFieldError}>{errors.jobTitle}</p> : null}
                 </div>
                 <div>
-                  <label className={styles.companyRegisterLabel}>Worker Category</label>
-                  <select className={fieldClass('workerCategory')} value={form.workerCategory} onChange={event => setField('workerCategory', event.target.value)}>
-                    <option value="">Select worker category</option>
-                    {WORKER_CATEGORIES.map(item => <option key={item} value={item}>{item}</option>)}
-                  </select>
-                  {errors.workerCategory ? <p className={styles.companyRegisterFieldError}>{errors.workerCategory}</p> : null}
-                </div>
-                <div>
                   <label className={styles.companyRegisterLabel}>Labour Category *</label>
                   <select
                     className={fieldClass('labourCategoryId')}
@@ -1290,7 +1261,15 @@ export function CompanyJobPostForm({
                   {errors.selectedPlanId ? <p className={styles.companyRegisterFieldError}>{errors.selectedPlanId}</p> : null}
                 </div>
                 <div>
-                  <label className={styles.companyRegisterLabel}>Workers Needed - Quantity *</label>
+                  <label className={styles.companyRegisterLabel}>Worker Category *</label>
+                  <select className={fieldClass('workerCategory')} value={form.workerCategory} onChange={event => setField('workerCategory', event.target.value)}>
+                    <option value="">Select worker category</option>
+                    {WORKER_CATEGORIES.map(item => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                  {errors.workerCategory ? <p className={styles.companyRegisterFieldError}>{errors.workerCategory}</p> : null}
+                </div>
+                <div>
+                  <label className={styles.companyRegisterLabel}>Number of Workers Required *</label>
                   <input className={fieldClass('workersRequired')} type="number" min="1" value={form.workersRequired} onChange={event => setField('workersRequired', event.target.value)} />
                   {errors.workersRequired ? <p className={styles.companyRegisterFieldError}>{errors.workersRequired}</p> : null}
                 </div>
@@ -1365,19 +1344,6 @@ export function CompanyJobPostForm({
                   <label className={styles.companyRegisterLabel}>Duty Hours</label>
                   <input className={fieldClass('dutyHours')} value={form.dutyHours} onChange={event => setField('dutyHours', event.target.value)} placeholder="9 AM - 6 PM" />
                   {errors.dutyHours ? <p className={styles.companyRegisterFieldError}>{errors.dutyHours}</p> : null}
-                </div>
-                <div>
-                  <label className={styles.companyRegisterLabel}>Shift Type</label>
-                  <select className={fieldClass('shiftType')} value={form.shiftType} onChange={event => setField('shiftType', event.target.value)}>
-                    <option value="">Select shift type</option>
-                    {SHIFT_TYPES.map(item => <option key={item} value={item}>{item}</option>)}
-                  </select>
-                  {errors.shiftType ? <p className={styles.companyRegisterFieldError}>{errors.shiftType}</p> : null}
-                </div>
-                <div>
-                  <label className={styles.companyRegisterLabel}>Weekly Off</label>
-                  <input className={fieldClass('weeklyOff')} value={form.weeklyOff} onChange={event => setField('weeklyOff', event.target.value)} placeholder="Sunday" />
-                  {errors.weeklyOff ? <p className={styles.companyRegisterFieldError}>{errors.weeklyOff}</p> : null}
                 </div>
                 <div className={styles.companyRegisterGridWide}>
                   <div className={styles.jobPostTipBox}>
@@ -1530,6 +1496,32 @@ export function CompanyJobPostForm({
                   ? 'Your post will be reviewed by our admin team before it goes live.'
                   : 'Complete these required fields to publish: Job Title, Labour Category, Select Plan, Workers Needed, Salary Type, Salary Amount, and Job Description.'}
               </p>
+              {successState ? (
+                <div className={styles.companyRegisterSuccessCard}>
+                  <div className={styles.companyRegisterSuccessIcon}>✓</div>
+                  <p className={styles.companyRegisterSuccessTitle}>
+                    {isEditMode
+                      ? 'Job requirement updated successfully'
+                      : successState.statusLabel.toLowerCase() === 'draft'
+                        ? 'Job requirement saved successfully'
+                        : 'Job post submitted successfully. Our admin team will review it shortly.'}
+                  </p>
+                  <p className={styles.companyRegisterSuccessText}>
+                    {isEditMode
+                      ? successState.message
+                      : successState.statusLabel.toLowerCase() === 'draft'
+                        ? successState.message
+                        : 'You can track this requirement from your company panel.'}
+                  </p>
+                  <p className={styles.jobPostSuccessMeta}>
+                    Current status: <strong>{successState.statusLabel}</strong>{successState.jobId ? ` | Job ID: ${successState.jobId}` : ''}
+                  </p>
+                  <div className={styles.companyRegisterSuccessActions}>
+                    <Link href="/labour/company/panel" className={styles.companyRegisterPrimaryButton}>Open Company Panel</Link>
+                    <Link href="/labour/company/search" className={styles.companyRegisterSecondaryButton}>Search Workers</Link>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </form>
         </div>

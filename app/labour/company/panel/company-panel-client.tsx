@@ -253,6 +253,10 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
       }
 
       localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+      if (data.dashboard?.profile) {
+        localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(data.dashboard.profile))
+      }
+      window.dispatchEvent(new Event('labour-company-auth-change'))
 
       if (signinMode) {
         router.push('/labour/company/panel')
@@ -272,6 +276,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
   const handleLogout = () => {
     localStorage.removeItem(COMPANY_TOKEN_KEY)
     localStorage.removeItem(COMPANY_PROFILE_KEY)
+    window.dispatchEvent(new Event('labour-company-auth-change'))
     setToken(null)
     setDashboard(null)
     setError('')
@@ -584,7 +589,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
           <p className={styles.eyebrow}>Company panel</p>
           <h1 className={styles.pageTitle}>Receive worker applications in one place</h1>
           <p className={styles.textMuted} style={{ marginBottom: '20px' }}>
-            Sign in with your registered company email and your company name or contact person. This screen does not use a password.
+            Sign in with your registered company email and the company name or contact person linked to your account to open the company dashboard.
           </p>
           <form className={styles.stack} onSubmit={submitLogin}>
             <label style={{ display: 'grid', gap: '8px' }}>
@@ -606,7 +611,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
               />
             </label>
             <div className={styles.softCard} style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
-              <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use company email + company/contact name.</p>
+              <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use your company email and the saved company/contact name.</p>
             </div>
             {error ? (
               <div className={styles.softCard} style={{ borderColor: '#fecaca', background: '#fef2f2' }}>
@@ -626,9 +631,9 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
                 type="button"
                 className={styles.secondaryButton}
                 style={{ flex: '1 1 220px' }}
-                onClick={() => router.push('/login')}
+                onClick={() => router.push('/labour/company/company-registration')}
               >
-                Login In Dashboard
+                Register Company
               </button>
             </div>
           </form>
@@ -664,7 +669,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
             <div className={styles.softCard} style={{ background: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.16)' }}>
               <p style={{ margin: '0 0 6px', color: '#ffffff', fontSize: '14px', fontWeight: 700 }}>What to do next</p>
               <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.82)', fontSize: '13px', lineHeight: 1.7 }}>
-                Open the company panel for hiring activity, or use Login In Dashboard to move into the main ScaleVyapar dashboard flow.
+                Open the company panel for hiring activity, or use Register Company if you need to create a new company account first.
               </p>
             </div>
           </div>

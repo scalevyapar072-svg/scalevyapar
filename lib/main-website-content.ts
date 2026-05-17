@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { supabaseAdmin } from './supabase-admin'
+import { buildWhatsAppLink } from './whatsapp'
 
 export interface MainWebsiteLinkItem {
   label: string
@@ -16,6 +17,9 @@ export interface MainWebsiteButton {
 export interface MainWebsiteStatItem {
   value: string
   label: string
+  description: string
+  icon: string
+  enabled: boolean
 }
 
 export interface MainWebsiteFeatureCard {
@@ -25,17 +29,43 @@ export interface MainWebsiteFeatureCard {
   bullets: string[]
   badge?: string
   href?: string
+  buttonLabel?: string
+  enabled: boolean
+}
+
+export interface MainWebsitePreviewMetric {
+  label: string
+  value: string
+}
+
+export interface MainWebsiteProductPreviewCard {
+  icon: string
+  name: string
+  tagline: string
+  description: string
+  ctaLabel: string
+  ctaHref: string
+  mockRows: MainWebsitePreviewMetric[]
+  photoTags: string[]
+  isPhoto: boolean
+  enabled: boolean
 }
 
 export interface MainWebsiteProcessStep {
+  step: string
+  icon: string
   title: string
   description: string
+  enabled: boolean
 }
 
 export interface MainWebsiteTestimonial {
   quote: string
   name: string
   business: string
+  rating: number
+  avatar: string
+  enabled: boolean
 }
 
 export interface MainWebsiteFaqItem {
@@ -52,6 +82,14 @@ export interface MainWebsitePlan {
   features: string[]
   buttonLabel: string
   buttonHref: string
+  enabled: boolean
+}
+
+export interface MainWebsiteComparisonRow {
+  title: string
+  scaleVyaparValue: string
+  otherValue: string
+  enabled: boolean
 }
 
 export interface MainWebsiteContactHour {
@@ -80,12 +118,18 @@ export interface MainWebsiteContent {
     brandName: string
     brandTagline: string
     primaryColor: string
+    secondaryColor: string
     accentColor: string
     backgroundColor: string
+    lightBackgroundColor: string
+    darkBackgroundColor: string
     buttonColor: string
+    textColor: string
+    mutedTextColor: string
     logoSrc: string
     faviconSrc: string
     fontFamily: string
+    borderRadius: string
   }
   header: {
     announcementText: string
@@ -96,6 +140,8 @@ export interface MainWebsiteContent {
     navItems: MainWebsiteLinkItem[]
     primaryButton: MainWebsiteButton
     secondaryButton: MainWebsiteButton
+    backgroundStyle: string
+    sticky: boolean
   }
   footer: {
     logoSrc: string
@@ -116,16 +162,34 @@ export interface MainWebsiteContent {
     heroMobileImage: string
     heroPrimaryButton: MainWebsiteButton
     heroSecondaryButton: MainWebsiteButton
+    heroBadges: string[]
     stats: MainWebsiteStatItem[]
     servicesTitle: string
     servicesDescription: string
     serviceCards: MainWebsiteFeatureCard[]
+    featuresTitle: string
+    featuresDescription: string
+    featureCards: MainWebsiteFeatureCard[]
+    productTitle: string
+    productDescription: string
+    productCards: MainWebsiteProductPreviewCard[]
     processTitle: string
     processDescription: string
     processSteps: MainWebsiteProcessStep[]
+    pricingEyebrow: string
+    pricingTitle: string
+    pricingDescription: string
+    pricingEnabled: boolean
     testimonialsTitle: string
     testimonialsDescription: string
     testimonials: MainWebsiteTestimonial[]
+    comparisonTitle: string
+    comparisonDescription: string
+    comparisonLeftLabel: string
+    comparisonRightLabel: string
+    comparisonRows: MainWebsiteComparisonRow[]
+    comparisonCtaText: string
+    comparisonCtaButton: MainWebsiteButton
     faqTitle: string
     faqItems: MainWebsiteFaqItem[]
     ctaEyebrow: string
@@ -133,6 +197,9 @@ export interface MainWebsiteContent {
     ctaDescription: string
     ctaPrimaryButton: MainWebsiteButton
     ctaSecondaryButton: MainWebsiteButton
+    ctaBackgroundColor: string
+    ctaBackgroundImage: string
+    ctaEnabled: boolean
   }
   about: {
     pageTitle: string
@@ -192,6 +259,12 @@ export interface MainWebsiteContent {
     ctaDescription: string
     ctaButton: MainWebsiteButton
   }
+  floatingContact: {
+    whatsappNumber: string
+    whatsappMessage: string
+    enabled: boolean
+    position: 'left' | 'right'
+  }
   legal: {
     terms: MainWebsiteLegalPage
     privacy: MainWebsiteLegalPage
@@ -226,9 +299,23 @@ const RECORD_ID = 'main-website'
 const PAGE_KEY = 'main'
 
 const defaultLink = (): MainWebsiteLinkItem => ({ label: '', href: '' })
-const defaultFeatureCard = (): MainWebsiteFeatureCard => ({ icon: '', title: '', description: '', bullets: [''] })
-const defaultProcessStep = (): MainWebsiteProcessStep => ({ title: '', description: '' })
-const defaultTestimonial = (): MainWebsiteTestimonial => ({ quote: '', name: '', business: '' })
+const defaultStatItem = (): MainWebsiteStatItem => ({ value: '', label: '', description: '', icon: '', enabled: true })
+const defaultFeatureCard = (): MainWebsiteFeatureCard => ({ icon: '', title: '', description: '', bullets: [''], badge: '', href: '', buttonLabel: '', enabled: true })
+const defaultPreviewMetric = (): MainWebsitePreviewMetric => ({ label: '', value: '' })
+const defaultPreviewCard = (): MainWebsiteProductPreviewCard => ({
+  icon: '',
+  name: '',
+  tagline: '',
+  description: '',
+  ctaLabel: '',
+  ctaHref: '',
+  mockRows: [defaultPreviewMetric()],
+  photoTags: [''],
+  isPhoto: false,
+  enabled: true
+})
+const defaultProcessStep = (): MainWebsiteProcessStep => ({ step: '', icon: '', title: '', description: '', enabled: true })
+const defaultTestimonial = (): MainWebsiteTestimonial => ({ quote: '', name: '', business: '', rating: 5, avatar: '', enabled: true })
 const defaultFaqItem = (): MainWebsiteFaqItem => ({ question: '', answer: '' })
 const defaultPlan = (): MainWebsitePlan => ({
   name: '',
@@ -238,8 +325,10 @@ const defaultPlan = (): MainWebsitePlan => ({
   badge: '',
   features: [''],
   buttonLabel: '',
-  buttonHref: ''
+  buttonHref: '',
+  enabled: true
 })
+const defaultComparisonRow = (): MainWebsiteComparisonRow => ({ title: '', scaleVyaparValue: '', otherValue: '', enabled: true })
 const defaultHour = (): MainWebsiteContactHour => ({ day: '', time: '' })
 const defaultLegalSection = (): MainWebsiteLegalSection => ({ title: '', body: '' })
 const defaultSeoPage = (): MainWebsiteSeoPageMeta => ({ title: '', description: '' })
@@ -247,14 +336,20 @@ const defaultSeoPage = (): MainWebsiteSeoPageMeta => ({ title: '', description: 
 export const defaultMainWebsiteContent: MainWebsiteContent = {
   theme: {
     brandName: 'ScaleVyapar',
-    brandTagline: 'Business automation tools built for growing Indian businesses',
+    brandTagline: 'Business automation platform built for growing Indian businesses',
     primaryColor: '#374655',
-    accentColor: '#1d4ed8',
+    secondaryColor: '#94a3b8',
+    accentColor: '#2563eb',
     backgroundColor: '#f8fafc',
+    lightBackgroundColor: '#f8fafc',
+    darkBackgroundColor: '#1f2c3a',
     buttonColor: '#374655',
+    textColor: '#1e293b',
+    mutedTextColor: '#64748b',
     logoSrc: '/logo.png',
     faviconSrc: '/favicon.ico',
-    fontFamily: 'system-ui, sans-serif'
+    fontFamily: 'system-ui, sans-serif',
+    borderRadius: '20px'
   },
   header: {
     announcementText: 'Get 30% off on selected plans this month.',
@@ -270,11 +365,13 @@ export const defaultMainWebsiteContent: MainWebsiteContent = {
       { label: 'Contact', href: '/contact' }
     ],
     primaryButton: { label: 'Login', href: 'https://www.scalevyapar.in/login' },
-    secondaryButton: { label: 'Talk to Us', href: 'https://wa.me/919314023719' }
+    secondaryButton: { label: 'Talk to Us', href: 'https://wa.me/919314023719' },
+    backgroundStyle: 'solid-dark',
+    sticky: true
   },
   footer: {
     logoSrc: '/logo.png',
-    description: 'All-in-one business automation platform for Indian businesses. Generate leads, manage workflows, and scale from one workspace.',
+    description: 'All-in-one business automation platform for Indian businesses. Generate leads, manage workflows, and scale with connected tools.',
     quickLinks: [
       { label: 'Home', href: '/' },
       { label: 'About Us', href: '/about' },
@@ -295,97 +392,197 @@ export const defaultMainWebsiteContent: MainWebsiteContent = {
     copyrightText: 'Copyright 2026 ScaleVyapar. All rights reserved.'
   },
   home: {
-    heroEyebrow: 'Built for Indian business teams',
-    heroTitle: 'Automate sales, marketing, and operations with',
+    heroEyebrow: 'Made for Indian Businesses',
+    heroTitle: 'Scale Your Business with',
     heroHighlightedText: 'ScaleVyapar',
-    heroDescription: 'Launch the tools your business needs for lead generation, websites, CRM, WhatsApp follow-ups, and AI-powered growth workflows.',
+    heroDescription: 'All-in-one platform for lead generation, CRM, WhatsApp automation, AI product photos and inventory workflows. Built for ambitious Indian teams.',
     heroDesktopImage: '/hero-desktop.png',
     heroMobileImage: '/hero-mobile.png',
-    heroPrimaryButton: { label: 'Build Your Plan', href: '/pricing' },
+    heroPrimaryButton: { label: 'Get Started Today', href: '/pricing' },
     heroSecondaryButton: { label: 'Explore Tools', href: '/tools' },
+    heroBadges: ['LeadRadar', 'Vizora AI', 'WhatsApp Automation'],
     stats: [
-      { value: '500+', label: 'Businesses served' },
-      { value: '6', label: 'Core business tools' },
-      { value: '24/7', label: 'WhatsApp support' },
-      { value: 'Jaipur', label: 'Proudly built in India' }
+      { value: '10000+', label: 'Leads Generated', description: 'Qualified business leads captured with our tools.', icon: '🎯', enabled: true },
+      { value: '500+', label: 'Businesses Served', description: 'Growing teams across India use ScaleVyapar.', icon: '🏢', enabled: true },
+      { value: '50L+', label: 'Revenue Created', description: 'Measured business impact delivered for clients.', icon: '💰', enabled: true },
+      { value: '98%', label: 'Client Satisfaction', description: 'Support and onboarding built for long-term growth.', icon: '⭐', enabled: true }
     ],
-    servicesTitle: 'Everything you need to scale faster',
-    servicesDescription: 'Choose the modules that match your growth stage and run them from one connected business workspace.',
+    servicesTitle: 'Everything Your Business Needs',
+    servicesDescription: 'From lead generation to inventory management, ScaleVyapar brings every growth workflow into one connected business stack.',
     serviceCards: [
       {
-        icon: 'LR',
+        icon: '🎯',
         title: 'LeadRadar',
-        description: 'Extract qualified B2B leads from Google Maps with filters for city, business type, and keywords.',
-        bullets: ['Google Maps extraction', 'Local targeting', 'Excel and CRM export'],
-        badge: 'Built by ScaleVyapar',
-        href: '/tools'
+        description: 'Extract thousands of B2B leads from Google Maps in minutes with filters for location, business type, and keywords.',
+        bullets: ['Google Maps extraction', 'Filter by location', 'Export to Excel or CRM', 'Bulk lead import'],
+        badge: 'Built by Us',
+        href: '/tools',
+        buttonLabel: 'Explore LeadRadar',
+        enabled: true
       },
       {
-        icon: 'VZ',
+        icon: '📸',
         title: 'Vizora AI',
-        description: 'Create AI product photos and marketing creatives without organizing a shoot.',
-        bullets: ['AI product photos', 'Social media creatives', 'Fast turnaround'],
-        badge: 'Built by ScaleVyapar',
-        href: '/tools'
+        description: 'Generate professional AI product photos and marketing visuals instantly without a studio shoot.',
+        bullets: ['AI photo generation', 'Creative variations', 'Instant delivery', 'Ready for ads and social'],
+        badge: 'Built by Us',
+        href: '/tools',
+        buttonLabel: 'Explore Vizora',
+        enabled: true
       },
       {
-        icon: 'WB',
+        icon: '🌐',
         title: 'Website Builder',
-        description: 'Launch a responsive business website with ongoing updates and lead capture built in.',
-        bullets: ['Custom design', 'Mobile responsive', 'SEO-ready setup'],
-        badge: 'Built by ScaleVyapar',
-        href: '/tools'
+        description: 'Launch a modern business website with mobile responsiveness, lead capture, and ongoing updates included.',
+        bullets: ['Custom design', 'Mobile responsive', 'SEO ready pages', 'WhatsApp integration'],
+        badge: 'Built by Us',
+        href: '/tools',
+        buttonLabel: 'See Website Tools',
+        enabled: true
       },
       {
-        icon: 'CRM',
-        title: 'CRM and Calls',
-        description: 'Track calls, follow-ups, and deal stages so no high-intent lead slips through.',
-        bullets: ['Lead tracking', 'Follow-up reminders', 'Team visibility'],
-        badge: 'Premium tool',
-        href: '/tools'
+        icon: '📞',
+        title: 'CRM & Calls',
+        description: 'Track every call, follow-up, and sales stage so your team closes more high-intent leads.',
+        bullets: ['Call tracking', 'Lead management', 'Follow-up reminders', 'Team performance'],
+        badge: 'Premium Tool',
+        href: '/tools',
+        buttonLabel: 'View CRM',
+        enabled: true
       },
       {
-        icon: 'WA',
+        icon: '💬',
         title: 'WhatsApp Automation',
-        description: 'Run follow-up campaigns, reminders, and automated replies at scale on WhatsApp.',
-        bullets: ['Bulk messaging', 'Lead nurturing', 'Campaign automation'],
-        badge: 'Premium tool',
-        href: '/tools'
+        description: 'Automate campaigns, replies, reminders, and lead nurturing on WhatsApp at scale.',
+        bullets: ['Bulk messaging', 'Broadcast campaigns', 'Lead nurturing', 'Template workflows'],
+        badge: 'Premium Tool',
+        href: '/tools',
+        buttonLabel: 'View Automation',
+        enabled: true
       },
       {
-        icon: 'INV',
+        icon: '📦',
         title: 'Inventory Management',
-        description: 'Monitor stock, raw materials, and dispatch flows from one live dashboard.',
-        bullets: ['Stock tracking', 'Production visibility', 'Dispatch workflow'],
-        badge: 'Premium tool',
-        href: '/tools'
+        description: 'Track stock, raw materials, production orders, and dispatch in one live workflow dashboard.',
+        bullets: ['Stock tracking', 'Raw material control', 'Production visibility', 'Dispatch tracking'],
+        badge: 'Premium Tool',
+        href: '/tools',
+        buttonLabel: 'View Inventory',
+        enabled: true
       }
     ],
-    processTitle: 'How ScaleVyapar works',
-    processDescription: 'Start with the modules you need today and expand the workspace as your team grows.',
+    featuresTitle: 'Built for Indian Businesses',
+    featuresDescription: 'The platform is shaped around local business workflows, Indian support expectations, and practical growth execution.',
+    featureCards: [
+      { icon: '🇮🇳', title: 'Made for India', description: 'Built specifically for Indian businesses with local support and practical workflows.', bullets: ['India-first product thinking'], badge: '', href: '', buttonLabel: '', enabled: true },
+      { icon: '⚡', title: 'All-in-One Platform', description: 'Run lead generation, CRM, automation, and websites from one connected stack.', bullets: ['Fewer disconnected tools'], badge: '', href: '', buttonLabel: '', enabled: true },
+      { icon: '💰', title: 'Affordable Pricing', description: 'Enterprise-style automation without enterprise-style overhead.', bullets: ['Pay for what you use'], badge: '', href: '', buttonLabel: '', enabled: true },
+      { icon: '🔧', title: 'Easy to Use', description: 'Built so teams can launch quickly without needing a technical background.', bullets: ['Fast adoption'], badge: '', href: '', buttonLabel: '', enabled: true },
+      { icon: '📞', title: '24/7 Support', description: 'WhatsApp-first support keeps setup and operations moving without delay.', bullets: ['Human help when needed'], badge: '', href: '', buttonLabel: '', enabled: true },
+      { icon: '🚀', title: 'Grow Faster', description: 'The workflows are designed to improve response speed, follow-up consistency, and growth output.', bullets: ['Higher execution speed'], badge: '', href: '', buttonLabel: '', enabled: true }
+    ],
+    productTitle: 'How Our Tools Work',
+    productDescription: 'Show clients and teams exactly what each product experience looks like before they commit.',
+    productCards: [
+      {
+        icon: '🎯',
+        name: 'LeadRadar',
+        tagline: 'Extract B2B Leads Instantly',
+        description: 'Search any city and collect structured business leads with phone numbers, locations, and categories in seconds.',
+        ctaLabel: 'Add to My Plan',
+        ctaHref: '/pricing',
+        mockRows: [
+          { label: 'Business Name', value: 'Sharma Textiles Pvt Ltd' },
+          { label: 'Phone', value: '+91 98765 43210' },
+          { label: 'Location', value: 'Jaipur, Rajasthan' },
+          { label: 'Category', value: 'Textile Manufacturer' },
+          { label: 'Rating', value: '4.5 (120 reviews)' }
+        ],
+        photoTags: [],
+        isPhoto: false,
+        enabled: true
+      },
+      {
+        icon: '📸',
+        name: 'Vizora AI',
+        tagline: 'AI Product Photos in Seconds',
+        description: 'Upload a raw product image and generate studio-style product photos, ad creatives, and ecommerce assets instantly.',
+        ctaLabel: 'Build With Vizora',
+        ctaHref: '/pricing',
+        mockRows: [],
+        photoTags: ['Front Standing', 'Side View', 'Close Up', 'Sitting', 'Walking', 'Editorial'],
+        isPhoto: true,
+        enabled: true
+      },
+      {
+        icon: '💰',
+        name: 'Pricing Builder',
+        tagline: 'Build Your Custom Plan',
+        description: 'Mix and match the tools you need and see an easy-to-understand plan structure without hidden surprises.',
+        ctaLabel: 'Create My Plan',
+        ctaHref: '/pricing',
+        mockRows: [
+          { label: 'LeadRadar', value: 'Rs 999/mo' },
+          { label: 'Vizora AI', value: 'Rs 799/mo' },
+          { label: 'WhatsApp', value: 'Rs 899/mo' },
+          { label: 'Monthly Credits', value: '1500 credits' },
+          { label: 'Total', value: 'Rs 2,697/mo' }
+        ],
+        photoTags: [],
+        isPhoto: false,
+        enabled: true
+      }
+    ],
+    processTitle: 'Get Started in 3 Simple Steps',
+    processDescription: 'Start automating your business in minutes with a rollout built for real teams, not just demos.',
     processSteps: [
-      { title: 'Choose your tools', description: 'Pick the business tools that solve your current growth bottlenecks.' },
-      { title: 'Launch your workspace', description: 'Get set up quickly with onboarding, routing, and business-ready defaults.' },
-      { title: 'Scale with confidence', description: 'Run faster follow-ups, better lead generation, and cleaner operations.' }
+      { step: '1', icon: '1', title: 'Choose Your Tools', description: 'Select the exact automation tools your business needs right now.', enabled: true },
+      { step: '2', icon: '2', title: 'Get Instant Access', description: 'Login to your workspace and start using every enabled tool immediately.', enabled: true },
+      { step: '3', icon: '3', title: 'Scale Your Business', description: 'Generate more leads, respond faster, and grow with smoother operations.', enabled: true }
     ],
-    testimonialsTitle: 'What clients say about ScaleVyapar',
-    testimonialsDescription: 'Real feedback from businesses using the platform to generate leads and automate growth.',
+    pricingEyebrow: 'Custom Plans',
+    pricingTitle: 'Choose the right stack for your stage',
+    pricingDescription: 'Start with a focused plan and expand into a more complete growth engine as your business scales.',
+    pricingEnabled: true,
+    testimonialsTitle: 'What Our Clients Say',
+    testimonialsDescription: 'Real businesses and real growth outcomes from teams using ScaleVyapar every day.',
     testimonials: [
-      { quote: 'ScaleVyapar helped us generate 500 plus leads in two weeks. Our sales team is much more productive now.', name: 'Rajesh Sharma', business: 'Sharma Textiles, Jaipur' },
-      { quote: 'Vizora reduced our content production cost dramatically and improved our Instagram sales pipeline.', name: 'Priya Agarwal', business: 'Agarwal Exports, Jaipur' },
-      { quote: 'The WhatsApp automation tools completely changed our follow-up speed and response quality.', name: 'Mohit Gupta', business: 'Gupta Electronics, Jaipur' }
+      { quote: 'ScaleVyapar has completely transformed how we generate leads. In just 2 weeks we got 500 plus business contacts from Google Maps. Our sales team is now 3x more productive.', name: 'Rajesh Sharma', business: 'Sharma Textiles, Jaipur', rating: 5, avatar: 'R', enabled: true },
+      { quote: 'Vizora AI photos are incredible. We stopped spending 15000 per month on photographers. Now we generate stunning product photos in seconds and our Instagram sales doubled.', name: 'Priya Agarwal', business: 'Agarwal Exports, Jaipur', rating: 5, avatar: 'P', enabled: true },
+      { quote: 'The WhatsApp automation tool is a game changer. We send 5000 messages a day and our follow-up rate went from 20 percent to 80 percent.', name: 'Mohit Gupta', business: 'Gupta Electronics, Jaipur', rating: 5, avatar: 'M', enabled: true },
+      { quote: 'The CRM system helped us track every customer call. We no longer miss follow-ups and our conversion rate improved by 40 percent.', name: 'Sunita Verma', business: 'Verma Jewellers, Jaipur', rating: 5, avatar: 'S', enabled: true },
+      { quote: 'Inventory management used to be our biggest headache. Now everything is tracked in real time and we reduced stock wastage by 60 percent.', name: 'Amit Joshi', business: 'Joshi Manufacturing, Jaipur', rating: 5, avatar: 'A', enabled: true },
+      { quote: 'We got a beautiful website and 200 leads in the first month using LeadRadar. The team held our hand through everything.', name: 'Kavita Mehta', business: 'Mehta Fashion, Jaipur', rating: 5, avatar: 'K', enabled: true }
     ],
+    comparisonTitle: 'ScaleVyapar vs Others',
+    comparisonDescription: 'See why Indian businesses choose ScaleVyapar over patching together disconnected point tools.',
+    comparisonLeftLabel: 'ScaleVyapar',
+    comparisonRightLabel: 'Others',
+    comparisonRows: [
+      { title: 'All Tools in One Platform', scaleVyaparValue: 'Yes', otherValue: 'No', enabled: true },
+      { title: 'Indian Pricing', scaleVyaparValue: 'Yes', otherValue: 'No', enabled: true },
+      { title: 'WhatsApp Support 24/7', scaleVyaparValue: 'Yes', otherValue: 'No', enabled: true },
+      { title: 'Credit Based System', scaleVyaparValue: 'Yes', otherValue: 'No', enabled: true },
+      { title: 'AI Photo Generation', scaleVyaparValue: 'Yes', otherValue: 'No', enabled: true },
+      { title: 'Google Maps Lead Extraction', scaleVyaparValue: 'Yes', otherValue: 'No', enabled: true },
+      { title: 'Custom Website Builder', scaleVyaparValue: 'Yes', otherValue: 'No', enabled: true }
+    ],
+    comparisonCtaText: 'Still not convinced? Talk to us on WhatsApp and we will show you exactly how ScaleVyapar can help your business.',
+    comparisonCtaButton: { label: 'Talk to Us on WhatsApp', href: 'https://wa.me/919314023719' },
     faqTitle: 'Frequently asked questions',
     faqItems: [
-      { question: 'How quickly can we get started?', answer: 'Most clients can be onboarded within one business day after plan confirmation.' },
-      { question: 'Do you support custom combinations of tools?', answer: 'Yes. You can build a plan around the exact tools your team needs.' },
-      { question: 'Do you offer onboarding help?', answer: 'Yes. We provide setup guidance and WhatsApp support during rollout.' }
+      { question: 'How quickly can we get started?', answer: 'Most teams can begin within one business day after finalizing the plan.' },
+      { question: 'Can we choose only a few tools?', answer: 'Yes. ScaleVyapar is designed so you can start with only the workflows you need today.' },
+      { question: 'Do you help with onboarding?', answer: 'Yes. We provide setup guidance and WhatsApp support during rollout.' }
     ],
-    ctaEyebrow: 'Ready when you are',
-    ctaTitle: 'Launch the right business stack for your team',
-    ctaDescription: 'Talk to ScaleVyapar and build a plan around the tools that fit your workflow today.',
+    ctaEyebrow: 'Ready to scale',
+    ctaTitle: 'Ready to Scale Your Business?',
+    ctaDescription: 'Join hundreds of Indian businesses already using ScaleVyapar to automate lead generation, sales, and operations.',
     ctaPrimaryButton: { label: 'View Pricing', href: '/pricing' },
-    ctaSecondaryButton: { label: 'Chat on WhatsApp', href: 'https://wa.me/919314023719' }
+    ctaSecondaryButton: { label: 'Talk to Us on WhatsApp', href: 'https://wa.me/919314023719' },
+    ctaBackgroundColor: '#374655',
+    ctaBackgroundImage: '',
+    ctaEnabled: true
   },
   about: {
     pageTitle: 'About ScaleVyapar',
@@ -396,14 +593,14 @@ export const defaultMainWebsiteContent: MainWebsiteContent = {
     mission: 'Make business automation accessible, practical, and growth-focused for Indian businesses of every size.',
     vision: 'Become the go-to automation operating system for ambitious Indian business teams.',
     values: [
-      { icon: '01', title: 'Client first', description: 'We design workflows around the needs of real businesses and real teams.', bullets: ['Support-led execution'] },
-      { icon: '02', title: 'Built for India', description: 'Our decisions reflect local business realities, local support expectations, and Indian buying journeys.', bullets: ['Local market fit'] },
-      { icon: '03', title: 'Simple to adopt', description: 'We keep implementation practical so teams can get value quickly.', bullets: ['Fast onboarding'] }
+      { icon: '01', title: 'Client first', description: 'We design workflows around the needs of real businesses and real teams.', bullets: ['Support-led execution'], badge: '', href: '', buttonLabel: '', enabled: true },
+      { icon: '02', title: 'Built for India', description: 'Our decisions reflect local business realities and Indian buying journeys.', bullets: ['Local market fit'], badge: '', href: '', buttonLabel: '', enabled: true },
+      { icon: '03', title: 'Simple to adopt', description: 'We keep implementation practical so teams can get value quickly.', bullets: ['Fast onboarding'], badge: '', href: '', buttonLabel: '', enabled: true }
     ],
     stats: [
-      { value: '500+', label: 'Businesses served' },
-      { value: '6', label: 'Product areas' },
-      { value: '24/7', label: 'WhatsApp support' }
+      { value: '500+', label: 'Businesses served', description: '', icon: '', enabled: true },
+      { value: '6', label: 'Product areas', description: '', icon: '', enabled: true },
+      { value: '24/7', label: 'WhatsApp support', description: '', icon: '', enabled: true }
     ],
     ctaTitle: 'Want to build with ScaleVyapar?',
     ctaDescription: 'Our team can help you choose the right mix of products, onboarding, and support for your stage.',
@@ -416,48 +613,12 @@ export const defaultMainWebsiteContent: MainWebsiteContent = {
     sectionTitle: 'One platform, multiple growth engines',
     sectionDescription: 'Every service can be launched independently or combined into a more complete operating stack.',
     cards: [
-      {
-        icon: 'LR',
-        title: 'Lead generation',
-        description: 'Find business contacts from Google Maps and structure them for sales teams.',
-        bullets: ['Location filters', 'Business filters', 'Export-ready results'],
-        badge: 'LeadRadar'
-      },
-      {
-        icon: 'VZ',
-        title: 'AI creatives',
-        description: 'Create product images and content-ready assets for ecommerce and campaigns.',
-        bullets: ['Product photography', 'Creative variations', 'Quick delivery'],
-        badge: 'Vizora AI'
-      },
-      {
-        icon: 'WEB',
-        title: 'Business websites',
-        description: 'Launch fast websites with service pages, pricing, contact capture, and WhatsApp entry points.',
-        bullets: ['Responsive layout', 'SEO-friendly pages', 'Update support'],
-        badge: 'Website Builder'
-      },
-      {
-        icon: 'CRM',
-        title: 'CRM workflow',
-        description: 'Track leads, teams, calls, and follow-ups from one workflow view.',
-        bullets: ['Deal tracking', 'Follow-up reminders', 'Call visibility'],
-        badge: 'Premium'
-      },
-      {
-        icon: 'WA',
-        title: 'WhatsApp automation',
-        description: 'Automate lead routing, campaigns, reminders, and repeat customer communication.',
-        bullets: ['Templates', 'Broadcasts', 'Nurture flows'],
-        badge: 'Premium'
-      },
-      {
-        icon: 'INV',
-        title: 'Inventory operations',
-        description: 'Monitor stock and production steps for businesses with physical goods.',
-        bullets: ['Stock updates', 'Production tracking', 'Dispatch visibility'],
-        badge: 'Premium'
-      }
+      { icon: 'LR', title: 'Lead generation', description: 'Find business contacts from Google Maps and structure them for sales teams.', bullets: ['Location filters', 'Business filters', 'Export-ready results'], badge: 'LeadRadar', href: '', buttonLabel: '', enabled: true },
+      { icon: 'VZ', title: 'AI creatives', description: 'Create product images and content-ready assets for ecommerce and campaigns.', bullets: ['Product photography', 'Creative variations', 'Quick delivery'], badge: 'Vizora AI', href: '', buttonLabel: '', enabled: true },
+      { icon: 'WEB', title: 'Business websites', description: 'Launch fast websites with service pages, pricing, contact capture, and WhatsApp entry points.', bullets: ['Responsive layout', 'SEO-friendly pages', 'Update support'], badge: 'Website Builder', href: '', buttonLabel: '', enabled: true },
+      { icon: 'CRM', title: 'CRM workflow', description: 'Track leads, teams, calls, and follow-ups from one workflow view.', bullets: ['Deal tracking', 'Follow-up reminders', 'Call visibility'], badge: 'Premium', href: '', buttonLabel: '', enabled: true },
+      { icon: 'WA', title: 'WhatsApp automation', description: 'Automate lead routing, campaigns, reminders, and repeat customer communication.', bullets: ['Templates', 'Broadcasts', 'Nurture flows'], badge: 'Premium', href: '', buttonLabel: '', enabled: true },
+      { icon: 'INV', title: 'Inventory operations', description: 'Monitor stock and production steps for businesses with physical goods.', bullets: ['Stock updates', 'Production tracking', 'Dispatch visibility'], badge: 'Premium', href: '', buttonLabel: '', enabled: true }
     ],
     ctaTitle: 'Need help choosing the right stack?',
     ctaDescription: 'We can help map your requirements to the right set of modules before rollout.',
@@ -479,7 +640,8 @@ export const defaultMainWebsiteContent: MainWebsiteContent = {
         badge: 'Most accessible',
         features: ['Core onboarding', 'One growth workflow', 'WhatsApp support'],
         buttonLabel: 'Talk to Sales',
-        buttonHref: 'https://wa.me/919314023719'
+        buttonHref: 'https://wa.me/919314023719',
+        enabled: true
       },
       {
         name: 'Growth',
@@ -489,7 +651,8 @@ export const defaultMainWebsiteContent: MainWebsiteContent = {
         badge: 'Popular',
         features: ['Multiple tools', 'Priority onboarding', 'Faster support'],
         buttonLabel: 'Build My Plan',
-        buttonHref: '/contact'
+        buttonHref: '/contact',
+        enabled: true
       }
     ],
     faqTitle: 'Pricing questions',
@@ -522,131 +685,99 @@ export const defaultMainWebsiteContent: MainWebsiteContent = {
       { label: 'WhatsApp', href: 'https://wa.me/919314023719' },
       { label: 'Email', href: 'mailto:scalevyapar072@gmail.com' }
     ],
-    faqTitle: 'Common questions',
+    faqTitle: 'Contact FAQs',
     faqItems: [
-      { question: 'How soon do you reply?', answer: 'WhatsApp enquiries usually receive the fastest response.' },
-      { question: 'Can you suggest the right tools for our business?', answer: 'Yes. We help map your needs to the best combination of products.' },
-      { question: 'Do you support custom website or workflow requests?', answer: 'Yes. We can review custom needs during discovery.' }
+      { question: 'What happens after I submit the form?', answer: 'Our team reviews your requirement and follows up with the best next step.' },
+      { question: 'Do you support custom requirements?', answer: 'Yes. We can help with custom workflow combinations and rollout planning.' }
     ],
-    ctaTitle: 'Ready to start the conversation?',
-    ctaDescription: 'Reach out on WhatsApp for the fastest route to onboarding and planning.',
-    ctaButton: { label: 'Message on WhatsApp', href: 'https://wa.me/919314023719?text=Hi! I want to know more about ScaleVyapar.' }
+    ctaTitle: 'Prefer to talk right away?',
+    ctaDescription: 'Chat with our team on WhatsApp and get the right guidance for your business stage.',
+    ctaButton: { label: 'Open WhatsApp', href: 'https://wa.me/919314023719' }
+  },
+  floatingContact: {
+    whatsappNumber: '919314023719',
+    whatsappMessage: 'Hi ScaleVyapar, I want to know more about your tools.',
+    enabled: true,
+    position: 'right'
   },
   legal: {
     terms: {
-      title: 'Terms of Service',
-      description: 'These terms describe how the ScaleVyapar website and services may be used.',
+      title: 'Terms and Conditions',
+      description: 'Please read these terms carefully before using ScaleVyapar services.',
       sections: [
-        { title: 'Permitted use', body: 'You may use the ScaleVyapar website and services for lawful business activity, enquiries, and supported operational workflows.' },
-        { title: 'Accuracy of information', body: 'You agree to provide accurate account, billing, and contact information when interacting with ScaleVyapar.' },
-        { title: 'Service availability', body: 'We may improve, change, suspend, or discontinue parts of the service to maintain quality, compliance, and performance.' }
+        { title: 'Use of service', body: 'By using ScaleVyapar, you agree to use the platform only for lawful business purposes and in accordance with the applicable terms.' },
+        { title: 'Payments and plans', body: 'Plan fees, credits, and billing terms are communicated during onboarding or pricing discussions and may vary by tool selection.' }
       ]
     },
     privacy: {
       title: 'Privacy Policy',
-      description: 'This policy explains how ScaleVyapar collects, uses, and protects business and contact information.',
+      description: 'This policy explains how ScaleVyapar handles personal and business information.',
       sections: [
-        { title: 'Information we collect', body: 'We may collect names, business details, contact information, billing information, and messages submitted through our forms or workflows.' },
-        { title: 'How we use data', body: 'Collected information is used to provide services, respond to enquiries, support accounts, and improve product operations.' },
-        { title: 'How data is shared', body: 'ScaleVyapar does not sell personal data. Service providers may process data only as needed to help us operate the platform.' }
+        { title: 'Information we collect', body: 'We may collect business contact information, usage data, and support interactions required to deliver our services.' },
+        { title: 'How we use information', body: 'We use collected data to operate the platform, support users, improve workflows, and communicate important service updates.' }
       ]
     },
     refund: {
       title: 'Refund Policy',
-      description: 'This policy explains how refunds and service adjustments are handled for ScaleVyapar services.',
+      description: 'Refund policies depend on the type of service, onboarding stage, and agreed delivery scope.',
       sections: [
-        { title: 'Service review', body: 'Refund requests are reviewed against the service already delivered, setup effort completed, and any custom work performed.' },
-        { title: 'Subscription billing', body: 'If a plan renewal needs correction, contact us promptly so we can review the billing event and available remedies.' },
-        { title: 'Support contact', body: 'For refund-related requests, contact the ScaleVyapar team through the support channels listed on the contact page.' }
+        { title: 'Service-based refunds', body: 'Refund requests are reviewed case-by-case depending on the work already delivered and the active scope of service.' }
       ]
     },
     disclaimer: {
       title: 'Disclaimer',
-      description: 'This page outlines important limitations and expectations for information published by ScaleVyapar.',
+      description: 'All information and services are provided in good faith for business use.',
       sections: [
-        { title: 'Business information', body: 'Website copy, pricing examples, and service descriptions are provided for general information and may change over time.' },
-        { title: 'No guaranteed outcome', body: 'Business results vary based on market conditions, execution quality, offer strength, and campaign inputs.' },
-        { title: 'Third-party platforms', body: 'Some workflows depend on third-party services, providers, or platform policies outside direct ScaleVyapar control.' }
+        { title: 'General disclaimer', body: 'ScaleVyapar provides tools and automation support, but business outcomes depend on how the tools are used and managed by each client.' }
       ]
     }
   },
   seo: {
-    siteTitle: 'ScaleVyapar | Business Automation Platform',
-    siteDescription: 'ScaleVyapar helps Indian businesses automate lead generation, websites, CRM, WhatsApp workflows, and growth operations.',
-    openGraphImage: '/logo.png',
-    keywords: 'ScaleVyapar, business automation, lead generation, CRM, WhatsApp automation, AI photos, inventory management',
+    siteTitle: 'ScaleVyapar — Business Automation Platform',
+    siteDescription: 'All-in-one business automation platform for lead generation, CRM, WhatsApp automation, AI photos and inventory management.',
+    openGraphImage: '/hero-desktop.png',
+    keywords: 'ScaleVyapar, business automation, lead generation, CRM, WhatsApp automation, AI product photos, inventory management, India',
     pages: {
-      home: {
-        title: 'ScaleVyapar | Business Automation Platform',
-        description: 'Launch lead generation, websites, CRM, WhatsApp automation, and growth workflows from one business platform.'
-      },
-      about: {
-        title: 'About ScaleVyapar',
-        description: 'Learn how ScaleVyapar helps Indian businesses adopt practical automation tools that support growth.'
-      },
-      services: {
-        title: 'Tools and Services | ScaleVyapar',
-        description: 'Explore the tools and services available across the ScaleVyapar business automation platform.'
-      },
-      pricing: {
-        title: 'Pricing | ScaleVyapar',
-        description: 'Build a ScaleVyapar plan around the business tools your team needs today.'
-      },
-      contact: {
-        title: 'Contact | ScaleVyapar',
-        description: 'Contact ScaleVyapar for pricing, onboarding, and business automation support.'
-      },
-      terms: {
-        title: 'Terms of Service | ScaleVyapar',
-        description: 'Read the terms of service for the ScaleVyapar website and platform.'
-      },
-      privacy: {
-        title: 'Privacy Policy | ScaleVyapar',
-        description: 'Read the privacy policy for the ScaleVyapar website and platform.'
-      },
-      refund: {
-        title: 'Refund Policy | ScaleVyapar',
-        description: 'Read the refund policy for services offered by ScaleVyapar.'
-      },
-      disclaimer: {
-        title: 'Disclaimer | ScaleVyapar',
-        description: 'Read the disclaimer for information published on the ScaleVyapar website.'
-      }
+      home: { title: 'ScaleVyapar — Business Automation Platform', description: 'Scale your business with lead generation, websites, CRM, AI photos, and WhatsApp automation.' },
+      about: { title: 'About ScaleVyapar', description: 'Learn about ScaleVyapar and our mission to help Indian businesses grow faster.' },
+      services: { title: 'Tools and Services', description: 'Explore the tools and services available across the ScaleVyapar platform.' },
+      pricing: { title: 'Build Your Own Plan', description: 'Choose the tools your business needs and create the right ScaleVyapar plan.' },
+      contact: { title: 'Contact ScaleVyapar', description: 'Talk to ScaleVyapar about your workflow, requirements, and business growth goals.' },
+      terms: { title: 'Terms and Conditions', description: 'Read the terms and conditions for using ScaleVyapar services.' },
+      privacy: { title: 'Privacy Policy', description: 'Understand how ScaleVyapar collects, uses, and protects your information.' },
+      refund: { title: 'Refund Policy', description: 'Review the refund policy for ScaleVyapar services and plans.' },
+      disclaimer: { title: 'Disclaimer', description: 'Read the ScaleVyapar disclaimer for service usage and business outcomes.' }
     }
   }
 }
 
-const isMissingSupabaseTableError = (message: string | undefined) =>
-  typeof message === 'string' && (
-    message.includes('schema cache') ||
-    message.includes('relation') ||
-    message.includes('table')
-  )
+const normalizeString = (value: unknown, fallback: string) => {
+  if (typeof value === 'string') {
+    return value
+  }
+  return fallback
+}
 
-const normalizeString = (value: unknown, fallback: string) =>
-  typeof value === 'string' && value.trim() ? value.trim() : fallback
+const normalizeBoolean = (value: unknown, fallback: boolean) => {
+  if (typeof value === 'boolean') {
+    return value
+  }
+  return fallback
+}
 
-const normalizeBoolean = (value: unknown, fallback: boolean) =>
-  typeof value === 'boolean' ? value : fallback
+const normalizeNumber = (value: unknown, fallback: number) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  return fallback
+}
 
 const normalizeStringArray = (value: unknown, fallback: string[]) => {
   if (!Array.isArray(value)) {
     return fallback
   }
-
-  const cleaned = value
-    .map(item => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean)
-
+  const cleaned = value.map(item => typeof item === 'string' ? item : '').filter(item => item.length > 0)
   return cleaned.length ? cleaned : fallback
-}
-
-const normalizeLinkItem = (value: unknown, fallback: MainWebsiteLinkItem): MainWebsiteLinkItem => {
-  const source = value && typeof value === 'object' ? value as Partial<MainWebsiteLinkItem> : {}
-  return {
-    label: normalizeString(source.label, fallback.label),
-    href: normalizeString(source.href, fallback.href)
-  }
 }
 
 const normalizeButton = (value: unknown, fallback: MainWebsiteButton): MainWebsiteButton => {
@@ -657,11 +788,22 @@ const normalizeButton = (value: unknown, fallback: MainWebsiteButton): MainWebsi
   }
 }
 
+const normalizeLinkItem = (value: unknown, fallback: MainWebsiteLinkItem): MainWebsiteLinkItem => {
+  const source = value && typeof value === 'object' ? value as Partial<MainWebsiteLinkItem> : {}
+  return {
+    label: normalizeString(source.label, fallback.label),
+    href: normalizeString(source.href, fallback.href)
+  }
+}
+
 const normalizeStatItem = (value: unknown, fallback: MainWebsiteStatItem): MainWebsiteStatItem => {
   const source = value && typeof value === 'object' ? value as Partial<MainWebsiteStatItem> : {}
   return {
     value: normalizeString(source.value, fallback.value),
-    label: normalizeString(source.label, fallback.label)
+    label: normalizeString(source.label, fallback.label),
+    description: normalizeString(source.description, fallback.description),
+    icon: normalizeString(source.icon, fallback.icon),
+    enabled: normalizeBoolean(source.enabled, fallback.enabled)
   }
 }
 
@@ -673,15 +815,44 @@ const normalizeFeatureCard = (value: unknown, fallback: MainWebsiteFeatureCard):
     description: normalizeString(source.description, fallback.description),
     bullets: normalizeStringArray(source.bullets, fallback.bullets),
     badge: normalizeString(source.badge, fallback.badge || ''),
-    href: normalizeString(source.href, fallback.href || '')
+    href: normalizeString(source.href, fallback.href || ''),
+    buttonLabel: normalizeString(source.buttonLabel, fallback.buttonLabel || ''),
+    enabled: normalizeBoolean(source.enabled, fallback.enabled)
+  }
+}
+
+const normalizePreviewMetric = (value: unknown, fallback: MainWebsitePreviewMetric): MainWebsitePreviewMetric => {
+  const source = value && typeof value === 'object' ? value as Partial<MainWebsitePreviewMetric> : {}
+  return {
+    label: normalizeString(source.label, fallback.label),
+    value: normalizeString(source.value, fallback.value)
+  }
+}
+
+const normalizePreviewCard = (value: unknown, fallback: MainWebsiteProductPreviewCard): MainWebsiteProductPreviewCard => {
+  const source = value && typeof value === 'object' ? value as Partial<MainWebsiteProductPreviewCard> : {}
+  return {
+    icon: normalizeString(source.icon, fallback.icon),
+    name: normalizeString(source.name, fallback.name),
+    tagline: normalizeString(source.tagline, fallback.tagline),
+    description: normalizeString(source.description, fallback.description),
+    ctaLabel: normalizeString(source.ctaLabel, fallback.ctaLabel),
+    ctaHref: normalizeString(source.ctaHref, fallback.ctaHref),
+    mockRows: normalizeArray(source.mockRows, fallback.mockRows, normalizePreviewMetric, defaultPreviewMetric),
+    photoTags: normalizeStringArray(source.photoTags, fallback.photoTags),
+    isPhoto: normalizeBoolean(source.isPhoto, fallback.isPhoto),
+    enabled: normalizeBoolean(source.enabled, fallback.enabled)
   }
 }
 
 const normalizeProcessStep = (value: unknown, fallback: MainWebsiteProcessStep): MainWebsiteProcessStep => {
   const source = value && typeof value === 'object' ? value as Partial<MainWebsiteProcessStep> : {}
   return {
+    step: normalizeString(source.step, fallback.step),
+    icon: normalizeString(source.icon, fallback.icon),
     title: normalizeString(source.title, fallback.title),
-    description: normalizeString(source.description, fallback.description)
+    description: normalizeString(source.description, fallback.description),
+    enabled: normalizeBoolean(source.enabled, fallback.enabled)
   }
 }
 
@@ -690,7 +861,10 @@ const normalizeTestimonial = (value: unknown, fallback: MainWebsiteTestimonial):
   return {
     quote: normalizeString(source.quote, fallback.quote),
     name: normalizeString(source.name, fallback.name),
-    business: normalizeString(source.business, fallback.business)
+    business: normalizeString(source.business, fallback.business),
+    rating: normalizeNumber(source.rating, fallback.rating),
+    avatar: normalizeString(source.avatar, fallback.avatar),
+    enabled: normalizeBoolean(source.enabled, fallback.enabled)
   }
 }
 
@@ -712,7 +886,18 @@ const normalizePlan = (value: unknown, fallback: MainWebsitePlan): MainWebsitePl
     badge: normalizeString(source.badge, fallback.badge),
     features: normalizeStringArray(source.features, fallback.features),
     buttonLabel: normalizeString(source.buttonLabel, fallback.buttonLabel),
-    buttonHref: normalizeString(source.buttonHref, fallback.buttonHref)
+    buttonHref: normalizeString(source.buttonHref, fallback.buttonHref),
+    enabled: normalizeBoolean(source.enabled, fallback.enabled)
+  }
+}
+
+const normalizeComparisonRow = (value: unknown, fallback: MainWebsiteComparisonRow): MainWebsiteComparisonRow => {
+  const source = value && typeof value === 'object' ? value as Partial<MainWebsiteComparisonRow> : {}
+  return {
+    title: normalizeString(source.title, fallback.title),
+    scaleVyaparValue: normalizeString(source.scaleVyaparValue, fallback.scaleVyaparValue),
+    otherValue: normalizeString(source.otherValue, fallback.otherValue),
+    enabled: normalizeBoolean(source.enabled, fallback.enabled)
   }
 }
 
@@ -734,14 +919,10 @@ const normalizeLegalSection = (value: unknown, fallback: MainWebsiteLegalSection
 
 const normalizeLegalPage = (value: unknown, fallback: MainWebsiteLegalPage): MainWebsiteLegalPage => {
   const source = value && typeof value === 'object' ? value as Partial<MainWebsiteLegalPage> : {}
-  const sections = Array.isArray(source.sections) && source.sections.length
-    ? source.sections.map((section, index) => normalizeLegalSection(section, fallback.sections[index] || defaultLegalSection()))
-    : fallback.sections
-
   return {
     title: normalizeString(source.title, fallback.title),
     description: normalizeString(source.description, fallback.description),
-    sections
+    sections: normalizeArray(source.sections, fallback.sections, normalizeLegalSection, defaultLegalSection)
   }
 }
 
@@ -769,18 +950,30 @@ const normalizeArray = <T>(
 
 export const normalizeMainWebsiteContent = (value: unknown): MainWebsiteContent => {
   const source = value && typeof value === 'object' ? value as Partial<MainWebsiteContent> : {}
+  const floatingNumber = normalizeString(source.floatingContact?.whatsappNumber, defaultMainWebsiteContent.floatingContact.whatsappNumber)
+  const floatingMessage = normalizeString(source.floatingContact?.whatsappMessage, defaultMainWebsiteContent.floatingContact.whatsappMessage)
+  const whatsappLink = normalizeString(
+    source.contact?.whatsappLink,
+    buildWhatsAppLink(floatingNumber, floatingMessage) || defaultMainWebsiteContent.contact.whatsappLink
+  )
 
   return {
     theme: {
       brandName: normalizeString(source.theme?.brandName, defaultMainWebsiteContent.theme.brandName),
       brandTagline: normalizeString(source.theme?.brandTagline, defaultMainWebsiteContent.theme.brandTagline),
       primaryColor: normalizeString(source.theme?.primaryColor, defaultMainWebsiteContent.theme.primaryColor),
+      secondaryColor: normalizeString(source.theme?.secondaryColor, defaultMainWebsiteContent.theme.secondaryColor),
       accentColor: normalizeString(source.theme?.accentColor, defaultMainWebsiteContent.theme.accentColor),
       backgroundColor: normalizeString(source.theme?.backgroundColor, defaultMainWebsiteContent.theme.backgroundColor),
+      lightBackgroundColor: normalizeString(source.theme?.lightBackgroundColor, defaultMainWebsiteContent.theme.lightBackgroundColor),
+      darkBackgroundColor: normalizeString(source.theme?.darkBackgroundColor, defaultMainWebsiteContent.theme.darkBackgroundColor),
       buttonColor: normalizeString(source.theme?.buttonColor, defaultMainWebsiteContent.theme.buttonColor),
+      textColor: normalizeString(source.theme?.textColor, defaultMainWebsiteContent.theme.textColor),
+      mutedTextColor: normalizeString(source.theme?.mutedTextColor, defaultMainWebsiteContent.theme.mutedTextColor),
       logoSrc: normalizeString(source.theme?.logoSrc, defaultMainWebsiteContent.theme.logoSrc),
       faviconSrc: normalizeString(source.theme?.faviconSrc, defaultMainWebsiteContent.theme.faviconSrc),
-      fontFamily: normalizeString(source.theme?.fontFamily, defaultMainWebsiteContent.theme.fontFamily)
+      fontFamily: normalizeString(source.theme?.fontFamily, defaultMainWebsiteContent.theme.fontFamily),
+      borderRadius: normalizeString(source.theme?.borderRadius, defaultMainWebsiteContent.theme.borderRadius)
     },
     header: {
       announcementText: normalizeString(source.header?.announcementText, defaultMainWebsiteContent.header.announcementText),
@@ -790,7 +983,9 @@ export const normalizeMainWebsiteContent = (value: unknown): MainWebsiteContent 
       siteName: normalizeString(source.header?.siteName, defaultMainWebsiteContent.header.siteName),
       navItems: normalizeArray(source.header?.navItems, defaultMainWebsiteContent.header.navItems, normalizeLinkItem, defaultLink),
       primaryButton: normalizeButton(source.header?.primaryButton, defaultMainWebsiteContent.header.primaryButton),
-      secondaryButton: normalizeButton(source.header?.secondaryButton, defaultMainWebsiteContent.header.secondaryButton)
+      secondaryButton: normalizeButton(source.header?.secondaryButton, defaultMainWebsiteContent.header.secondaryButton),
+      backgroundStyle: normalizeString(source.header?.backgroundStyle, defaultMainWebsiteContent.header.backgroundStyle),
+      sticky: normalizeBoolean(source.header?.sticky, defaultMainWebsiteContent.header.sticky)
     },
     footer: {
       logoSrc: normalizeString(source.footer?.logoSrc, defaultMainWebsiteContent.footer.logoSrc),
@@ -811,23 +1006,44 @@ export const normalizeMainWebsiteContent = (value: unknown): MainWebsiteContent 
       heroMobileImage: normalizeString(source.home?.heroMobileImage, defaultMainWebsiteContent.home.heroMobileImage),
       heroPrimaryButton: normalizeButton(source.home?.heroPrimaryButton, defaultMainWebsiteContent.home.heroPrimaryButton),
       heroSecondaryButton: normalizeButton(source.home?.heroSecondaryButton, defaultMainWebsiteContent.home.heroSecondaryButton),
-      stats: normalizeArray(source.home?.stats, defaultMainWebsiteContent.home.stats, normalizeStatItem, () => ({ value: '', label: '' })),
+      heroBadges: normalizeStringArray(source.home?.heroBadges, defaultMainWebsiteContent.home.heroBadges),
+      stats: normalizeArray(source.home?.stats, defaultMainWebsiteContent.home.stats, normalizeStatItem, defaultStatItem),
       servicesTitle: normalizeString(source.home?.servicesTitle, defaultMainWebsiteContent.home.servicesTitle),
       servicesDescription: normalizeString(source.home?.servicesDescription, defaultMainWebsiteContent.home.servicesDescription),
       serviceCards: normalizeArray(source.home?.serviceCards, defaultMainWebsiteContent.home.serviceCards, normalizeFeatureCard, defaultFeatureCard),
+      featuresTitle: normalizeString(source.home?.featuresTitle, defaultMainWebsiteContent.home.featuresTitle),
+      featuresDescription: normalizeString(source.home?.featuresDescription, defaultMainWebsiteContent.home.featuresDescription),
+      featureCards: normalizeArray(source.home?.featureCards, defaultMainWebsiteContent.home.featureCards, normalizeFeatureCard, defaultFeatureCard),
+      productTitle: normalizeString(source.home?.productTitle, defaultMainWebsiteContent.home.productTitle),
+      productDescription: normalizeString(source.home?.productDescription, defaultMainWebsiteContent.home.productDescription),
+      productCards: normalizeArray(source.home?.productCards, defaultMainWebsiteContent.home.productCards, normalizePreviewCard, defaultPreviewCard),
       processTitle: normalizeString(source.home?.processTitle, defaultMainWebsiteContent.home.processTitle),
       processDescription: normalizeString(source.home?.processDescription, defaultMainWebsiteContent.home.processDescription),
       processSteps: normalizeArray(source.home?.processSteps, defaultMainWebsiteContent.home.processSteps, normalizeProcessStep, defaultProcessStep),
+      pricingEyebrow: normalizeString(source.home?.pricingEyebrow, defaultMainWebsiteContent.home.pricingEyebrow),
+      pricingTitle: normalizeString(source.home?.pricingTitle, defaultMainWebsiteContent.home.pricingTitle),
+      pricingDescription: normalizeString(source.home?.pricingDescription, defaultMainWebsiteContent.home.pricingDescription),
+      pricingEnabled: normalizeBoolean(source.home?.pricingEnabled, defaultMainWebsiteContent.home.pricingEnabled),
       testimonialsTitle: normalizeString(source.home?.testimonialsTitle, defaultMainWebsiteContent.home.testimonialsTitle),
       testimonialsDescription: normalizeString(source.home?.testimonialsDescription, defaultMainWebsiteContent.home.testimonialsDescription),
       testimonials: normalizeArray(source.home?.testimonials, defaultMainWebsiteContent.home.testimonials, normalizeTestimonial, defaultTestimonial),
+      comparisonTitle: normalizeString(source.home?.comparisonTitle, defaultMainWebsiteContent.home.comparisonTitle),
+      comparisonDescription: normalizeString(source.home?.comparisonDescription, defaultMainWebsiteContent.home.comparisonDescription),
+      comparisonLeftLabel: normalizeString(source.home?.comparisonLeftLabel, defaultMainWebsiteContent.home.comparisonLeftLabel),
+      comparisonRightLabel: normalizeString(source.home?.comparisonRightLabel, defaultMainWebsiteContent.home.comparisonRightLabel),
+      comparisonRows: normalizeArray(source.home?.comparisonRows, defaultMainWebsiteContent.home.comparisonRows, normalizeComparisonRow, defaultComparisonRow),
+      comparisonCtaText: normalizeString(source.home?.comparisonCtaText, defaultMainWebsiteContent.home.comparisonCtaText),
+      comparisonCtaButton: normalizeButton(source.home?.comparisonCtaButton, defaultMainWebsiteContent.home.comparisonCtaButton),
       faqTitle: normalizeString(source.home?.faqTitle, defaultMainWebsiteContent.home.faqTitle),
       faqItems: normalizeArray(source.home?.faqItems, defaultMainWebsiteContent.home.faqItems, normalizeFaqItem, defaultFaqItem),
       ctaEyebrow: normalizeString(source.home?.ctaEyebrow, defaultMainWebsiteContent.home.ctaEyebrow),
       ctaTitle: normalizeString(source.home?.ctaTitle, defaultMainWebsiteContent.home.ctaTitle),
       ctaDescription: normalizeString(source.home?.ctaDescription, defaultMainWebsiteContent.home.ctaDescription),
       ctaPrimaryButton: normalizeButton(source.home?.ctaPrimaryButton, defaultMainWebsiteContent.home.ctaPrimaryButton),
-      ctaSecondaryButton: normalizeButton(source.home?.ctaSecondaryButton, defaultMainWebsiteContent.home.ctaSecondaryButton)
+      ctaSecondaryButton: normalizeButton(source.home?.ctaSecondaryButton, defaultMainWebsiteContent.home.ctaSecondaryButton),
+      ctaBackgroundColor: normalizeString(source.home?.ctaBackgroundColor, defaultMainWebsiteContent.home.ctaBackgroundColor),
+      ctaBackgroundImage: normalizeString(source.home?.ctaBackgroundImage, defaultMainWebsiteContent.home.ctaBackgroundImage),
+      ctaEnabled: normalizeBoolean(source.home?.ctaEnabled, defaultMainWebsiteContent.home.ctaEnabled)
     },
     about: {
       pageTitle: normalizeString(source.about?.pageTitle, defaultMainWebsiteContent.about.pageTitle),
@@ -838,7 +1054,7 @@ export const normalizeMainWebsiteContent = (value: unknown): MainWebsiteContent 
       mission: normalizeString(source.about?.mission, defaultMainWebsiteContent.about.mission),
       vision: normalizeString(source.about?.vision, defaultMainWebsiteContent.about.vision),
       values: normalizeArray(source.about?.values, defaultMainWebsiteContent.about.values, normalizeFeatureCard, defaultFeatureCard),
-      stats: normalizeArray(source.about?.stats, defaultMainWebsiteContent.about.stats, normalizeStatItem, () => ({ value: '', label: '' })),
+      stats: normalizeArray(source.about?.stats, defaultMainWebsiteContent.about.stats, normalizeStatItem, defaultStatItem),
       ctaTitle: normalizeString(source.about?.ctaTitle, defaultMainWebsiteContent.about.ctaTitle),
       ctaDescription: normalizeString(source.about?.ctaDescription, defaultMainWebsiteContent.about.ctaDescription),
       ctaPrimaryButton: normalizeButton(source.about?.ctaPrimaryButton, defaultMainWebsiteContent.about.ctaPrimaryButton),
@@ -876,7 +1092,7 @@ export const normalizeMainWebsiteContent = (value: unknown): MainWebsiteContent 
       email: normalizeString(source.contact?.email, defaultMainWebsiteContent.contact.email),
       address: normalizeString(source.contact?.address, defaultMainWebsiteContent.contact.address),
       mapLink: normalizeString(source.contact?.mapLink, defaultMainWebsiteContent.contact.mapLink),
-      whatsappLink: normalizeString(source.contact?.whatsappLink, defaultMainWebsiteContent.contact.whatsappLink),
+      whatsappLink: whatsappLink,
       contactFormTitle: normalizeString(source.contact?.contactFormTitle, defaultMainWebsiteContent.contact.contactFormTitle),
       supportText: normalizeString(source.contact?.supportText, defaultMainWebsiteContent.contact.supportText),
       hours: normalizeArray(source.contact?.hours, defaultMainWebsiteContent.contact.hours, normalizeHour, defaultHour),
@@ -886,6 +1102,12 @@ export const normalizeMainWebsiteContent = (value: unknown): MainWebsiteContent 
       ctaTitle: normalizeString(source.contact?.ctaTitle, defaultMainWebsiteContent.contact.ctaTitle),
       ctaDescription: normalizeString(source.contact?.ctaDescription, defaultMainWebsiteContent.contact.ctaDescription),
       ctaButton: normalizeButton(source.contact?.ctaButton, defaultMainWebsiteContent.contact.ctaButton)
+    },
+    floatingContact: {
+      whatsappNumber: floatingNumber,
+      whatsappMessage: floatingMessage,
+      enabled: normalizeBoolean(source.floatingContact?.enabled, defaultMainWebsiteContent.floatingContact.enabled),
+      position: normalizeString(source.floatingContact?.position, defaultMainWebsiteContent.floatingContact.position) === 'left' ? 'left' : 'right'
     },
     legal: {
       terms: normalizeLegalPage(source.legal?.terms, defaultMainWebsiteContent.legal.terms),
@@ -912,6 +1134,9 @@ export const normalizeMainWebsiteContent = (value: unknown): MainWebsiteContent 
     }
   }
 }
+
+const isMissingSupabaseTableError = (message: string) =>
+  /relation .* does not exist|could not find the table|does not exist/i.test(message)
 
 const readJsonContent = async () => {
   try {

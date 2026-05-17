@@ -9,7 +9,7 @@ export default function TestimonialsSlider({ content }: { content: MainWebsiteCo
   const [current, setCurrent] = useState(0)
   const [visible, setVisible] = useState(false)
   const [dismissed, setDismissed] = useState(false)
-  const testimonials = content.home.testimonials
+  const testimonials = content.home.testimonials.filter(item => item.enabled)
   const hideOnWorkspacePages =
     pathname === '/admin' ||
     pathname.startsWith('/admin/') ||
@@ -157,12 +157,12 @@ export default function TestimonialsSlider({ content }: { content: MainWebsiteCo
       <div className={`testimonial-popup ${visible && !dismissed ? 'show' : ''}`}>
         <span className="popup-tag">Client Review</span>
         <div className="popup-header">
-          <div className="popup-stars">*****</div>
+          <div className="popup-stars">{'★'.repeat(Math.max(1, testimonial.rating || 5))}</div>
           <button className="popup-close" onClick={() => setDismissed(true)}>X</button>
         </div>
         <p className="popup-review">{testimonial.quote}</p>
         <div className="popup-footer">
-          <div className="popup-avatar">{testimonial.name.slice(0, 1).toUpperCase()}</div>
+          <div className="popup-avatar">{(testimonial.avatar || testimonial.name.slice(0, 1)).toUpperCase()}</div>
           <div>
             <p className="popup-name">{testimonial.name}</p>
             <p className="popup-business">{testimonial.business}</p>

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { MainWebsiteContent } from '@/lib/main-website-content'
+import { buildWhatsAppLink } from '@/lib/whatsapp'
 
 const iconForPath = (href: string) => {
   if (href === '/') return 'Home'
@@ -16,6 +17,7 @@ const iconForPath = (href: string) => {
 export default function MobileBottomBar({ content }: { content: MainWebsiteContent }) {
   const pathname = usePathname()
   const navItems = content.header.navItems.slice(0, 4)
+  const whatsappHref = content.contact.whatsappLink || buildWhatsAppLink(content.floatingContact.whatsappNumber, content.floatingContact.whatsappMessage)
 
   return (
     <>
@@ -85,7 +87,7 @@ export default function MobileBottomBar({ content }: { content: MainWebsiteConte
               <span>{item.label}</span>
             </Link>
           ))}
-          <a href={content.contact.whatsappLink} className="mobile-bottom-cta" target="_blank" rel="noreferrer">
+          <a href={whatsappHref} className="mobile-bottom-cta" target="_blank" rel="noreferrer">
             <div className="mobile-bottom-cta-icon">Chat</div>
             <span>Chat</span>
           </a>

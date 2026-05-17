@@ -6,52 +6,56 @@ import type { MainWebsiteContent } from '@/lib/main-website-content'
 
 export default function Navbar({ content }: { content: MainWebsiteContent }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const primaryColor = content.theme.primaryColor
-  const accentColor = content.theme.accentColor
   const logoSrc = content.header.logoSrc || content.theme.logoSrc
+  const stickyPosition = content.header.sticky ? 'sticky' : 'relative'
+  const background = content.header.backgroundStyle === 'glass-dark'
+    ? 'rgba(31, 44, 58, 0.78)'
+    : `linear-gradient(135deg, ${content.theme.darkBackgroundColor}, ${content.theme.primaryColor})`
 
   return (
     <>
       <style>{`
         .navbar {
-          background: ${primaryColor};
-          min-height: 74px;
+          position: ${stickyPosition};
+          top: 0;
+          z-index: 120;
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 20px;
+          min-height: 74px;
           padding: 0 48px;
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14);
+          background: ${background};
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 10px 28px rgba(15,23,42,0.16);
+          backdrop-filter: blur(18px);
         }
         .nav-logo {
           display: inline-flex;
           align-items: center;
           gap: 12px;
-          text-decoration: none;
           color: white;
-          font-weight: 800;
+          text-decoration: none;
           font-size: 18px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
         }
         .nav-logo img {
-          height: 44px;
+          height: 54px;
           width: auto;
-          border-radius: 10px;
-          background: white;
-          padding: 4px;
+          object-fit: contain;
         }
         .nav-links {
           display: flex;
           align-items: center;
-          gap: 28px;
+          gap: 30px;
         }
         .nav-link {
-          color: rgba(255,255,255,0.82);
+          color: rgba(255,255,255,0.78);
           font-size: 15px;
           font-weight: 600;
-          transition: color 0.2s;
           text-decoration: none;
+          transition: color 0.2s ease;
         }
         .nav-link:hover {
           color: white;
@@ -61,32 +65,43 @@ export default function Navbar({ content }: { content: MainWebsiteContent }) {
           align-items: center;
           gap: 12px;
         }
-        .nav-secondary {
-          color: white;
-          border: 1px solid rgba(255,255,255,0.28);
-          padding: 10px 18px;
-          border-radius: 999px;
-          font-size: 14px;
-          font-weight: 700;
-          text-decoration: none;
-        }
+        .nav-secondary,
         .nav-primary {
-          background: white;
-          color: ${primaryColor};
-          padding: 10px 20px;
-          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          text-decoration: none;
+          border-radius: 12px;
+          padding: 11px 18px;
           font-size: 14px;
           font-weight: 800;
-          text-decoration: none;
-          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+          transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
         }
-        .hamburger {
-          display: none;
-          background: none;
-          border: none;
-          cursor: pointer;
+        .nav-secondary {
           color: white;
-          font-size: 26px;
+          border: 1px solid rgba(255,255,255,0.16);
+          background: rgba(255,255,255,0.06);
+        }
+        .nav-primary {
+          color: ${content.theme.primaryColor};
+          background: white;
+          box-shadow: 0 12px 24px rgba(15,23,42,0.12);
+        }
+        .nav-secondary:hover,
+        .nav-primary:hover {
+          transform: translateY(-2px);
+        }
+        .nav-toggle {
+          display: none;
+          width: 42px;
+          height: 42px;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.16);
+          background: rgba(255,255,255,0.06);
+          color: white;
+          font-size: 20px;
+          font-weight: 800;
+          cursor: pointer;
         }
         .mobile-menu {
           display: none;
@@ -94,23 +109,23 @@ export default function Navbar({ content }: { content: MainWebsiteContent }) {
           top: 74px;
           left: 0;
           right: 0;
-          background: ${primaryColor};
-          padding: 24px 20px 28px;
-          z-index: 99;
-          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+          z-index: 119;
+          padding: 20px;
+          background: linear-gradient(180deg, ${content.theme.darkBackgroundColor}, ${content.theme.primaryColor});
           border-top: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 18px 42px rgba(15,23,42,0.24);
         }
         .mobile-menu.open {
           display: grid;
-          gap: 16px;
+          gap: 14px;
         }
         .mobile-link {
-          color: rgba(255,255,255,0.9);
+          color: rgba(255,255,255,0.88);
+          text-decoration: none;
           font-size: 16px;
           font-weight: 600;
-          padding-bottom: 12px;
-          border-bottom: 1px solid rgba(255,255,255,0.12);
-          text-decoration: none;
+          padding: 0 0 12px;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         .mobile-actions {
           display: grid;
@@ -123,41 +138,40 @@ export default function Navbar({ content }: { content: MainWebsiteContent }) {
           align-items: center;
           justify-content: center;
           text-decoration: none;
-          border-radius: 14px;
-          padding: 12px 18px;
+          border-radius: 12px;
+          padding: 13px 16px;
           font-size: 14px;
           font-weight: 800;
         }
         .mobile-primary {
+          color: ${content.theme.primaryColor};
           background: white;
-          color: ${primaryColor};
         }
         .mobile-secondary {
-          background: rgba(255,255,255,0.08);
           color: white;
-          border: 1px solid rgba(255,255,255,0.12);
-        }
-        .nav-accent {
-          color: ${accentColor};
+          border: 1px solid rgba(255,255,255,0.16);
+          background: rgba(255,255,255,0.08);
         }
         @media (max-width: 1024px) {
           .nav-links,
           .nav-actions {
             display: none;
           }
-          .hamburger {
-            display: block;
+          .nav-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
           }
         }
         @media (max-width: 768px) {
           .navbar {
-            padding: 0 20px;
+            padding: 0 18px;
           }
           .nav-logo {
             font-size: 16px;
           }
           .nav-logo img {
-            height: 38px;
+            height: 40px;
           }
         }
       `}</style>
@@ -168,7 +182,6 @@ export default function Navbar({ content }: { content: MainWebsiteContent }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoSrc} alt={content.header.siteName || content.theme.brandName} />
           ) : null}
-          <span>{content.header.siteName || content.theme.brandName}</span>
         </Link>
 
         <div className="nav-links">
@@ -192,8 +205,8 @@ export default function Navbar({ content }: { content: MainWebsiteContent }) {
           ) : null}
         </div>
 
-        <button className="hamburger" onClick={() => setMenuOpen(value => !value)} aria-label="Toggle navigation">
-          {menuOpen ? 'X' : '='}
+        <button type="button" className="nav-toggle" onClick={() => setMenuOpen(value => !value)} aria-label="Toggle navigation">
+          {menuOpen ? '×' : '☰'}
         </button>
       </nav>
 

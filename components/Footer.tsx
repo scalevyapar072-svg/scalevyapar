@@ -12,28 +12,31 @@ const socialMark = (label: string) => {
 }
 
 export default function Footer({ content }: { content: MainWebsiteContent }) {
-  const primaryColor = content.theme.primaryColor
-  const accentColor = content.theme.accentColor
   const logoSrc = content.footer.logoSrc || content.theme.logoSrc
 
   return (
     <>
       <style>{`
         .footer {
-          background: ${primaryColor};
+          background:
+            radial-gradient(circle at top right, rgba(37, 99, 235, 0.14), transparent 24%),
+            linear-gradient(145deg, ${content.theme.darkBackgroundColor}, ${content.theme.primaryColor});
           color: white;
           padding: 64px 48px 32px;
         }
-        .footer-grid {
-          max-width: 1180px;
+        .footer-shell {
+          max-width: 1200px;
           margin: 0 auto;
+        }
+        .footer-grid {
           display: grid;
-          grid-template-columns: 1.5fr 1fr 1fr;
-          gap: 32px;
+          grid-template-columns: 1.35fr 1fr 1fr;
+          gap: 36px;
         }
         .footer-brand {
           display: grid;
           gap: 16px;
+          align-content: start;
         }
         .footer-brand-top {
           display: inline-flex;
@@ -41,22 +44,23 @@ export default function Footer({ content }: { content: MainWebsiteContent }) {
           gap: 12px;
         }
         .footer-brand-top img {
-          height: 42px;
+          height: 44px;
           width: auto;
-          border-radius: 10px;
-          background: white;
-          padding: 4px;
+          object-fit: contain;
         }
         .footer-brand-name {
+          margin: 0;
           font-size: 18px;
           font-weight: 800;
+          letter-spacing: -0.02em;
         }
-        .footer-brand p,
-        .footer-col p,
-        .footer-col a {
+        .footer-description,
+        .footer-col a,
+        .footer-col p {
+          margin: 0;
           color: rgba(255,255,255,0.72);
           font-size: 14px;
-          line-height: 1.7;
+          line-height: 1.75;
           text-decoration: none;
         }
         .footer-col {
@@ -66,49 +70,58 @@ export default function Footer({ content }: { content: MainWebsiteContent }) {
         }
         .footer-col h4 {
           margin: 0;
-          font-size: 14px;
-          font-weight: 800;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
           color: white;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
         }
         .footer-links {
           display: grid;
           gap: 10px;
         }
-        .footer-link:hover {
+        .footer-link:hover,
+        .footer-contact-link:hover {
           color: white;
         }
         .footer-socials {
           display: flex;
-          gap: 10px;
           flex-wrap: wrap;
+          gap: 10px;
         }
         .footer-social {
-          width: 40px;
-          height: 40px;
-          border-radius: 12px;
+          width: 42px;
+          height: 42px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          background: rgba(255,255,255,0.1);
+          border-radius: 14px;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.1);
           color: white;
           text-decoration: none;
           font-size: 12px;
           font-weight: 800;
+          transition: transform 0.22s ease, background 0.22s ease;
+        }
+        .footer-social:hover {
+          transform: translateY(-2px);
+          background: rgba(255,255,255,0.14);
         }
         .footer-bottom {
-          max-width: 1180px;
-          margin: 28px auto 0;
+          margin-top: 30px;
           padding-top: 22px;
-          border-top: 1px solid rgba(255,255,255,0.12);
+          border-top: 1px solid rgba(255,255,255,0.1);
           display: flex;
           justify-content: space-between;
           gap: 16px;
           flex-wrap: wrap;
         }
-        .footer-accent {
-          color: ${accentColor};
+        .footer-bottom p {
+          margin: 0;
+          color: rgba(255,255,255,0.55);
+          font-size: 13px;
+          line-height: 1.6;
         }
         @media (max-width: 900px) {
           .footer-grid {
@@ -126,51 +139,53 @@ export default function Footer({ content }: { content: MainWebsiteContent }) {
       `}</style>
 
       <footer className="footer">
-        <div className="footer-grid">
-          <div className="footer-brand">
-            <div className="footer-brand-top">
-              {logoSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoSrc} alt={content.theme.brandName} />
-              ) : null}
-              <span className="footer-brand-name">{content.theme.brandName}</span>
+        <div className="footer-shell">
+          <div className="footer-grid">
+            <div className="footer-brand">
+              <div className="footer-brand-top">
+                {logoSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoSrc} alt={content.theme.brandName} />
+                ) : null}
+                <h3 className="footer-brand-name">{content.theme.brandName}</h3>
+              </div>
+              <p className="footer-description">{content.footer.description}</p>
+              <div className="footer-socials">
+                {content.footer.socialLinks.map(item => (
+                  <Link key={`${item.label}-${item.href}`} href={item.href} className="footer-social" target={item.href.startsWith('http') ? '_blank' : undefined}>
+                    {socialMark(item.label)}
+                  </Link>
+                ))}
+              </div>
             </div>
-            <p>{content.footer.description}</p>
-            <div className="footer-socials">
-              {content.footer.socialLinks.map(item => (
-                <Link key={`${item.label}-${item.href}`} href={item.href} className="footer-social" target={item.href.startsWith('http') ? '_blank' : undefined}>
-                  {socialMark(item.label)}
-                </Link>
-              ))}
+
+            <div className="footer-col">
+              <h4>Quick Links</h4>
+              <div className="footer-links">
+                {content.footer.quickLinks.map(item => (
+                  <Link key={`${item.label}-${item.href}`} href={item.href} className="footer-link">
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="footer-col">
+              <h4>Contact Us</h4>
+              <p>{content.footer.address}</p>
+              <p>
+                <a className="footer-contact-link" href={`tel:${content.footer.phone.replace(/\s+/g, '')}`}>{content.footer.phone}</a>
+              </p>
+              <p>
+                <a className="footer-contact-link" href={`mailto:${content.footer.contactEmail}`}>{content.footer.contactEmail}</a>
+              </p>
             </div>
           </div>
 
-          <div className="footer-col">
-            <h4>Quick Links</h4>
-            <div className="footer-links">
-              {content.footer.quickLinks.map(item => (
-                <Link key={`${item.label}-${item.href}`} href={item.href} className="footer-link">
-                  {item.label}
-                </Link>
-              ))}
-            </div>
+          <div className="footer-bottom">
+            <p>{content.footer.copyrightText}</p>
+            <p>{content.theme.brandTagline}</p>
           </div>
-
-          <div className="footer-col">
-            <h4>Contact</h4>
-            <p>{content.footer.address}</p>
-            <p>
-              <a href={`tel:${content.footer.phone.replace(/\s+/g, '')}`}>{content.footer.phone}</a>
-            </p>
-            <p>
-              <a href={`mailto:${content.footer.contactEmail}`}>{content.footer.contactEmail}</a>
-            </p>
-          </div>
-        </div>
-
-        <div className="footer-bottom">
-          <p>{content.footer.copyrightText}</p>
-          <p>{content.theme.brandTagline}</p>
         </div>
       </footer>
     </>

@@ -1,6 +1,5 @@
 import { CompanyIntakeForm } from './company-intake-form'
 import { CompanySiteShell } from './company-site-shell'
-import { HeroServiceShowcase } from './hero-service-showcase'
 import styles from './company-site.module.css'
 import { getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
 import { getLabourCompanyWebsiteContent, type LabourCompanyWebsiteSection } from '@/lib/labour-company-website'
@@ -52,16 +51,49 @@ export default async function LabourCompanyHomePage() {
                 </div>
               ))}
             </div>
+
+            <div className={styles.chipRow}>
+              {categories.map(category => (
+                <span key={category.id} className={styles.chip}>{category.name}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.card}>
+            <p className={styles.sectionTitle} style={{ fontSize: '26px' }}>Executive hiring snapshot</p>
+            <p className={styles.textMuted} style={{ marginBottom: '16px' }}>
+              This version is designed to feel more premium and business-ready while still staying editable from labour admin in simple fields.
+            </p>
+
+            <div className={styles.stack} style={{ marginBottom: '18px' }}>
+              {[
+                `Website storage: ${website.storage}`,
+                `Live company plans: ${companyPlans.length}`,
+                `Expired job posts tracked: ${expiredJobs}`,
+                `Wallet balance tracked: ${formatCurrency(snapshot.stats.totalWalletBalance)}`
+              ].map(item => (
+                <div key={item} className={styles.softCard} style={{ padding: '16px', borderRadius: '18px' }}>
+                  <p style={{ margin: 0, color: '#334155', fontSize: '13px', fontWeight: '700' }}>{item}</p>
+                </div>
+              ))}
             </div>
 
-          <HeroServiceShowcase />
+            <div className={styles.softCard}>
+              <p style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '16px', fontWeight: '900' }}>Company actions</p>
+              <div className={styles.stack}>
+                <a href="/labour/company/search" className={styles.secondaryButton}>Search labour</a>
+                <a href="/labour/company/pricing" className={styles.secondaryButton}>View pricing</a>
+                <a href="/labour/company/contact" className={styles.secondaryButton}>Talk to ScaleVyapar</a>
+              </div>
+            </div>
+          </div>
         </section>
       )
     }
 
     if (section === 'trust') {
       return (
-        <section key={section} id="about" className={styles.card}>
+        <section key={section} className={styles.card}>
           <div className={styles.splitGrid}>
             <div>
               <h2 className={styles.sectionTitle}>{content.home.trustStrip.title}</h2>
@@ -80,8 +112,8 @@ export default async function LabourCompanyHomePage() {
     }
 
     if (section === 'features') {
-  return (
-    <section key={section} id="features" className={styles.card}>
+      return (
+        <section key={section} className={styles.card}>
           <div className={styles.sectionFooter}>
             <div>
               <h2 className={styles.sectionTitle}>{content.home.features.title}</h2>
@@ -114,7 +146,7 @@ export default async function LabourCompanyHomePage() {
 
     if (section === 'process') {
       return (
-        <section key={section} id="process" className={styles.card}>
+        <section key={section} className={styles.card}>
           <h2 className={styles.sectionTitle}>{content.home.process.title}</h2>
           <div className={styles.fourColGrid}>
             {content.home.process.steps.map((step, index) => (
@@ -286,4 +318,4 @@ export default async function LabourCompanyHomePage() {
       {content.home.sectionOrder.map(renderSection)}
     </CompanySiteShell>
   )
-} 
+}

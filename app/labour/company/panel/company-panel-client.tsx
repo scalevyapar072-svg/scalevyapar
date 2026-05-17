@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import styles from '../company-site.module.css'
+import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
-
+const COMPANY_PROFILE_KEY = 'labour_company_profile'
 type CompanyApplicant = {
   applicationId: string
   appliedAt: string
@@ -15,7 +17,6 @@ type CompanyApplicant = {
   city: string
   mobile: string | null
   canContactDirectly: boolean
-  whatsappUrl: string | null
   categoryLabels: string[]
   skills: string[]
   experienceYears: number
@@ -28,7 +29,11 @@ type CompanyApplicant = {
 type CompanyJob = {
   id: string
   title: string
+  description: string
   city: string
+  locationLabel: string
+  categoryId: string
+  categoryLabel: string
   status: string
   workersNeeded: number
   wageAmount: number
@@ -45,12 +50,14 @@ type CompanyDashboard = {
     id: string
     companyName: string
     contactPerson: string
-    email?: string
+    email: string
     mobile: string
     city: string
+    state?: string
     status: string
     activePlan: string
     categoryLabels: string[]
+    activeJobCategoryLabels: string[]
   }
   stats: {
     liveJobPosts: number
@@ -62,25 +69,10 @@ type CompanyDashboard = {
   recentApplications: CompanyApplicant[]
 }
 
-type PanelTab = 'jobs' | 'usage' | 'billing' | 'support'
-
-const supportFaqs = [
-  {
-    question: 'How do I contact workers directly?',
-    answer: 'Direct worker mobile and WhatsApp access are unlocked only when your company has an active plan and the worker profile is visible.'
-  },
-  {
-    question: 'What happens when my plan expires?',
-    answer: 'Your jobs remain visible in history, but direct worker access and premium hiring actions should be renewed through the next plan purchase.'
-  },
-  {
-    question: 'Can I schedule training for my hiring team?',
-    answer: 'Yes. Use the support actions below to request onboarding or training support for job posting, applicant handling, and hiring workflow.'
-  }
-]
-
 type Props = {
   signinMode?: boolean
+  jobId?: string
+  content: LabourCompanyWebsiteContent['companyPanel']
 }
 
 const formatDateTime = (value: string) =>
@@ -90,6 +82,13 @@ const formatDateTime = (value: string) =>
   })
 
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
+
+const formatDate = (value: string) =>
+  new Date(value).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  })
 
 const availabilityLabel = (value: string) => {
   if (value === 'available_today') return 'Available today'
@@ -104,28 +103,45 @@ const statusTone = (value: string) => {
   if (value === 'rejected' || value === 'blocked' || value === 'expired') {
     return { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }
   }
-  if (value === 'reviewed' || value === 'paused') {
-    return { background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74' }
-  }
   return { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }
 }
 
-const countJobsByStatus = (jobs: CompanyJob[], status: string) =>
-  jobs.filter(job => job.status === status).length
+const companyJobStatusLabel = (value: string) => {
+  if (value === 'live' || value === 'active' || value === 'hired') return 'Active'
+  if (value === 'expired') return 'Expired'
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
 
-export function CompanyPanelClient({ signinMode = false }: Props) {
+const truncateJobTitle = (value: string, maxWords = 5) => {
+  const words = String(value || '').trim().split(/\s+/).filter(Boolean)
+  if (words.length <= maxWords) return value
+  return `${words.slice(0, maxWords).join(' ')}...`
+}
+
+const labelFromStatus = (value: string) =>
+  value
+    .split('_')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+
+export function CompanyPanelClient({ signinMode = false, jobId, content }: Props) {
+  const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
   const [dashboard, setDashboard] = useState<CompanyDashboard | null>(null)
   const [email, setEmail] = useState('')
-  const [identity, setIdentity] = useState('')
-  const [selectedJobId, setSelectedJobId] = useState<string>('all')
+  const [password, setPassword] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
-  const [activeTab, setActiveTab] = useState<PanelTab>('jobs')
-  const [openedJobId, setOpenedJobId] = useState<string | null>(null)
-  const [showMatchedOnly, setShowMatchedOnly] = useState(false)
-  const [showWithResumeOnly, setShowWithResumeOnly] = useState(false)
-  const [showTriedContactOnly, setShowTriedContactOnly] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [openJobMenuId, setOpenJobMenuId] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState('')
+  const [sortBy, setSortBy] = useState<'recent' | 'wage-high' | 'experience-high'>('recent')
+  const [detailFilters, setDetailFilters] = useState({
+    contactOnly: false,
+    withSkills: false,
+    withNote: false
+  })
+  const [revealedContacts, setRevealedContacts] = useState<Record<string, boolean>>({})
+  const [loading, setLoading] = useState(!signinMode)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -145,6 +161,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
     setDashboard(data.dashboard as CompanyDashboard)
     setToken(authToken)
     localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+    localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify((data.dashboard as CompanyDashboard).profile))
   }
 
   useEffect(() => {
@@ -155,15 +172,55 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
 
     const stored = localStorage.getItem(COMPANY_TOKEN_KEY)
     if (!stored) {
-      setLoading(false)
+      fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
+        .then(async response => {
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error(data.error || 'Company dashboard session was not found.')
+          }
+
+          const authToken = String(data.token || '')
+          if (!authToken) {
+            throw new Error('Company token is missing from the dashboard session response.')
+          }
+
+          setDashboard(data.dashboard as CompanyDashboard)
+          setToken(authToken)
+          localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+          localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify((data.dashboard as CompanyDashboard).profile))
+        })
+        .catch(() => {
+          setToken(null)
+          setDashboard(null)
+        })
+        .finally(() => setLoading(false))
       return
     }
 
     loadDashboard(stored)
       .catch(() => {
         localStorage.removeItem(COMPANY_TOKEN_KEY)
-        setToken(null)
-        setDashboard(null)
+        return fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
+          .then(async response => {
+            const data = await response.json()
+            if (!response.ok) {
+              throw new Error(data.error || 'Company dashboard session was not found.')
+            }
+
+            const authToken = String(data.token || '')
+            if (!authToken) {
+              throw new Error('Company token is missing from the dashboard session response.')
+            }
+
+            setDashboard(data.dashboard as CompanyDashboard)
+            setToken(authToken)
+            localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+            localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify((data.dashboard as CompanyDashboard).profile))
+          })
+          .catch(() => {
+            setToken(null)
+            setDashboard(null)
+          })
       })
       .finally(() => setLoading(false))
   }, [signinMode])
@@ -181,7 +238,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
         },
         body: JSON.stringify({
           email,
-          identity
+          password
         })
       })
 
@@ -196,8 +253,19 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
       }
 
       localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+      if (data.dashboard?.profile) {
+        localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(data.dashboard.profile))
+      }
+      window.dispatchEvent(new Event('labour-company-auth-change'))
+
+      if (signinMode) {
+        router.push('/labour/company/panel')
+        return
+      }
+
       setDashboard(data.dashboard as CompanyDashboard)
       setToken(authToken)
+      localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify((data.dashboard as CompanyDashboard).profile))
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'Failed to sign in company panel.')
     } finally {
@@ -207,9 +275,14 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
 
   const handleLogout = () => {
     localStorage.removeItem(COMPANY_TOKEN_KEY)
+    localStorage.removeItem(COMPANY_PROFILE_KEY)
+    window.dispatchEvent(new Event('labour-company-auth-change'))
     setToken(null)
     setDashboard(null)
     setError('')
+    if (signinMode) {
+      router.refresh()
+    }
   }
 
   const updateStatus = async (applicationId: string, status: 'reviewed' | 'shortlisted' | 'rejected' | 'hired') => {
@@ -243,496 +316,1431 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
     }
   }
 
-  const filteredJobs = useMemo(() => {
+  const pendingApplications = useMemo(() => {
     if (!dashboard) return []
+    return dashboard.recentApplications.filter(applicant => applicant.status === 'submitted')
+  }, [dashboard])
 
-    return dashboard.jobs
-      .map(job => ({
-        ...job,
-        applicants: job.applicants.filter(applicant => (selectedStatus === 'all' ? true : applicant.status === selectedStatus))
-      }))
-      .filter(job => (selectedJobId === 'all' ? true : job.id === selectedJobId))
-  }, [dashboard, selectedJobId, selectedStatus])
+  const companyInitials = useMemo(() => {
+    if (!dashboard?.profile.companyName) return 'SV'
+    return dashboard.profile.companyName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => part.charAt(0).toUpperCase())
+      .join('')
+  }, [dashboard?.profile.companyName])
 
-  const selectedJob = useMemo(() => {
-    if (!dashboard || !openedJobId) return null
-    return dashboard.jobs.find(job => job.id === openedJobId) || null
-  }, [dashboard, openedJobId])
+  const heroTitleParts = useMemo(() => {
+    const fullTitle = content.hero.title || ''
+    const highlighted = content.hero.highlightedText || ''
 
-  const selectedJobApplicants = useMemo(() => {
-    if (!selectedJob) return []
+    if (!highlighted || !fullTitle.includes(highlighted)) {
+      return { leading: fullTitle, highlighted: '' }
+    }
 
-    return selectedJob.applicants.filter(applicant => {
-      if (showMatchedOnly && applicant.categoryLabels.length === 0) return false
-      if (showWithResumeOnly && !applicant.profilePhotoPath) return false
-      if (showTriedContactOnly && !applicant.canContactDirectly) return false
-      if (selectedStatus !== 'all' && applicant.status !== selectedStatus) return false
-      return true
-    })
-  }, [selectedJob, showMatchedOnly, showWithResumeOnly, showTriedContactOnly, selectedStatus])
+    return {
+      leading: fullTitle.replace(highlighted, '').trim(),
+      highlighted
+    }
+  }, [content.hero.highlightedText, content.hero.title])
 
-  const usageSummary = useMemo(() => {
-    if (!dashboard) {
+  const panelHeaderCopy = useMemo(() => {
+    const panelTitle = content.header.panelTitle?.trim() || 'Company Panel'
+    const panelSubtitle = content.header.panelSubtitle?.trim() || ''
+
+    if (/^manage your hiring workflow[, ]/i.test(panelSubtitle)) {
+      const remainder = panelSubtitle
+        .replace(/^manage your hiring workflow,?\s*/i, '')
+        .replace(/\.$/, '')
+
       return {
-        jobCredits: 0,
-        databaseCredits: 0,
-        aiCallingCredits: 0
+        eyebrow: panelTitle,
+        title: 'Manage your hiring workflow',
+        subtitle: remainder ? `Track ${remainder}.` : ''
       }
     }
 
     return {
-      jobCredits: Math.max(0, dashboard.stats.liveJobPosts * 2 - dashboard.stats.totalApplications),
-      databaseCredits: Math.max(0, dashboard.stats.totalApplications * 3 + 30),
-      aiCallingCredits: Math.max(0, dashboard.stats.shortlistedApplications * 2)
+      eyebrow: panelTitle,
+      title: panelTitle,
+      subtitle: panelSubtitle
     }
+  }, [content.header.panelSubtitle, content.header.panelTitle])
+
+  const quickActionItems = useMemo(() => {
+    const defaults = [
+      {
+        title: 'Post New Requirement',
+        description: 'Post a new job and find the right worker'
+      },
+      {
+        title: 'Browse Workers',
+        description: 'Search and filter workers as per your need'
+      },
+      {
+        title: 'View All Applications',
+        description: 'Review applications for your job posts'
+      },
+      {
+        title: 'Shortlisted Workers',
+        description: 'Manage shortlisted worker profiles'
+      },
+      {
+        title: 'Hired Workers',
+        description: 'View and manage your hired workforce'
+      }
+    ]
+
+    return defaults.map((fallback, index) => ({
+      title: content.quickActions.items[index]?.title || fallback.title,
+      description: content.quickActions.items[index]?.description || fallback.description
+    }))
+  }, [content.quickActions.items])
+
+  const latestJobs = useMemo(() => dashboard?.jobs.slice(0, 4) ?? [], [dashboard])
+
+  const recentApplicationItems = useMemo(() => {
+    if (!dashboard) return []
+
+    return dashboard.jobs
+      .flatMap(job =>
+        job.applicants.map(applicant => ({
+          ...applicant,
+          jobId: job.id,
+          jobTitle: job.title,
+          jobLocation: job.city
+        }))
+      )
+      .sort((left, right) => right.appliedAt.localeCompare(left.appliedAt))
+      .slice(0, 5)
   }, [dashboard])
+
+  const jobLookup = useMemo(
+    () => new Map((dashboard?.jobs || []).map(job => [job.id, job])),
+    [dashboard]
+  )
+
+  const totalJobPosts = dashboard?.jobs.length ?? 0
+  const selectedDashboardJob = useMemo(
+    () => jobId ? dashboard?.jobs.find(job => job.id === jobId) ?? null : null,
+    [dashboard, jobId]
+  )
+  const detailApplicants = useMemo(() => {
+    if (!selectedDashboardJob) return []
+
+    const items = selectedDashboardJob.applicants
+      .filter(applicant => selectedStatus === 'all' ? true : applicant.status === selectedStatus)
+      .filter(applicant => detailFilters.contactOnly ? applicant.canContactDirectly : true)
+      .filter(applicant => detailFilters.withSkills ? applicant.skills.length > 0 : true)
+      .filter(applicant => detailFilters.withNote ? Boolean(applicant.note) : true)
+
+    const sorted = [...items]
+    if (sortBy === 'wage-high') {
+      sorted.sort((left, right) => right.expectedDailyWage - left.expectedDailyWage)
+    } else if (sortBy === 'experience-high') {
+      sorted.sort((left, right) => right.experienceYears - left.experienceYears)
+    } else {
+      sorted.sort((left, right) => new Date(right.appliedAt).getTime() - new Date(left.appliedAt).getTime())
+    }
+
+    return sorted
+  }, [detailFilters.contactOnly, detailFilters.withNote, detailFilters.withSkills, selectedDashboardJob, selectedStatus, sortBy])
+
+  const openCompanyIntake = (job: CompanyJob, intent: 'duplicate' | 'edit') => {
+    setActionMessage(intent === 'duplicate'
+      ? `${job.title} is ready to repost from the company requirement page.`
+      : `${job.title} can be updated from the company requirement page.`)
+    setOpenJobMenuId(null)
+
+    if (typeof window !== 'undefined') {
+      const nextUrl = intent === 'duplicate'
+        ? `/labour/company/job-post?duplicate=${encodeURIComponent(job.id)}`
+        : `/labour/company/job-post?edit=${encodeURIComponent(job.id)}`
+      window.open(nextUrl, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  const buildJobShareMessage = (job: CompanyJob) => {
+    const siteUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/labour/company/search`
+      : 'https://www.scalevyapar.in/labour/company/search'
+
+    return [
+      truncateJobTitle(job.title, 12),
+      `Location: ${job.city}`,
+      `Salary: ${formatCurrency(job.wageAmount)}`,
+      `Workers needed: ${job.workersNeeded}`,
+      'Explore more worker hiring on ScaleVyapar Rozgar',
+      siteUrl
+    ].join('\n')
+  }
+
+  const shareJob = async (job: CompanyJob, channel: 'whatsapp' | 'facebook' | 'instagram') => {
+    const shareText = buildJobShareMessage(job)
+    const siteUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/labour/company/search`
+      : 'https://www.scalevyapar.in/labour/company/search'
+    setOpenJobMenuId(null)
+
+    try {
+      if (channel === 'instagram') {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(shareText)
+        }
+        if (typeof window !== 'undefined') {
+          window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer')
+        }
+        setActionMessage(`Copied ${job.title} details. Paste them into Instagram post or DM.`)
+        return
+      }
+
+      if (channel === 'whatsapp' && typeof window !== 'undefined') {
+        window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank', 'noopener,noreferrer')
+        setActionMessage(`Opened WhatsApp sharing for ${job.title}.`)
+        return
+      }
+
+      if (channel === 'facebook' && typeof window !== 'undefined') {
+        const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(siteUrl)}&quote=${encodeURIComponent(shareText)}`
+        window.open(facebookUrl, '_blank', 'noopener,noreferrer')
+        setActionMessage(`Opened Facebook sharing for ${job.title}.`)
+        return
+      }
+
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareText)
+        setActionMessage(`Copied ${job.title} details for sharing.`)
+        return
+      }
+    } catch {
+      // Fallback message below.
+    }
+
+    setActionMessage(`Share ${job.title} from the company panel.`)
+  }
+
+  const expireJobNotice = (job: CompanyJob) => {
+    setOpenJobMenuId(null)
+    setActionMessage(`${job.title} expiry changes should be handled in worker admin right now.`)
+  }
+
+  const openJobDetailWindow = (job: CompanyJob) => {
+    if (typeof window !== 'undefined') {
+      window.open(`/labour/company/panel/${job.id}`, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  const toggleContactReveal = (applicationId: string) => {
+    setRevealedContacts(current => ({
+      ...current,
+      [applicationId]: !current[applicationId]
+    }))
+  }
+
+  const scrollToSection = (sectionId: string) => {
+    if (typeof document === 'undefined') return
+    document.getElementById(sectionId)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }
+
+  const downloadApplicantsCsv = (job: CompanyJob) => {
+    const rows = [
+      ['Name', 'City', 'Status', 'Availability', 'Expected Wage', 'Experience', 'Mobile'],
+      ...detailApplicants.map(applicant => ([
+        applicant.fullName,
+        applicant.city,
+        applicant.status,
+        availabilityLabel(applicant.availability),
+        String(applicant.expectedDailyWage),
+        String(applicant.experienceYears),
+        applicant.mobile || ''
+      ]))
+    ]
+
+    const csv = rows
+      .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${job.title.replace(/\s+/g, '-').toLowerCase()}-candidates.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   if (loading) {
     return (
-      <section className={styles.panelLoadingShell}>
-        <div className={styles.panelLoadingCard}>
-          <p className={styles.sectionTitle}>Loading company dashboard...</p>
-          <p className={styles.textMuted}>Fetching jobs, plan usage, billing, and support details.</p>
-        </div>
+      <section className={styles.card}>
+        <p className={styles.sectionTitle}>Loading company panel...</p>
+        <p className={styles.textMuted}>Fetching job posts and worker applications.</p>
       </section>
     )
   }
 
   if (!dashboard) {
     return (
-      <section className={styles.panelAuthShell}>
-        <div className={styles.panelAuthCard}>
-          <p className={styles.eyebrow} style={{ color: '#2563eb' }}>Company dashboard</p>
-          <h1 className={styles.pageTitle}>Sign in to manage jobs, plans, billing, and support</h1>
+      <section className={styles.splitGrid}>
+        <div className={styles.card}>
+          <p className={styles.eyebrow}>Company panel</p>
+          <h1 className={styles.pageTitle}>Receive worker applications in one place</h1>
           <p className={styles.textMuted} style={{ marginBottom: '20px' }}>
-            Use your registered company email and your company name or contact person to access the employer dashboard.
+            Sign in with your registered company email and password to open the company dashboard.
           </p>
           <form className={styles.stack} onSubmit={submitLogin}>
-            <label className={styles.stack}>
-              <span className={styles.fieldLabel}>Company email</span>
+            <label style={{ display: 'grid', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company email</span>
               <input
                 value={email}
                 onChange={event => setEmail(event.target.value)}
                 placeholder="Registered company email"
-                className={styles.inputField}
+                style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
               />
             </label>
-            <label className={styles.stack}>
-              <span className={styles.fieldLabel}>Company name or contact person</span>
+            <label style={{ display: 'grid', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Password</span>
               <input
-                value={identity}
-                onChange={event => setIdentity(event.target.value)}
-                placeholder="Company name or contact person"
-                className={styles.inputField}
+                type="password"
+                value={password}
+                onChange={event => setPassword(event.target.value)}
+                placeholder="Enter your password"
+                style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
               />
             </label>
-            {error ? <div className={styles.errorBanner}>{error}</div> : null}
-            <button
-              type="submit"
-              className={styles.primaryButton}
-              style={{ background: '#0f766e', color: '#ffffff', border: '1px solid transparent' }}
-              disabled={submitting}
-            >
-              {submitting ? 'Opening dashboard...' : 'Open dashboard'}
-            </button>
+            <div className={styles.softCard} style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+              <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use your company email and password.</p>
+            </div>
+            {error ? (
+              <div className={styles.softCard} style={{ borderColor: '#fecaca', background: '#fef2f2' }}>
+                <p style={{ margin: 0, color: '#b91c1c', fontWeight: 700 }}>{error}</p>
+              </div>
+            ) : null}
+            <div className={styles.buttonRow}>
+              <button
+                type="submit"
+                className={styles.primaryButton}
+                style={{ background: '#2563eb', color: '#ffffff', border: '1px solid transparent', flex: '1 1 220px' }}
+                disabled={submitting}
+              >
+                {submitting ? 'Opening company panel...' : 'Open company panel'}
+              </button>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                style={{ flex: '1 1 220px' }}
+                onClick={() => router.push('/labour/company/company-registration')}
+              >
+                Register Company
+              </button>
+            </div>
           </form>
+        </div>
+
+        <div className={styles.darkCard} style={{ background: 'linear-gradient(135deg, #374655, #202c39)' }}>
+          <p className={styles.sectionTitle} style={{ color: '#ffffff', fontSize: '26px' }}>What companies can do here</p>
+          <p className={styles.textMutedDark} style={{ marginBottom: '18px' }}>
+            Use this company panel to manage hiring activity, review worker interest, and move every applicant through the next step from one place.
+          </p>
+          <div className={styles.stack}>
+            {[
+              'View every worker application per job post',
+              'Shortlist, review, reject, or hire applicants',
+              'See direct worker contact when the worker account is active',
+              'Track recent applicant movement across live job posts',
+              'Open each job separately and review matching worker profiles',
+              'Monitor live, expired, and duplicated jobs from the same panel'
+            ].map(item => (
+              <div key={item} className={styles.bullet} style={{ color: '#ffffff' }}>
+                <span className={styles.bulletDot} style={{ background: '#ffffff' }} />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+          <div className={styles.stack} style={{ marginTop: '24px' }}>
+            <div className={styles.softCard} style={{ background: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.16)' }}>
+              <p style={{ margin: '0 0 6px', color: '#ffffff', fontSize: '14px', fontWeight: 700 }}>How access works</p>
+              <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.82)', fontSize: '13px', lineHeight: 1.7 }}>
+                Sign in using the registered company email and password linked to your company account.
+              </p>
+            </div>
+            <div className={styles.softCard} style={{ background: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.16)' }}>
+              <p style={{ margin: '0 0 6px', color: '#ffffff', fontSize: '14px', fontWeight: 700 }}>What to do next</p>
+              <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.82)', fontSize: '13px', lineHeight: 1.7 }}>
+                Open the company panel for hiring activity, or use Register Company if you need to create a new company account first.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (jobId) {
+    if (!selectedDashboardJob) {
+      return (
+        <section className={styles.card}>
+          <div className={styles.buttonRow} style={{ marginBottom: '16px' }}>
+            <button type="button" className={styles.secondaryButton} onClick={() => router.push('/labour/company/panel')}>
+              Back to all jobs
+            </button>
+          </div>
+          <p className={styles.sectionTitle}>Job not found</p>
+          <p className={styles.textMuted}>This company job could not be found in the current dashboard.</p>
+        </section>
+      )
+    }
+
+    const statusCounts = {
+      all: selectedDashboardJob.applicants.length,
+      submitted: selectedDashboardJob.applicants.filter(applicant => applicant.status === 'submitted').length,
+      reviewed: selectedDashboardJob.applicants.filter(applicant => applicant.status === 'reviewed').length,
+      shortlisted: selectedDashboardJob.applicants.filter(applicant => applicant.status === 'shortlisted').length,
+      rejected: selectedDashboardJob.applicants.filter(applicant => applicant.status === 'rejected').length
+    }
+
+    return (
+      <section className={styles.companyPanelDetailPage}>
+        <div className={styles.companyPanelDetailTopbar}>
+          <div className={styles.companyPanelDetailTopbarLeft}>
+            <button type="button" className={styles.companyPanelBackButton} onClick={() => router.push('/labour/company/panel')}>
+              Back
+            </button>
+            <p className={styles.companyPanelDetailTitle}>{selectedDashboardJob.title}</p>
+            <span className={styles.chip} style={statusTone(selectedDashboardJob.status)}>
+              {companyJobStatusLabel(selectedDashboardJob.status)}
+            </span>
+            <span className={styles.companyPanelDetailMeta}>{selectedDashboardJob.city}</span>
+            <button
+              type="button"
+              className={styles.companyPanelDetailEditLink}
+              onClick={() => openCompanyIntake(selectedDashboardJob, 'edit')}
+            >
+              Edit
+            </button>
+          </div>
+
+          <div className={styles.companyPanelDetailTopbarRight}>
+            <button type="button" className={styles.companyPanelDetailMatchLink}>
+              See Database Matches ({selectedDashboardJob.applicants.length})
+            </button>
+            <button
+              type="button"
+              className={styles.companyPanelMenuButton}
+              onClick={() => setOpenJobMenuId(current => current === selectedDashboardJob.id ? null : selectedDashboardJob.id)}
+            >
+              ...
+            </button>
+            {openJobMenuId === selectedDashboardJob.id ? (
+              <div className={styles.companyPanelMenu}>
+                <button type="button" className={styles.companyPanelMenuItem} onClick={() => openCompanyIntake(selectedDashboardJob, 'duplicate')}>
+                  Duplicate
+                </button>
+                <button type="button" className={styles.companyPanelMenuItem} onClick={() => openCompanyIntake(selectedDashboardJob, 'edit')}>
+                  Edit job
+                </button>
+                <button type="button" className={styles.companyPanelMenuItem} onClick={() => shareJob(selectedDashboardJob, 'whatsapp')}>
+                  Share on WhatsApp
+                </button>
+                <button type="button" className={styles.companyPanelMenuItem} onClick={() => shareJob(selectedDashboardJob, 'facebook')}>
+                  Share on Facebook
+                </button>
+                <button type="button" className={styles.companyPanelMenuItem} onClick={() => shareJob(selectedDashboardJob, 'instagram')}>
+                  Share on Instagram
+                </button>
+                <button type="button" className={`${styles.companyPanelMenuItem} ${styles.companyPanelMenuItemDanger}`} onClick={() => expireJobNotice(selectedDashboardJob)}>
+                  Expire job
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className={styles.companyPanelDetailLayout}>
+          <aside className={styles.companyPanelDetailFilters}>
+            <div className={styles.companyPanelDetailFiltersHeader}>
+              <p className={styles.companyPanelDetailFiltersTitle}>Filters</p>
+              <button
+                type="button"
+                className={styles.companyPanelDetailClear}
+                onClick={() => {
+                  setDetailFilters({ contactOnly: false, withSkills: false, withNote: false })
+                  setSelectedStatus('all')
+                }}
+              >
+                Clear all
+              </button>
+            </div>
+
+            <div className={styles.companyPanelDetailFilterGroup}>
+              <p className={styles.companyPanelDetailFilterLabel}>Show candidates who</p>
+              <label className={styles.companyPanelDetailCheckbox}>
+                <input
+                  type="checkbox"
+                  checked={detailFilters.contactOnly}
+                  onChange={event => setDetailFilters(current => ({ ...current, contactOnly: event.target.checked }))}
+                />
+                <span>Can be contacted directly</span>
+              </label>
+              <label className={styles.companyPanelDetailCheckbox}>
+                <input
+                  type="checkbox"
+                  checked={detailFilters.withSkills}
+                  onChange={event => setDetailFilters(current => ({ ...current, withSkills: event.target.checked }))}
+                />
+                <span>Have skills added</span>
+              </label>
+              <label className={styles.companyPanelDetailCheckbox}>
+                <input
+                  type="checkbox"
+                  checked={detailFilters.withNote}
+                  onChange={event => setDetailFilters(current => ({ ...current, withNote: event.target.checked }))}
+                />
+                <span>Have application note</span>
+              </label>
+            </div>
+
+            <div className={styles.companyPanelDetailFilterGroup}>
+              <p className={styles.companyPanelDetailFilterLabel}>Applied in</p>
+              <div className={styles.companyPanelDetailStatusList}>
+                {[
+                  { label: 'All candidates', value: 'all' },
+                  { label: 'Action pending', value: 'submitted' },
+                  { label: 'Reviewed', value: 'reviewed' },
+                  { label: 'Shortlisted', value: 'shortlisted' },
+                  { label: 'Rejected', value: 'rejected' }
+                ].map(item => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className={selectedStatus === item.value ? styles.companyPanelDetailStatusButtonActive : styles.companyPanelDetailStatusButton}
+                    onClick={() => setSelectedStatus(item.value)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          <div className={styles.companyPanelDetailMain}>
+            <div className={styles.companyPanelDetailStatsRow}>
+              {[
+                { label: 'All candidates', value: statusCounts.all, key: 'all' },
+                { label: 'Action Pending', value: statusCounts.submitted, key: 'submitted' },
+                { label: 'Reviewed', value: statusCounts.reviewed, key: 'reviewed' },
+                { label: 'Shortlisted', value: statusCounts.shortlisted, key: 'shortlisted' },
+                { label: 'Rejected', value: statusCounts.rejected, key: 'rejected' }
+              ].map(item => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={selectedStatus === item.key ? styles.companyPanelDetailStatCardActive : styles.companyPanelDetailStatCard}
+                  onClick={() => setSelectedStatus(item.key)}
+                >
+                  <strong>{item.value}</strong>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+
+              <div className={styles.companyPanelDetailSort}>
+                <span>Sort By:</span>
+                <select value={sortBy} onChange={event => setSortBy(event.target.value as 'recent' | 'wage-high' | 'experience-high')}>
+                  <option value="recent">Recent</option>
+                  <option value="wage-high">Highest wage</option>
+                  <option value="experience-high">Experience</option>
+                </select>
+              </div>
+            </div>
+
+            <div className={styles.companyPanelDetailToolbar}>
+              <p className={styles.textMuted}>Showing {detailApplicants.length} candidates</p>
+              <button type="button" className={styles.companyPanelDetailDownload} onClick={() => downloadApplicantsCsv(selectedDashboardJob)}>
+                Download Excel
+              </button>
+            </div>
+
+            {actionMessage ? (
+              <div className={styles.companyPanelActionNotice}>
+                <p style={{ margin: 0 }}>{actionMessage}</p>
+              </div>
+            ) : null}
+
+            <div className={styles.companyPanelDetailList}>
+              {detailApplicants.length === 0 ? (
+                <div className={styles.softCard}>
+                  <p style={{ margin: 0, color: '#475569', fontWeight: 700 }}>No candidates match the current filters.</p>
+                </div>
+              ) : detailApplicants.map(applicant => (
+                <article key={applicant.applicationId} className={styles.companyPanelDetailCandidateCard}>
+                  <div className={styles.companyPanelDetailCandidateHeader}>
+                    <div>
+                      <div className={styles.companyPanelDetailCandidateTitleRow}>
+                        <p className={styles.companyPanelApplicantName}>{applicant.fullName}</p>
+                        <button type="button" className={styles.companyPanelDetailProfileLink}>
+                          View full profile
+                        </button>
+                      </div>
+                      <p className={styles.textMuted}>
+                        {applicant.city} | {applicant.experienceYears} yrs | {formatCurrency(applicant.expectedDailyWage)} / day
+                      </p>
+                    </div>
+                    <span className={styles.companyPanelDetailMatchedBadge}>Matched</span>
+                  </div>
+
+                  <div className={styles.companyPanelDetailMatchPanel}>
+                    <span className={styles.companyPanelDetailMatchLabel}>Matching :</span>
+                    <div className={styles.companyPanelDetailMatchChips}>
+                      {[
+                        applicant.skills.length ? 'Skills' : null,
+                        applicant.experienceYears > 0 ? 'Work Experience' : null,
+                        applicant.categoryLabels.length ? 'Category Match' : null,
+                        applicant.expectedDailyWage > 0 ? 'Salary' : null,
+                        applicant.availability ? 'Availability' : null
+                      ].filter(Boolean).map(label => (
+                        <span key={label} className={styles.companyPanelDetailMatchChip}>{label}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className={styles.companyPanelDetailCandidateMeta}>
+                    <span><strong>Skills</strong> {applicant.skills.length ? applicant.skills.join(' | ') : 'Not added'}</span>
+                    <span><strong>Categories</strong> {applicant.categoryLabels.join(' | ') || 'Not mapped'}</span>
+                    <span><strong>Availability</strong> {availabilityLabel(applicant.availability)}</span>
+                    <span><strong>Note</strong> {applicant.note || 'No note added by worker'}</span>
+                  </div>
+
+                  <div className={styles.companyPanelDetailCandidateActions}>
+                    <div className={styles.companyPanelDetailContactRow}>
+                      <button
+                        type="button"
+                        className={styles.companyPanelDetailContactButton}
+                        onClick={() => toggleContactReveal(applicant.applicationId)}
+                      >
+                        {revealedContacts[applicant.applicationId] && applicant.canContactDirectly
+                          ? (applicant.mobile || 'Unavailable')
+                          : 'View Number'}
+                      </button>
+                      <a
+                        href={applicant.canContactDirectly && applicant.mobile ? `https://wa.me/91${applicant.mobile}` : '#'}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={styles.companyPanelDetailWhatsappButton}
+                      >
+                        WhatsApp
+                      </a>
+                    </div>
+
+                    <div className={styles.companyPanelDetailDecisionRow}>
+                      <button type="button" className={styles.companyPanelDetailRejectButton} onClick={() => updateStatus(applicant.applicationId, 'rejected')}>
+                        Reject
+                      </button>
+                      <button type="button" className={styles.companyPanelDetailShortlistButton} onClick={() => updateStatus(applicant.applicationId, 'shortlisted')}>
+                        Shortlist
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={styles.companyPanelDetailFooter}>
+                    <span>Applied {formatDateTime(applicant.appliedAt)}</span>
+                    <button type="button" className={styles.companyPanelDetailNoteButton}>
+                      Add a note
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
     )
   }
 
   return (
-    <section className={styles.companyDashboardShell}>
-      <aside className={styles.companyDashboardSidebar}>
-        <div className={styles.companyDashboardBrand}>
-          <div className={styles.companyDashboardLogo}>{dashboard.profile.companyName.slice(0, 2).toUpperCase()}</div>
-          <div>
-            <p className={styles.companyDashboardName}>{dashboard.profile.companyName}</p>
-            <p className={styles.companyDashboardMeta}>{dashboard.profile.city} | {dashboard.profile.contactPerson}</p>
+    <>
+      <section className={styles.companyDashboardShell}>
+        <aside className={styles.companyDashboardSidebar}>
+          <div id="company-profile" className={styles.companyDashboardSidebarBrand}>
+            <span className={styles.companyDashboardSidebarMark}>SV</span>
+            <div>
+              <p className={styles.companyDashboardSidebarBrandTitle}>{content.header.sidebarBrandLabel}</p>
+              <p className={styles.companyDashboardSidebarBrandMeta}>{content.header.sidebarSubtitle}</p>
+            </div>
           </div>
-        </div>
 
-        <nav className={styles.companyDashboardNav}>
-          {[
-            { id: 'jobs' as const, label: `All Jobs (${dashboard.jobs.length})` },
-            { id: 'usage' as const, label: 'Plan & Usage' },
-            { id: 'billing' as const, label: 'Billing' },
-            { id: 'support' as const, label: 'Help & Support' }
-          ].map(item => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setActiveTab(item.id)
-                if (item.id !== 'jobs') {
-                  setOpenedJobId(null)
-                }
-              }}
-              className={`${styles.companyDashboardNavItem} ${activeTab === item.id ? styles.companyDashboardNavItemActive : ''}`}
-            >
-              {item.label}
+          <nav className={styles.companyDashboardSidebarNav}>
+            <button type="button" className={`${styles.companyDashboardSidebarItem} ${styles.companyDashboardSidebarItemActive}`} onClick={() => scrollToSection('dashboard-top')}>
+              <span className={styles.companyDashboardSidebarIcon}>D</span>
+              <span>{content.sidebar.dashboardLabel}</span>
             </button>
-          ))}
-        </nav>
-
-        <div className={styles.companyDashboardSupportCard}>
-          <p className={styles.companyDashboardSupportTitle}>Contact us</p>
-          <p className={styles.companyDashboardSupportText}>( Mon to Sun | 9:00 AM - 7:00 PM )</p>
-          <div className={styles.stack}>
-            <a href="/labour/company/contact" className={styles.secondaryButton}>Chat with us</a>
-            <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className={styles.primaryButton} style={{ background: '#16a34a', color: '#ffffff', border: '1px solid transparent' }}>
-              Chat on Whatsapp
+            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => scrollToSection('recent-job-posts')}>
+              <span className={styles.companyDashboardSidebarIcon}>J</span>
+              <span>{content.sidebar.jobRequirementsLabel}</span>
+            </button>
+            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => scrollToSection('recent-applications')}>
+              <span className={styles.companyDashboardSidebarIcon}>A</span>
+              <span>{content.sidebar.applicationsLabel}</span>
+            </button>
+            <button
+              type="button"
+              className={styles.companyDashboardSidebarItem}
+              onClick={() => {
+                scrollToSection('recent-applications')
+              }}
+            >
+              <span className={styles.companyDashboardSidebarIcon}>S</span>
+              <span>{content.sidebar.shortlistedLabel}</span>
+            </button>
+            <button
+              type="button"
+              className={styles.companyDashboardSidebarItem}
+              onClick={() => {
+                scrollToSection('recent-applications')
+              }}
+            >
+              <span className={styles.companyDashboardSidebarIcon}>H</span>
+              <span>{content.sidebar.hiredWorkersLabel}</span>
+            </button>
+            <a href="/labour/company/search" className={styles.companyDashboardSidebarItem}>
+              <span className={styles.companyDashboardSidebarIcon}>W</span>
+              <span>{content.sidebar.searchWorkersLabel}</span>
             </a>
-            <span className={styles.companyDashboardRecommended}>Recommended</span>
-            <a href="/labour/company/contact" className={styles.secondaryButton}>Schedule Training</a>
-            <a href="/labour/company/contact" className={styles.secondaryButton}>HR Best practices</a>
+            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => scrollToSection('company-profile')}>
+              <span className={styles.companyDashboardSidebarIcon}>P</span>
+              <span>{content.sidebar.companyProfileLabel}</span>
+            </button>
+            <a href="/labour/company/pricing" className={styles.companyDashboardSidebarItem}>
+              <span className={styles.companyDashboardSidebarIcon}>B</span>
+              <span>{content.sidebar.billingPlanLabel}</span>
+            </a>
+            <a href="/labour/company/contact" className={styles.companyDashboardSidebarItem}>
+              <span className={styles.companyDashboardSidebarIcon}>M</span>
+              <span>{content.sidebar.messagesLabel}</span>
+            </a>
+            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => scrollToSection('need-help')}>
+              <span className={styles.companyDashboardSidebarIcon}>T</span>
+              <span>{content.sidebar.settingsLabel}</span>
+            </button>
+          </nav>
+
+          <div className={styles.companyDashboardSidebarUpgrade}>
+            <p className={styles.companyDashboardSidebarUpgradeTitle}>{content.upgradeCard.title}</p>
+            <p className={styles.companyDashboardSidebarUpgradeText}>
+              {content.upgradeCard.description}
+            </p>
+            <a href="/labour/company/pricing" className={styles.companyDashboardSidebarUpgradeButton}>
+              {content.upgradeCard.buttonLabel}
+            </a>
           </div>
-        </div>
 
-        <button type="button" className={styles.ghostButton} onClick={handleLogout}>
-          Log out
-        </button>
-      </aside>
+          <button type="button" className={styles.companyDashboardSidebarLogout} onClick={handleLogout}>
+            Log out
+          </button>
+        </aside>
 
-      <div className={styles.companyDashboardContent}>
-        {activeTab === 'jobs' && !selectedJob ? (
-          <section className={styles.companyDashboardSection}>
-            <div className={styles.companyDashboardHeaderRow}>
+        <div className={styles.companyDashboardMain}>
+          <section id="dashboard-top" className={styles.companyDashboardTopbar}>
+            <div className={styles.companyDashboardTopbarIdentity}>
+              <span className={styles.companyDashboardTopbarAvatar}>{companyInitials}</span>
               <div>
-                <h1 className={styles.companyDashboardHeading}>All Jobs ({dashboard.jobs.length})</h1>
-                <p className={styles.textMuted}>Manage live jobs, monitor applicants, and take action quickly.</p>
+                <div className={styles.companyDashboardTopbarTitleRow}>
+                  <h1 className={styles.companyDashboardTopbarTitle}>{dashboard.profile.companyName}</h1>
+                  {dashboard.profile.status === 'active' ? (
+                    <span className={styles.companyDashboardVerifiedBadge}>Verified</span>
+                  ) : null}
+                </div>
+                <p className={styles.companyDashboardTopbarMeta}>
+                  {[dashboard.profile.city, dashboard.profile.state, dashboard.profile.activePlan].filter(Boolean).join(' • ')}
+                </p>
               </div>
-              <a href="/labour/company#company-intake" className={styles.primaryButton} style={{ background: '#0f766e', color: '#ffffff', border: '1px solid transparent' }}>
-                Post a new job
+            </div>
+
+            <div className={styles.companyDashboardTopbarUtilities}>
+              <span className={styles.companyDashboardTopbarNotice}>Pending reviews: {pendingApplications.length}</span>
+              <a href="/labour/company/contact" className={styles.companyDashboardTopbarHelp}>
+                Help
               </a>
-            </div>
-
-            <div className={styles.companyDashboardFilters}>
-              <button type="button" className={styles.companyDashboardFilterPill}>All Filters</button>
-              <button type="button" className={styles.companyDashboardFilterPill}>Active ({countJobsByStatus(dashboard.jobs, 'live')})</button>
-              <button type="button" className={styles.companyDashboardFilterPill}>Under Review ({dashboard.stats.shortlistedApplications})</button>
-              <button type="button" className={styles.companyDashboardFilterPill}>Expired ({countJobsByStatus(dashboard.jobs, 'expired')})</button>
-              <button type="button" className={styles.companyDashboardFilterPill}>Select Plan ({dashboard.profile.activePlan ? 1 : 0})</button>
-            </div>
-
-            <div className={styles.companyDashboardJobList}>
-              {filteredJobs.map(job => (
-                <article
-                  key={job.id}
-                  className={styles.companyDashboardJobCard}
-                  onClick={() => setOpenedJobId(job.id)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className={styles.companyDashboardJobTop}>
-                    <div>
-                      <div className={styles.companyDashboardJobTitleRow}>
-                        <h2 className={styles.companyDashboardJobTitle}>{job.title}</h2>
-                        <span className={styles.chip} style={statusTone(job.status)}>{job.status}</span>
-                      </div>
-                      <p className={styles.textMuted}>
-                        {job.city} | Posted on: {formatDateTime(job.publishedAt)} | {dashboard.profile.contactPerson}
-                      </p>
-                    </div>
-                    <div className={styles.companyDashboardJobActions}>
-                      <span className={styles.companyDashboardMetricBox}>
-                        <strong>{job.totalApplications}</strong>
-                        <span>Applied to job</span>
-                      </span>
-                      <span className={styles.companyDashboardMetricBox}>
-                        <strong>{job.applicants.length * 61}</strong>
-                        <span>Database Matches</span>
-                      </span>
-                    </div>
-                  </div>
-                </article>
-              ))}
+              <span className={styles.companyDashboardTopbarAvatarSmall}>{companyInitials}</span>
             </div>
           </section>
-        ) : null}
 
-        {activeTab === 'jobs' && selectedJob ? (
-          <section className={styles.companyDashboardSection}>
-            <div className={styles.companyDashboardDetailTopbar}>
-              <button
-                type="button"
-                className={styles.companyDashboardBackButton}
-                onClick={() => setOpenedJobId(null)}
-              >
-                Back
-              </button>
-              <div className={styles.companyDashboardDetailMeta}>
-                <h1 className={styles.companyDashboardDetailTitle}>{selectedJob.title}</h1>
-                <span className={styles.chip} style={statusTone(selectedJob.status)}>{selectedJob.status}</span>
-                <span className={styles.companyDashboardDetailCity}>{selectedJob.city}</span>
-              </div>
-              <a href="/labour/company/search" className={styles.companyDashboardMatchesLink}>
-                See Database Matches ({selectedJob.applicants.length * 61})
+          <div className={styles.companyDashboardActionRow}>
+            <div>
+              <p className={styles.eyebrow}>{panelHeaderCopy.eyebrow}</p>
+              <h2 className={styles.companyDashboardPageTitle}>{panelHeaderCopy.title}</h2>
+              {panelHeaderCopy.subtitle ? (
+                <p className={styles.companyDashboardPageText}>{panelHeaderCopy.subtitle}</p>
+              ) : null}
+            </div>
+            <div className={styles.companyDashboardHeaderButtons}>
+              <a href="/labour/company/job-post" className={styles.companyDashboardPrimaryButton}>
+                {content.actions.postNewRequirementLabel}
+              </a>
+              <a href="/labour/company/search" className={styles.companyDashboardSecondaryButton}>
+                {content.actions.browseWorkersLabel}
               </a>
             </div>
+          </div>
 
-            <div className={styles.companyDashboardDetailStats}>
-              <div className={styles.companyDashboardDetailStatCard}>
-                <strong>{selectedJob.applicants.length}</strong>
-                <span>All candidates</span>
-              </div>
-              <div className={styles.companyDashboardDetailStatCard}>
-                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'submitted').length}</strong>
-                <span>Action Pending</span>
-              </div>
-              <div className={styles.companyDashboardDetailStatCard}>
-                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'reviewed').length}</strong>
-                <span>Viewed Number</span>
-              </div>
-              <div className={styles.companyDashboardDetailStatCard}>
-                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'shortlisted').length}</strong>
-                <span>Shortlisted</span>
-              </div>
-              <div className={styles.companyDashboardDetailStatCard}>
-                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'rejected').length}</strong>
-                <span>Rejected</span>
+          <section className={styles.companyDashboardHero}>
+            <div className={styles.companyDashboardHeroContent}>
+              <p className={styles.eyebrow}>{content.hero.eyebrow}</p>
+              <h2 className={styles.companyDashboardHeroTitle}>
+                {heroTitleParts.leading} {heroTitleParts.highlighted ? <span>{heroTitleParts.highlighted}</span> : null}
+              </h2>
+              <p className={styles.companyDashboardHeroText}>
+                {content.hero.description}
+              </p>
+              <div className={styles.companyDashboardHeroChips}>
+                <div className={styles.companyDashboardHeroChipGroup}>
+                  <span className={styles.companyDashboardHeroChip}>{content.hero.featureChip1Title}</span>
+                  <small>{content.hero.featureChip1Description}</small>
+                </div>
+                <div className={styles.companyDashboardHeroChipGroup}>
+                  <span className={styles.companyDashboardHeroChip}>{content.hero.featureChip2Title}</span>
+                  <small>{content.hero.featureChip2Description}</small>
+                </div>
               </div>
             </div>
 
-            <div className={styles.companyDashboardCandidateLayout}>
-              <aside className={styles.companyDashboardCandidateFilters}>
-                <div className={styles.companyDashboardCandidateFilterCard}>
-                  <p className={styles.companyDashboardFilterHeading}>Filters</p>
-
-                  <div className={styles.companyDashboardCheckboxRow}>
-                    <input
-                      id="matchedOnly"
-                      type="checkbox"
-                      checked={showMatchedOnly}
-                      onChange={event => setShowMatchedOnly(event.target.checked)}
-                    />
-                    <label htmlFor="matchedOnly">Matched to job requirements ({selectedJob.applicants.length})</label>
-                  </div>
-
-                  <div className={styles.companyDashboardCheckboxRow}>
-                    <input
-                      id="resumeOnly"
-                      type="checkbox"
-                      checked={showWithResumeOnly}
-                      onChange={event => setShowWithResumeOnly(event.target.checked)}
-                    />
-                    <label htmlFor="resumeOnly">Have profile attached ({selectedJob.applicants.filter(applicant => applicant.profilePhotoPath).length})</label>
-                  </div>
-
-                  <div className={styles.companyDashboardCheckboxRow}>
-                    <input
-                      id="contactOnly"
-                      type="checkbox"
-                      checked={showTriedContactOnly}
-                      onChange={event => setShowTriedContactOnly(event.target.checked)}
-                    />
-                    <label htmlFor="contactOnly">Direct contact unlocked ({selectedJob.applicants.filter(applicant => applicant.canContactDirectly).length})</label>
-                  </div>
+            <div className={styles.companyDashboardHeroMedia}>
+              <img
+                src={content.hero.imageSrc || '/worker-hero-reference.png'}
+                alt="Skilled workers at work"
+                className={styles.companyDashboardHeroImage}
+              />
+              <div className={styles.companyDashboardHeroFloatingCard}>
+                <p className={styles.companyDashboardHeroFloatingTitle}>{content.hero.trustCardTitle}</p>
+                <p className={styles.companyDashboardHeroFloatingMeta}>{content.hero.trustCardSubtitle}</p>
+                <div className={styles.companyDashboardHeroFloatingFooter}>
+                  <span className={styles.companyDashboardHeroFloatingFaces}>AA • RK • SM • IP</span>
+                  <span className={styles.companyDashboardHeroFloatingRating}>{content.hero.trustRatingText}</span>
                 </div>
-              </aside>
+              </div>
+            </div>
+          </section>
 
-              <div className={styles.companyDashboardCandidateColumn}>
-                <div className={styles.companyDashboardCandidateHeader}>
-                  <p className={styles.companyDashboardFilterHeading}>Showing {selectedJobApplicants.length} candidates</p>
-                </div>
+          {error ? (
+            <div className={styles.companyPanelActionNotice}>
+              <p style={{ margin: 0, color: '#b91c1c' }}>{error}</p>
+            </div>
+          ) : null}
 
-                {selectedJobApplicants.map(applicant => (
-                  <article key={applicant.applicationId} className={styles.companyDashboardCandidateCard}>
-                    <div className={styles.companyDashboardCandidateTop}>
+          {actionMessage ? (
+            <div className={styles.companyPanelActionNotice}>
+              <p style={{ margin: 0 }}>{actionMessage}</p>
+            </div>
+          ) : null}
+
+          <section className={styles.companyDashboardStatsGrid}>
+            {[
+              {
+                label: content.stats.totalJobPostsLabel,
+                value: totalJobPosts,
+                description: content.stats.totalJobPostsDescription
+              },
+              {
+                label: content.stats.activeJobPostsLabel,
+                value: dashboard.stats.liveJobPosts,
+                description: content.stats.activeJobPostsDescription
+              },
+              {
+                label: content.stats.totalApplicationsLabel,
+                value: dashboard.stats.totalApplications,
+                description: content.stats.totalApplicationsDescription
+              },
+              {
+                label: content.stats.shortlistedLabel,
+                value: dashboard.stats.shortlistedApplications,
+                description: content.stats.shortlistedDescription
+              }
+            ].map((item, index) => (
+              <article key={item.label} className={styles.companyDashboardStatCard}>
+                <span className={styles.companyDashboardStatIcon}>{['J', 'L', 'A', 'S'][index]}</span>
+                <p className={styles.companyDashboardStatLabel}>{item.label}</p>
+                <strong className={styles.companyDashboardStatValue}>{item.value}</strong>
+                <p className={styles.companyDashboardStatDescription}>{item.description}</p>
+                <button
+                  type="button"
+                  className={styles.companyDashboardStatLink}
+                  onClick={() => scrollToSection(index < 2 ? 'recent-job-posts' : 'recent-applications')}
+                >
+                  View All
+                </button>
+              </article>
+            ))}
+          </section>
+
+          <section id="recent-job-posts" className={styles.companyDashboardSectionCard}>
+            <div className={styles.companyDashboardSectionHeader}>
+              <div>
+                <h3 className={styles.companyDashboardSectionTitle}>{content.recentJobs.title}</h3>
+                <p className={styles.companyDashboardSectionText}>Your latest worker requirements and their current hiring progress.</p>
+              </div>
+              <button type="button" className={styles.companyDashboardSectionLink} onClick={() => scrollToSection('recent-job-posts')}>
+                {content.recentJobs.viewAllLabel}
+              </button>
+            </div>
+
+            {latestJobs.length === 0 ? (
+              <div className={styles.softCard}>
+                <p style={{ margin: 0, color: '#475569', fontWeight: 600 }}>
+                  {content.recentJobs.emptyTitle} {content.recentJobs.emptyDescription}
+                </p>
+              </div>
+            ) : (
+              <div className={styles.companyDashboardJobList}>
+                {latestJobs.map(job => (
+                  <article key={job.id} className={styles.companyDashboardJobRow}>
+                    <div className={styles.companyDashboardJobIdentity}>
                       <div>
-                        <p className={styles.companyDashboardCandidateName}>{applicant.fullName}</p>
-                        <p className={styles.textMuted}>
-                          {applicant.city} | {availabilityLabel(applicant.availability)} | {formatCurrency(applicant.expectedDailyWage)}
+                        <div className={styles.companyDashboardJobTitleRow}>
+                          <p className={styles.companyDashboardJobTitle}>{truncateJobTitle(job.title, 8)}</p>
+                          <span className={styles.companyPanelJobStatusChip} style={statusTone(job.status)}>
+                            {companyJobStatusLabel(job.status)}
+                          </span>
+                        </div>
+                        <p className={styles.companyDashboardJobMeta}>
+                          {job.city} • Posted on {formatDate(job.publishedAt)}
                         </p>
                       </div>
-                      <span className={styles.chip} style={statusTone(applicant.status)}>{applicant.status}</span>
                     </div>
 
-                    <div className={styles.companyDashboardMatchingBox}>
-                      <span className={styles.companyDashboardMatchingLabel}>Matching:</span>
-                      <div className={styles.chipRow}>
-                        {applicant.categoryLabels.map(label => (
-                          <span
-                            key={`${applicant.applicationId}-${label}`}
-                            className={styles.chip}
-                            style={{ background: '#ffffff', color: '#4f46e5', border: '1px solid #c7d2fe' }}
-                          >
-                            {label}
-                          </span>
-                        ))}
-                        {applicant.skills.slice(0, 3).map(skill => (
-                          <span
-                            key={`${applicant.applicationId}-${skill}`}
-                            className={styles.chip}
-                            style={{ background: '#ffffff', color: '#4f46e5', border: '1px solid #c7d2fe' }}
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
+                    <div className={styles.companyDashboardJobMetrics}>
+                      <span><strong>{job.totalApplications}</strong> Applications</span>
+                      <span><strong>{job.shortlistedCount}</strong> Shortlisted</span>
+                      <span><strong>{job.hiredCount}</strong> Hired</span>
                     </div>
 
-                    <div className={styles.companyDashboardCandidateFacts}>
-                      <span><strong>Experience:</strong> {applicant.experienceYears} years</span>
-                      <span><strong>Skills:</strong> {applicant.skills.join(', ') || 'Not added'}</span>
-                      <span><strong>Categories:</strong> {applicant.categoryLabels.join(', ') || 'Not mapped'}</span>
-                      <span><strong>Note:</strong> {applicant.note || 'No note added by worker'}</span>
-                    </div>
-
-                    <div className={styles.buttonRow}>
-                      {applicant.whatsappUrl ? (
-                        <a
-                          href={applicant.whatsappUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={styles.primaryButton}
-                          style={{ background: '#16a34a', color: '#ffffff', border: '1px solid transparent' }}
+                    <div className={styles.companyDashboardJobActions}>
+                      <button type="button" className={styles.companyDashboardListButton} onClick={() => openJobDetailWindow(job)}>
+                        {content.recentJobs.viewDetailsLabel}
+                      </button>
+                      <div className={styles.companyPanelMenuWrap}>
+                        <button
+                          type="button"
+                          className={styles.companyDashboardMoreButton}
+                          onClick={() => setOpenJobMenuId(current => current === job.id ? null : job.id)}
                         >
-                          Chat on Whatsapp
-                        </a>
-                      ) : null}
-
-                      <button
-                        type="button"
-                        className={styles.secondaryButton}
-                        disabled={submitting || applicant.status === 'rejected'}
-                        onClick={() => updateStatus(applicant.applicationId, 'rejected')}
-                        style={{ color: '#dc2626', borderColor: '#fecaca' }}
-                      >
-                        Reject
-                      </button>
-
-                      <button
-                        type="button"
-                        className={styles.secondaryButton}
-                        disabled={submitting || applicant.status === 'reviewed'}
-                        onClick={() => updateStatus(applicant.applicationId, 'reviewed')}
-                      >
-                        Mark reviewed
-                      </button>
-
-                      <button
-                        type="button"
-                        className={styles.primaryButton}
-                        style={{ background: '#2563eb', color: '#ffffff', border: '1px solid transparent' }}
-                        disabled={submitting || applicant.status === 'shortlisted'}
-                        onClick={() => updateStatus(applicant.applicationId, 'shortlisted')}
-                      >
-                        Shortlist
-                      </button>
-
-                      <button
-                        type="button"
-                        className={styles.primaryButton}
-                        style={{ background: '#0f766e', color: '#ffffff', border: '1px solid transparent' }}
-                        disabled={submitting || applicant.status === 'hired'}
-                        onClick={() => updateStatus(applicant.applicationId, 'hired')}
-                      >
-                        Mark hired
-                      </button>
+                          ...
+                        </button>
+                        {openJobMenuId === job.id ? (
+                          <div className={styles.companyPanelMenu}>
+                            <button type="button" className={styles.companyPanelMenuItem} onClick={() => openCompanyIntake(job, 'edit')}>
+                              Edit job
+                            </button>
+                            <button type="button" className={styles.companyPanelMenuItem} onClick={() => openCompanyIntake(job, 'duplicate')}>
+                              Duplicate
+                            </button>
+                            <button type="button" className={styles.companyPanelMenuItem} onClick={() => shareJob(job, 'whatsapp')}>
+                              Share on WhatsApp
+                            </button>
+                            <button type="button" className={`${styles.companyPanelMenuItem} ${styles.companyPanelMenuItemDanger}`} onClick={() => expireJobNotice(job)}>
+                              Expire job
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </article>
                 ))}
               </div>
+            )}
+          </section>
+
+          <section className={styles.companyDashboardSplitGrid}>
+            <div id="recent-applications" className={styles.companyDashboardSectionCard}>
+              <div className={styles.companyDashboardSectionHeader}>
+                <div>
+                  <h3 className={styles.companyDashboardSectionTitle}>{content.recentApplications.title}</h3>
+                  <p className={styles.companyDashboardSectionText}>Latest worker responses from your active and recent job posts.</p>
+                </div>
+                <button type="button" className={styles.companyDashboardSectionLink} onClick={() => scrollToSection('recent-applications')}>
+                  {content.recentApplications.viewAllLabel}
+                </button>
+              </div>
+
+              {recentApplicationItems.length === 0 ? (
+                <div className={styles.softCard}>
+                  <p style={{ margin: 0, color: '#475569', fontWeight: 600 }}>
+                    {content.recentApplications.emptyTitle} {content.recentApplications.emptyDescription}
+                  </p>
+                </div>
+              ) : (
+                <div className={styles.companyDashboardApplicationsList}>
+                  {recentApplicationItems.map(application => {
+                    const relatedJob = jobLookup.get(application.jobId)
+
+                    return (
+                      <article key={application.applicationId} className={styles.companyDashboardApplicationRow}>
+                        <div className={styles.companyDashboardApplicationIdentity}>
+                          <span className={styles.companyDashboardApplicationAvatar}>
+                            {application.profilePhotoPath ? (
+                              <img
+                                src={application.profilePhotoPath}
+                                alt={application.fullName}
+                                className={styles.companyDashboardApplicationAvatarImage}
+                              />
+                            ) : (
+                              application.fullName.slice(0, 2).toUpperCase()
+                            )}
+                          </span>
+                          <div>
+                            <div className={styles.companyDashboardApplicationTitleRow}>
+                              <p className={styles.companyDashboardApplicationName}>{application.fullName}</p>
+                              <span className={styles.companyDashboardApplicationStatus} style={statusTone(application.status)}>
+                                {labelFromStatus(application.status)}
+                              </span>
+                            </div>
+                            <p className={styles.companyDashboardApplicationMeta}>
+                              {truncateJobTitle(application.jobTitle, 5)} • Applied on {formatDate(application.appliedAt)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className={styles.companyDashboardListButton}
+                          onClick={() => relatedJob ? openJobDetailWindow(relatedJob) : scrollToSection('recent-applications')}
+                        >
+                          {content.recentApplications.viewProfileLabel}
+                        </button>
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className={styles.companyDashboardSideColumn}>
+              <div id="company-actions" className={styles.companyDashboardSectionCard}>
+                <div className={styles.companyDashboardSectionHeader}>
+                  <div>
+                    <h3 className={styles.companyDashboardSectionTitle}>{content.quickActions.title}</h3>
+                    <p className={styles.companyDashboardSectionText}>Jump into the most common hiring tasks from here.</p>
+                  </div>
+                </div>
+
+                <div className={styles.companyDashboardQuickActions}>
+                  <a href="/labour/company/job-post" className={styles.companyDashboardQuickAction}>
+                    <span className={styles.companyDashboardQuickActionIcon}>+</span>
+                    <span>
+                      <strong>{quickActionItems[0]?.title}</strong>
+                      <small>{quickActionItems[0]?.description}</small>
+                    </span>
+                    <em>›</em>
+                  </a>
+                  <a href="/labour/company/search" className={styles.companyDashboardQuickAction}>
+                    <span className={styles.companyDashboardQuickActionIcon}>W</span>
+                    <span>
+                      <strong>{quickActionItems[1]?.title}</strong>
+                      <small>{quickActionItems[1]?.description}</small>
+                    </span>
+                    <em>›</em>
+                  </a>
+                  <button type="button" className={styles.companyDashboardQuickAction} onClick={() => scrollToSection('recent-applications')}>
+                    <span className={styles.companyDashboardQuickActionIcon}>A</span>
+                    <span>
+                      <strong>{quickActionItems[2]?.title}</strong>
+                      <small>{quickActionItems[2]?.description}</small>
+                    </span>
+                    <em>›</em>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.companyDashboardQuickAction}
+                    onClick={() => {
+                      scrollToSection('recent-applications')
+                    }}
+                  >
+                    <span className={styles.companyDashboardQuickActionIcon}>S</span>
+                    <span>
+                      <strong>{quickActionItems[3]?.title}</strong>
+                      <small>{quickActionItems[3]?.description}</small>
+                    </span>
+                    <em>›</em>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.companyDashboardQuickAction}
+                    onClick={() => {
+                      scrollToSection('recent-applications')
+                    }}
+                  >
+                    <span className={styles.companyDashboardQuickActionIcon}>H</span>
+                    <span>
+                      <strong>{quickActionItems[4]?.title}</strong>
+                      <small>{quickActionItems[4]?.description}</small>
+                    </span>
+                    <em>›</em>
+                  </button>
+                </div>
+              </div>
+
+              <div id="need-help" className={styles.companyDashboardHelpCard}>
+                <div>
+                  <h3 className={styles.companyDashboardSectionTitle}>{content.support.title}</h3>
+                  <p className={styles.companyDashboardSectionText}>
+                    {content.support.description}
+                  </p>
+                </div>
+                {content.support.imageSrc ? (
+                  <img
+                    src={content.support.imageSrc}
+                    alt={content.support.title}
+                    className={styles.companyDashboardHelpImage}
+                  />
+                ) : null}
+                <a href="/labour/company/contact" className={styles.companyDashboardHelpButton}>
+                  {content.support.buttonLabel}
+                </a>
+              </div>
             </div>
           </section>
-        ) : null}
 
-        {activeTab === 'usage' ? (
-          <section className={styles.companyDashboardSection}>
-            <div className={styles.companyDashboardHeaderRow}>
-              <div>
-                <h1 className={styles.companyDashboardHeading}>Plan & Usage</h1>
-                <p className={styles.textMuted}>Track plan status, credits, and recent usage signals.</p>
+          <section id="plan-summary" className={styles.companyDashboardPlanBar}>
+            <div className={styles.companyDashboardPlanItem}>
+              <span className={styles.companyDashboardPlanLabel}>{content.planSummary.currentPlanLabel}</span>
+              <strong>{dashboard.profile.activePlan || 'Plan details unavailable'}</strong>
+            </div>
+            <div className={styles.companyDashboardPlanItem}>
+              <span className={styles.companyDashboardPlanLabel}>{content.planSummary.validTillLabel}</span>
+              <strong>Plan details unavailable</strong>
+            </div>
+            <div className={styles.companyDashboardPlanItem}>
+              <span className={styles.companyDashboardPlanLabel}>{content.planSummary.jobPostsLabel}</span>
+              <strong>{totalJobPosts ? `${dashboard.stats.liveJobPosts} live / ${totalJobPosts} total` : 'No job posts yet'}</strong>
+            </div>
+            <div className={styles.companyDashboardPlanItem}>
+              <span className={styles.companyDashboardPlanLabel}>{content.planSummary.applicationsLabel}</span>
+              <strong>{dashboard.stats.totalApplications ? `${dashboard.stats.totalApplications} handled` : 'No applications yet'}</strong>
+            </div>
+            <a href="/labour/company/pricing" className={styles.companyDashboardPlanButton}>
+              {content.planSummary.upgradeButtonLabel}
+            </a>
+          </section>
+        </div>
+      </section>
+    </>
+  )
+
+  /*
+  return (
+    <>
+      <section className={styles.heroGrid} style={{ marginBottom: '18px' }}>
+        <div className={styles.companySnapshotCard}>
+          <div className={styles.companySnapshotBadgeRow}>
+            <span className={styles.companySnapshotCity}>{dashboard.profile.city || 'Worker hub'}</span>
+          </div>
+
+          <h2 className={styles.companySnapshotTitle}>{dashboard.profile.companyName}</h2>
+
+          {dashboard.profile.activeJobCategoryLabels.length ? (
+            <div className={styles.companySnapshotJobCategoryBlock}>
+              <p className={styles.companySnapshotJobCategoryLabel}>Active job post categories</p>
+              <div className={styles.companySnapshotJobCategoryRow}>
+                {dashboard.profile.activeJobCategoryLabels.map(label => (
+                  <span key={label} className={styles.companySnapshotJobCategoryChip}>
+                    {label}
+                  </span>
+                ))}
               </div>
-              <a href="/labour/company/pricing" className={styles.primaryButton} style={{ background: '#0f766e', color: '#ffffff', border: '1px solid transparent' }}>
-                Buy more credits
-              </a>
             </div>
+          ) : null}
 
-            <div className={styles.companyDashboardWarning}>
-              <strong>{dashboard.profile.contactPerson}, plan usage update</strong>
-              <span>
-                Active plan: {dashboard.profile.activePlan || 'Not assigned'} | Upgrade or renew to continue premium worker access and job visibility.
-              </span>
-            </div>
+          <div className={styles.companySnapshotMetrics}>
+            {[
+              { label: 'Live Jobs', value: dashboard.stats.liveJobPosts },
+              { label: 'Applications', value: dashboard.stats.totalApplications },
+              { label: 'Shortlisted', value: dashboard.stats.shortlistedApplications },
+              { label: 'Hired', value: dashboard.stats.hiredApplications }
+            ].map(item => (
+              <div key={item.label} className={styles.companySnapshotMetric}>
+                <p className={styles.companySnapshotMetricLabel}>{item.label}</p>
+                <p className={styles.companySnapshotMetricValue}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
 
-            <div className={styles.companyDashboardUsageGrid}>
+        <div className={styles.companyActionCard}>
+          <p className={styles.eyebrow} style={{ color: '#0f172a' }}>Connected workflow</p>
+          <h1 className={styles.sectionTitle}>Company visibility follows live hiring activity</h1>
+          <p className={styles.textMuted}>
+            This company card is synced with the same worker marketplace data used by `/admin/labour`.
+          </p>
+
+          <div className={styles.stack} style={{ marginTop: '18px' }}>
+            {[
+              'This card shows real company numbers pulled from the current worker marketplace snapshot.',
+              'Active job post categories here stay synced with the live Job Posts data in worker admin.',
+              canUnlockWorkers
+                ? "Visible worker search access stays tied to this company's live hiring categories."
+                : 'This company must stay active and post a live job before worker contacts are unlocked.'
+            ].map(item => (
+              <div key={item} className={styles.bullet}>
+                <span className={styles.bulletDot} style={{ background: '#0f172a' }} />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.companyActionInlineRow}>
+            <a href="/labour/company/job-post" target="_blank" rel="noreferrer" className={`${styles.companyActionMiniSecondary} ${styles.companyActionPulse}`}>
+              Post Requirement
+            </a>
+            <a href="/labour/company/panel" target="_blank" rel="noreferrer" className={`${styles.companyActionMiniPrimary} ${styles.companyActionPulse}`}>
+              Open Company Panel
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="company-panel-jobs" className={styles.companyPanelShell}>
+        <aside className={styles.companyPanelSidebar}>
+        <div className={styles.companyPanelSidebarBrand}>
+          <span className={styles.companyPanelSidebarLogo}>NC</span>
+          <div>
+            <p className={styles.companyPanelSidebarName}>{dashboard.profile.companyName}</p>
+            <p className={styles.companyPanelSidebarMeta}>{dashboard.profile.city} | {dashboard.profile.status}</p>
+          </div>
+        </div>
+
+        <div className={styles.companyPanelSidebarNav}>
+          <div className={`${styles.companyPanelSidebarItem} ${styles.companyPanelSidebarItemActive}`}>Jobs</div>
+          <a href="/labour/company/search" className={styles.companyPanelSidebarItemLink}>Search Workers</a>
+          <a href="/labour/company/pricing" className={styles.companyPanelSidebarItemLink}>Credits &amp; Usage</a>
+          <a href="/labour/company/pricing" className={styles.companyPanelSidebarItemLink}>Billing</a>
+          <a href="/labour/company/contact" className={styles.companyPanelSidebarItemLink}>Help &amp; Support</a>
+        </div>
+
+        <div className={styles.companyPanelSidebarPromo}>
+          <p className={styles.companyPanelSidebarPromoTitle}>Oh no! You&apos;ve run out of credits.</p>
+          <a href="/labour/company/pricing" className={styles.companyPanelSidebarPromoLink}>View</a>
+        </div>
+
+        <div className={styles.companyPanelSidebarFooter}>
+          <button type="button" className={styles.companyPanelSidebarLogout} onClick={handleLogout}>
+            Log out
+          </button>
+          <a href="/labour/company/pricing" className={styles.companyPanelSidebarBuyButton}>
+            Buy credits
+          </a>
+        </div>
+        </aside>
+
+        <div className={styles.companyPanelMain}>
+        <details className={styles.companyPanelPendingBar}>
+          <summary className={styles.companyPanelPendingSummary}>
+            <span>Pending Actions ({pendingApplications.length})</span>
+            <span className={styles.companyPanelPendingCaret}>v</span>
+          </summary>
+          <div className={styles.companyPanelPendingContent}>
+            <div className={styles.companyPanelPendingStats}>
               {[
-                ['Job Credits', String(usageSummary.jobCredits), 'credits'],
-                ['AI Calling Credits', String(usageSummary.aiCallingCredits), 'credits'],
-                ['Database Credits', String(usageSummary.databaseCredits), 'credits']
-              ].map(([label, value, unit]) => (
-                <div key={label} className={styles.companyDashboardUsageCard}>
-                  <p className={styles.companyDashboardUsageLabel}>{label}</p>
-                  <p className={styles.companyDashboardUsageValue}>{value}</p>
-                  <p className={styles.textMuted}>{unit}</p>
+                { label: 'Live jobs', value: String(dashboard.stats.liveJobPosts) },
+                { label: 'Applications', value: String(dashboard.stats.totalApplications) },
+                { label: 'Shortlisted', value: String(dashboard.stats.shortlistedApplications) },
+                { label: 'Hired', value: String(dashboard.stats.hiredApplications) }
+              ].map(item => (
+                <div key={item.label} className={styles.companyPanelSidebarStat}>
+                  <span className={styles.companyPanelSidebarStatValue}>{item.value}</span>
+                  <span className={styles.companyPanelSidebarStatLabel}>{item.label}</span>
                 </div>
               ))}
             </div>
-          </section>
-        ) : null}
 
-        {activeTab === 'billing' ? (
-          <section className={styles.companyDashboardSection}>
-            <div className={styles.companyDashboardHeaderRow}>
-              <div>
-                <h1 className={styles.companyDashboardHeading}>Billing</h1>
-                <p className={styles.textMuted}>Billing profile, active plan snapshot, and payment history.</p>
-              </div>
-              <a href="/labour/company/contact" className={styles.secondaryButton}>Update GST / Billing</a>
-            </div>
-
-            <div className={styles.companyDashboardInfoCard}>
-              <h2 className={styles.sectionTitle}>Billing profile</h2>
-              <div className={styles.stack}>
-                <p className={styles.textMuted}><strong>Company name:</strong> {dashboard.profile.companyName}</p>
-                <p className={styles.textMuted}><strong>Contact person:</strong> {dashboard.profile.contactPerson}</p>
-                <p className={styles.textMuted}><strong>City:</strong> {dashboard.profile.city}</p>
-                <p className={styles.textMuted}><strong>Active plan:</strong> {dashboard.profile.activePlan || 'Not assigned'}</p>
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        {activeTab === 'support' ? (
-          <section className={styles.companyDashboardSection}>
-            <div className={styles.companyDashboardHeaderRow}>
-              <div>
-                <h1 className={styles.companyDashboardHeading}>Help & Support FAQ</h1>
-                <p className={styles.textMuted}>Training, chat support, and HR best-practice guidance for your team.</p>
-              </div>
-            </div>
-
-            <div className={styles.companyDashboardSupportGrid}>
-              <div className={styles.companyDashboardInfoCard}>
-                <h2 className={styles.sectionTitle}>Contact us</h2>
-                <p className={styles.textMuted}>( Mon to Sun | 9:00 AM - 7:00 PM )</p>
-                <div className={styles.stack}>
-                  <a href="/labour/company/contact" className={styles.secondaryButton}>Chat with us</a>
-                  <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className={styles.primaryButton} style={{ background: '#16a34a', color: '#ffffff', border: '1px solid transparent' }}>
-                    Chat on Whatsapp
-                  </a>
-                  <span className={styles.companyDashboardRecommended}>Recommended</span>
-                  <a href="/labour/company/contact" className={styles.secondaryButton}>Schedule Training</a>
-                  <a href="/labour/company/contact" className={styles.secondaryButton}>HR Best practices</a>
+            {pendingApplications.length === 0 ? (
+              <p className={styles.textMuted}>No pending application reviews right now.</p>
+            ) : pendingApplications.slice(0, 4).map(applicant => (
+              <div key={applicant.applicationId} className={styles.companyPanelPendingItem}>
+                <div>
+                  <p className={styles.companyPanelPendingName}>{applicant.fullName}</p>
+                  <p className={styles.textMuted}>{applicant.city} | {formatCurrency(applicant.expectedDailyWage)} expected</p>
                 </div>
+                <span className={styles.chip} style={statusTone(applicant.status)}>{applicant.status}</span>
               </div>
+            ))}
+          </div>
+        </details>
 
-              <div className={styles.companyDashboardInfoCard}>
-                <h2 className={styles.sectionTitle}>FAQ</h2>
-                <div className={styles.stack}>
-                  {supportFaqs.map(item => (
-                    <div key={item.question} className={styles.softCard}>
-                      <p className={styles.companyDashboardFaqQuestion}>{item.question}</p>
-                      <p className={styles.textMuted}>{item.answer}</p>
+        <div className={styles.companyPanelCanvas}>
+          <div className={styles.companyPanelHeaderRow}>
+            <div>
+              <p className={styles.eyebrow}>Company panel</p>
+              <h1 className={styles.companyPanelTitle}>All Jobs ({filteredJobs.length})</h1>
+              <p className={styles.textMuted}>Review applicants, track live jobs, and manage hiring from one place.</p>
+            </div>
+            <div className={styles.buttonRow}>
+              <a href="/labour/company/job-post" target="_blank" rel="noreferrer" className={styles.primaryButton} style={{ background: '#0f172a', color: '#ffffff', border: '1px solid transparent' }}>
+                Post Requirement
+              </a>
+              <a href="/labour/company/search" className={styles.secondaryButton}>
+                Browse Worker Search
+              </a>
+            </div>
+          </div>
+
+          <div className={styles.companyPanelFilterRow}>
+            <select
+              value={selectedJobId}
+              onChange={event => setSelectedJobId(event.target.value)}
+              className={styles.companyPanelSelect}
+            >
+              <option value="all">All job posts</option>
+              {dashboard.jobs.map(job => (
+                <option key={job.id} value={job.id}>{job.title}</option>
+              ))}
+            </select>
+
+            <div className={styles.companyPanelStatusPills}>
+              {[
+                { label: 'All', value: 'all' },
+                { label: 'Submitted', value: 'submitted' },
+                { label: 'Reviewed', value: 'reviewed' },
+                { label: 'Shortlisted', value: 'shortlisted' },
+                { label: 'Rejected', value: 'rejected' },
+                { label: 'Hired', value: 'hired' }
+              ].map(item => (
+                <button
+                  key={item.value}
+                  type="button"
+                  className={selectedStatus === item.value ? styles.companyPanelFilterPillActive : styles.companyPanelFilterPill}
+                  onClick={() => setSelectedStatus(item.value)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {error ? (
+            <div className={styles.softCard} style={{ marginBottom: '18px', borderColor: '#fecaca', background: '#fef2f2' }}>
+              <p style={{ margin: 0, color: '#b91c1c', fontWeight: 700 }}>{error}</p>
+            </div>
+          ) : null}
+
+          {actionMessage ? (
+            <div className={styles.companyPanelActionNotice}>
+              <p style={{ margin: 0 }}>{actionMessage}</p>
+            </div>
+          ) : null}
+
+          <div className={styles.stack}>
+            {filteredJobs.length === 0 ? (
+              <div className={styles.softCard}>
+                <p style={{ margin: 0, color: '#475569', fontWeight: 700 }}>No worker applications match the current filter.</p>
+              </div>
+            ) : paginatedJobs.map(job => {
+              const pendingCount = job.applicants.filter(applicant => applicant.status === 'submitted').length
+
+              return (
+                <article key={job.id} className={styles.companyPanelJobCard}>
+                  <div className={styles.companyPanelJobSummary} onClick={() => openJobDetailWindow(job)} role="button" tabIndex={0} onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      openJobDetailWindow(job)
+                    }
+                  }}>
+                  <div className={styles.companyPanelJobSummaryMain}>
+                    <div className={styles.companyPanelJobSummaryIdentity}>
+                        {isLiveCompanyJob(job.status) ? (
+                          <span className={styles.companyPanelJobStar} aria-hidden="true">★</span>
+                        ) : null}
+                        <div>
+                          <div className={styles.companyPanelJobTitleRow}>
+                           <p className={styles.companyPanelJobTitle}>{truncateJobTitle(job.title)}</p>
+                             <span className={styles.companyPanelJobStatusChip} style={statusTone(job.status)}>{companyJobStatusLabel(job.status)}</span>
+                           </div>
+                           <p className={styles.companyPanelJobMeta}>
+                             {job.city} | Posted on : {formatDateTime(job.publishedAt)}
+                           </p>
+                         </div>
+                       </div>
+
+                      <div className={styles.companyPanelJobSummaryBadges}>
+                        <span className={styles.companyPanelSummaryMetric}>
+                          <strong>{job.totalApplications}</strong>
+                          <span>Applied to job</span>
+                        </span>
+                        <span className={styles.companyPanelSummaryMetric}>
+                          <strong>{job.applicants.length}</strong>
+                          <span>Database matches</span>
+                        </span>
+                        {pendingCount > 0 ? (
+                          <span className={styles.companyPanelPendingMiniBadge}>{pendingCount} pending</span>
+                        ) : null}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+
+                    <div className={styles.companyPanelJobSummaryActions} onClick={event => {
+                      event.stopPropagation()
+                    }}>
+                      <button
+                        type="button"
+                        className={styles.companyPanelSummaryButton}
+                        onClick={() => openCompanyIntake(job, 'duplicate')}
+                      >
+                        Duplicate
+                      </button>
+
+                      <div className={styles.companyPanelMenuWrap}>
+                        <button
+                          type="button"
+                          className={styles.companyPanelMenuButton}
+                          onClick={() => setOpenJobMenuId(current => current === job.id ? null : job.id)}
+                        >
+                          ...
+                        </button>
+
+                        {openJobMenuId === job.id ? (
+                          <div className={styles.companyPanelMenu}>
+                            <button type="button" className={styles.companyPanelMenuItem} onClick={() => openCompanyIntake(job, 'edit')}>
+                              Edit job
+                            </button>
+                            <button type="button" className={styles.companyPanelMenuItem} onClick={() => shareJob(job, 'whatsapp')}>
+                              Share on WhatsApp
+                            </button>
+                            <button type="button" className={styles.companyPanelMenuItem} onClick={() => shareJob(job, 'facebook')}>
+                              Share on Facebook
+                            </button>
+                            <button type="button" className={styles.companyPanelMenuItem} onClick={() => shareJob(job, 'instagram')}>
+                              Share on Instagram
+                            </button>
+                            <button type="button" className={`${styles.companyPanelMenuItem} ${styles.companyPanelMenuItemDanger}`} onClick={() => expireJobNotice(job)}>
+                              Expire job
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+
+          {filteredJobs.length > JOBS_PER_PAGE ? (
+            <div className={styles.companyPanelPagination}>
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map(pageNumber => (
+                <button
+                  key={pageNumber}
+                  type="button"
+                  className={pageNumber === currentPage ? styles.companyPanelPaginationButtonActive : styles.companyPanelPaginationButton}
+                  onClick={() => setCurrentPage(pageNumber)}
+                >
+                  {pageNumber}
+                </button>
+              ))}
             </div>
-          </section>
-        ) : null}
-      </div>
-    </section>
+          ) : null}
+        </div>
+        </div>
+      </section>
+    </>
   )
+  */
 }

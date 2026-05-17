@@ -1467,7 +1467,8 @@ export default function AdminPage() {
               <button className="secondary-btn" onClick={openCreateClient}>Add Client</button>
               <button className="secondary-btn" onClick={openCreateModule}>Add Module</button>
               <button className="secondary-btn" onClick={() => window.open('/admin/labour', '_blank', 'noopener,noreferrer')}>Labour Admin</button>
-              <button className="secondary-btn" onClick={() => window.open('/admin/labour/website', '_blank', 'noopener,noreferrer')}>Edit Website</button>
+              <button className="secondary-btn" onClick={() => window.open('/admin/main-website', '_blank', 'noopener,noreferrer')}>Main Website</button>
+              <button className="secondary-btn" onClick={() => window.open('/admin/labour/website', '_blank', 'noopener,noreferrer')}>Labour Website</button>
               <button className="primary-btn" onClick={() => void loadData()}>Refresh</button>
             </div>
           </div>
@@ -1537,6 +1538,8 @@ export default function AdminPage() {
                   <div className="actions">
                     <button className="primary-btn" onClick={openCreateClient}>Create Client</button>
                     <button className="secondary-btn" onClick={openCreateModule}>Create Module</button>
+                    <button className="secondary-btn" onClick={() => window.open('/admin/main-website', '_blank', 'noopener,noreferrer')}>Main Website Editor</button>
+                    <button className="secondary-btn" onClick={() => window.open('/admin/labour/website', '_blank', 'noopener,noreferrer')}>Labour Website Editor</button>
                     <button className="secondary-btn" onClick={() => window.open('/api/setup', '_blank', 'noopener,noreferrer')}>Recreate Admin</button>
                   </div>
                   <p className="panel-copy" style={{ marginTop: 18 }}>

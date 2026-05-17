@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import styles from './company-site.module.css'
@@ -7,221 +10,272 @@ type Props = {
   content: LabourCompanyWebsiteContent
   currentPath: string
   children: ReactNode
+  showHeader?: boolean
+  showFooter?: boolean
 }
 
-const siteNavigation = [
-  { label: 'Home', href: '/labour/company' },
-  { label: 'About', href: '/labour/company#about' },
-  { label: 'Industries', href: '/labour/company#industries' },
-  { label: 'How It Works', href: '/labour/company#process' },
-  { label: 'Employers', href: '/labour/company#features' },
-  { label: 'Pricing', href: '/labour/company/pricing' },
-  { label: 'Workers', href: '/labour/company/search' },
-  { label: 'Contact', href: '/labour/company/contact' }
-]
+const socialLabels = ['LinkedIn', 'Instagram', 'Facebook', 'YouTube']
+const COMPANY_TOKEN_KEY = 'labour_company_token'
+const COMPANY_PROFILE_KEY = 'labour_company_profile'
 
-
-const topActions = [
-  { label: 'Contact', href: '/labour/company/contact', tone: 'ghost' as const },
-  { label: 'Login', href: '/labour/company/signin', tone: 'secondary' as const },
-  { label: 'Register Company', href: '/labour/company#company-intake', tone: 'primary' as const }
-]
-
-const socialBadges = ['in', 'IG', 'f', 'YT']
-
-const isNavActive = (currentPath: string, href: string) => {
-  const [pathname] = href.split('#')
-  if (href === '/labour/company') {
-    return currentPath === '/labour/company'
-  }
-
-  return currentPath === pathname
+function SocialMark({ label }: { label: string }) {
+  const initials = label === 'LinkedIn' ? 'in' : label.charAt(0)
+  return <span className={styles.homeSocialMark}>{initials}</span>
 }
 
-export function CompanySiteShell({ content, currentPath, children }: Props) {
+export function CompanySiteShell({
+  content,
+  currentPath,
+  children,
+  showHeader = true,
+  showFooter = true
+}: Props) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [loggedInCompanyName, setLoggedInCompanyName] = useState<string | null>(null)
+  const jobPostHref = '/labour/company/job-post'
+  const registrationHref = '/labour/company/company-registration'
+  const loginHref = '/labour/company/signin'
+  const dashboardHref = '/labour/company/panel'
+  const searchHref = '/labour/company/search'
+  const workerJoinHref = '/login'
+  const navItems = [
+    { label: 'Home', href: '/labour/company' },
+    { label: 'About Us', href: '/labour/company/about' },
+    { label: 'Pricing', href: '/labour/company/pricing' },
+    { label: 'Search Worker', href: '/labour/company/search' },
+    { label: 'Client Dashboard', href: '/labour/company/panel' },
+    { label: 'Contact Us', href: '/labour/company/contact' }
+  ]
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    let active = true
+
+    const syncCompanyProfile = () => {
+      try {
+        const rawProfile = window.localStorage.getItem(COMPANY_PROFILE_KEY)
+        if (!rawProfile) {
+          if (active) setLoggedInCompanyName(null)
+          return
+        }
+
+        const parsed = JSON.parse(rawProfile) as {
+          companyName?: string
+          contactPerson?: string
+        }
+
+        const label = parsed.companyName?.trim() || parsed.contactPerson?.trim() || null
+        if (active) {
+          setLoggedInCompanyName(label)
+        }
+      } catch {
+        if (active) {
+          setLoggedInCompanyName(null)
+        }
+      }
+    }
+
+    const hydrateFromDashboardSession = async () => {
+      try {
+        const storedToken = window.localStorage.getItem(COMPANY_TOKEN_KEY)
+        const storedProfile = window.localStorage.getItem(COMPANY_PROFILE_KEY)
+        if (storedToken && storedProfile) {
+          syncCompanyProfile()
+          return
+        }
+
+        const response = await fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
+        if (!response.ok) return
+
+        const data = await response.json()
+        const profile = data?.dashboard?.profile
+        const token = data?.token
+        if (!profile) return
+
+        window.localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(profile))
+        if (token) {
+          window.localStorage.setItem(COMPANY_TOKEN_KEY, String(token))
+        }
+
+        syncCompanyProfile()
+      } catch {
+        // Keep header in logged-out state if no session exists.
+      }
+    }
+
+    const handleAuthChange = () => {
+      syncCompanyProfile()
+    }
+
+    syncCompanyProfile()
+    hydrateFromDashboardSession()
+    window.addEventListener('storage', handleAuthChange)
+    window.addEventListener('focus', handleAuthChange)
+    window.addEventListener('labour-company-auth-change', handleAuthChange as EventListener)
+
+    return () => {
+      active = false
+      window.removeEventListener('storage', handleAuthChange)
+      window.removeEventListener('focus', handleAuthChange)
+      window.removeEventListener('labour-company-auth-change', handleAuthChange as EventListener)
+    }
+  }, [])
+
   return (
-    <div className={styles.page}>
-      <div className={styles.pageGlow} />
+    <div className={styles.homeLandingPage}>
+      <div className={styles.homeLandingBackdrop} />
       <div className={styles.container}>
-        <div className={styles.announcementBar}>
-          <span>Daily worker hiring for factories, workshops, contractors and growing businesses</span>
-        </div>
-
-        <header className={styles.headerPanel}>
-          <div className={styles.siteHeader}>
-            <Link href="/labour/company" className={styles.brandWrap}>
-              <span
-                className={styles.brandBadge}
-                style={{
-                  background: `linear-gradient(145deg, ${content.theme.highlightColor}, ${content.theme.accentColor})`
-                }}
-              >
-                <span className={styles.brandBadgeDepth} />
-                <span className={styles.brandBadgeFace}>
-                  <span className={styles.brandBadgeWordmark}>RZ</span>
-                  <span className={styles.brandBadgeArrow}>↗</span>
+        {showHeader ? (
+          <header className={styles.homeLandingHeader}>
+            <div className={styles.homeLandingHeaderRow}>
+              <Link href="/labour/company" className={styles.homeLandingBrand}>
+                <span className={styles.homeLandingBrandMark}>SV</span>
+                <span className={styles.homeLandingBrandText}>
+                  <span className={styles.homeLandingBrandName}>{content.theme.brandName || 'ScaleVyapar'}</span>
+                  <span className={styles.homeLandingBrandTagline}>
+                    {content.theme.brandTagline || 'Find skilled workers and hire faster across India'}
+                  </span>
                 </span>
-              </span>
-              <span>
-                <p className={styles.brandName}>
-                  <span className={styles.brandNameBase}>ScaleVyapar</span>{' '}
-                  <span className={styles.brandNameAccent}>Rozgar</span>
-                </p>
-                <p className={styles.brandTagline}>{content.theme.brandTagline}</p>
-              </span>
-            </Link>
+              </Link>
 
-            <nav className={styles.desktopNav}>
-              {siteNavigation.map(item => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`${styles.navLink} ${isNavActive(currentPath, item.href) ? styles.navLinkActive : ''}`}
-                >
-                  {item.label}
+              <nav className={styles.homeLandingDesktopNav}>
+                {navItems.map(item => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`${styles.homeLandingNavLink} ${currentPath === item.href || (item.href !== '/labour/company' && currentPath.startsWith(item.href)) ? styles.homeLandingNavLinkActive : ''}`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+
+              <div className={styles.homeLandingHeaderButtons}>
+                <Link href={jobPostHref} className={styles.homeHeaderPrimaryButton}>
+                  Post Job
                 </Link>
-              ))}
-            </nav>
-
-            <div className={styles.headerActions}>
-              {topActions.map(action => (
-                <Link
-                  key={action.href}
-                  href={action.href}
-                  className={
-                    action.tone === 'primary'
-                      ? styles.primaryButton
-                      : action.tone === 'secondary'
-                        ? styles.secondaryButton
-                        : styles.ghostButton
-                  }
-                  style={
-                    action.tone === 'primary'
-                      ? {
-                          background: `linear-gradient(135deg, ${content.theme.highlightColor}, ${content.theme.accentColor})`,
-                          color: '#ffffff',
-                          border: '1px solid transparent'
-                        }
-                      : undefined
-                  }
-                >
-                  {action.label}
+                <Link href={registrationHref} className={styles.homeHeaderSecondaryButton}>
+                  Register Company
                 </Link>
-              ))}
-            </div>
+                <Link
+                  href={loggedInCompanyName ? dashboardHref : loginHref}
+                  className={loggedInCompanyName ? styles.homeHeaderAccountButton : styles.homeHeaderGhostButton}
+                >
+                  {loggedInCompanyName ? 'Logged In' : 'Login'}
+                </Link>
+              </div>
 
-            <details className={styles.mobileMenu}>
-              <summary className={styles.mobileMenuButton} aria-label="Open navigation">
+              <button
+                type="button"
+                className={styles.homeHeaderMenuButton}
+                onClick={() => setMenuOpen(current => !current)}
+                aria-expanded={menuOpen}
+                aria-label="Toggle company menu"
+              >
                 <span />
                 <span />
                 <span />
-              </summary>
-              <div className={styles.mobileMenuPanel}>
-                <div className={styles.stack}>
-                  {siteNavigation.map(item => (
-                    <Link key={item.href} href={item.href} className={styles.mobileNavLink}>
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-                <div className={styles.mobileActionStack}>
-                  {topActions.map(action => (
-                    <Link
-                      key={action.href}
-                      href={action.href}
-                      className={
-                        action.tone === 'primary'
-                          ? styles.primaryButton
-                          : action.tone === 'secondary'
-                            ? styles.secondaryButton
-                            : styles.ghostButton
-                      }
-                      style={
-                        action.tone === 'primary'
-                          ? {
-                              background: `linear-gradient(135deg, ${content.theme.highlightColor}, ${content.theme.accentColor})`,
-                              color: '#ffffff',
-                              border: '1px solid transparent'
-                            }
-                          : undefined
-                      }
-                    >
-                      {action.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </details>
-          </div>
-        </header>
-
-        <main className={styles.main}>{children}</main>
-
-        <footer className={styles.footer}>
-          <div className={styles.footerGrid}>
-            <div>
-              <p className={styles.footerTitle}>ScaleVyapar Rozgar</p>
-              <p className={styles.textMuted}>
-                Premium labour hiring platform for companies that need faster daily-basis workforce discovery,
-                activation, and workforce coordination across industries.
-              </p>
+              </button>
             </div>
 
-            <div>
-              <p className={styles.footerTitle}>Company</p>
-              <div className={styles.footerLinks}>
-                <Link href="/labour/company#about" className={styles.footerLink}>About ScaleVyapar Rozgar</Link>
-                <Link href="/labour/company#how-it-works" className={styles.footerLink}>Mission</Link>
-                <Link href="/labour/company" className={styles.footerLink}>Platform Overview</Link>
-              </div>
-            </div>
-
-            <div>
-              <p className={styles.footerTitle}>Quick Links</p>
-              <div className={styles.footerLinks}>
-                <Link href="/labour/company" className={styles.footerLink}>Home</Link>
-                <Link href="/labour/company/search" className={styles.footerLink}>Workers</Link>
-                <Link href="/labour/company#company-intake" className={styles.footerLink}>Employers</Link>
-                <Link href="/labour/company#industries" className={styles.footerLink}>Industries</Link>
-                <Link href="/labour/company/contact" className={styles.footerLink}>Contact</Link>
-              </div>
-            </div>
-
-            <div>
-              <p className={styles.footerTitle}>Legal</p>
-              <div className={styles.footerLinks}>
-                <Link href="/labour/company/privacy-policy" className={styles.footerLink}>Privacy Policy</Link>
-                <Link href="/labour/company/terms-of-service" className={styles.footerLink}>Terms & Conditions</Link>
-                <Link href="/labour/company/user-data-deletion" className={styles.footerLink}>Refund Policy</Link>
-              </div>
-            </div>
-
-            <div>
-              <p className={styles.footerTitle}>Business Contact</p>
-              <div className={styles.footerLinks}>
-                <span className={styles.footerLink}>Email: {content.footer.supportEmail}</span>
-                <span className={styles.footerLink}>Phone: {content.footer.phone}</span>
-                <span className={styles.footerLink}>Office: {content.footer.address}</span>
-              </div>
-              <div className={styles.socialRow}>
-                {socialBadges.map(item => (
-                  <span key={item} className={styles.socialBadge}>{item}</span>
+            <div className={`${styles.homeLandingNavRow} ${menuOpen ? styles.homeLandingNavRowOpen : ''}`}>
+              <div className={styles.homeLandingNav}>
+                {navItems.map(item => (
+                  <Link
+                    key={`${item.href}-mobile`}
+                    href={item.href}
+                    className={`${styles.homeLandingNavLink} ${currentPath === item.href || (item.href !== '/labour/company' && currentPath.startsWith(item.href)) ? styles.homeLandingNavLinkActive : ''}`}
+                  >
+                    {item.label}
+                  </Link>
                 ))}
               </div>
+              <div className={styles.homeLandingNavUtilities}>
+                <Link href={searchHref} className={styles.homeHeaderDashboardButton}>
+                  Find Workers
+                </Link>
+              </div>
             </div>
-          </div>
+          </header>
+        ) : null}
 
-          <div className={styles.divider} />
-          <div className={styles.legalLinks}>
-            {content.footer.legalLinks.map(link => (
-              <Link key={`${link.label}-${link.href}`} href={link.href} className={styles.footerLink}>
-                {link.label}
-              </Link>
-            ))}
-          </div>
-          <div className={styles.divider} />
-          <p className={styles.textMuted}>{content.footer.copyrightText}</p>
-        </footer>
+        <main className={styles.homeLandingMain}>{children}</main>
+
+        {showFooter ? (
+          <footer className={styles.homeFooter}>
+            <div className={styles.homeFooterGrid}>
+              <div className={styles.homeFooterBrandCol}>
+                <div className={styles.homeFooterBrandRow}>
+                  <span className={styles.homeLandingBrandMark}>SV</span>
+                  <div>
+                    <h3>{content.theme.brandName || 'ScaleVyapar'}</h3>
+                    <p>{content.footer.description}</p>
+                  </div>
+                </div>
+                <div className={styles.homeFooterSocials}>
+                  {socialLabels.map(label => (
+                    <span key={label} className={styles.homeFooterSocial}>
+                      <SocialMark label={label} />
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className={styles.homeFooterTitle}>Quick Links</h4>
+                <div className={styles.homeFooterLinks}>
+                  <Link href="/labour/company">Home</Link>
+                  <Link href="/labour/company/about">About Us</Link>
+                  <Link href="/labour/company/pricing">Pricing</Link>
+                  <Link href="/labour/company/search">Search Worker</Link>
+                  <Link href="/labour/company/contact">Contact Us</Link>
+                </div>
+              </div>
+
+              <div>
+                <h4 className={styles.homeFooterTitle}>For Companies</h4>
+                <div className={styles.homeFooterLinks}>
+                  <Link href={jobPostHref}>Post a Job</Link>
+                  <Link href={registrationHref}>Register Company</Link>
+                  <Link href={dashboardHref}>Company Portal</Link>
+                  <Link href={loginHref}>Login</Link>
+                </div>
+              </div>
+
+              <div>
+                <h4 className={styles.homeFooterTitle}>For Workers</h4>
+                <div className={styles.homeFooterLinks}>
+                  <Link href={searchHref}>Find Jobs</Link>
+                  <Link href={workerJoinHref}>Join as Worker</Link>
+                  <Link href={searchHref}>Browse Categories</Link>
+                </div>
+              </div>
+
+              <div>
+                <h4 className={styles.homeFooterTitle}>Legal</h4>
+                <div className={styles.homeFooterLinks}>
+                  {content.footer.legalLinks.map(link => (
+                    <Link key={`${link.label}-${link.href}`} href={link.href}>
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+                <div className={styles.homeFooterContact}>
+                  <span>Email: {content.footer.supportEmail}</span>
+                  <span>Phone: {content.footer.phone}</span>
+                  <span>Office: {content.footer.address}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.homeFooterBottom}>
+              <span>{content.footer.copyrightText}</span>
+              <span>Made with care in India for a stronger workforce.</span>
+            </div>
+          </footer>
+        ) : null}
       </div>
     </div>
   )

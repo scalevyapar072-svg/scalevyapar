@@ -1,37 +1,38 @@
 {
   "theme": {
-    "brandName": "ScaleVyapar Rozgar",
-    "brandTagline": "Hire daily-basis labour faster across industries",
-    "accentColor": "#2563eb",
+    "brandName": "ScaleVyapar Worker Exchange",
+    "brandTagline": "Hire daily-basis workers faster across industries",
+    "accentColor": "#0f172a",
     "accentSoft": "#e0ecff",
-    "highlightColor": "#1d4ed8"
+    "highlightColor": "#2563eb"
   },
   "header": {
     "announcement": "Daily worker hiring for factories, workshops, contractors and growing businesses",
-    "primaryCtaLabel": "Register Company",
-    "primaryCtaHref": "/labour/company#company-intake",
+    "logoSrc": "/rozgar-logo-source.png",
+    "logoWidth": "150",
+    "primaryCtaLabel": "Post Requirement",
+    "primaryCtaHref": "/labour/company/job-post",
     "navItems": [
       { "label": "Home", "href": "/labour/company" },
-      { "label": "About", "href": "/labour/company#about" },
-      { "label": "Industries", "href": "/labour/company#industries" },
-      { "label": "How It Works", "href": "/labour/company#process" },
-      { "label": "Employers", "href": "/labour/company#features" },
-      { "label": "Workers", "href": "/labour/company/search" }
+      { "label": "Pricing", "href": "/labour/company/pricing" },
+      { "label": "Search Worker", "href": "/labour/company/search" },
+      { "label": "Sign In", "href": "/labour/company/signin" },
+      { "label": "Contact", "href": "/labour/company/contact" }
     ]
   },
   "footer": {
-    "description": "ScaleVyapar Rozgar is a modern labour hiring platform for textile, factory, warehouse, logistics, delivery, hospitality and multi-industry workforce needs.",
+    "description": "A company hiring website for stitching karighar, embroidery workers, electricians, printer workers, machine setup staff, contractor workers and other daily-basis workforce needs.",
     "supportEmail": "support@scalevyapar.com",
     "phone": "+91 98765 43210",
     "address": "Surat, Gujarat, India",
-    "copyrightText": "© 2026 ScaleVyapar Rozgar. All rights reserved.",
+    "copyrightText": "© 2026 ScaleVyapar Worker Exchange. All rights reserved.",
     "linkGroups": [
       {
-        "title": "Platform",
+        "title": "Company",
         "links": [
           { "label": "Home", "href": "/labour/company" },
           { "label": "Pricing", "href": "/labour/company/pricing" },
-          { "label": "Search Labour", "href": "/labour/company/search" }
+          { "label": "Search Worker", "href": "/labour/company/search" }
         ]
       },
       {
@@ -39,122 +40,204 @@
         "links": [
           { "label": "Sign In", "href": "/labour/company/signin" },
           { "label": "Contact Us", "href": "/labour/company/contact" },
-          { "label": "Company Registration", "href": "/labour/company#company-intake" }
+          { "label": "Admin Website Editor", "href": "/admin/labour/website" }
         ]
       }
-    ],
-    "legalLinks": [
-      { "label": "Privacy Policy", "href": "/labour/company/privacy-policy" },
-      { "label": "Terms of Service", "href": "/labour/company/terms-of-service" },
-      { "label": "User Data Deletion", "href": "/labour/company/user-data-deletion" }
     ]
   },
   "home": {
     "sectionOrder": ["hero", "trust", "features", "process", "pricing", "testimonials", "faq", "cta", "intake"],
     "hero": {
-      "eyebrow": "ScaleVyapar Rozgar",
-      "title": "Hire Daily-Basis Labour Faster Across Industries",
-      "subtitle": "ScaleVyapar Rozgar connects businesses with verified and skilled workers instantly. Post your requirement and hire the right workforce for your business anytime, anywhere.",
-      "primaryCtaLabel": "Hire Workers Now",
-      "primaryCtaHref": "/labour/company/search",
-      "secondaryCtaLabel": "Post a Requirement",
-      "secondaryCtaHref": "/labour/company#company-intake"
+      "eyebrow": "India's Trusted Worker Hiring Platform",
+      "title": "Find Skilled Workers. Hire Faster. Grow Your Business.",
+      "highlightedText": "Grow Your Business.",
+      "subtitle": "ScaleVyapar helps businesses across India find the right blue and grey-collar workers quickly and reliably. Post your requirements, reach verified workers, and build a stronger workforce.",
+      "primaryCtaLabel": "Post Your Requirement",
+      "primaryCtaHref": "/labour/company/job-post",
+      "secondaryCtaLabel": "Find Workers",
+      "secondaryCtaHref": "/labour/company/search",
+      "primaryImageSrc": "/worker-hero-reference.png",
+      "secondaryImageSrc": "/worker-hero-reference.png",
+      "imageBadgeTitle": "Trusted by 1000+ Companies Across India",
+      "imageBadgeSubtitle": "Verified workers, faster hiring and better workforce visibility."
+    },
+    "searchBar": {
+      "title": "Find the Right Worker for Your Requirement",
+      "placeholder": "Search job title, skills or worker type",
+      "categoryLabel": "All Categories",
+      "cityLabel": "All Cities",
+      "buttonLabel": "Search Workers"
+    },
+    "stats": {
+      "items": [
+        { "value": "500+", "label": "Verified Workers", "icon": "users" },
+        { "value": "120+", "label": "Registered Companies", "icon": "building" },
+        { "value": "300+", "label": "Job Requirements Posted", "icon": "clipboard" },
+        { "value": "12+", "label": "Industries Covered", "icon": "sparkles" }
+      ]
     },
     "trustStrip": {
-      "title": "Built for faster workforce coordination",
+      "title": "Built for fast, local and category-specific worker hiring",
       "items": [
-        "Daily labour hiring for growing businesses",
-        "Smart workforce solutions across categories",
-        "Fast hiring for companies and contractors",
-        "Connected employer and worker ecosystem"
+        "Verified Workers",
+        "Quick Matching",
+        "Secure & Reliable"
       ]
     },
     "features": {
-      "title": "What companies get",
-      "subtitle": "A premium labour hiring experience designed for daily operations, fast workforce demand and category-specific business hiring.",
+      "eyebrow": "Why Choose ScaleVyapar",
+      "title": "The Smarter Way to Hire Workers",
+      "subtitle": "A cleaner company hiring flow built for regular workforce requirements and active worker discovery.",
       "cards": [
         {
-          "title": "Industry-specific hiring",
-          "description": "Hire labour across textile, factory, warehouse, logistics, manufacturing, hospitality and delivery operations.",
+          "icon": "users",
+          "title": "For All Worker Types",
+          "description": "Find skilled, semi-skilled and general workers for regular hiring needs.",
           "bullets": [
-            "Multiple hiring categories",
-            "City and demand based discovery",
-            "Fast workforce activation"
+            "Multiple categories",
+            "Regular workforce demand",
+            "City-wise visibility"
           ]
         },
         {
-          "title": "Business-ready plan flow",
-          "description": "Keep company onboarding, plan selection and labour posting connected to the admin approval workflow.",
+          "icon": "clipboard",
+          "title": "Post Job Instantly",
+          "description": "Post requirements in minutes and start receiving suitable worker responses faster.",
           "bullets": [
-            "Registration and plan mapping",
-            "Short-term and priority hiring support",
-            "Editable admin-linked pricing"
+            "Quick posting flow",
+            "Guided requirement form",
+            "Connected to company panel"
           ]
         },
         {
-          "title": "Visible workforce search",
-          "description": "Browse active workers, explore labour categories and shortlist candidates before posting or expanding requirements.",
+          "icon": "badge",
+          "title": "Only Verified Profiles",
+          "description": "Connect with worker profiles that are easier to review and shortlist with confidence.",
           "bullets": [
-            "Search by city and category",
-            "Employer-friendly browsing flow",
-            "Useful for urgent staffing demand"
+            "Cleaner data visibility",
+            "Useful shortlist flow",
+            "Reduced stale records"
+          ]
+        },
+        {
+          "icon": "search",
+          "title": "Fast Worker Matching",
+          "description": "Reach the right workers faster through category and city-based discovery.",
+          "bullets": [
+            "Faster discovery",
+            "Category-focused search",
+            "Better matching signal"
+          ]
+        },
+        {
+          "icon": "shield",
+          "title": "Secure & Trusted Platform",
+          "description": "A structured workflow helps keep hiring more reliable for companies and workers.",
+          "bullets": [
+            "Admin moderation",
+            "Better platform trust",
+            "Controlled visibility"
+          ]
+        },
+        {
+          "icon": "headset",
+          "title": "Help, Anytime",
+          "description": "Use the company panel and support team when you need help moving a requirement forward.",
+          "bullets": [
+            "Support access",
+            "Company-side guidance",
+            "Hiring follow-up"
           ]
         }
       ]
     },
     "process": {
-      "title": "How the company flow works",
+      "eyebrow": "How It Works",
+      "title": "Simple Steps to Hire",
       "steps": [
         {
-          "title": "Register company",
-          "description": "Submit your company identity, contact person and core hiring information."
+          "icon": "building",
+          "title": "Register / Login",
+          "description": "Create your company account and complete your profile to begin hiring."
         },
         {
-          "title": "Post labour requirement",
-          "description": "Add your first workforce demand with category, city, count and requirement details."
+          "icon": "clipboard",
+          "title": "Post Requirement",
+          "description": "Add job details, location, skills and number of workers needed."
         },
         {
-          "title": "Get worker responses",
-          "description": "Browse workforce availability and connect with relevant labour candidates faster."
+          "icon": "users",
+          "title": "Get Applications",
+          "description": "Receive responses from relevant workers more quickly."
         },
         {
-          "title": "Manage through dashboard",
-          "description": "Track plans, requirements and labour workflow inside the connected ScaleVyapar ecosystem."
+          "icon": "search",
+          "title": "Review & Shortlist",
+          "description": "Compare profiles and shortlist the best matches for your business."
+        },
+        {
+          "icon": "badge",
+          "title": "Hire the Best",
+          "description": "Connect, interview and hire the right workers with confidence."
         }
       ]
     },
     "pricing": {
       "title": "Company pricing",
-      "subtitle": "Keep plans clear, business-friendly and easy to understand for labour hiring operations.",
-      "footnote": "Displayed plans below are connected to live active company plans from the labour database."
+      "subtitle": "Keep plans clear, short-validity and easy to understand for market hiring.",
+      "footnote": "Displayed plans below are connected to live active company plans from the worker database."
     },
     "testimonials": {
-      "title": "Why this model works",
+      "eyebrow": "What Companies Say",
+      "title": "Trusted by Companies Across India",
       "items": [
         {
-          "quote": "This platform is built for practical labour hiring, not slow traditional recruitment. That makes it useful for production and operations teams.",
-          "name": "Operations Team",
-          "role": "Industrial Hiring",
-          "company": "ScaleVyapar Demo"
+          "quote": "ScaleVyapar has made hiring easier for our business. We get good quality workers every time.",
+          "name": "Rohit Sharma",
+          "role": "Operations Head",
+          "company": "Textile Unit",
+          "rating": "5"
         },
         {
-          "quote": "Fast category-based requirements and a clear company flow make daily workforce hiring much more efficient for SMEs and contractors.",
-          "name": "Hiring Desk",
-          "role": "Factory Workforce Planning",
-          "company": "ScaleVyapar Demo"
+          "quote": "We posted a job and received verified and fit profiles within hours. Highly efficient.",
+          "name": "Vijay Agarwal",
+          "role": "HR Manager",
+          "company": "Manufacturing Company",
+          "rating": "5"
+        },
+        {
+          "quote": "The best platform to quickly find reliable manpower for our projects and seasonal needs.",
+          "name": "Neena Khan",
+          "role": "CEO",
+          "company": "BuildTech",
+          "rating": "5"
         }
+      ]
+    },
+    "categories": {
+      "eyebrow": "Worker Categories",
+      "title": "Find Workers By Categories",
+      "buttonLabel": "View All Categories",
+      "buttonHref": "/labour/company/search",
+      "cards": [
+        { "icon": "hammer", "title": "Construction & Infrastructure", "subtitle": "Site work and field teams", "href": "/labour/company/search?category=Construction%20%26%20Infrastructure" },
+        { "icon": "factory", "title": "Manufacturing & Factory", "subtitle": "Production and line staff", "href": "/labour/company/search?category=Manufacturing%20%26%20Factory" },
+        { "icon": "package", "title": "Packaging & Warehouse", "subtitle": "Packing and dispatch support", "href": "/labour/company/search?category=Packaging%20%26%20Warehouse" },
+        { "icon": "truck", "title": "Logistics & Transportation", "subtitle": "Movement and delivery workers", "href": "/labour/company/search?category=Logistics%20%26%20Transportation" },
+        { "icon": "wrench", "title": "Maintenance & Electrical", "subtitle": "Repair and technical roles", "href": "/labour/company/search?category=Maintenance%20%26%20Electrical" },
+        { "icon": "sparkles", "title": "All Categories", "subtitle": "View all", "href": "/labour/company/search" }
       ]
     },
     "faq": {
       "title": "Frequently asked questions",
       "items": [
         {
-          "question": "Can I post requirements for more than one labour category?",
-          "answer": "Yes. A company can select multiple categories and create multiple labour requirements from the same flow."
+          "question": "Can I post requirements for more than one worker category?",
+          "answer": "Yes. A company can select multiple categories and create multiple worker requirements from the same flow."
         },
         {
           "question": "Can pricing and plan validity be changed later?",
-          "answer": "Yes. Company plans are controlled from the labour admin panel and can be updated there."
+          "answer": "Yes. Company plans are controlled from the worker admin panel and can be updated there."
         },
         {
           "question": "Will my requirement go live immediately?",
@@ -163,21 +246,191 @@
       ]
     },
     "finalCta": {
-      "title": "Ready to hire faster with ScaleVyapar Rozgar?",
-      "subtitle": "Launch your company profile, publish a labour requirement, and move into a premium dashboard experience backed by the existing ScaleVyapar ecosystem.",
-      "buttonLabel": "Register Company",
-      "buttonHref": "/labour/company#company-intake"
+      "eyebrow": "For Companies",
+      "title": "Post Your Requirement & Hire Trusted Workers",
+      "subtitle": "Join hundreds of companies across India building better teams every day.",
+      "buttonLabel": "Post Requirement Now",
+      "buttonHref": "/labour/company/job-post"
     },
     "intake": {
-      "title": "Register Company & Post Requirement",
-      "description": "Start with a polished employer intake flow and send your first labour requirement into the existing ScaleVyapar admin review system.",
+      "title": "Post company requirement",
+      "description": "Submit your company and first job requirement in one go. The worker admin team can review, approve and publish it from the admin panel.",
       "submitLabel": "Create company enquiry"
+    },
+    "workerCta": {
+      "title": "Looking for Work?",
+      "description": "Create your profile and get hired by top companies looking for skilled workers.",
+      "buttonLabel": "Join as Worker",
+      "buttonHref": "/labour"
+    }
+  },
+  "aboutPage": {
+    "hero": {
+      "eyebrow": "About ScaleVyapar",
+      "title": "India’s Trusted Platform Connecting Companies with Verified Workers",
+      "highlightedText": "Verified Workers",
+      "subtitle": "ScaleVyapar is built to make worker hiring simple, fast, and reliable for businesses across industries. We connect companies with skilled and verified workers who are actively looking for opportunities.",
+      "bulletPoints": [
+        "100% Verified Workers",
+        "Time-Based Active Postings",
+        "No Useless Data — Only Active & Relevant Profiles"
+      ],
+      "imageSrc": "/worker-hero-reference.png",
+      "floatingCardTitle": "Building a Better Hiring Experience for Everyone",
+      "floatingCardItems": [
+        "Companies",
+        "For Workers",
+        "For Industries"
+      ]
+    },
+    "missionCards": [
+      {
+        "icon": "target",
+        "title": "Our Mission",
+        "description": "To empower businesses by providing access to a pool of verified, skilled, and active workers quickly and efficiently."
+      },
+      {
+        "icon": "eye",
+        "title": "Our Vision",
+        "description": "To become India’s most trusted and efficient worker hiring marketplace, creating growth opportunities for both companies and workers."
+      },
+      {
+        "icon": "shield",
+        "title": "Our Promise",
+        "description": "We are committed to transparency, data accuracy, and delivering only active and relevant worker profiles."
+      }
+    ],
+    "stats": {
+      "items": [
+        {
+          "value": "50,000+",
+          "label": "Verified Workers Across India",
+          "icon": "users"
+        },
+        {
+          "value": "5,000+",
+          "label": "Registered Companies Trusting ScaleVyapar",
+          "icon": "building"
+        },
+        {
+          "value": "15,000+",
+          "label": "Jobs Completed Successfully",
+          "icon": "briefcase"
+        },
+        {
+          "value": "25+",
+          "label": "Industries Covered",
+          "icon": "factory"
+        }
+      ]
+    },
+    "whyChoose": {
+      "eyebrow": "Why Choose ScaleVyapar",
+      "title": "The Smarter Way to Hire Workers",
+      "cards": [
+        {
+          "icon": "users",
+          "title": "Verified Workers",
+          "description": "Every worker is verified for identity, skills, and experience."
+        },
+        {
+          "icon": "send",
+          "title": "Post in Minutes",
+          "description": "Post your requirement quickly and start receiving applications."
+        },
+        {
+          "icon": "clipboard",
+          "title": "Quality Matches",
+          "description": "Connect with qualified workers who match your exact needs."
+        },
+        {
+          "icon": "badge",
+          "title": "Interview & Hire",
+          "description": "Review profiles, interview and hire the right worker with confidence."
+        },
+        {
+          "icon": "clock",
+          "title": "Time Based Posting",
+          "description": "Jobs and worker profiles expire automatically after the selected time."
+        },
+        {
+          "icon": "shield",
+          "title": "No Useless Data",
+          "description": "We keep our platform clean, active and 100% relevant for you."
+        }
+      ]
+    },
+    "process": {
+      "eyebrow": "How It Works",
+      "title": "Simple Steps to Hire the Right Worker",
+      "steps": [
+        {
+          "icon": "building",
+          "title": "Register / Login",
+          "description": "Create your company account in just a few minutes."
+        },
+        {
+          "icon": "clipboard",
+          "title": "Post Requirement",
+          "description": "Tell us what kind of worker you need, skills, location and other details."
+        },
+        {
+          "icon": "users",
+          "title": "Receive Applications",
+          "description": "Get applications from verified and interested workers."
+        },
+        {
+          "icon": "search",
+          "title": "Review & Interview",
+          "description": "Shortlist workers, check profiles and conduct interviews."
+        },
+        {
+          "icon": "badge",
+          "title": "Hire the Best",
+          "description": "Hire the right worker and manage your workforce easily."
+        }
+      ]
+    },
+    "testimonials": {
+      "eyebrow": "What Our Clients Say",
+      "title": "Trusted by Companies Across India",
+      "items": [
+        {
+          "quote": "ScaleVyapar has made hiring workers so easy for our factory operations. We get genuine workers quickly.",
+          "name": "Rajesh Mehta",
+          "role": "Mehta Textiles",
+          "company": "Surat",
+          "rating": "5"
+        },
+        {
+          "quote": "The time-based posting feature is amazing. We only see active and relevant profiles.",
+          "name": "Pooja Sharma",
+          "role": "Sharma Handicrafts",
+          "company": "Jaipur",
+          "rating": "5"
+        },
+        {
+          "quote": "We have reduced hiring time by 70%. Great platform for finding skilled workers.",
+          "name": "Imran Khan",
+          "role": "Khan Exports",
+          "company": "Delhi",
+          "rating": "5"
+        }
+      ]
+    },
+    "finalCta": {
+      "title": "Ready to Hire the Right Workers?",
+      "subtitle": "Join thousands of companies already using ScaleVyapar to hire verified workers faster and smarter.",
+      "primaryCtaLabel": "Post Your Requirement",
+      "primaryCtaHref": "/labour/company/job-post",
+      "secondaryCtaLabel": "Register Company",
+      "secondaryCtaHref": "/labour/company/company-registration"
     }
   },
   "pricingPage": {
-    "eyebrow": "Simple pricing for labour hiring",
+    "eyebrow": "Simple pricing for worker hiring",
     "title": "Choose the right company plan for your hiring volume and urgency.",
-    "subtitle": "Clear pricing, short validity windows and category-specific options tailored for business labour hiring workflows.",
+    "subtitle": "Clear pricing, short validity windows and category-specific options inspired by employer pricing pages, but tailored for worker exchange workflows.",
     "badgeText": "Most popular for growing businesses",
     "customPlanTitle": "Need a custom plan?",
     "customPlanDescription": "Use a personalised plan if you hire across many categories or cities and want additional admin support.",
@@ -188,19 +441,19 @@
       "City-wise hiring management"
     ],
     "primaryCtaLabel": "Post a requirement",
-    "primaryCtaHref": "/labour/company#company-intake",
+    "primaryCtaHref": "/labour/company/job-post",
     "secondaryCtaLabel": "Contact sales",
     "secondaryCtaHref": "/labour/company/contact",
     "faqTitle": "Pricing questions"
   },
   "signinPage": {
     "eyebrow": "Existing company access",
-    "title": "Sign in to manage your company profile, plans and labour requirements.",
-    "subtitle": "Use a clean employer sign-in flow to access your connected labour company dashboard.",
+    "title": "Sign in to manage your company profile, plans and worker requirements.",
+    "subtitle": "Keep this page simple for employers. Use it as a branded login page with clear actions for existing customers and new enquiries.",
     "infoTitle": "What you can do after sign in",
     "infoDescription": "View active plans, manage requirements, follow job status and connect with the admin team.",
     "benefits": [
-      "Manage posted labour requirements",
+      "Manage posted worker requirements",
       "Review plan validity and payment status",
       "Track city and category hiring activity",
       "Connect with support for activation and follow-up"
@@ -208,11 +461,11 @@
     "primaryCtaLabel": "Go to client login",
     "primaryCtaHref": "/login",
     "secondaryCtaLabel": "New company enquiry",
-    "secondaryCtaHref": "/labour/company#company-intake"
+    "secondaryCtaHref": "/labour/company/company-registration"
   },
   "contactPage": {
     "eyebrow": "Get in touch",
-    "title": "Contact the ScaleVyapar Rozgar team",
+    "title": "Contact the ScaleVyapar worker hiring team",
     "subtitle": "Use this page for support, sales follow-up, activation help and pricing discussions.",
     "supportEmail": "support@scalevyapar.com",
     "escalationEmail": "escalations@scalevyapar.com",
@@ -229,16 +482,25 @@
         "title": "Need support",
         "description": "Use the contact team for account activation, plan follow-up and company profile changes.",
         "ctaLabel": "Send company enquiry",
-        "ctaHref": "/labour/company#company-intake"
+        "ctaHref": "/labour/company/company-registration"
       }
     ]
   },
   "searchPage": {
-    "eyebrow": "Search active workers",
-    "title": "Browse visible labour by category, city and availability.",
-    "subtitle": "This page gives companies a quick website-level view of active workers before they post or expand their requirements.",
+    "eyebrow": "Find the Right Worker",
+    "title": "Search Verified Workers for Your Requirements",
+    "highlightedText": "Your Requirements",
+    "subtitle": "Connect with skilled and verified workers across multiple industries. Use filters to find the perfect match for your job.",
     "helperText": "Use the search filters below to find workers who match your hiring needs.",
-    "emptyTitle": "No workers match these filters yet",
-    "emptyDescription": "Try another city or category, or post a requirement so the admin team can help connect you faster."
+    "trustPoints": [
+      "100% Verified Workers",
+      "Time Based Active Profiles",
+      "No Useless Data Only Relevant Results"
+    ],
+    "imageSrc": "/worker-hero-reference.png",
+    "floatingCardTitle": "Find the Best Workers for Your Business",
+    "floatingCardDescription": "Verified profiles • Active & relevant • Faster hiring",
+    "emptyTitle": "No workers found for the selected filters.",
+    "emptyDescription": "Try another combination or clear filters to see more workers."
   }
 }

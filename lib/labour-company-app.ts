@@ -9,8 +9,6 @@ import {
   LabourWorkerNotificationRecord,
   updateLabourEntity
 } from './labour-marketplace'
-import { getUserByEmail } from './db'
-import bcrypt from 'bcryptjs'
 import { sendWorkerPushNotification } from './labour-worker-push'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
@@ -166,32 +164,21 @@ const toCompanyProfile = (
   activeJobCategoryLabels
 })
 
-export const loginCompanyApp = async (email: string, password: string) => {
-  const normalizedEmail = normalizeEmail(email)
-  const rawPassword = String(password || '')
-
-  if (!normalizedEmail || !rawPassword) {
-    throw new Error('Company email and password are required.')
-  }
-
-  const user = await getUserByEmail(normalizedEmail)
-  if (!user) {
-    throw new Error('Invalid company email or password.')
-  }
-
-  const isValidPassword = await bcrypt.compare(rawPassword, user.password_hash)
-  if (!isValidPassword) {
-    throw new Error('Invalid company email or password.')
-  }
-
+export const loginCompanyApp = async (email: string, identity: string) => {
   const snapshot = await getLabourMarketplaceSnapshot()
+  const normalizedEmail = normalizeEmail(email)
+  const normalizedIdentity = normalizeName(identity)
 
   const company = snapshot.companies.find(item =>
-    normalizeEmail(item.email) === normalizedEmail
+    normalizeEmail(item.email) === normalizedEmail &&
+    (
+      normalizeName(item.companyName) === normalizedIdentity ||
+      normalizeName(item.contactPerson) === normalizedIdentity
+    )
   )
 
   if (!company) {
-    throw new Error('No company account was found for this email address.')
+    throw new Error('Company account not found. Use your registered company email and your company name or contact person. Password is not used on this screen.')
   }
 
   if (company.status === 'blocked') {

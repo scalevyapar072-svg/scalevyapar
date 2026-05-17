@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import styles from './company-site.module.css'
@@ -15,8 +15,6 @@ type Props = {
 }
 
 const socialLabels = ['LinkedIn', 'Instagram', 'Facebook', 'YouTube']
-const COMPANY_TOKEN_KEY = 'labour_company_token'
-const COMPANY_PROFILE_KEY = 'labour_company_profile'
 
 function SocialMark({ label }: { label: string }) {
   const initials = label === 'LinkedIn' ? 'in' : label.charAt(0)
@@ -31,7 +29,6 @@ export function CompanySiteShell({
   showFooter = true
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [loggedInCompanyName, setLoggedInCompanyName] = useState<string | null>(null)
   const jobPostHref = '/labour/company/job-post'
   const registrationHref = '/labour/company/company-registration'
   const loginHref = '/labour/company/signin'
@@ -43,84 +40,9 @@ export function CompanySiteShell({
     { label: 'About Us', href: '/labour/company/about' },
     { label: 'Pricing', href: '/labour/company/pricing' },
     { label: 'Search Worker', href: '/labour/company/search' },
-    { label: 'Client Dashboard', href: '/labour/company/panel' },
+    { label: 'Company Panel', href: '/labour/company/panel' },
     { label: 'Contact Us', href: '/labour/company/contact' }
   ]
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    let active = true
-
-    const syncCompanyProfile = () => {
-      try {
-        const rawProfile = window.localStorage.getItem(COMPANY_PROFILE_KEY)
-        if (!rawProfile) {
-          if (active) setLoggedInCompanyName(null)
-          return
-        }
-
-        const parsed = JSON.parse(rawProfile) as {
-          companyName?: string
-          contactPerson?: string
-        }
-
-        const label = parsed.companyName?.trim() || parsed.contactPerson?.trim() || null
-        if (active) {
-          setLoggedInCompanyName(label)
-        }
-      } catch {
-        if (active) {
-          setLoggedInCompanyName(null)
-        }
-      }
-    }
-
-    const hydrateFromDashboardSession = async () => {
-      try {
-        const storedToken = window.localStorage.getItem(COMPANY_TOKEN_KEY)
-        const storedProfile = window.localStorage.getItem(COMPANY_PROFILE_KEY)
-        if (storedToken && storedProfile) {
-          syncCompanyProfile()
-          return
-        }
-
-        const response = await fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
-        if (!response.ok) return
-
-        const data = await response.json()
-        const profile = data?.dashboard?.profile
-        const token = data?.token
-        if (!profile) return
-
-        window.localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(profile))
-        if (token) {
-          window.localStorage.setItem(COMPANY_TOKEN_KEY, String(token))
-        }
-
-        syncCompanyProfile()
-      } catch {
-        // Keep header in logged-out state if no session exists.
-      }
-    }
-
-    const handleAuthChange = () => {
-      syncCompanyProfile()
-    }
-
-    syncCompanyProfile()
-    hydrateFromDashboardSession()
-    window.addEventListener('storage', handleAuthChange)
-    window.addEventListener('focus', handleAuthChange)
-    window.addEventListener('labour-company-auth-change', handleAuthChange as EventListener)
-
-    return () => {
-      active = false
-      window.removeEventListener('storage', handleAuthChange)
-      window.removeEventListener('focus', handleAuthChange)
-      window.removeEventListener('labour-company-auth-change', handleAuthChange as EventListener)
-    }
-  }, [])
 
   return (
     <div className={styles.homeLandingPage}>
@@ -153,16 +75,13 @@ export function CompanySiteShell({
 
               <div className={styles.homeLandingHeaderButtons}>
                 <Link href={jobPostHref} className={styles.homeHeaderPrimaryButton}>
-                  Post Job
+                  Post Requirement
                 </Link>
                 <Link href={registrationHref} className={styles.homeHeaderSecondaryButton}>
                   Register Company
                 </Link>
-                <Link
-                  href={loggedInCompanyName ? dashboardHref : loginHref}
-                  className={loggedInCompanyName ? styles.homeHeaderAccountButton : styles.homeHeaderGhostButton}
-                >
-                  {loggedInCompanyName ? 'Logged In' : 'Login'}
+                <Link href={loginHref} className={styles.homeHeaderGhostButton}>
+                  Login
                 </Link>
               </div>
 

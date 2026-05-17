@@ -10,7 +10,7 @@ export default async function LabourCompanyPanelPage() {
   const { content } = await getLabourCompanyWebsiteContent()
 
   return (
-    <CompanySiteShell content={content} currentPath="/labour/company/panel">
+    <CompanySiteShell content={content} currentPath="/labour/company/panel" showHeader={false}>
       <section className={styles.stack}>
         <CompanyPanelClient content={content.companyPanel} />
       </section>

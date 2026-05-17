@@ -1,7 +1,38 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { type ComponentType, useEffect, useMemo, useState } from 'react'
+import {
+  ArrowLeft,
+  BarChart3,
+  Bell,
+  Bookmark,
+  BriefcaseBusiness,
+  Building2,
+  ClipboardList,
+  Database,
+  FileText,
+  HandCoins,
+  LayoutDashboard,
+  LifeBuoy,
+  RefreshCw,
+  Settings2,
+  Shapes,
+  Users,
+  WalletCards
+} from 'lucide-react'
+import {
+  LabourMastersSnapshot,
+  LabourMasterKey,
+  buildLabourMasterSelectOptions,
+  findMatchingMasterOption,
+  filterBusinessTypesByIndustryDependency,
+  filterCategoriesByLabourDependency,
+  getVisibleLabourMasterOptions,
+  groupLabourMasterOptions,
+  labourMasterSeedValues,
+  resolveLabourMasterLabel
+} from '@/lib/labour-masters-schema'
 
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked' | 'rejected'
@@ -71,6 +102,9 @@ type LabourWorker = {
   mobile: string
   city: string
   homeCity: string
+  companyId: string
+  industryCategory: string
+  businessType: string
   address: string
   profilePhotoPath: string
   experienceYears: number
@@ -84,6 +118,7 @@ type LabourWorker = {
   identityProofNumber: string
   identityProofPath: string
   registrationCompletedAt: string
+  createdAt: string
 }
 
 type LabourCompany = {
@@ -93,11 +128,25 @@ type LabourCompany = {
   email: string
   mobile: string
   contactMobile: string
+  businessType: string
+  industryCategory: string
+  gstNumber: string
+  companyAddress: string
+  state: string
   city: string
+  area: string
+  pincode: string
+  workersNeeded: number
+  hiringType: string
+  businessDescription: string
+  gstCertificatePath: string
+  companyProofPath: string
+  ownerIdProofPath: string
   categoryIds: string[]
   status: CompanyStatus
   registrationFeePaid: boolean
   activePlan: string
+  createdAt: string
 }
 
 type LabourJobPost = {
@@ -106,6 +155,26 @@ type LabourJobPost = {
   categoryId: string
   title: string
   description: string
+  connectedPlan: string
+  workerCategory: string
+  genderPreference: string
+  ageRequirement: string
+  experienceRequired: string
+  jobLocation: string
+  dutyHours: string
+  shiftType: string
+  weeklyOff: string
+  jobDuration: string
+  salaryType: string
+  overtimeAvailable: string
+  foodFacility: string
+  accommodation: string
+  transportFacility: string
+  requiredSkills: string
+  specialInstructions: string
+  languagesPreferred: string
+  submissionMode: string
+  documentsBlock: string
   city: string
   locationLabel: string
   latitude: number | ''
@@ -233,8 +302,15 @@ type PlanFilters = {
 
 type WorkerFilters = {
   search: string
+  companyId: string
   status: 'all' | WorkerStatus
+  availability: 'all' | WorkerAvailability
   categoryId: string
+  industryCategory: string
+  businessType: string
+  dateFrom: string
+  dateTo: string
+  sort: 'name_asc' | 'name_desc' | 'created_desc' | 'created_asc'
   visibility: 'all' | 'visible' | 'hidden'
   kyc: WorkerKycFilter
 }
@@ -244,6 +320,11 @@ type CompanyFilters = {
   status: 'all' | CompanyStatus
   categoryId: string
   fee: 'all' | 'paid' | 'pending'
+  industryCategory: string
+  businessType: string
+  dateFrom: string
+  dateTo: string
+  sort: 'name_asc' | 'name_desc' | 'created_desc' | 'created_asc'
 }
 
 type JobFilters = {
@@ -251,6 +332,11 @@ type JobFilters = {
   status: 'all' | JobPostStatus
   categoryId: string
   companyId: string
+  industryCategory: string
+  businessType: string
+  dateFrom: string
+  dateTo: string
+  sort: 'title_asc' | 'title_desc' | 'created_desc' | 'created_asc' | 'company_asc' | 'company_desc'
 }
 
 type JobApplicationFilters = {
@@ -390,6 +476,7 @@ const workerStatuses: WorkerStatus[] = [
 ]
 
 const companyStatuses: CompanyStatus[] = ['pending', 'active', 'inactive', 'blocked']
+const companyHiringTypes = ['Daily Basis', 'Weekly Basis', 'Monthly Basis', 'Contract Basis']
 const workerAvailabilityOptions: WorkerAvailability[] = ['available_today', 'available_this_week']
 const workerIdentityProofOptions: Array<Exclude<WorkerIdentityProofType, ''>> = ['aadhaar', 'pan', 'voter_id', 'driving_license', 'other']
 const jobPostStatuses: JobPostStatus[] = ['draft', 'live', 'expired', 'paused']
@@ -433,6 +520,9 @@ const blankWorker: LabourWorker = {
   mobile: '',
   city: '',
   homeCity: '',
+  companyId: '',
+  industryCategory: '',
+  businessType: '',
   address: '',
   profilePhotoPath: '',
   experienceYears: 0,
@@ -445,7 +535,8 @@ const blankWorker: LabourWorker = {
   identityProofType: '',
   identityProofNumber: '',
   identityProofPath: '',
-  registrationCompletedAt: ''
+  registrationCompletedAt: '',
+  createdAt: ''
 }
 
 const blankCompany: LabourCompany = {
@@ -455,11 +546,25 @@ const blankCompany: LabourCompany = {
   email: '',
   mobile: '',
   contactMobile: '',
+  businessType: '',
+  industryCategory: '',
+  gstNumber: '',
+  companyAddress: '',
+  state: '',
   city: '',
+  area: '',
+  pincode: '',
+  workersNeeded: 1,
+  hiringType: '',
+  businessDescription: '',
+  gstCertificatePath: '',
+  companyProofPath: '',
+  ownerIdProofPath: '',
   categoryIds: [],
-  status: 'pending',
+  status: 'active',
   registrationFeePaid: false,
-  activePlan: ''
+  activePlan: '',
+  createdAt: ''
 }
 
 const blankJobPost: LabourJobPost = {
@@ -468,6 +573,26 @@ const blankJobPost: LabourJobPost = {
   categoryId: '',
   title: '',
   description: '',
+  connectedPlan: '',
+  workerCategory: '',
+  genderPreference: '',
+  ageRequirement: '',
+  experienceRequired: '',
+  jobLocation: '',
+  dutyHours: '',
+  shiftType: '',
+  weeklyOff: '',
+  jobDuration: '',
+  salaryType: '',
+  overtimeAvailable: '',
+  foodFacility: '',
+  accommodation: '',
+  transportFacility: '',
+  requiredSkills: '',
+  specialInstructions: '',
+  languagesPreferred: '',
+  submissionMode: 'Pending review for publish',
+  documentsBlock: '',
   city: '',
   locationLabel: '',
   latitude: '',
@@ -613,10 +738,43 @@ const blankLabourAdminSettings: LabourAdminSettings = {
 
 const blankCategoryFilters: CategoryFilters = { search: '', demand: 'all', activity: 'all' }
 const blankPlanFilters: PlanFilters = { search: '', audience: 'all', categoryId: '', activity: 'all' }
-const blankWorkerFilters: WorkerFilters = { search: '', status: 'all', categoryId: '', visibility: 'all', kyc: 'all' }
-const blankCompanyFilters: CompanyFilters = { search: '', status: 'all', categoryId: '', fee: 'all' }
+const blankWorkerFilters: WorkerFilters = {
+  search: '',
+  companyId: '',
+  status: 'all',
+  availability: 'all',
+  categoryId: '',
+  industryCategory: '',
+  businessType: '',
+  dateFrom: '',
+  dateTo: '',
+  sort: 'name_asc',
+  visibility: 'all',
+  kyc: 'all'
+}
+const blankCompanyFilters: CompanyFilters = {
+  search: '',
+  status: 'all',
+  categoryId: '',
+  fee: 'all',
+  industryCategory: '',
+  businessType: '',
+  dateFrom: '',
+  dateTo: '',
+  sort: 'name_asc'
+}
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
-const blankJobFilters: JobFilters = { search: '', status: 'all', categoryId: '', companyId: '' }
+const blankJobFilters: JobFilters = {
+  search: '',
+  status: 'all',
+  categoryId: '',
+  companyId: '',
+  industryCategory: '',
+  businessType: '',
+  dateFrom: '',
+  dateTo: '',
+  sort: 'title_asc'
+}
 const blankJobApplicationFilters: JobApplicationFilters = { search: '', status: 'all', companyId: '', jobPostId: '' }
 const blankSavedJobFilters: SavedJobFilters = { search: '', companyId: '', jobPostId: '' }
 const blankWorkerNotificationFilters: WorkerNotificationFilters = { search: '', workerId: '', type: 'all', priority: 'all', readState: 'all' }
@@ -641,6 +799,28 @@ const sectionLabels: Record<LabourSection, string> = {
   settings: 'Settings',
   auditLogs: 'Audit Logs'
 }
+
+const sectionNavItems: Array<{
+  key: LabourSection
+  label: string
+  icon: ComponentType<{ className?: string }>
+}> = [
+  { key: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+  { key: 'workers', label: 'Workers', icon: Users },
+  { key: 'companies', label: 'Companies', icon: Building2 },
+  { key: 'categories', label: 'Categories', icon: Shapes },
+  { key: 'jobPosts', label: 'Job Posts', icon: BriefcaseBusiness },
+  { key: 'jobApplications', label: 'Job Applications', icon: FileText },
+  { key: 'savedJobs', label: 'Saved Jobs', icon: Bookmark },
+  { key: 'workerNotifications', label: 'Worker Notifications', icon: Bell },
+  { key: 'plans', label: 'Plans', icon: WalletCards },
+  { key: 'walletTransactions', label: 'Wallet Transactions', icon: WalletCards },
+  { key: 'rechargeRequests', label: 'Recharge Requests', icon: HandCoins },
+  { key: 'supportRequests', label: 'Support Requests', icon: LifeBuoy },
+  { key: 'reports', label: 'Reports', icon: BarChart3 },
+  { key: 'settings', label: 'Settings', icon: Settings2 },
+  { key: 'auditLogs', label: 'Audit Logs', icon: ClipboardList }
+]
 
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
 
@@ -804,14 +984,144 @@ const parseCommaSeparatedDisplayList = (value: string) =>
     .map(item => item.trim())
     .filter(Boolean)
 
+const JOB_POST_WORKER_CATEGORIES = ['Skilled', 'Semi-Skilled', 'Unskilled']
+const JOB_POST_GENDER_OPTIONS = ['Male', 'Female', 'Any']
+const JOB_POST_EXPERIENCE_OPTIONS = ['Fresher', '1+ Years', '2+ Years', '5+ Years', 'Experienced Only']
+const JOB_POST_SHIFT_TYPES = ['Day Shift', 'Night Shift', 'Rotational Shift']
+const JOB_POST_DURATIONS = ['1 Day', '1 Week', '1 Month', 'Contract Basis', 'Permanent']
+const JOB_POST_SALARY_TYPES = ['Daily Wage', 'Weekly Payment', 'Monthly Salary', 'Contract Payment']
+const JOB_POST_YES_NO_OPTIONS = ['Yes', 'No']
+const JOB_POST_FACILITY_OPTIONS = ['Available', 'Not Available']
+
+const JOB_POST_DETAIL_LABELS: Array<{ key: keyof LabourJobPost; label: string }> = [
+  { key: 'connectedPlan', label: 'Connected plan' },
+  { key: 'workerCategory', label: 'Worker category' },
+  { key: 'genderPreference', label: 'Gender preference' },
+  { key: 'ageRequirement', label: 'Age requirement' },
+  { key: 'experienceRequired', label: 'Experience required' },
+  { key: 'jobLocation', label: 'Job location' },
+  { key: 'dutyHours', label: 'Duty hours' },
+  { key: 'shiftType', label: 'Shift type' },
+  { key: 'weeklyOff', label: 'Weekly off' },
+  { key: 'jobDuration', label: 'Job duration' },
+  { key: 'salaryType', label: 'Salary type' },
+  { key: 'overtimeAvailable', label: 'Overtime available' },
+  { key: 'foodFacility', label: 'Food facility' },
+  { key: 'accommodation', label: 'Accommodation' },
+  { key: 'transportFacility', label: 'Transport facility' },
+  { key: 'requiredSkills', label: 'Required skills' },
+  { key: 'specialInstructions', label: 'Special instructions' },
+  { key: 'languagesPreferred', label: 'Languages preferred' },
+  { key: 'submissionMode', label: 'Submission mode' }
+]
+
+const splitJobPostDescription = (value: string) => {
+  const normalized = String(value || '').replace(/\r/g, '')
+  const detailMarker = '\n\nJob requirement details\n'
+  const docsMarker = '\n\nDocuments\n'
+  const detailIndex = normalized.indexOf(detailMarker)
+
+  if (detailIndex === -1) {
+    return {
+      baseDescription: normalized.trim(),
+      detailBlock: '',
+      documentsBlock: ''
+    }
+  }
+
+  const baseDescription = normalized.slice(0, detailIndex).trim()
+  const afterDetails = normalized.slice(detailIndex + detailMarker.length)
+  const docsIndex = afterDetails.indexOf(docsMarker)
+
+  if (docsIndex === -1) {
+    return {
+      baseDescription,
+      detailBlock: afterDetails.trim(),
+      documentsBlock: ''
+    }
+  }
+
+  return {
+    baseDescription,
+    detailBlock: afterDetails.slice(0, docsIndex).trim(),
+    documentsBlock: afterDetails.slice(docsIndex + docsMarker.length).trim()
+  }
+}
+
+const parseJobPostDraft = (jobPost: LabourJobPost, connectedPlanFallback = ''): LabourJobPost => {
+  const { baseDescription, detailBlock, documentsBlock } = splitJobPostDescription(jobPost.description)
+  const detailMap = new Map<string, string>()
+
+  detailBlock
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .forEach(line => {
+      const separatorIndex = line.indexOf(':')
+      if (separatorIndex === -1) return
+      const label = line.slice(0, separatorIndex).trim().toLowerCase()
+      const value = line.slice(separatorIndex + 1).trim()
+      detailMap.set(label, value)
+    })
+
+  const nextDraft: LabourJobPost = {
+    ...jobPost,
+    description: baseDescription,
+    connectedPlan: detailMap.get('connected plan') || connectedPlanFallback,
+    workerCategory: detailMap.get('worker category') || '',
+    genderPreference: detailMap.get('gender preference') || '',
+    ageRequirement: detailMap.get('age requirement') || '',
+    experienceRequired: detailMap.get('experience required') || '',
+    jobLocation: detailMap.get('job location') || '',
+    dutyHours: detailMap.get('duty hours') || '',
+    shiftType: detailMap.get('shift type') || '',
+    weeklyOff: detailMap.get('weekly off') || '',
+    jobDuration: detailMap.get('job duration') || '',
+    salaryType: detailMap.get('salary type') || '',
+    overtimeAvailable: detailMap.get('overtime available') || '',
+    foodFacility: detailMap.get('food facility') || '',
+    accommodation: detailMap.get('accommodation') || '',
+    transportFacility: detailMap.get('transport facility') || '',
+    requiredSkills: detailMap.get('required skills') || '',
+    specialInstructions: detailMap.get('special instructions') || '',
+    languagesPreferred: detailMap.get('languages preferred') || '',
+    submissionMode: detailMap.get('submission mode') || 'Pending review for publish',
+    documentsBlock
+  }
+
+  return nextDraft
+}
+
+const buildJobPostDescription = (jobPost: LabourJobPost) => {
+  const lines = [jobPost.description.trim()].filter(Boolean)
+
+  const metaLines = JOB_POST_DETAIL_LABELS
+    .map(({ key, label }) => [label, String(jobPost[key] || '').trim()] as const)
+    .filter(([, value]) => value)
+    .map(([label, value]) => `${label}: ${value}`)
+
+  if (metaLines.length > 0) {
+    lines.push(['Job requirement details', ...metaLines].join('\n'))
+  }
+
+  if (jobPost.documentsBlock.trim()) {
+    lines.push(['Documents', jobPost.documentsBlock.trim()].join('\n'))
+  }
+
+  return lines.join('\n\n').trim()
+}
+
 export default function LabourExchangeAdminPage() {
   const [snapshot, setSnapshot] = useState<LabourSnapshot | null>(null)
+  const [mastersSnapshot, setMastersSnapshot] = useState<LabourMastersSnapshot | null>(null)
   const [settingsDraft, setSettingsDraft] = useState<LabourAdminSettings>(blankLabourAdminSettings)
   const [settingsStorage, setSettingsStorage] = useState<'supabase' | 'json'>('json')
   const [loading, setLoading] = useState(true)
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
+  const [isWorkerCategoryMenuOpen, setIsWorkerCategoryMenuOpen] = useState(false)
+  const [workerCategorySearch, setWorkerCategorySearch] = useState('')
   const [activeSection, setActiveSection] = useState<LabourSection>('overview')
 
   const [categoryDraft, setCategoryDraft] = useState<LabourCategory>(blankCategory)
@@ -851,10 +1161,10 @@ export default function LabourExchangeAdminPage() {
   const inputStyle = {
     width: '100%',
     background: '#ffffff',
-    border: '1px solid #dbe2ea',
+    border: '1px solid #d7dfeb',
     color: '#0f172a',
     fontSize: '13px',
-    padding: '10px 12px',
+    padding: '9px 11px',
     borderRadius: '10px',
     outline: 'none',
     boxSizing: 'border-box' as const,
@@ -871,31 +1181,42 @@ export default function LabourExchangeAdminPage() {
 
   const cardStyle = {
     background: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '18px',
-    padding: '22px',
-    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)'
+    border: '1px solid #dce4ef',
+    borderRadius: '20px',
+    padding: '18px',
+    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.04)'
   }
 
   const subtleButtonStyle = {
     background: '#ffffff',
     color: '#334155',
-    border: '1px solid #dbe2ea',
-    padding: '10px 14px',
-    borderRadius: '10px',
-    fontSize: '12px',
-    fontWeight: '700' as const,
-    cursor: 'pointer'
+    border: '1px solid #d7dfeb',
+    padding: '9px 14px',
+    borderRadius: '12px',
+    fontSize: '13px',
+    fontWeight: '600' as const,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    textDecoration: 'none'
   }
 
   const primaryButtonStyle = {
     background: '#0f172a',
     color: '#ffffff',
     border: 'none',
-    padding: '10px 16px',
-    borderRadius: '10px',
+    padding: '9px 15px',
+    borderRadius: '12px',
     cursor: 'pointer',
-    fontWeight: '700' as const
+    fontWeight: '600' as const,
+    fontSize: '13px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    textDecoration: 'none'
   }
 
   const fetchSnapshot = async () => {
@@ -936,9 +1257,25 @@ export default function LabourExchangeAdminPage() {
     }
   }
 
+  const fetchMasters = async () => {
+    try {
+      const response = await fetch('/api/admin/labour/masters', { cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error('Unable to load labour master data.')
+      }
+
+      const data = await response.json()
+      setMastersSnapshot(data)
+    } catch (fetchError) {
+      console.warn('Labour masters fallback in use:', fetchError)
+      setMastersSnapshot(null)
+    }
+  }
+
   useEffect(() => {
     void fetchSnapshot()
     void fetchSettings()
+    void fetchMasters()
   }, [])
 
   const showSaved = (message: string) => {
@@ -1000,7 +1337,27 @@ export default function LabourExchangeAdminPage() {
     })
   }
 
-  const adminCityOptions = settingsDraft.workerHomeControls.popularCitySuggestions.reduce<string[]>((list, city) => {
+  const masterOptionsByKey = useMemo(
+    () => groupLabourMasterOptions(mastersSnapshot?.options || []),
+    [mastersSnapshot]
+  )
+
+  const getMasterSelectOptions = (
+    masterKey: LabourMasterKey,
+    selectedValues: string[] = [],
+    fallbackValues: string[] = []
+  ) => buildLabourMasterSelectOptions(masterOptionsByKey[masterKey] || [], selectedValues, fallbackValues)
+
+  const adminCityOptions = getMasterSelectOptions(
+    'city',
+    [],
+    settingsDraft.workerHomeControls.popularCitySuggestions
+  ).reduce<string[]>((list, option) => {
+    const normalizedCity = option.value.trim()
+    if (!normalizedCity) return list
+    if (list.some(item => item.toLowerCase() === normalizedCity.toLowerCase())) return list
+    return [...list, normalizedCity]
+  }, []).reduce<string[]>((list, city) => {
     const normalizedCity = city.trim()
     if (!normalizedCity) return list
     if (list.some(item => item.toLowerCase() === normalizedCity.toLowerCase())) return list
@@ -1026,6 +1383,300 @@ export default function LabourExchangeAdminPage() {
     setCompanyDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
     setJobPostDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
   }, [defaultAdminCity])
+
+  const workerExperienceOptions = getMasterSelectOptions('worker_experience_years', [String(workerDraft.experienceYears)], ['0', '1', '2', '3', '5', '10'])
+  const workerAvailabilitySelectOptions = getMasterSelectOptions('worker_status_availability', [workerDraft.availability], workerAvailabilityOptions)
+  const workerAvailabilityFilterOptions = getMasterSelectOptions(
+    'worker_status_availability',
+    [workerFilters.availability === 'all' ? '' : workerFilters.availability],
+    workerAvailabilityOptions
+  )
+  const workerIndustryCategoryOptions = buildLabourMasterSelectOptions(
+    getVisibleLabourMasterOptions(masterOptionsByKey.industry_category || []),
+    workerDraft.industryCategory ? [workerDraft.industryCategory] : []
+  )
+  const filteredWorkerBusinessTypeMasterOptions = filterBusinessTypesByIndustryDependency(
+    masterOptionsByKey.business_type || [],
+    masterOptionsByKey.industry_category || [],
+    mastersSnapshot?.industryBusinessDependencies || [],
+    workerDraft.industryCategory
+  )
+  const workerBusinessTypeOptions = buildLabourMasterSelectOptions(
+    filteredWorkerBusinessTypeMasterOptions,
+    workerDraft.businessType ? [workerDraft.businessType] : []
+  )
+  const workerFilterIndustryCategoryOptions = buildLabourMasterSelectOptions(
+    getVisibleLabourMasterOptions(masterOptionsByKey.industry_category || []),
+    workerFilters.industryCategory ? [workerFilters.industryCategory] : []
+  )
+  const filteredWorkerFilterBusinessTypeMasterOptions = filterBusinessTypesByIndustryDependency(
+    masterOptionsByKey.business_type || [],
+    masterOptionsByKey.industry_category || [],
+    mastersSnapshot?.industryBusinessDependencies || [],
+    workerFilters.industryCategory
+  )
+  const workerFilterBusinessTypeOptions = buildLabourMasterSelectOptions(
+    filteredWorkerFilterBusinessTypeMasterOptions,
+    workerFilters.businessType ? [workerFilters.businessType] : []
+  )
+  const workerCompanyOptions = [...(snapshot?.companies || [])]
+    .sort((left, right) => left.companyName.localeCompare(right.companyName, undefined, { sensitivity: 'base' }))
+    .map(company => ({ id: company.id, label: company.companyName, value: company.id }))
+  const availableWorkerCategories = useMemo(
+    () =>
+      !snapshot || !workerDraft.industryCategory.trim() || !workerDraft.businessType.trim()
+        ? []
+        : filterCategoriesByLabourDependency(
+            snapshot.categories,
+            mastersSnapshot?.categoryDependencies || [],
+            masterOptionsByKey,
+            workerDraft.businessType,
+            workerDraft.industryCategory
+          ),
+    [masterOptionsByKey, mastersSnapshot?.categoryDependencies, snapshot, workerDraft.businessType, workerDraft.industryCategory]
+  )
+  const workerCategoryOptions = useMemo(() => {
+    if (!snapshot) return []
+
+    const optionsById = new Map<string, LabourCategory>()
+    availableWorkerCategories.forEach(category => {
+      optionsById.set(category.id, category)
+    })
+
+    snapshot.categories
+      .filter(category => workerDraft.categoryIds.includes(category.id))
+      .forEach(category => {
+        if (!optionsById.has(category.id)) {
+          optionsById.set(category.id, category)
+        }
+      })
+
+    return [...optionsById.values()].sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }))
+  }, [availableWorkerCategories, snapshot, workerDraft.categoryIds])
+  const visibleWorkerCategoryOptions = workerCategoryOptions.filter(category =>
+    matchesSearch(workerCategorySearch, [category.name, category.slug, category.description])
+  )
+  const companyIndustryCategoryOptions = buildLabourMasterSelectOptions(
+    getVisibleLabourMasterOptions(masterOptionsByKey.industry_category || [])
+  )
+  const filteredCompanyBusinessTypeMasterOptions = filterBusinessTypesByIndustryDependency(
+    masterOptionsByKey.business_type || [],
+    masterOptionsByKey.industry_category || [],
+    mastersSnapshot?.industryBusinessDependencies || [],
+    companyDraft.industryCategory
+  )
+  const companyBusinessTypeOptions = buildLabourMasterSelectOptions(filteredCompanyBusinessTypeMasterOptions)
+  const companyFilterIndustryCategoryOptions = companyIndustryCategoryOptions
+  const filteredCompanyFilterBusinessTypeMasterOptions = filterBusinessTypesByIndustryDependency(
+    masterOptionsByKey.business_type || [],
+    masterOptionsByKey.industry_category || [],
+    mastersSnapshot?.industryBusinessDependencies || [],
+    companyFilters.industryCategory
+  )
+  const companyFilterBusinessTypeOptions = buildLabourMasterSelectOptions(filteredCompanyFilterBusinessTypeMasterOptions)
+  const jobFilterIndustryCategoryOptions = companyIndustryCategoryOptions
+  const filteredJobFilterBusinessTypeMasterOptions = filterBusinessTypesByIndustryDependency(
+    masterOptionsByKey.business_type || [],
+    masterOptionsByKey.industry_category || [],
+    mastersSnapshot?.industryBusinessDependencies || [],
+    jobFilters.industryCategory
+  )
+  const jobFilterBusinessTypeOptions = buildLabourMasterSelectOptions(
+    filteredJobFilterBusinessTypeMasterOptions,
+    jobFilters.businessType ? [jobFilters.businessType] : []
+  )
+  const companyStateOptions = getMasterSelectOptions('state', [companyDraft.state], labourMasterSeedValues.state.map(option => option.value || option.label))
+  const companyStatusOptions = getMasterSelectOptions('company_status', [companyDraft.status], companyStatuses)
+  const companyStatusFilterOptions = getMasterSelectOptions('company_status', [companyFilters.status === 'all' ? '' : companyFilters.status], companyStatuses)
+  const jobGenderOptions = getMasterSelectOptions('job_gender_preference', [jobPostDraft.genderPreference], JOB_POST_GENDER_OPTIONS)
+  const jobExperienceRequiredOptions = getMasterSelectOptions('job_experience_required', [jobPostDraft.experienceRequired], JOB_POST_EXPERIENCE_OPTIONS)
+  const jobShiftTypeOptions = getMasterSelectOptions('job_shift_type', [jobPostDraft.shiftType], JOB_POST_SHIFT_TYPES)
+  const jobWeeklyOffOptions = getMasterSelectOptions('job_weekly_off', [jobPostDraft.weeklyOff], labourMasterSeedValues.job_weekly_off.map(option => option.value || option.label))
+  const jobDurationOptions = getMasterSelectOptions('job_duration', [jobPostDraft.jobDuration], JOB_POST_DURATIONS)
+  const jobSalaryTypeOptions = getMasterSelectOptions('job_salary_type', [jobPostDraft.salaryType], JOB_POST_SALARY_TYPES)
+  const jobOvertimeOptions = getMasterSelectOptions('job_overtime_available', [jobPostDraft.overtimeAvailable], JOB_POST_YES_NO_OPTIONS)
+  const jobFoodFacilityOptions = getMasterSelectOptions('job_food_facility', [jobPostDraft.foodFacility], JOB_POST_FACILITY_OPTIONS)
+  const jobAccommodationOptions = getMasterSelectOptions('job_accommodation', [jobPostDraft.accommodation], JOB_POST_FACILITY_OPTIONS)
+  const jobTransportFacilityOptions = getMasterSelectOptions('job_transport_facility', [jobPostDraft.transportFacility], JOB_POST_FACILITY_OPTIONS)
+
+  const selectedJobCompanyForDependencies = snapshot?.companies.find(company => company.id === jobPostDraft.companyId) || null
+  const filteredJobPostCategories = useMemo(
+    () =>
+      !snapshot
+        ? []
+        : filterCategoriesByLabourDependency(
+            snapshot.categories,
+            mastersSnapshot?.categoryDependencies || [],
+            masterOptionsByKey,
+            selectedJobCompanyForDependencies?.businessType || '',
+            selectedJobCompanyForDependencies?.industryCategory || ''
+          ),
+    [masterOptionsByKey, mastersSnapshot?.categoryDependencies, selectedJobCompanyForDependencies?.businessType, selectedJobCompanyForDependencies?.industryCategory, snapshot]
+  )
+
+  const jobPostCategoryOptions = useMemo(
+    () => (!snapshot ? [] : filteredJobPostCategories),
+    [filteredJobPostCategories, snapshot]
+  )
+
+  const hasCompanyIndustrySelection = companyDraft.industryCategory.trim().length > 0
+  const hasMappedBusinessTypesForCompany = companyBusinessTypeOptions.length > 0
+  const hasWorkerIndustrySelection = workerDraft.industryCategory.trim().length > 0
+  const hasWorkerBusinessSelection = workerDraft.businessType.trim().length > 0
+  const hasMappedBusinessTypesForWorker = workerBusinessTypeOptions.length > 0
+  const hasMappedCategoriesForWorker = availableWorkerCategories.length > 0
+  const hasSelectedJobCompanyIndustry = (selectedJobCompanyForDependencies?.industryCategory || '').trim().length > 0
+  const hasSelectedJobCompanyBusiness = (selectedJobCompanyForDependencies?.businessType || '').trim().length > 0
+
+  useEffect(() => {
+    if (!workerDraft.industryCategory) return
+    if (workerIndustryCategoryOptions.some(option => option.value === workerDraft.industryCategory)) return
+
+    setWorkerDraft(current => ({
+      ...current,
+      industryCategory: '',
+      businessType: '',
+      categoryIds: []
+    }))
+  }, [workerDraft.industryCategory, workerIndustryCategoryOptions])
+
+  useEffect(() => {
+    if (!hasWorkerIndustrySelection) {
+      if (workerDraft.businessType) {
+        setWorkerDraft(current => ({ ...current, businessType: '' }))
+      }
+      return
+    }
+
+    if (workerDraft.businessType && !workerBusinessTypeOptions.some(option => option.value === workerDraft.businessType)) {
+      setWorkerDraft(current => ({ ...current, businessType: '' }))
+    }
+  }, [hasWorkerIndustrySelection, workerBusinessTypeOptions, workerDraft.businessType])
+
+  useEffect(() => {
+    if (!workerFilters.industryCategory) {
+      if (workerFilters.businessType) {
+        setWorkerFilters(current => ({ ...current, businessType: '' }))
+      }
+      return
+    }
+
+    if (workerFilters.businessType && !workerFilterBusinessTypeOptions.some(option => option.value === workerFilters.businessType)) {
+      setWorkerFilters(current => ({ ...current, businessType: '' }))
+    }
+  }, [workerFilterBusinessTypeOptions, workerFilters.businessType, workerFilters.industryCategory])
+
+  useEffect(() => {
+    if (!hasWorkerBusinessSelection) return
+
+    const allowedCategoryIds = new Set(workerCategoryOptions.map(category => category.id))
+    if (workerDraft.categoryIds.some(categoryId => !allowedCategoryIds.has(categoryId))) {
+      setWorkerDraft(current => ({
+        ...current,
+        categoryIds: current.categoryIds.filter(categoryId => allowedCategoryIds.has(categoryId))
+      }))
+    }
+  }, [hasWorkerBusinessSelection, workerCategoryOptions, workerDraft.categoryIds])
+
+  useEffect(() => {
+    if (!isWorkerCategoryMenuOpen) {
+      setWorkerCategorySearch('')
+    }
+  }, [isWorkerCategoryMenuOpen])
+
+  useEffect(() => {
+    if (!companyDraft.industryCategory) return
+    if (companyIndustryCategoryOptions.some(option => option.value === companyDraft.industryCategory)) return
+
+    setCompanyDraft(current => ({
+      ...current,
+      industryCategory: '',
+      businessType: ''
+    }))
+  }, [companyDraft.industryCategory, companyIndustryCategoryOptions])
+
+  useEffect(() => {
+    if (!hasCompanyIndustrySelection) {
+      if (companyDraft.businessType) {
+        setCompanyDraft(current => ({ ...current, businessType: '' }))
+      }
+      return
+    }
+
+    if (companyDraft.businessType && !companyBusinessTypeOptions.some(option => option.value === companyDraft.businessType)) {
+      setCompanyDraft(current => ({ ...current, businessType: '' }))
+    }
+  }, [companyBusinessTypeOptions, companyDraft.businessType, hasCompanyIndustrySelection])
+
+  useEffect(() => {
+    if (!companyFilters.industryCategory) {
+      if (companyFilters.businessType) {
+        setCompanyFilters(current => ({ ...current, businessType: '' }))
+      }
+      return
+    }
+
+    if (companyFilters.businessType && !companyFilterBusinessTypeOptions.some(option => option.value === companyFilters.businessType)) {
+      setCompanyFilters(current => ({ ...current, businessType: '' }))
+    }
+  }, [companyFilterBusinessTypeOptions, companyFilters.businessType, companyFilters.industryCategory])
+
+  useEffect(() => {
+    if (!jobFilters.industryCategory) {
+      if (jobFilters.businessType) {
+        setJobFilters(current => ({ ...current, businessType: '' }))
+      }
+      return
+    }
+
+    if (jobFilters.businessType && !jobFilterBusinessTypeOptions.some(option => option.value === jobFilters.businessType)) {
+      setJobFilters(current => ({ ...current, businessType: '' }))
+    }
+  }, [jobFilterBusinessTypeOptions, jobFilters.businessType, jobFilters.industryCategory])
+
+  useEffect(() => {
+    if (!jobPostDraft.categoryId) return
+    if (jobPostCategoryOptions.some(category => category.id === jobPostDraft.categoryId)) return
+
+    setJobPostDraft(current => ({ ...current, categoryId: '' }))
+  }, [jobPostCategoryOptions, jobPostDraft.categoryId])
+
+  useEffect(() => {
+    if (!snapshot || !jobPostDraft.companyId) return
+    const selectedCompany = snapshot.companies.find(company => company.id === jobPostDraft.companyId)
+    if (!selectedCompany) return
+
+    const defaultCompanyPlan = selectedCompany.activePlan
+      ? snapshot.plans.find(plan => plan.id === selectedCompany.activePlan && plan.audience === 'company')
+      : undefined
+
+    setJobPostDraft(current => {
+      if (current.companyId !== selectedCompany.id) return current
+
+      const currentConnectedPlan = getCompanyPlanByName(current.connectedPlan)
+      const generatedPublishedAt = current.publishedAt || new Date().toISOString().slice(0, 10)
+      const resolvedPlan = currentConnectedPlan || defaultCompanyPlan
+      const generatedValidityDays = resolvedPlan?.validityDays || current.validityDays || 3
+      const generatedExpiresAt = addDays(generatedPublishedAt, generatedValidityDays)
+      const generatedLocationLabel =
+        selectedCompany.area.trim() ||
+        selectedCompany.pincode.trim() ||
+        current.locationLabel.trim() ||
+        selectedCompany.companyAddress.trim()
+
+      return {
+        ...current,
+        city: selectedCompany.city.trim() || current.city,
+        locationLabel: generatedLocationLabel,
+        validityDays: generatedValidityDays,
+        status: current.status || 'draft',
+        connectedPlan: current.connectedPlan || defaultCompanyPlan?.name || '',
+        submissionMode: editingJobPostId ? current.submissionMode : 'Pending review for publish',
+        publishedAt: generatedPublishedAt,
+        expiresAt: generatedExpiresAt
+      }
+    })
+  }, [editingJobPostId, jobPostDraft.companyId, snapshot])
 
   const persistEntity = async (
     method: 'POST' | 'PUT',
@@ -1083,6 +1734,8 @@ export default function LabourExchangeAdminPage() {
   const resetWorkerDraft = () => {
     setWorkerDraft({ ...blankWorker, city: defaultAdminCity, homeCity: defaultAdminCity })
     setEditingWorkerId(null)
+    setIsWorkerCategoryMenuOpen(false)
+    setWorkerCategorySearch('')
   }
 
   const resetCompanyDraft = () => {
@@ -1149,10 +1802,18 @@ export default function LabourExchangeAdminPage() {
 
   const getPlanById = (planId: string) => snapshot.plans.find(plan => plan.id === planId)
   const getPlanName = (planId: string) => getPlanById(planId)?.name || planId || 'No plan'
+  const activeCompanyPlans = snapshot.plans.filter(plan => plan.audience === 'company' && plan.isActive)
   const getWorkerById = (workerId: string) => snapshot.workers.find(worker => worker.id === workerId)
   const getCompanyName = (companyId: string) =>
     snapshot.companies.find(company => company.id === companyId)?.companyName || companyId
   const getCompanyById = (companyId: string) => snapshot.companies.find(company => company.id === companyId)
+  const getCompanyPlanByName = (planName: string) =>
+    activeCompanyPlans.find(plan => plan.name.trim().toLowerCase() === planName.trim().toLowerCase()) || null
+  const getCompanyActivePlan = (companyId: string) => {
+    const company = getCompanyById(companyId)
+    if (!company?.activePlan) return null
+    return snapshot.plans.find(plan => plan.id === company.activePlan && plan.audience === 'company') || null
+  }
   const getEntityName = (entityType: WalletEntityType, entityId: string) =>
     entityType === 'worker' ? getWorkerById(entityId)?.fullName || '' : getCompanyById(entityId)?.companyName || ''
   const formatIdentityProofType = (value: WorkerIdentityProofType) => {
@@ -1201,6 +1862,78 @@ export default function LabourExchangeAdminPage() {
   }
   const getEntityStatusLabel = (entityType: WalletEntityType, entityId: string) =>
     entityType === 'worker' ? getWorkerById(entityId)?.status || '' : getCompanyById(entityId)?.status || ''
+  const getWorkerCompany = (worker: LabourWorker) =>
+    worker.companyId ? snapshot.companies.find(company => company.id === worker.companyId) || null : null
+  const getWorkerCompanyName = (worker: LabourWorker) => getWorkerCompany(worker)?.companyName || 'No company'
+  const getWorkerIndustryCategoryValue = (worker: LabourWorker) => {
+    const linkedCompanyIndustry = getWorkerCompany(worker)?.industryCategory || ''
+    const value = worker.industryCategory || linkedCompanyIndustry
+    return findMatchingMasterOption(masterOptionsByKey.industry_category || [], value)?.value || value
+  }
+  const getWorkerBusinessTypeValue = (worker: LabourWorker) => {
+    const linkedCompanyBusinessType = getWorkerCompany(worker)?.businessType || ''
+    const value = worker.businessType || linkedCompanyBusinessType
+    return findMatchingMasterOption(masterOptionsByKey.business_type || [], value)?.value || value
+  }
+  const getWorkerIndustryCategoryLabel = (worker: LabourWorker) => {
+    const linkedCompanyIndustry = getWorkerCompany(worker)?.industryCategory || ''
+    const value = worker.industryCategory || linkedCompanyIndustry
+    return value
+      ? resolveLabourMasterLabel(masterOptionsByKey.industry_category || [], value, value)
+      : 'No industry category'
+  }
+  const getWorkerBusinessTypeLabel = (worker: LabourWorker) => {
+    const linkedCompanyBusinessType = getWorkerCompany(worker)?.businessType || ''
+    const value = worker.businessType || linkedCompanyBusinessType
+    return value
+      ? resolveLabourMasterLabel(masterOptionsByKey.business_type || [], value, value)
+      : 'No business type'
+  }
+  const getWorkerCreatedAtTimestamp = (worker: LabourWorker) => {
+    if (!worker.createdAt) return Number.NaN
+    const timestamp = new Date(worker.createdAt).getTime()
+    return Number.isNaN(timestamp) ? Number.NaN : timestamp
+  }
+  const getCompanyIndustryCategoryValue = (company: LabourCompany) =>
+    findMatchingMasterOption(masterOptionsByKey.industry_category || [], company.industryCategory)?.value || company.industryCategory
+  const getCompanyBusinessTypeValue = (company: LabourCompany) =>
+    findMatchingMasterOption(masterOptionsByKey.business_type || [], company.businessType)?.value || company.businessType
+  const getCompanyIndustryCategoryLabel = (company: LabourCompany) =>
+    company.industryCategory
+      ? resolveLabourMasterLabel(masterOptionsByKey.industry_category || [], company.industryCategory, company.industryCategory)
+      : 'No industry category'
+  const getCompanyBusinessTypeLabel = (company: LabourCompany) =>
+    company.businessType
+      ? resolveLabourMasterLabel(masterOptionsByKey.business_type || [], company.businessType, company.businessType)
+      : 'No business type'
+  const getCompanyCreatedAtTimestamp = (company: LabourCompany) => {
+    if (!company.createdAt) return Number.NaN
+    const timestamp = new Date(company.createdAt).getTime()
+    return Number.isNaN(timestamp) ? Number.NaN : timestamp
+  }
+  const getJobPostCompany = (jobPost: LabourJobPost) => getCompanyById(jobPost.companyId) || null
+  const getJobPostCompanyName = (jobPost: LabourJobPost) => getJobPostCompany(jobPost)?.companyName || 'No company'
+  const getJobPostIndustryCategoryValue = (jobPost: LabourJobPost) => {
+    const linkedCompany = getJobPostCompany(jobPost)
+    return linkedCompany ? getCompanyIndustryCategoryValue(linkedCompany) : ''
+  }
+  const getJobPostBusinessTypeValue = (jobPost: LabourJobPost) => {
+    const linkedCompany = getJobPostCompany(jobPost)
+    return linkedCompany ? getCompanyBusinessTypeValue(linkedCompany) : ''
+  }
+  const getJobPostIndustryCategoryLabel = (jobPost: LabourJobPost) => {
+    const linkedCompany = getJobPostCompany(jobPost)
+    return linkedCompany ? getCompanyIndustryCategoryLabel(linkedCompany) : 'No industry category'
+  }
+  const getJobPostBusinessTypeLabel = (jobPost: LabourJobPost) => {
+    const linkedCompany = getJobPostCompany(jobPost)
+    return linkedCompany ? getCompanyBusinessTypeLabel(linkedCompany) : 'No business type'
+  }
+  const getJobPostPublishedAtTimestamp = (jobPost: LabourJobPost) => {
+    if (!jobPost.publishedAt) return Number.NaN
+    const timestamp = new Date(jobPost.publishedAt).getTime()
+    return Number.isNaN(timestamp) ? Number.NaN : timestamp
+  }
 
   const activeWorkerPlan =
     snapshot.plans.find(plan => plan.audience === 'worker' && plan.isActive) ||
@@ -1335,62 +2068,205 @@ export default function LabourExchangeAdminPage() {
     ])
   })
 
-  const filteredWorkers = snapshot.workers.filter(worker => {
-    if (workerFilters.status !== 'all' && worker.status !== workerFilters.status) return false
-    if (workerFilters.categoryId && !worker.categoryIds.includes(workerFilters.categoryId)) return false
-    if (workerFilters.visibility === 'visible' && !worker.isVisible) return false
-    if (workerFilters.visibility === 'hidden' && worker.isVisible) return false
-    if (workerFilters.kyc !== 'all' && getWorkerKycState(worker) !== workerFilters.kyc) return false
+  const filteredWorkers = [...snapshot.workers]
+    .filter(worker => {
+      if (workerFilters.companyId && worker.companyId !== workerFilters.companyId) return false
+      if (workerFilters.status !== 'all' && worker.status !== workerFilters.status) return false
+      if (workerFilters.availability !== 'all' && worker.availability !== workerFilters.availability) return false
+      if (workerFilters.categoryId && !worker.categoryIds.includes(workerFilters.categoryId)) return false
+      if (workerFilters.visibility === 'visible' && !worker.isVisible) return false
+      if (workerFilters.visibility === 'hidden' && worker.isVisible) return false
+      if (workerFilters.kyc !== 'all' && getWorkerKycState(worker) !== workerFilters.kyc) return false
+      if (workerFilters.industryCategory && getWorkerIndustryCategoryValue(worker) !== workerFilters.industryCategory) return false
+      if (workerFilters.businessType && getWorkerBusinessTypeValue(worker) !== workerFilters.businessType) return false
 
-    return matchesSearch(workerFilters.search, [
-      worker.fullName,
-      worker.mobile,
-      worker.city,
-      worker.status,
-      getWorkerKycLabel(worker),
-      formatIdentityProofType(worker.identityProofType),
-      worker.categoryIds.map(getCategoryName).join(', ')
-    ])
-  })
+      const createdAtTimestamp = getWorkerCreatedAtTimestamp(worker)
+      if (workerFilters.dateFrom) {
+        const fromTimestamp = new Date(`${workerFilters.dateFrom}T00:00:00`).getTime()
+        if (Number.isNaN(createdAtTimestamp) || createdAtTimestamp < fromTimestamp) return false
+      }
+      if (workerFilters.dateTo) {
+        const toTimestamp = new Date(`${workerFilters.dateTo}T23:59:59.999`).getTime()
+        if (Number.isNaN(createdAtTimestamp) || createdAtTimestamp > toTimestamp) return false
+      }
+
+      return matchesSearch(workerFilters.search, [
+        worker.fullName,
+        worker.mobile,
+        worker.city,
+        worker.homeCity,
+        worker.status,
+        getWorkerKycLabel(worker),
+        formatIdentityProofType(worker.identityProofType),
+        getWorkerCompanyName(worker),
+        getWorkerIndustryCategoryLabel(worker),
+        getWorkerBusinessTypeLabel(worker),
+        worker.categoryIds.map(getCategoryName).join(', ')
+      ])
+    })
+    .sort((left, right) => {
+      switch (workerFilters.sort) {
+        case 'name_desc':
+          return right.fullName.localeCompare(left.fullName, undefined, { sensitivity: 'base' })
+        case 'created_desc': {
+          const leftTimestamp = getWorkerCreatedAtTimestamp(left)
+          const rightTimestamp = getWorkerCreatedAtTimestamp(right)
+          if (Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) {
+            return left.fullName.localeCompare(right.fullName, undefined, { sensitivity: 'base' })
+          }
+          if (Number.isNaN(leftTimestamp)) return 1
+          if (Number.isNaN(rightTimestamp)) return -1
+          return rightTimestamp - leftTimestamp || left.fullName.localeCompare(right.fullName, undefined, { sensitivity: 'base' })
+        }
+        case 'created_asc': {
+          const leftTimestamp = getWorkerCreatedAtTimestamp(left)
+          const rightTimestamp = getWorkerCreatedAtTimestamp(right)
+          if (Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) {
+            return left.fullName.localeCompare(right.fullName, undefined, { sensitivity: 'base' })
+          }
+          if (Number.isNaN(leftTimestamp)) return 1
+          if (Number.isNaN(rightTimestamp)) return -1
+          return leftTimestamp - rightTimestamp || left.fullName.localeCompare(right.fullName, undefined, { sensitivity: 'base' })
+        }
+        case 'name_asc':
+        default:
+          return left.fullName.localeCompare(right.fullName, undefined, { sensitivity: 'base' })
+      }
+    })
   const selectedWorkerReview =
     filteredWorkers.find(worker => worker.id === selectedWorkerReviewId) ||
     filteredWorkers.find(worker => getWorkerKycState(worker) === 'ready_for_review') ||
     filteredWorkers[0] ||
     null
 
-  const filteredCompanies = snapshot.companies.filter(company => {
-    if (companyFilters.status !== 'all' && company.status !== companyFilters.status) return false
-    if (companyFilters.categoryId && !company.categoryIds.includes(companyFilters.categoryId)) return false
-    if (companyFilters.fee === 'paid' && !company.registrationFeePaid) return false
-    if (companyFilters.fee === 'pending' && company.registrationFeePaid) return false
+  const filteredCompanies = [...snapshot.companies]
+    .filter(company => {
+      if (companyFilters.status !== 'all' && company.status !== companyFilters.status) return false
+      if (companyFilters.categoryId && !company.categoryIds.includes(companyFilters.categoryId)) return false
+      if (companyFilters.fee === 'paid' && !company.registrationFeePaid) return false
+      if (companyFilters.fee === 'pending' && company.registrationFeePaid) return false
+      if (companyFilters.industryCategory && getCompanyIndustryCategoryValue(company) !== companyFilters.industryCategory) return false
+      if (companyFilters.businessType && getCompanyBusinessTypeValue(company) !== companyFilters.businessType) return false
 
-    return matchesSearch(companyFilters.search, [
-      company.companyName,
-      company.contactPerson,
-      company.email,
-      company.mobile,
-      company.city,
-      company.status,
-      company.categoryIds.map(getCategoryName).join(', ')
-    ])
-  })
+      const createdAtTimestamp = getCompanyCreatedAtTimestamp(company)
+      if (companyFilters.dateFrom) {
+        const fromTimestamp = new Date(`${companyFilters.dateFrom}T00:00:00`).getTime()
+        if (Number.isNaN(createdAtTimestamp) || createdAtTimestamp < fromTimestamp) return false
+      }
+      if (companyFilters.dateTo) {
+        const toTimestamp = new Date(`${companyFilters.dateTo}T23:59:59.999`).getTime()
+        if (Number.isNaN(createdAtTimestamp) || createdAtTimestamp > toTimestamp) return false
+      }
 
-  const filteredJobPosts = snapshot.jobPosts.filter(jobPost => {
-    const effectiveStatus = isExpiredJobPost(jobPost) ? 'expired' : jobPost.status
+      return matchesSearch(companyFilters.search, [
+        company.companyName,
+        company.contactPerson,
+        company.email,
+        company.mobile,
+        company.city,
+        company.status,
+        getCompanyIndustryCategoryLabel(company),
+        getCompanyBusinessTypeLabel(company),
+        company.categoryIds.map(getCategoryName).join(', ')
+      ])
+    })
+    .sort((left, right) => {
+      switch (companyFilters.sort) {
+        case 'name_desc':
+          return right.companyName.localeCompare(left.companyName, undefined, { sensitivity: 'base' })
+        case 'created_desc': {
+          const leftTimestamp = getCompanyCreatedAtTimestamp(left)
+          const rightTimestamp = getCompanyCreatedAtTimestamp(right)
+          if (Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) {
+            return left.companyName.localeCompare(right.companyName, undefined, { sensitivity: 'base' })
+          }
+          if (Number.isNaN(leftTimestamp)) return 1
+          if (Number.isNaN(rightTimestamp)) return -1
+          return rightTimestamp - leftTimestamp || left.companyName.localeCompare(right.companyName, undefined, { sensitivity: 'base' })
+        }
+        case 'created_asc': {
+          const leftTimestamp = getCompanyCreatedAtTimestamp(left)
+          const rightTimestamp = getCompanyCreatedAtTimestamp(right)
+          if (Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) {
+            return left.companyName.localeCompare(right.companyName, undefined, { sensitivity: 'base' })
+          }
+          if (Number.isNaN(leftTimestamp)) return 1
+          if (Number.isNaN(rightTimestamp)) return -1
+          return leftTimestamp - rightTimestamp || left.companyName.localeCompare(right.companyName, undefined, { sensitivity: 'base' })
+        }
+        case 'name_asc':
+        default:
+          return left.companyName.localeCompare(right.companyName, undefined, { sensitivity: 'base' })
+      }
+    })
 
-    if (jobFilters.status !== 'all' && effectiveStatus !== jobFilters.status) return false
-    if (jobFilters.categoryId && jobPost.categoryId !== jobFilters.categoryId) return false
-    if (jobFilters.companyId && jobPost.companyId !== jobFilters.companyId) return false
+  const filteredJobPosts = [...snapshot.jobPosts]
+    .filter(jobPost => {
+      const effectiveStatus = isExpiredJobPost(jobPost) ? 'expired' : jobPost.status
 
-    return matchesSearch(jobFilters.search, [
-      jobPost.title,
-      jobPost.description,
-      jobPost.city,
-      getCategoryName(jobPost.categoryId),
-      getCompanyName(jobPost.companyId),
-      effectiveStatus
-    ])
-  })
+      if (jobFilters.status !== 'all' && effectiveStatus !== jobFilters.status) return false
+      if (jobFilters.categoryId && jobPost.categoryId !== jobFilters.categoryId) return false
+      if (jobFilters.companyId && jobPost.companyId !== jobFilters.companyId) return false
+      if (jobFilters.industryCategory && getJobPostIndustryCategoryValue(jobPost) !== jobFilters.industryCategory) return false
+      if (jobFilters.businessType && getJobPostBusinessTypeValue(jobPost) !== jobFilters.businessType) return false
+
+      const publishedAtTimestamp = getJobPostPublishedAtTimestamp(jobPost)
+      if (jobFilters.dateFrom) {
+        const fromTimestamp = new Date(`${jobFilters.dateFrom}T00:00:00`).getTime()
+        if (Number.isNaN(publishedAtTimestamp) || publishedAtTimestamp < fromTimestamp) return false
+      }
+      if (jobFilters.dateTo) {
+        const toTimestamp = new Date(`${jobFilters.dateTo}T23:59:59.999`).getTime()
+        if (Number.isNaN(publishedAtTimestamp) || publishedAtTimestamp > toTimestamp) return false
+      }
+
+      return matchesSearch(jobFilters.search, [
+        jobPost.title,
+        jobPost.description,
+        jobPost.city,
+        jobPost.locationLabel,
+        getCategoryName(jobPost.categoryId),
+        getJobPostCompanyName(jobPost),
+        getJobPostIndustryCategoryLabel(jobPost),
+        getJobPostBusinessTypeLabel(jobPost),
+        effectiveStatus
+      ])
+    })
+    .sort((left, right) => {
+      switch (jobFilters.sort) {
+        case 'title_desc':
+          return right.title.localeCompare(left.title, undefined, { sensitivity: 'base' })
+        case 'created_desc': {
+          const leftTimestamp = getJobPostPublishedAtTimestamp(left)
+          const rightTimestamp = getJobPostPublishedAtTimestamp(right)
+          if (Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) {
+            return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
+          }
+          if (Number.isNaN(leftTimestamp)) return 1
+          if (Number.isNaN(rightTimestamp)) return -1
+          return rightTimestamp - leftTimestamp || left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
+        }
+        case 'created_asc': {
+          const leftTimestamp = getJobPostPublishedAtTimestamp(left)
+          const rightTimestamp = getJobPostPublishedAtTimestamp(right)
+          if (Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) {
+            return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
+          }
+          if (Number.isNaN(leftTimestamp)) return 1
+          if (Number.isNaN(rightTimestamp)) return -1
+          return leftTimestamp - rightTimestamp || left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
+        }
+        case 'company_asc':
+          return getJobPostCompanyName(left).localeCompare(getJobPostCompanyName(right), undefined, { sensitivity: 'base' }) ||
+            left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
+        case 'company_desc':
+          return getJobPostCompanyName(right).localeCompare(getJobPostCompanyName(left), undefined, { sensitivity: 'base' }) ||
+            left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
+        case 'title_asc':
+        default:
+          return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
+      }
+    })
   const filteredJobApplications = snapshot.jobApplications.filter(application => {
     if (jobApplicationFilters.status !== 'all' && application.status !== jobApplicationFilters.status) return false
     if (jobApplicationFilters.companyId && application.companyId !== jobApplicationFilters.companyId) return false
@@ -1713,6 +2589,23 @@ export default function LabourExchangeAdminPage() {
     cities: cityReportRows
   }
 
+  const currentSectionLabel = sectionLabels[activeSection]
+  const currentSectionCopy =
+    activeSection === 'overview'
+      ? 'Track labour operations, live activity, revenue, and admin coverage from one compact workspace.'
+      : `${currentSectionLabel} management stays connected to the existing labour workflows, data bindings, and admin actions.`
+  const overviewMetricCards = [
+    { label: 'Active Workers', value: snapshot.stats.activeWorkers, accent: '#10b981' },
+    { label: 'Inactive Workers', value: snapshot.stats.inactiveWorkers, accent: '#f59e0b' },
+    { label: 'Active Companies', value: snapshot.stats.activeCompanies, accent: '#2563eb' },
+    { label: 'Live Job Posts', value: snapshot.stats.liveJobPosts, accent: '#7c3aed' },
+    { label: 'Expired Job Posts', value: expiredJobPostsCount, accent: '#dc2626' },
+    { label: 'Applications', value: snapshot.jobApplications.length, accent: '#0f766e' },
+    { label: 'Unread Alerts', value: unreadWorkerNotificationsCount, accent: '#b45309' },
+    { label: 'Wallet Revenue', value: formatCurrency(walletRevenue), accent: '#0f172a' },
+    { label: 'Registration Revenue', value: formatCurrency(registrationRevenue), accent: '#1d4ed8' }
+  ]
+
   const downloadReportFile = (fileName: string, content: string, mimeType: string) => {
     const blob = new Blob([content], { type: mimeType })
     const url = window.URL.createObjectURL(blob)
@@ -1793,6 +2686,8 @@ export default function LabourExchangeAdminPage() {
     if (!workerDraft.fullName.trim()) return 'Worker name is required.'
     if (!workerDraft.mobile.trim()) return 'Worker mobile is required.'
     if (!isTenDigitMobile(workerDraft.mobile)) return 'Worker mobile must be exactly 10 digits.'
+    if (!workerDraft.industryCategory.trim()) return 'Industry category is required.'
+    if (!workerDraft.businessType.trim()) return 'Business type is required.'
     if (workerDraft.categoryIds.length === 0) return 'Select at least one worker category.'
     if (workerDraft.experienceYears < 0 || workerDraft.expectedDailyWage < 0 || workerDraft.walletBalance < 0) {
       return 'Worker experience, wage and wallet balance must be non-negative.'
@@ -1809,13 +2704,19 @@ export default function LabourExchangeAdminPage() {
   const validateCompany = () => {
     if (!companyDraft.companyName.trim()) return 'Company name is required.'
     if (!companyDraft.contactPerson.trim()) return 'Contact person is required.'
+    if (!companyDraft.businessType.trim()) return 'Business type is required.'
+    if (!companyDraft.industryCategory.trim()) return 'Industry category is required.'
     if (!companyDraft.email.trim()) return 'Company email is required.'
     if (!isValidEmail(companyDraft.email)) return 'Enter a valid company email address.'
     if (!companyDraft.mobile.trim()) return 'Owner number is required.'
     if (!isTenDigitMobile(companyDraft.mobile)) return 'Owner number must be exactly 10 digits.'
     if (companyDraft.contactMobile.trim() && !isTenDigitMobile(companyDraft.contactMobile)) return 'Contact number must be exactly 10 digits.'
-    if (companyDraft.categoryIds.length === 0) return 'Select at least one company category.'
-    if (companyDraft.status === 'active' && !companyDraft.activePlan) return 'Active companies should have a plan selected.'
+    if (!companyDraft.companyAddress.trim()) return 'Company address is required.'
+    if (!companyDraft.state.trim()) return 'State is required.'
+    if (companyDraft.gstNumber.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/i.test(companyDraft.gstNumber.trim())) {
+      return 'GST number format is not valid.'
+    }
+    if (companyDraft.pincode.trim() && !/^\d{6}$/.test(companyDraft.pincode.trim())) return 'Pincode must be exactly 6 digits.'
 
     const duplicateMobile = snapshot.companies.find(
       company => company.id !== editingCompanyId && company.mobile.trim() === companyDraft.mobile.trim()
@@ -1836,7 +2737,6 @@ export default function LabourExchangeAdminPage() {
     if (!jobPostDraft.companyId) return 'Company is required.'
     if (!jobPostDraft.categoryId) return 'Category is required.'
     if (jobPostDraft.workersNeeded <= 0) return 'Workers needed must be greater than 0.'
-    if (jobPostDraft.validityDays <= 0) return 'Validity days must be greater than 0.'
     if (jobPostDraft.wageAmount < 0) return 'Wage amount cannot be negative.'
     return ''
   }
@@ -2074,11 +2974,30 @@ export default function LabourExchangeAdminPage() {
       return
     }
 
+    const selectedCompany = getCompanyById(jobPostDraft.companyId)
+    const selectedCompanyPlan = getCompanyPlanByName(jobPostDraft.connectedPlan) || getCompanyActivePlan(jobPostDraft.companyId)
     const publishedAt = jobPostDraft.publishedAt || new Date().toISOString().slice(0, 10)
+    const generatedValidityDays = selectedCompanyPlan?.validityDays || jobPostDraft.validityDays || 3
+    const generatedCity = jobPostDraft.city.trim() || selectedCompany?.city.trim() || defaultAdminCity
+    const generatedLocationLabel =
+      jobPostDraft.locationLabel.trim() ||
+      selectedCompany?.area.trim() ||
+      selectedCompany?.pincode.trim() ||
+      selectedCompany?.companyAddress.trim() ||
+      ''
     const payload = {
       ...jobPostDraft,
+      description: buildJobPostDescription({
+        ...jobPostDraft,
+        connectedPlan: jobPostDraft.connectedPlan || selectedCompanyPlan?.name || '',
+        submissionMode: editingJobPostId ? jobPostDraft.submissionMode || jobPostDraft.status : 'Pending review for publish'
+      }),
+      city: generatedCity,
+      locationLabel: generatedLocationLabel,
+      validityDays: generatedValidityDays,
+      status: jobPostDraft.status || 'draft',
       publishedAt,
-      expiresAt: jobPostDraft.expiresAt || addDays(publishedAt, jobPostDraft.validityDays)
+      expiresAt: addDays(publishedAt, generatedValidityDays)
     }
 
     const ok = await persistEntity(
@@ -2150,198 +3069,596 @@ export default function LabourExchangeAdminPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f6f8fb', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#edf2f8', fontFamily: '"Inter", "Segoe UI", sans-serif' }}>
+      <style>{`
+        * { box-sizing: border-box; }
+        .labour-admin-shell {
+          min-height: 100vh;
+          display: grid;
+          grid-template-columns: 272px minmax(0, 1fr);
+          background:
+            radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 22%),
+            linear-gradient(180deg, #f7faff 0%, #eef3f9 100%);
+        }
+        .labour-sidebar {
+          position: sticky;
+          top: 0;
+          height: 100vh;
+          padding: 14px;
+          background: linear-gradient(180deg, #112347 0%, #0d1c38 52%, #0a162e 100%);
+          border-right: 1px solid rgba(148, 163, 184, 0.12);
+          color: #ffffff;
+          overflow: hidden;
+        }
+        .labour-sidebar-panel {
+          height: 100%;
+          display: grid;
+          grid-template-rows: auto auto minmax(0, 1fr) auto;
+          gap: 14px;
+          min-height: 0;
+        }
+        .labour-brand {
+          display: grid;
+          gap: 10px;
+        }
+        .labour-brand-mark {
+          width: 48px;
+          height: 48px;
+          border-radius: 15px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, #275df3 0%, #1d4ed8 100%);
+          color: #ffffff;
+          font-size: 18px;
+          font-weight: 700;
+          box-shadow: 0 16px 28px rgba(29, 78, 216, 0.28);
+        }
+        .labour-brand-title {
+          margin: 0;
+          font-size: 18px;
+          line-height: 1.15;
+          font-weight: 600;
+          color: #f8fafc;
+        }
+        .labour-brand-copy {
+          margin: 6px 0 0;
+          color: rgba(226, 232, 240, 0.82);
+          font-size: 12.5px;
+          line-height: 1.5;
+        }
+        .labour-sidebar-kicker {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(191, 219, 254, 0.86);
+        }
+        .labour-sidebar-nav {
+          display: grid;
+          gap: 4px;
+          align-content: start;
+          min-height: 0;
+          overflow-y: auto;
+          padding-right: 4px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(147, 197, 253, 0.34) transparent;
+        }
+        .labour-sidebar-nav::-webkit-scrollbar {
+          width: 6px;
+        }
+        .labour-sidebar-nav::-webkit-scrollbar-thumb {
+          background: rgba(147, 197, 253, 0.34);
+          border-radius: 999px;
+        }
+        .labour-nav-item {
+          width: 100%;
+          border: 1px solid transparent;
+          background: transparent;
+          color: rgba(241, 245, 249, 0.92);
+          border-radius: 13px;
+          padding: 8px 10px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+          text-align: left;
+        }
+        .labour-nav-item:hover {
+          background: rgba(59, 130, 246, 0.12);
+          border-color: rgba(147, 197, 253, 0.18);
+          color: #ffffff;
+        }
+        .labour-nav-item.active {
+          background: linear-gradient(180deg, rgba(37, 99, 235, 0.3) 0%, rgba(29, 78, 216, 0.24) 100%);
+          border-color: rgba(96, 165, 250, 0.34);
+          color: #ffffff;
+          box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.08);
+        }
+        .labour-nav-icon {
+          width: 17px;
+          height: 17px;
+          flex: 0 0 auto;
+        }
+        .labour-sidebar-footer {
+          border-top: 1px solid rgba(148, 163, 184, 0.18);
+          padding-top: 12px;
+          display: grid;
+          gap: 4px;
+        }
+        .labour-sidebar-footer-title {
+          color: #f8fafc;
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .labour-sidebar-footer-copy {
+          color: rgba(191, 219, 254, 0.78);
+          font-size: 11px;
+          line-height: 1.45;
+        }
+        .labour-content-shell {
+          min-width: 0;
+          display: grid;
+          grid-template-rows: auto 1fr;
+        }
+        .labour-topbar {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          padding: 18px 24px 14px;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 16px;
+          flex-wrap: wrap;
+          background: rgba(247, 250, 255, 0.9);
+          backdrop-filter: blur(14px);
+          border-bottom: 1px solid rgba(220, 228, 239, 0.9);
+        }
+        .labour-header-kicker {
+          margin: 0 0 6px;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: #5c7598;
+        }
+        .labour-header-title {
+          margin: 0;
+          font-size: 28px;
+          line-height: 1.1;
+          font-weight: 600;
+          color: #0f172a;
+        }
+        .labour-header-copy {
+          margin: 6px 0 0;
+          font-size: 13px;
+          line-height: 1.55;
+          color: #64748b;
+          max-width: 760px;
+        }
+        .labour-header-actions {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .labour-page-body {
+          padding: 20px 24px 28px;
+        }
+        .labour-page-stack {
+          width: min(1420px, 100%);
+          display: grid;
+          gap: 14px;
+        }
+        .labour-storage-card {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 16px;
+          align-items: center;
+        }
+        .labour-storage-copy {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        .labour-storage-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(180deg, #eef4ff 0%, #e4eeff 100%);
+          color: #2563eb;
+          flex: 0 0 auto;
+        }
+        .labour-storage-actions {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .labour-metric-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+          gap: 12px;
+          align-items: stretch;
+        }
+        .labour-metric-card {
+          position: relative;
+          overflow: hidden;
+          min-height: 108px;
+          padding: 16px 18px;
+        }
+        .labour-metric-card::after {
+          content: "";
+          position: absolute;
+          width: 64px;
+          height: 64px;
+          border-radius: 999px;
+          inset: auto -22px -22px auto;
+          background: rgba(219, 230, 246, 0.34);
+        }
+        .labour-metric-label {
+          position: relative;
+          z-index: 1;
+          margin: 0 0 8px;
+          font-size: 11px;
+          font-weight: 600;
+          color: #5f7594;
+          text-transform: uppercase;
+          letter-spacing: 0.16em;
+        }
+        .labour-metric-value {
+          position: relative;
+          z-index: 1;
+          margin: 0;
+          font-size: 31px;
+          line-height: 1.05;
+          font-weight: 600;
+        }
+        .labour-overview-grid {
+          display: grid;
+          grid-template-columns: 1.1fr 0.9fr;
+          gap: 16px;
+        }
+        .labour-overview-stack {
+          display: grid;
+          gap: 16px;
+        }
+        .labour-coverage-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+        }
+        .labour-card-heading {
+          margin: 0 0 8px;
+          color: #0f172a;
+          font-size: 20px;
+          font-weight: 600;
+        }
+        .labour-card-subheading {
+          margin: 0;
+          color: #0f172a;
+          font-size: 18px;
+          font-weight: 600;
+        }
+        .labour-card-copy {
+          margin: 0;
+          color: #475569;
+          font-size: 13px;
+          line-height: 1.65;
+        }
+        .labour-chip-card {
+          background: #f8fbff;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          padding: 12px 14px;
+          color: #334155;
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .labour-activity-row {
+          background: #fbfdff;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          padding: 12px 14px;
+        }
+        .labour-content-section {
+          min-width: 0;
+        }
+        .labour-nav-item:focus-visible,
+        .labour-header-actions a:focus-visible,
+        .labour-header-actions button:focus-visible,
+        button:focus-visible,
+        a:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+          outline: 0;
+          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
+        @media (max-width: 1280px) {
+          .labour-metric-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          }
+          .labour-overview-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        @media (max-width: 1120px) {
+          .labour-admin-shell {
+            grid-template-columns: 1fr;
+          }
+          .labour-sidebar {
+            position: static;
+            height: auto;
+            overflow: visible;
+          }
+          .labour-sidebar-panel {
+            grid-template-rows: auto auto auto;
+          }
+          .labour-sidebar-footer {
+            display: none;
+          }
+          .labour-sidebar-nav {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            overflow: visible;
+            padding-right: 0;
+          }
+          .labour-metric-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+        @media (max-height: 940px) and (min-width: 1121px) {
+          .labour-sidebar-footer {
+            display: none;
+          }
+        }
+        @media (max-width: 920px) {
+          .labour-storage-card {
+            grid-template-columns: 1fr;
+          }
+          .labour-storage-actions {
+            justify-content: flex-start;
+          }
+          .labour-coverage-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+        @media (max-width: 720px) {
+          .labour-topbar {
+            padding: 16px 14px 14px;
+          }
+          .labour-header-title {
+            font-size: 24px;
+          }
+          .labour-page-body {
+            padding: 16px;
+          }
+          .labour-sidebar {
+            padding: 14px;
+          }
+          .labour-sidebar-nav {
+            grid-template-columns: 1fr;
+          }
+          .labour-metric-grid,
+          .labour-coverage-grid {
+            grid-template-columns: 1fr;
+          }
+          .labour-storage-copy {
+            align-items: flex-start;
+          }
+          .labour-header-actions {
+            width: 100%;
+          }
+        }
+      `}</style>
       {(saved || error) && (
         <div style={{ position: 'fixed', top: '20px', right: '20px', background: error ? '#fff1f2' : '#eff6ff', color: error ? '#b91c1c' : '#1d4ed8', border: `1px solid ${error ? '#fecdd3' : '#bfdbfe'}`, fontSize: '13px', fontWeight: '700', padding: '12px 20px', borderRadius: '12px', zIndex: 9999, boxShadow: '0 12px 30px rgba(15,23,42,0.08)' }}>
           {error || saved}
         </div>
       )}
 
-      <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg,#0f172a,#1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: '800' }}>
-            LX
-          </div>
-          <div>
-            <p style={{ margin: 0, color: '#0f172a', fontSize: '15px', fontWeight: '700' }}>Labour Exchange</p>
-            <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>
-              Dashboard, worker management, companies, categories, job posts, plans, reports and moderation.
-            </p>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <Link href="/admin" style={{ ...subtleButtonStyle, textDecoration: 'none' }}>
-            Back To Admin
-          </Link>
-          <button onClick={() => void fetchSnapshot()} style={primaryButtonStyle}>
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '28px 32px 40px' }}>
-        <div style={{ ...cardStyle, marginBottom: '20px', padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <div>
-            <p style={{ margin: '0 0 4px', fontSize: '12px', fontWeight: '700', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Storage Mode
-            </p>
-            <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
-              {snapshot.storage === 'supabase'
-                ? 'This module is currently reading and writing live Supabase tables.'
-                : 'This module is currently using the local JSON fallback because the Supabase labour tables do not exist yet.'}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            {['categories', 'plans', 'workers', 'companies', 'jobPosts', 'workerNotifications'].map(key => (
-              <button
-                key={key}
-                onClick={() => openAddForm(key as LabourSection)}
-                style={subtleButtonStyle}
-              >
-                Add {sectionLabels[key as LabourSection].slice(0, -1)}
-              </button>
-            ))}
-            <a href="/admin/labour/website" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-              Edit Website
-            </a>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '16px', marginBottom: '22px' }}>
-          {[
-            { label: 'Active Workers', value: snapshot.stats.activeWorkers, accent: '#10b981' },
-            { label: 'Inactive Workers', value: snapshot.stats.inactiveWorkers, accent: '#f59e0b' },
-            { label: 'Active Companies', value: snapshot.stats.activeCompanies, accent: '#2563eb' },
-            { label: 'Live Job Posts', value: snapshot.stats.liveJobPosts, accent: '#7c3aed' },
-            { label: 'Expired Job Posts', value: expiredJobPostsCount, accent: '#dc2626' },
-            { label: 'Applications', value: snapshot.jobApplications.length, accent: '#0f766e' },
-            { label: 'Unread Alerts', value: snapshot.workerNotifications.filter(notification => !notification.isRead).length, accent: '#b45309' },
-            { label: 'Wallet Revenue', value: formatCurrency(walletRevenue), accent: '#0f172a' },
-            { label: 'Registration Revenue', value: formatCurrency(registrationRevenue), accent: '#1d4ed8' }
-          ].map(card => (
-            <div key={card.label} style={{ ...cardStyle, padding: '18px 20px' }}>
-              <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{card.label}</p>
-              <p style={{ margin: 0, fontSize: '26px', color: card.accent, fontWeight: '800' }}>{card.value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '22px', flexWrap: 'wrap' }}>
-          {Object.entries(sectionLabels).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setActiveSection(key as LabourSection)}
-              style={{
-                padding: '10px 16px',
-                border: `1px solid ${activeSection === key ? '#cbd5e1' : '#e2e8f0'}`,
-                background: activeSection === key ? '#ffffff' : '#f8fafc',
-                color: activeSection === key ? '#0f172a' : '#64748b',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: activeSection === key ? '700' : '600'
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {activeSection === 'overview' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
-            <div style={{ display: 'grid', gap: '20px' }}>
-              <div style={cardStyle}>
-                <h2 style={{ margin: '0 0 10px', color: '#0f172a', fontSize: '20px' }}>Admin module coverage</h2>
-                <p style={{ margin: '0 0 18px', color: '#475569', fontSize: '14px', lineHeight: 1.7 }}>
-                  This admin module now covers dashboard tracking, worker management, company management, categories, job posts, pricing plans, wallet transaction monitoring, recharge follow-up, reports and moderation.
+      <div className="labour-admin-shell">
+        <aside className="labour-sidebar">
+          <div className="labour-sidebar-panel">
+            <div className="labour-brand">
+              <div className="labour-brand-mark">LX</div>
+              <div>
+                <h1 className="labour-brand-title">Labour Exchange</h1>
+                <p className="labour-brand-copy">
+                  Dashboard, worker management, companies, categories, job posts, plans, reports and moderation.
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
-                  {[
-                    `Categories: ${snapshot.categories.length}`,
-                    `Plans: ${snapshot.plans.length}`,
-                    `Workers: ${snapshot.workers.length}`,
-                    `Companies: ${snapshot.companies.length}`,
-                    `Job Posts: ${snapshot.jobPosts.length}`,
-                    `Applications: ${snapshot.jobApplications.length}`,
-                    `Saved Jobs: ${snapshot.savedJobs.length}`,
-                    `Worker Alerts: ${snapshot.workerNotifications.length}`,
-                    `Wallet Entries: ${walletTransactions.length}`,
-                    `Recharge Follow-ups: ${rechargeRequests.filter(request => request.requestType !== 'worker_support').length}`,
-                    `Support Requests: ${rechargeRequests.filter(request => request.requestType === 'worker_support').length}`,
-                    `Audit Logs: ${snapshot.auditLogs.length}`
-                  ].map(item => (
-                    <div key={item} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={cardStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
-                  <h3 style={{ margin: 0, color: '#0f172a', fontSize: '17px' }}>Category-wise demand</h3>
-                  <button onClick={() => setActiveSection('reports')} style={subtleButtonStyle}>Open Reports</button>
-                </div>
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  {categoryDemandRows.map(row => (
-                    <div key={row.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', background: '#f8fafc' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-                        <p style={{ margin: 0, color: '#0f172a', fontWeight: '700' }}>{row.name}</p>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{row.demandLevel} demand</p>
-                      </div>
-                      <p style={{ margin: '8px 0 0', color: '#475569', fontSize: '13px' }}>
-                        Active workers {row.activeWorkersCount} | Total workers {row.workersCount} | Companies {row.companiesCount} | Live jobs {row.liveJobsCount} | Expired jobs {row.expiredJobsCount}
-                      </p>
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gap: '20px' }}>
-              <div style={cardStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
-                  <h3 style={{ margin: 0, color: '#0f172a', fontSize: '17px' }}>Recent admin activity</h3>
-                  <button onClick={() => setActiveSection('auditLogs')} style={subtleButtonStyle}>Open Audit Logs</button>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {snapshot.stats.recentAuditLogs.length === 0 ? (
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No changes logged yet.</p>
-                  ) : (
-                    snapshot.stats.recentAuditLogs.map(log => (
-                      <div key={log.id} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
-                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>{log.summary}</p>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>{log.actor} | {formatDateTime(log.createdAt)}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+            <div className="labour-sidebar-kicker">Navigation</div>
 
-              <div style={cardStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
-                  <h3 style={{ margin: 0, color: '#0f172a', fontSize: '17px' }}>Moderation queue</h3>
-                  <button onClick={() => setActiveSection('reports')} style={subtleButtonStyle}>Open Moderation</button>
-                </div>
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  {moderationQueue.length === 0 ? (
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Nothing is waiting for moderation right now.</p>
-                  ) : (
-                    moderationQueue.map(item => (
-                      <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px' }}>
-                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>{item.type}: {item.name}</p>
-                        <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px' }}>{item.city || 'No city'} | {titleCase(item.status)}</p>
-                        <p style={{ margin: 0, color: '#475569', fontSize: '12px' }}>{item.note}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+            <div className="labour-sidebar-nav">
+              {sectionNavItems.map(item => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setActiveSection(item.key)}
+                    className={`labour-nav-item ${activeSection === item.key ? 'active' : ''}`}
+                  >
+                    <Icon className="labour-nav-icon" />
+                    <span>{item.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="labour-sidebar-footer">
+              <div className="labour-sidebar-footer-title">Labour Exchange Admin</div>
+              <div className="labour-sidebar-footer-copy">Manage • Monitor • Grow</div>
             </div>
           </div>
-        )}
+        </aside>
 
-        {activeSection === 'categories' && (
+        <main className="labour-content-shell">
+          <header className="labour-topbar">
+            <div>
+              <p className="labour-header-kicker">Labour Admin Workspace</p>
+              <h2 className="labour-header-title">{currentSectionLabel}</h2>
+              <p className="labour-header-copy">{currentSectionCopy}</p>
+            </div>
+            <div className="labour-header-actions">
+              <Link href="/admin" style={subtleButtonStyle}>
+                <ArrowLeft className="labour-nav-icon" />
+                Back To Admin
+              </Link>
+              <button onClick={() => { void fetchSnapshot(); void fetchMasters() }} style={primaryButtonStyle}>
+                <RefreshCw className="labour-nav-icon" />
+                Refresh
+              </button>
+            </div>
+          </header>
+
+          <div className="labour-page-body">
+            <div className="labour-page-stack">
+              <div style={{ ...cardStyle }} className="labour-storage-card">
+                <div className="labour-storage-copy">
+                  <div className="labour-storage-icon">
+                    <Database className="labour-nav-icon" />
+                  </div>
+                  <div>
+                    <p style={{ margin: '0 0 4px', fontSize: '11px', fontWeight: '600', color: '#284667', textTransform: 'uppercase', letterSpacing: '0.16em' }}>
+                      Storage Mode
+                    </p>
+                    <p style={{ margin: 0, color: '#475569', fontSize: '13px', lineHeight: 1.55 }}>
+                      {snapshot.storage === 'supabase'
+                        ? 'This module is currently reading and writing live Supabase tables.'
+                        : 'This module is currently using the local JSON fallback because the Supabase labour tables do not exist yet.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="labour-storage-actions">
+                  {['categories', 'plans', 'workers', 'companies', 'jobPosts', 'workerNotifications'].map(key => (
+                    <button
+                      key={key}
+                      onClick={() => openAddForm(key as LabourSection)}
+                      style={subtleButtonStyle}
+                    >
+                      Add {sectionLabels[key as LabourSection].slice(0, -1)}
+                    </button>
+                  ))}
+                  <a href="/admin/labour/website" style={subtleButtonStyle}>
+                    Edit Website
+                  </a>
+                </div>
+              </div>
+
+              <div className="labour-metric-grid">
+                {overviewMetricCards.map(card => (
+                  <div key={card.label} style={cardStyle} className="labour-metric-card">
+                    <p className="labour-metric-label">{card.label}</p>
+                    <p className="labour-metric-value" style={{ color: card.accent }}>{card.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {activeSection === 'overview' && (
+                <div className="labour-overview-grid labour-content-section">
+                  <div className="labour-overview-stack">
+                    <div style={cardStyle}>
+                      <h2 className="labour-card-heading">Admin module coverage</h2>
+                      <p className="labour-card-copy" style={{ marginBottom: '16px' }}>
+                        This admin module now covers dashboard tracking, worker management, company management, categories, job posts, pricing plans, wallet transaction monitoring, recharge follow-up, reports and moderation.
+                      </p>
+                      <div className="labour-coverage-grid">
+                        {[
+                          `Categories: ${snapshot.categories.length}`,
+                          `Plans: ${snapshot.plans.length}`,
+                          `Workers: ${snapshot.workers.length}`,
+                          `Companies: ${snapshot.companies.length}`,
+                          `Job Posts: ${snapshot.jobPosts.length}`,
+                          `Applications: ${snapshot.jobApplications.length}`,
+                          `Saved Jobs: ${snapshot.savedJobs.length}`,
+                          `Worker Alerts: ${snapshot.workerNotifications.length}`,
+                          `Wallet Entries: ${walletTransactions.length}`,
+                          `Recharge Follow-ups: ${rechargeRequests.filter(request => request.requestType !== 'worker_support').length}`,
+                          `Support Requests: ${rechargeRequests.filter(request => request.requestType === 'worker_support').length}`,
+                          `Audit Logs: ${snapshot.auditLogs.length}`
+                        ].map(item => (
+                          <div key={item} className="labour-chip-card">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={cardStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                        <h3 className="labour-card-subheading">Category-wise demand</h3>
+                        <button onClick={() => setActiveSection('reports')} style={subtleButtonStyle}>Open Reports</button>
+                      </div>
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        {categoryDemandRows.map(row => (
+                          <div key={row.id} className="labour-activity-row">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                              <p style={{ margin: 0, color: '#0f172a', fontWeight: '600', fontSize: '14px' }}>{row.name}</p>
+                              <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>{row.demandLevel} demand</p>
+                            </div>
+                            <p style={{ margin: '6px 0 0', color: '#475569', fontSize: '12px', lineHeight: 1.55 }}>
+                              Active workers {row.activeWorkersCount} | Total workers {row.workersCount} | Companies {row.companiesCount} | Live jobs {row.liveJobsCount} | Expired jobs {row.expiredJobsCount}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="labour-overview-stack">
+                    <div style={cardStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                        <h3 className="labour-card-subheading">Recent admin activity</h3>
+                        <button onClick={() => setActiveSection('auditLogs')} style={subtleButtonStyle}>Open Audit Logs</button>
+                      </div>
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        {snapshot.stats.recentAuditLogs.length === 0 ? (
+                          <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No changes logged yet.</p>
+                        ) : (
+                          snapshot.stats.recentAuditLogs.map(log => (
+                            <div key={log.id} className="labour-activity-row">
+                              <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '13px', fontWeight: '600' }}>{log.summary}</p>
+                              <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>{log.actor} | {formatDateTime(log.createdAt)}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={cardStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                        <h3 className="labour-card-subheading">Moderation queue</h3>
+                        <button onClick={() => setActiveSection('reports')} style={subtleButtonStyle}>Open Moderation</button>
+                      </div>
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        {moderationQueue.length === 0 ? (
+                          <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Nothing is waiting for moderation right now.</p>
+                        ) : (
+                          moderationQueue.map(item => (
+                            <div key={item.id} className="labour-activity-row">
+                              <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '13px', fontWeight: '600' }}>{item.type}: {item.name}</p>
+                              <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px' }}>{item.city || 'No city'} | {titleCase(item.status)}</p>
+                              <p style={{ margin: 0, color: '#475569', fontSize: '12px', lineHeight: 1.55 }}>{item.note}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSection === 'categories' && (
           <div style={{ display: 'grid', gridTemplateColumns: '390px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
@@ -2584,6 +3901,60 @@ export default function LabourExchangeAdminPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
+                    <label style={labelStyle}>Linked Company</label>
+                    <select value={workerDraft.companyId} onChange={event => setWorkerDraft(current => ({ ...current, companyId: event.target.value }))} style={inputStyle}>
+                      <option value="">No company</option>
+                      {workerCompanyOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Industry Category *</label>
+                    <select
+                      value={workerDraft.industryCategory}
+                      onChange={event => setWorkerDraft(current => ({
+                        ...current,
+                        industryCategory: event.target.value,
+                        businessType: '',
+                        categoryIds: []
+                      }))}
+                      style={inputStyle}
+                    >
+                      <option value="">Select industry category</option>
+                      {workerIndustryCategoryOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Business Type *</label>
+                    <select
+                      value={workerDraft.businessType}
+                      onChange={event => setWorkerDraft(current => ({
+                        ...current,
+                        businessType: event.target.value,
+                        categoryIds: []
+                      }))}
+                      style={inputStyle}
+                      disabled={!hasWorkerIndustrySelection}
+                    >
+                      <option value="">
+                        {hasWorkerIndustrySelection ? 'Select business type' : 'Select industry category first'}
+                      </option>
+                      {workerBusinessTypeOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                    {!hasWorkerIndustrySelection ? (
+                      <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>Select Industry Category to load Business Types.</p>
+                    ) : !hasMappedBusinessTypesForWorker ? (
+                      <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>No Business Type mappings found for this Industry Category.</p>
+                    ) : null}
+                  </div>
+                  <div>
                     <label style={labelStyle}>Looking Job City</label>
                     <select value={workerDraft.city} onChange={event => setWorkerDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
                       {getCitySelectOptions(workerDraft.city).map(city => (
@@ -2612,7 +3983,11 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div>
                     <label style={labelStyle}>Experience Years</label>
-                    <input type="number" min="0" value={workerDraft.experienceYears} onChange={event => setWorkerDraft(current => ({ ...current, experienceYears: Number(event.target.value) }))} style={inputStyle} />
+                    <select value={String(workerDraft.experienceYears)} onChange={event => setWorkerDraft(current => ({ ...current, experienceYears: Number(event.target.value) || 0 }))} style={inputStyle}>
+                      {workerExperienceOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -2637,25 +4012,92 @@ export default function LabourExchangeAdminPage() {
                   <div>
                     <label style={labelStyle}>Availability</label>
                     <select value={workerDraft.availability} onChange={event => setWorkerDraft(current => ({ ...current, availability: event.target.value as WorkerAvailability }))} style={inputStyle}>
-                      {workerAvailabilityOptions.map(option => (
-                        <option key={option} value={option}>{option === 'available_today' ? 'Ready to Work today' : 'Can join in 7 days'}</option>
+                      {workerAvailabilitySelectOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
                       ))}
                     </select>
                   </div>
                 </div>
                 <div>
                   <label style={labelStyle}>Categories *</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    {snapshot.categories.map(category => (
-                      <label key={category.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155' }}>
-                        <input
-                          type="checkbox"
-                          checked={workerDraft.categoryIds.includes(category.id)}
-                          onChange={() => setWorkerDraft(current => ({ ...current, categoryIds: onMultiSelectChange(current.categoryIds, category.id) }))}
-                        />
-                        {category.name}
-                      </label>
-                    ))}
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!hasWorkerIndustrySelection || !hasWorkerBusinessSelection) return
+                        setIsWorkerCategoryMenuOpen(current => !current)
+                      }}
+                      style={{
+                        ...inputStyle,
+                        textAlign: 'left',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: !hasWorkerIndustrySelection || !hasWorkerBusinessSelection ? '#f8fafc' : '#ffffff',
+                        color: workerDraft.categoryIds.length > 0 ? '#0f172a' : '#64748b',
+                        cursor: !hasWorkerIndustrySelection || !hasWorkerBusinessSelection ? 'not-allowed' : 'pointer'
+                      }}
+                      disabled={!hasWorkerIndustrySelection || !hasWorkerBusinessSelection}
+                    >
+                      <span>
+                        {workerDraft.categoryIds.length > 0
+                          ? `${workerDraft.categoryIds.length} categor${workerDraft.categoryIds.length === 1 ? 'y' : 'ies'} selected`
+                          : 'Select categories'}
+                      </span>
+                      <span>{isWorkerCategoryMenuOpen ? 'Close' : 'Open'}</span>
+                    </button>
+                    {workerDraft.categoryIds.length > 0 ? (
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {workerCategoryOptions
+                          .filter(category => workerDraft.categoryIds.includes(category.id))
+                          .map(category => (
+                            <span key={category.id} style={{ borderRadius: '999px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '5px 10px', fontSize: '12px', fontWeight: '600' }}>
+                              {category.name}
+                            </span>
+                          ))}
+                      </div>
+                    ) : null}
+                    {!hasWorkerIndustrySelection ? (
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>Select Industry Category first.</p>
+                    ) : !hasWorkerBusinessSelection ? (
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>Select Business Type to load mapped categories.</p>
+                    ) : !hasMappedCategoriesForWorker && workerDraft.categoryIds.length === 0 ? (
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>No categories mapped for this Industry Category and Business Type.</p>
+                    ) : null}
+                    {isWorkerCategoryMenuOpen && hasWorkerIndustrySelection && hasWorkerBusinessSelection ? (
+                      <div style={{ border: '1px solid #d7dfeb', borderRadius: '14px', padding: '12px', background: '#ffffff', display: 'grid', gap: '10px' }}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <input
+                            placeholder="Search categories"
+                            value={workerCategorySearch}
+                            onChange={event => setWorkerCategorySearch(event.target.value)}
+                            style={{ ...inputStyle, flex: '1 1 220px' }}
+                          />
+                          <button type="button" onClick={() => setWorkerDraft(current => ({ ...current, categoryIds: [] }))} style={subtleButtonStyle}>
+                            Clear Selection
+                          </button>
+                        </div>
+                        <div style={{ color: '#64748b', fontSize: '12px' }}>
+                          {workerDraft.categoryIds.length} selected
+                        </div>
+                        <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'grid', gap: '8px' }}>
+                          {visibleWorkerCategoryOptions.length === 0 ? (
+                            <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>No categories match the current search.</p>
+                          ) : (
+                            visibleWorkerCategoryOptions.map(category => (
+                              <label key={category.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={workerDraft.categoryIds.includes(category.id)}
+                                  onChange={() => setWorkerDraft(current => ({ ...current, categoryIds: onMultiSelectChange(current.categoryIds, category.id) }))}
+                                />
+                                {category.name}
+                              </label>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
@@ -2673,12 +4115,41 @@ export default function LabourExchangeAdminPage() {
               <div style={cardStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
                   <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Workers</h2>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <input placeholder="Search workers" value={workerFilters.search} onChange={event => setWorkerFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
+                    <select value={workerFilters.companyId} onChange={event => setWorkerFilters(current => ({ ...current, companyId: event.target.value }))} style={{ ...inputStyle, width: '190px' }}>
+                      <option value="">All Companies</option>
+                      {workerCompanyOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
                     <select value={workerFilters.status} onChange={event => setWorkerFilters(current => ({ ...current, status: event.target.value as WorkerFilters['status'] }))} style={{ ...inputStyle, width: '210px' }}>
                       <option value="all">All Status</option>
                       {workerStatuses.map(status => (
                         <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                    <select value={workerFilters.availability} onChange={event => setWorkerFilters(current => ({ ...current, availability: event.target.value as WorkerFilters['availability'] }))} style={{ ...inputStyle, width: '190px' }}>
+                      <option value="all">All Availability</option>
+                      {workerAvailabilityFilterOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                    <select value={workerFilters.industryCategory} onChange={event => setWorkerFilters(current => ({ ...current, industryCategory: event.target.value }))} style={{ ...inputStyle, width: '190px' }}>
+                      <option value="">All Industry Categories</option>
+                      {workerFilterIndustryCategoryOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={workerFilters.businessType}
+                      onChange={event => setWorkerFilters(current => ({ ...current, businessType: event.target.value }))}
+                      style={{ ...inputStyle, width: '180px' }}
+                      disabled={!workerFilters.industryCategory}
+                    >
+                      <option value="">{workerFilters.industryCategory ? 'All Business Types' : 'Select Industry Category first'}</option>
+                      {workerFilterBusinessTypeOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
                       ))}
                     </select>
                     <select value={workerFilters.categoryId} onChange={event => setWorkerFilters(current => ({ ...current, categoryId: event.target.value }))} style={{ ...inputStyle, width: '180px' }}>
@@ -2699,11 +4170,23 @@ export default function LabourExchangeAdminPage() {
                       <option value="approved">Approved</option>
                       <option value="rejected">Rejected</option>
                     </select>
+                    <input type="date" value={workerFilters.dateFrom} onChange={event => setWorkerFilters(current => ({ ...current, dateFrom: event.target.value }))} style={{ ...inputStyle, width: '155px' }} aria-label="From Date" />
+                    <input type="date" value={workerFilters.dateTo} onChange={event => setWorkerFilters(current => ({ ...current, dateTo: event.target.value }))} style={{ ...inputStyle, width: '155px' }} aria-label="To Date" />
+                    <select value={workerFilters.sort} onChange={event => setWorkerFilters(current => ({ ...current, sort: event.target.value as WorkerFilters['sort'] }))} style={{ ...inputStyle, width: '190px' }}>
+                      <option value="name_asc">Worker Name A to Z</option>
+                      <option value="name_desc">Worker Name Z to A</option>
+                      <option value="created_desc">Newest Registered First</option>
+                      <option value="created_asc">Oldest Registered First</option>
+                    </select>
+                    <button onClick={() => setWorkerFilters(blankWorkerFilters)} style={subtleButtonStyle}>Clear Filters</button>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gap: '12px' }}>
                   {filteredWorkers.length === 0 ? (
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No workers match the current filters.</p>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No workers found for the selected filters.</p>
+                      <button onClick={() => setWorkerFilters(blankWorkerFilters)} style={subtleButtonStyle}>Clear Filters</button>
+                    </div>
                   ) : (
                     filteredWorkers.map(worker => {
                       const kycTone = getWorkerKycTone(worker)
@@ -2720,10 +4203,13 @@ export default function LabourExchangeAdminPage() {
                               {worker.mobile} | Looking: {worker.city || 'No city'} | Belongs: {worker.homeCity || 'No city'} | {worker.status} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
                             </p>
                             <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
-                              Categories: {worker.categoryIds.map(getCategoryName).join(', ') || 'None'} | Wage {formatCurrency(worker.expectedDailyWage)} | Availability {worker.availability === 'available_today' ? 'Ready to Work today' : worker.availability === 'available_this_week' ? 'Can join in 7 days' : worker.availability}
+                              Categories: {worker.categoryIds.map(getCategoryName).join(', ') || 'None'} | Wage {formatCurrency(worker.expectedDailyWage)} | Availability {resolveLabourMasterLabel(masterOptionsByKey.worker_status_availability || [], worker.availability, worker.availability === 'available_today' ? 'Ready to Work today' : worker.availability === 'available_this_week' ? 'Can join in 7 days' : worker.availability)}
                             </p>
                             <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
                               Address: {worker.address || 'No address added'}
+                            </p>
+                            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '12px' }}>
+                              Company: {getWorkerCompanyName(worker)} | {getWorkerIndustryCategoryLabel(worker)} | {getWorkerBusinessTypeLabel(worker)}{worker.createdAt ? ` | Registered ${formatDate(worker.createdAt)}` : ''}
                             </p>
                             <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '12px' }}>
                               Proof: {formatIdentityProofType(worker.identityProofType)} {worker.identityProofNumber ? `| ${worker.identityProofNumber}` : '| No proof number'}
@@ -2731,7 +4217,7 @@ export default function LabourExchangeAdminPage() {
                           </div>
                           <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                             <button onClick={() => setSelectedWorkerReviewId(worker.id)} style={subtleButtonStyle}>Review KYC</button>
-                            <button onClick={() => { setWorkerDraft(worker); setEditingWorkerId(worker.id) }} style={subtleButtonStyle}>Edit</button>
+                            <button onClick={() => { setWorkerDraft(worker); setEditingWorkerId(worker.id); setIsWorkerCategoryMenuOpen(false); setWorkerCategorySearch('') }} style={subtleButtonStyle}>Edit</button>
                             <button onClick={() => void removeEntity('workers', worker.id, worker.fullName)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
                           </div>
                         </div>
@@ -2771,7 +4257,7 @@ export default function LabourExchangeAdminPage() {
                             {selectedWorkerReview.mobile} | {selectedWorkerReview.city || 'No city'} | {selectedWorkerReview.categoryIds.map(getCategoryName).join(', ') || 'No categories'}
                           </p>
                           <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
-                            Registered {selectedWorkerReview.registrationCompletedAt ? new Date(selectedWorkerReview.registrationCompletedAt).toLocaleString() : 'Not completed yet'}
+                            {getWorkerCompanyName(selectedWorkerReview)} | {getWorkerIndustryCategoryLabel(selectedWorkerReview)} | {getWorkerBusinessTypeLabel(selectedWorkerReview)} | Registered {selectedWorkerReview.registrationCompletedAt ? new Date(selectedWorkerReview.registrationCompletedAt).toLocaleString() : selectedWorkerReview.createdAt ? formatDateTime(selectedWorkerReview.createdAt) : 'Not completed yet'}
                           </p>
                         </div>
                         <span style={{ fontSize: '12px', fontWeight: '800', borderRadius: '999px', padding: '8px 12px', background: getWorkerKycTone(selectedWorkerReview).background, color: getWorkerKycTone(selectedWorkerReview).color, border: `1px solid ${getWorkerKycTone(selectedWorkerReview).border}`, alignSelf: 'flex-start' }}>
@@ -2822,7 +4308,7 @@ export default function LabourExchangeAdminPage() {
                         <button onClick={() => void reviewWorkerKyc(selectedWorkerReview, 'reject')} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>
                           Reject KYC
                         </button>
-                        <button onClick={() => { setWorkerDraft(selectedWorkerReview); setEditingWorkerId(selectedWorkerReview.id) }} style={subtleButtonStyle}>
+                        <button onClick={() => { setWorkerDraft(selectedWorkerReview); setEditingWorkerId(selectedWorkerReview.id); setIsWorkerCategoryMenuOpen(false); setWorkerCategorySearch('') }} style={subtleButtonStyle}>
                           Open in Worker Editor
                         </button>
                       </div>
@@ -2862,55 +4348,106 @@ export default function LabourExchangeAdminPage() {
                     <input value={companyDraft.contactMobile} maxLength={10} onChange={event => setCompanyDraft(current => ({ ...current, contactMobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
                   </div>
                 </div>
-                <div>
-                  <label style={labelStyle}>City</label>
-                  <select value={companyDraft.city} onChange={event => setCompanyDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
-                    {getCitySelectOptions(companyDraft.city).map(city => (
-                      <option key={city} value={city}>{city}</option>
-                    ))}
-                  </select>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Industry Category *</label>
+                    <select value={companyDraft.industryCategory} onChange={event => setCompanyDraft(current => ({ ...current, industryCategory: event.target.value }))} style={inputStyle}>
+                      <option value="">Select industry category</option>
+                      {companyIndustryCategoryOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Business Type *</label>
+                    <select
+                      value={companyDraft.businessType}
+                      onChange={event => setCompanyDraft(current => ({ ...current, businessType: event.target.value }))}
+                      style={inputStyle}
+                      disabled={!hasCompanyIndustrySelection}
+                    >
+                      <option value="">
+                        {hasCompanyIndustrySelection ? 'Select business type' : 'Select industry category first'}
+                      </option>
+                      {companyBusinessTypeOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                    {!hasCompanyIndustrySelection ? (
+                      <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>Select Industry Category to load Business Types.</p>
+                    ) : !hasMappedBusinessTypesForCompany ? (
+                      <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>No Business Type mappings found for this Industry Category.</p>
+                    ) : null}
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>GST Number</label>
+                    <input value={companyDraft.gstNumber} onChange={event => setCompanyDraft(current => ({ ...current, gstNumber: event.target.value.toUpperCase() }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Company Email *</label>
+                    <input
+                      type="email"
+                      value={companyDraft.email}
+                      onChange={event => setCompanyDraft(current => ({ ...current, email: event.target.value.trim().toLowerCase() }))}
+                      style={inputStyle}
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label style={labelStyle}>Company Email *</label>
-                  <input
-                    type="email"
-                    value={companyDraft.email}
-                    onChange={event => setCompanyDraft(current => ({ ...current, email: event.target.value.trim().toLowerCase() }))}
-                    style={inputStyle}
-                  />
+                  <label style={labelStyle}>Company Address *</label>
+                  <textarea value={companyDraft.companyAddress} onChange={event => setCompanyDraft(current => ({ ...current, companyAddress: event.target.value }))} style={{ ...inputStyle, minHeight: '82px', resize: 'vertical' }} />
                 </div>
-                <div>
-                  <label style={labelStyle}>Categories *</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    {snapshot.categories.map(category => (
-                      <label key={category.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155' }}>
-                        <input
-                          type="checkbox"
-                          checked={companyDraft.categoryIds.includes(category.id)}
-                          onChange={() => setCompanyDraft(current => ({ ...current, categoryIds: onMultiSelectChange(current.categoryIds, category.id) }))}
-                        />
-                        {category.name}
-                      </label>
-                    ))}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>State *</label>
+                    <select value={companyDraft.state} onChange={event => setCompanyDraft(current => ({ ...current, state: event.target.value }))} style={inputStyle}>
+                      <option value="">Select state</option>
+                      {companyStateOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>City</label>
+                    <select value={companyDraft.city} onChange={event => setCompanyDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
+                      {getCitySelectOptions(companyDraft.city).map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Area</label>
+                    <input value={companyDraft.area} onChange={event => setCompanyDraft(current => ({ ...current, area: event.target.value }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Pincode</label>
+                    <input value={companyDraft.pincode} maxLength={6} onChange={event => setCompanyDraft(current => ({ ...current, pincode: event.target.value.replace(/\D/g, '').slice(0, 6) }))} style={inputStyle} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>Status</label>
                     <select value={companyDraft.status} onChange={event => setCompanyDraft(current => ({ ...current, status: event.target.value as CompanyStatus }))} style={inputStyle}>
-                      {companyStatuses.map(status => (
-                        <option key={status} value={status}>{status}</option>
+                      {companyStatusOptions.map(option => (
+                        <option key={option.id} value={option.value}>{option.label}</option>
                       ))}
                     </select>
                   </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>Active Plan</label>
-                    <select value={companyDraft.activePlan} onChange={event => setCompanyDraft(current => ({ ...current, activePlan: event.target.value }))} style={inputStyle}>
-                      <option value="">Select plan</option>
-                      {snapshot.plans.filter(plan => plan.audience === 'company').map(plan => (
-                        <option key={plan.id} value={plan.id}>{plan.name}</option>
-                      ))}
-                    </select>
+                    <label style={labelStyle}>GST Certificate Path</label>
+                    <input value={companyDraft.gstCertificatePath} onChange={event => setCompanyDraft(current => ({ ...current, gstCertificatePath: event.target.value }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Company Proof Path</label>
+                    <input value={companyDraft.companyProofPath} onChange={event => setCompanyDraft(current => ({ ...current, companyProofPath: event.target.value }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Owner ID Proof Path</label>
+                    <input value={companyDraft.ownerIdProofPath} onChange={event => setCompanyDraft(current => ({ ...current, ownerIdProofPath: event.target.value }))} style={inputStyle} />
                   </div>
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
@@ -2927,12 +4464,29 @@ export default function LabourExchangeAdminPage() {
             <div style={cardStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
                 <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>Companies</h2>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <input placeholder="Search companies" value={companyFilters.search} onChange={event => setCompanyFilters(current => ({ ...current, search: event.target.value }))} style={{ ...inputStyle, width: '220px' }} />
                   <select value={companyFilters.status} onChange={event => setCompanyFilters(current => ({ ...current, status: event.target.value as CompanyFilters['status'] }))} style={{ ...inputStyle, width: '150px' }}>
                     <option value="all">All Status</option>
-                    {companyStatuses.map(status => (
-                      <option key={status} value={status}>{status}</option>
+                    {companyStatusFilterOptions.map(option => (
+                      <option key={option.id} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <select value={companyFilters.industryCategory} onChange={event => setCompanyFilters(current => ({ ...current, industryCategory: event.target.value }))} style={{ ...inputStyle, width: '190px' }}>
+                    <option value="">All Industry Categories</option>
+                    {companyFilterIndustryCategoryOptions.map(option => (
+                      <option key={option.id} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={companyFilters.businessType}
+                    onChange={event => setCompanyFilters(current => ({ ...current, businessType: event.target.value }))}
+                    style={{ ...inputStyle, width: '180px' }}
+                    disabled={!companyFilters.industryCategory}
+                  >
+                    <option value="">{companyFilters.industryCategory ? 'All Business Types' : 'Select Industry Category first'}</option>
+                    {companyFilterBusinessTypeOptions.map(option => (
+                      <option key={option.id} value={option.value}>{option.label}</option>
                     ))}
                   </select>
                   <select value={companyFilters.categoryId} onChange={event => setCompanyFilters(current => ({ ...current, categoryId: event.target.value }))} style={{ ...inputStyle, width: '180px' }}>
@@ -2946,21 +4500,36 @@ export default function LabourExchangeAdminPage() {
                     <option value="paid">Fee Paid</option>
                     <option value="pending">Fee Pending</option>
                   </select>
+                  <input type="date" value={companyFilters.dateFrom} onChange={event => setCompanyFilters(current => ({ ...current, dateFrom: event.target.value }))} style={{ ...inputStyle, width: '155px' }} aria-label="From Date" />
+                  <input type="date" value={companyFilters.dateTo} onChange={event => setCompanyFilters(current => ({ ...current, dateTo: event.target.value }))} style={{ ...inputStyle, width: '155px' }} aria-label="To Date" />
+                  <select value={companyFilters.sort} onChange={event => setCompanyFilters(current => ({ ...current, sort: event.target.value as CompanyFilters['sort'] }))} style={{ ...inputStyle, width: '190px' }}>
+                    <option value="name_asc">Company Name A to Z</option>
+                    <option value="name_desc">Company Name Z to A</option>
+                    <option value="created_desc">Newest Registered First</option>
+                    <option value="created_asc">Oldest Registered First</option>
+                  </select>
+                  <button onClick={() => setCompanyFilters(blankCompanyFilters)} style={subtleButtonStyle}>Clear Filters</button>
                 </div>
               </div>
               <div style={{ display: 'grid', gap: '12px' }}>
                 {filteredCompanies.length === 0 ? (
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No companies match the current filters.</p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No companies found for the selected filters.</p>
+                    <button onClick={() => setCompanyFilters(blankCompanyFilters)} style={subtleButtonStyle}>Clear Filters</button>
+                  </div>
                 ) : (
                   filteredCompanies.map(company => (
                     <div key={company.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                       <div>
                         <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{company.companyName}</p>
                         <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                          {company.contactPerson} | Owner {company.mobile || 'No owner number'} | Contact {company.contactMobile || company.mobile || 'No contact number'} | {company.city || 'No city'} | {company.status} | {company.registrationFeePaid ? 'Fee paid' : 'Fee pending'}
+                          {company.contactPerson} | Owner {company.mobile || 'No owner number'} | Contact {company.contactMobile || company.mobile || 'No contact number'} | {company.city || 'No city'}{company.state ? `, ${company.state}` : ''}{company.area ? ` | ${company.area}` : ''} | {company.status} | {company.registrationFeePaid ? 'Fee paid' : 'Fee pending'}
                         </p>
                         <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
                           Categories: {company.categoryIds.map(getCategoryName).join(', ') || 'None'} | Plan {getPlanName(company.activePlan)}
+                        </p>
+                        <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>
+                          {getCompanyBusinessTypeLabel(company)} | {getCompanyIndustryCategoryLabel(company)} | Workers {company.workersNeeded || 0} | {company.hiringType || 'No hiring type'}{company.createdAt ? ` | Registered ${formatDate(company.createdAt)}` : ''}
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
@@ -2978,6 +4547,15 @@ export default function LabourExchangeAdminPage() {
         {activeSection === 'jobPosts' && (
           <div style={{ display: 'grid', gridTemplateColumns: '460px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
+              {(() => {
+                const selectedJobCompany = getCompanyById(jobPostDraft.companyId)
+                const selectedJobCompanyPlan = getCompanyPlanByName(jobPostDraft.connectedPlan) || getCompanyActivePlan(jobPostDraft.companyId)
+                const generatedPublishedAt = jobPostDraft.publishedAt || new Date().toISOString().slice(0, 10)
+                const generatedValidityDays = selectedJobCompanyPlan?.validityDays || jobPostDraft.validityDays || 3
+                const generatedExpiresAt = addDays(generatedPublishedAt, generatedValidityDays)
+
+                return (
+                  <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
                 <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>{editingJobPostId ? 'Edit Job Post' : 'Add Job Post'}</h2>
                 <button onClick={resetJobPostDraft} style={subtleButtonStyle}>Add More</button>
@@ -2999,17 +4577,245 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div>
                     <label style={labelStyle}>Category *</label>
-                    <select value={jobPostDraft.categoryId} onChange={event => setJobPostDraft(current => ({ ...current, categoryId: event.target.value }))} style={inputStyle}>
-                      <option value="">Select category</option>
-                      {snapshot.categories.map(category => (
+                    <select
+                      value={jobPostDraft.categoryId}
+                      onChange={event => setJobPostDraft(current => ({ ...current, categoryId: event.target.value }))}
+                      style={inputStyle}
+                      disabled={!hasSelectedJobCompanyIndustry || !hasSelectedJobCompanyBusiness}
+                    >
+                      <option value="">
+                        {!jobPostDraft.companyId
+                          ? 'Select company first'
+                          : !hasSelectedJobCompanyIndustry
+                            ? 'Company industry category required'
+                            : !hasSelectedJobCompanyBusiness
+                              ? 'Company business type required'
+                              : 'Select category'}
+                      </option>
+                      {jobPostCategoryOptions.map(category => (
                         <option key={category.id} value={category.id}>{category.name}</option>
                       ))}
                     </select>
+                    {!jobPostDraft.companyId ? (
+                      <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>Select a company to load its Industry Category and Business Type.</p>
+                    ) : !hasSelectedJobCompanyIndustry ? (
+                      <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>The selected company needs an Industry Category before categories can load.</p>
+                    ) : !hasSelectedJobCompanyBusiness ? (
+                      <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>The selected company needs a mapped Business Type before categories can load.</p>
+                    ) : jobPostCategoryOptions.length === 0 ? (
+                      <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>No categories mapped for this Industry Category and Business Type.</p>
+                    ) : null}
+                  </div>
+                </div>
+                <div style={{ border: '1px solid #dbeafe', borderRadius: '18px', padding: '14px', background: '#f8fbff', display: 'grid', gap: '12px' }}>
+                  <div>
+                    <div style={{ color: '#0f172a', fontWeight: 700, fontSize: '15px' }}>Section 1 - Company Details</div>
+                    <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '12px' }}>
+                      {selectedJobCompany
+                        ? 'These fields are auto-fetched from the selected company and shown here as locked reference details.'
+                        : 'Select a company first to auto-fill the same company detail fields used on the public job-post page.'}
+                    </p>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Company Name</label>
+                      <input value={selectedJobCompany?.companyName || ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Contact Person Name</label>
+                      <input value={selectedJobCompany?.contactPerson || ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Company Email</label>
+                      <input value={selectedJobCompany?.email || ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Mobile Number</label>
+                      <input value={selectedJobCompany?.mobile || ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>WhatsApp Number</label>
+                      <input value={selectedJobCompany ? (selectedJobCompany.contactMobile || selectedJobCompany.mobile) : ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Industry Category</label>
+                      <input value={selectedJobCompany ? getCompanyIndustryCategoryLabel(selectedJobCompany) : ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Business Type</label>
+                      <input value={selectedJobCompany ? getCompanyBusinessTypeLabel(selectedJobCompany) : ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label style={labelStyle}>Company Address</label>
+                      <textarea value={selectedJobCompany?.companyAddress || ''} readOnly rows={3} placeholder="Auto-filled from selected company" style={{ ...inputStyle, resize: 'none', background: '#f8fafc' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>State</label>
+                      <input value={selectedJobCompany?.state || ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>City</label>
+                      <input value={selectedJobCompany?.city || ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Area</label>
+                      <input value={selectedJobCompany?.area || ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Pincode</label>
+                      <input value={selectedJobCompany?.pincode || ''} readOnly placeholder="Auto-filled from selected company" style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
                   </div>
                 </div>
                 <div>
-                  <label style={labelStyle}>Description</label>
+                  <label style={labelStyle}>Job Description</label>
                   <textarea value={jobPostDraft.description} onChange={event => setJobPostDraft(current => ({ ...current, description: event.target.value }))} rows={4} style={{ ...inputStyle, resize: 'none' }} />
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '16px', padding: '14px', display: 'grid', gap: '12px', background: '#fcfdff' }}>
+                  <div>
+                    <div style={{ color: '#0f172a', fontWeight: 700, fontSize: '15px' }}>Job requirement details</div>
+                    <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '12px' }}>
+                      Add the same workforce requirement details used in the public company job-post form.
+                    </p>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Connected Plan</label>
+                      <select value={jobPostDraft.connectedPlan} onChange={event => setJobPostDraft(current => ({ ...current, connectedPlan: event.target.value }))} style={inputStyle}>
+                        <option value="">Select connected plan</option>
+                        {activeCompanyPlans.map(plan => (
+                          <option key={plan.id} value={plan.name}>{plan.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Worker Category</label>
+                      <select value={jobPostDraft.workerCategory} onChange={event => setJobPostDraft(current => ({ ...current, workerCategory: event.target.value }))} style={inputStyle}>
+                        <option value="">Select worker category</option>
+                        {JOB_POST_WORKER_CATEGORIES.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Gender Preference</label>
+                      <select value={jobPostDraft.genderPreference} onChange={event => setJobPostDraft(current => ({ ...current, genderPreference: event.target.value }))} style={inputStyle}>
+                        <option value="">Select gender preference</option>
+                        {jobGenderOptions.map(option => (
+                          <option key={option.id} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Age Requirement</label>
+                      <input value={jobPostDraft.ageRequirement} onChange={event => setJobPostDraft(current => ({ ...current, ageRequirement: event.target.value }))} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Experience Required</label>
+                      <select value={jobPostDraft.experienceRequired} onChange={event => setJobPostDraft(current => ({ ...current, experienceRequired: event.target.value }))} style={inputStyle}>
+                        <option value="">Select experience requirement</option>
+                        {jobExperienceRequiredOptions.map(option => (
+                          <option key={option.id} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Job Location</label>
+                      <input value={jobPostDraft.jobLocation} onChange={event => setJobPostDraft(current => ({ ...current, jobLocation: event.target.value }))} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Duty Hours</label>
+                      <input value={jobPostDraft.dutyHours} onChange={event => setJobPostDraft(current => ({ ...current, dutyHours: event.target.value }))} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Shift Type</label>
+                      <select value={jobPostDraft.shiftType} onChange={event => setJobPostDraft(current => ({ ...current, shiftType: event.target.value }))} style={inputStyle}>
+                        <option value="">Select shift type</option>
+                        {jobShiftTypeOptions.map(option => (
+                          <option key={option.id} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Weekly Off</label>
+                      <select value={jobPostDraft.weeklyOff} onChange={event => setJobPostDraft(current => ({ ...current, weeklyOff: event.target.value }))} style={inputStyle}>
+                        <option value="">Select weekly off</option>
+                        {jobWeeklyOffOptions.map(option => (
+                          <option key={option.id} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Job Duration</label>
+                      <select value={jobPostDraft.jobDuration} onChange={event => setJobPostDraft(current => ({ ...current, jobDuration: event.target.value }))} style={inputStyle}>
+                        <option value="">Select job duration</option>
+                        {jobDurationOptions.map(option => (
+                          <option key={option.id} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Salary Type</label>
+                      <select value={jobPostDraft.salaryType} onChange={event => setJobPostDraft(current => ({ ...current, salaryType: event.target.value }))} style={inputStyle}>
+                        <option value="">Select salary type</option>
+                        {jobSalaryTypeOptions.map(option => (
+                          <option key={option.id} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Overtime Available</label>
+                      <select value={jobPostDraft.overtimeAvailable} onChange={event => setJobPostDraft(current => ({ ...current, overtimeAvailable: event.target.value }))} style={inputStyle}>
+                        <option value="">Select overtime option</option>
+                        {jobOvertimeOptions.map(option => (
+                          <option key={option.id} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Food Facility</label>
+                      <select value={jobPostDraft.foodFacility} onChange={event => setJobPostDraft(current => ({ ...current, foodFacility: event.target.value }))} style={inputStyle}>
+                        <option value="">Select food facility</option>
+                        {jobFoodFacilityOptions.map(option => (
+                          <option key={option.id} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Accommodation</label>
+                      <select value={jobPostDraft.accommodation} onChange={event => setJobPostDraft(current => ({ ...current, accommodation: event.target.value }))} style={inputStyle}>
+                        <option value="">Select accommodation option</option>
+                        {jobAccommodationOptions.map(option => (
+                          <option key={option.id} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Transport Facility</label>
+                      <select value={jobPostDraft.transportFacility} onChange={event => setJobPostDraft(current => ({ ...current, transportFacility: event.target.value }))} style={inputStyle}>
+                        <option value="">Select transport facility</option>
+                        {jobTransportFacilityOptions.map(option => (
+                          <option key={option.id} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Submission Mode</label>
+                      <input value={jobPostDraft.submissionMode || 'Pending review for publish'} readOnly style={{ ...inputStyle, background: '#f8fafc' }} />
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label style={labelStyle}>Required Skills</label>
+                      <input value={jobPostDraft.requiredSkills} onChange={event => setJobPostDraft(current => ({ ...current, requiredSkills: event.target.value }))} style={inputStyle} />
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label style={labelStyle}>Special Instructions</label>
+                      <textarea value={jobPostDraft.specialInstructions} onChange={event => setJobPostDraft(current => ({ ...current, specialInstructions: event.target.value }))} rows={3} style={{ ...inputStyle, resize: 'none' }} />
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label style={labelStyle}>Languages Preferred</label>
+                      <input value={jobPostDraft.languagesPreferred} onChange={event => setJobPostDraft(current => ({ ...current, languagesPreferred: event.target.value }))} style={inputStyle} />
+                    </div>
+                  </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
@@ -3021,7 +4827,7 @@ export default function LabourExchangeAdminPage() {
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>Workers Needed</label>
+                    <label style={labelStyle}>Workers Needed - Quantity</label>
                     <input type="number" min="1" value={jobPostDraft.workersNeeded} onChange={event => setJobPostDraft(current => ({ ...current, workersNeeded: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                 </div>
@@ -3058,16 +4864,16 @@ export default function LabourExchangeAdminPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>Wage Amount</label>
+                    <label style={labelStyle}>Salary Amount</label>
                     <input type="number" min="0" value={jobPostDraft.wageAmount} onChange={event => setJobPostDraft(current => ({ ...current, wageAmount: Number(event.target.value) }))} style={inputStyle} />
                   </div>
                   <div>
                     <label style={labelStyle}>Validity Days</label>
-                    <input type="number" min="1" value={jobPostDraft.validityDays} onChange={event => setJobPostDraft(current => ({ ...current, validityDays: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="1" value={generatedValidityDays} readOnly style={{ ...inputStyle, background: '#f8fafc' }} />
                   </div>
                   <div>
                     <label style={labelStyle}>Status</label>
-                    <select value={jobPostDraft.status} onChange={event => setJobPostDraft(current => ({ ...current, status: event.target.value as JobPostStatus }))} style={inputStyle}>
+                    <select value={jobPostDraft.status || 'draft'} onChange={event => setJobPostDraft(current => ({ ...current, status: event.target.value as JobPostStatus }))} style={inputStyle}>
                       {jobPostStatuses.map(status => (
                         <option key={status} value={status}>{status}</option>
                       ))}
@@ -3077,11 +4883,11 @@ export default function LabourExchangeAdminPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>Published At</label>
-                    <input type="date" value={jobPostDraft.publishedAt} onChange={event => setJobPostDraft(current => ({ ...current, publishedAt: event.target.value }))} style={inputStyle} />
+                    <input type="date" value={generatedPublishedAt} readOnly style={{ ...inputStyle, background: '#f8fafc' }} />
                   </div>
                   <div>
                     <label style={labelStyle}>Expires At</label>
-                    <input type="date" value={jobPostDraft.expiresAt} onChange={event => setJobPostDraft(current => ({ ...current, expiresAt: event.target.value }))} style={inputStyle} />
+                    <input type="date" value={generatedExpiresAt} readOnly style={{ ...inputStyle, background: '#f8fafc' }} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
@@ -3089,6 +4895,9 @@ export default function LabourExchangeAdminPage() {
                   <button onClick={resetJobPostDraft} style={subtleButtonStyle}>Reset</button>
                 </div>
               </div>
+                  </>
+                )
+              })()}
             </div>
 
             <div style={cardStyle}>
@@ -3114,11 +4923,42 @@ export default function LabourExchangeAdminPage() {
                       <option key={company.id} value={company.id}>{company.companyName}</option>
                     ))}
                   </select>
+                  <select value={jobFilters.industryCategory} onChange={event => setJobFilters(current => ({ ...current, industryCategory: event.target.value }))} style={{ ...inputStyle, width: '190px' }}>
+                    <option value="">All Industry Categories</option>
+                    {jobFilterIndustryCategoryOptions.map(option => (
+                      <option key={option.id} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={jobFilters.businessType}
+                    onChange={event => setJobFilters(current => ({ ...current, businessType: event.target.value }))}
+                    style={{ ...inputStyle, width: '180px' }}
+                    disabled={!jobFilters.industryCategory}
+                  >
+                    <option value="">{jobFilters.industryCategory ? 'All Business Types' : 'Select Industry Category first'}</option>
+                    {jobFilterBusinessTypeOptions.map(option => (
+                      <option key={option.id} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <input type="date" value={jobFilters.dateFrom} onChange={event => setJobFilters(current => ({ ...current, dateFrom: event.target.value }))} style={{ ...inputStyle, width: '155px' }} aria-label="From Date" />
+                  <input type="date" value={jobFilters.dateTo} onChange={event => setJobFilters(current => ({ ...current, dateTo: event.target.value }))} style={{ ...inputStyle, width: '155px' }} aria-label="To Date" />
+                  <select value={jobFilters.sort} onChange={event => setJobFilters(current => ({ ...current, sort: event.target.value as JobFilters['sort'] }))} style={{ ...inputStyle, width: '210px' }}>
+                    <option value="title_asc">Job Title A to Z</option>
+                    <option value="title_desc">Job Title Z to A</option>
+                    <option value="created_desc">Newest Job Posts First</option>
+                    <option value="created_asc">Oldest Job Posts First</option>
+                    <option value="company_asc">Company Name A to Z</option>
+                    <option value="company_desc">Company Name Z to A</option>
+                  </select>
+                  <button onClick={() => setJobFilters(blankJobFilters)} style={subtleButtonStyle}>Clear Filters</button>
                 </div>
               </div>
               <div style={{ display: 'grid', gap: '12px' }}>
                 {filteredJobPosts.length === 0 ? (
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No job posts match the current filters.</p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No job posts found for the selected filters.</p>
+                    <button onClick={() => setJobFilters(blankJobFilters)} style={subtleButtonStyle}>Clear Filters</button>
+                  </div>
                 ) : (
                   filteredJobPosts.map(jobPost => {
                     const effectiveStatus = isExpiredJobPost(jobPost) ? 'expired' : jobPost.status
@@ -3128,18 +4968,21 @@ export default function LabourExchangeAdminPage() {
                         <div>
                           <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{jobPost.title}</p>
                         <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                          {getCompanyName(jobPost.companyId)} | {getCategoryName(jobPost.categoryId)} | {jobPost.city || 'No city'} | {effectiveStatus}
+                          {getJobPostCompanyName(jobPost)} | {getCategoryName(jobPost.categoryId)} | {jobPost.city || 'No city'} | {effectiveStatus}
+                        </p>
+                        <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>
+                          {getJobPostBusinessTypeLabel(jobPost)} | {getJobPostIndustryCategoryLabel(jobPost)}
                         </p>
                         <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>
                           {jobPost.locationLabel || 'No area/locality'} | Lat {jobPost.latitude === '' ? '—' : jobPost.latitude} | Lng {jobPost.longitude === '' ? '—' : jobPost.longitude}
                         </p>
                         <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>{jobPost.description || 'No description yet.'}</p>
                           <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
-                            {jobPost.workersNeeded} workers | {formatCurrency(jobPost.wageAmount)} | {jobPost.validityDays} days | {formatDate(jobPost.publishedAt)} to {formatDate(jobPost.expiresAt)}
+                            {jobPost.workersNeeded} workers | {formatCurrency(jobPost.wageAmount)} | {jobPost.validityDays} days | Posted {formatDate(jobPost.publishedAt)}{jobPost.expiresAt ? ` | Expires ${formatDate(jobPost.expiresAt)}` : ''}
                           </p>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                          <button onClick={() => { setJobPostDraft(jobPost); setEditingJobPostId(jobPost.id) }} style={subtleButtonStyle}>Edit</button>
+                          <button onClick={() => { setJobPostDraft(parseJobPostDraft(jobPost, getCompanyActivePlan(jobPost.companyId)?.name || '')); setEditingJobPostId(jobPost.id) }} style={subtleButtonStyle}>Edit</button>
                           <button onClick={() => void removeEntity('jobPosts', jobPost.id, jobPost.title)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
                         </div>
                       </div>
@@ -5103,6 +6946,9 @@ export default function LabourExchangeAdminPage() {
             </div>
           </div>
         )}
+      </div>
+          </div>
+        </main>
       </div>
     </div>
   )

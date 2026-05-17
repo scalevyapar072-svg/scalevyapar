@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ArrowUpRight, Boxes, Database, LayoutDashboard, LogOut, Plus, RefreshCw, Settings2, ShieldCheck, Users2 } from 'lucide-react'
 import { defaultLoginPageSettings, type LoginPageFeatureItem, type LoginPageSettings } from '@/lib/login-page-settings-schema'
+import { LabourMastersPanel } from '@/components/admin/labour-masters-panel'
 
-type TabKey = 'dashboard' | 'clients' | 'modules' | 'settings'
+type TabKey = 'dashboard' | 'clients' | 'modules' | 'masters' | 'settings'
 
 interface ModuleRecord {
   id: string
@@ -133,8 +135,37 @@ const navItems: Array<{ key: TabKey; label: string }> = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'clients', label: 'Clients' },
   { key: 'modules', label: 'Modules' },
+  { key: 'masters', label: 'Masters' },
   { key: 'settings', label: 'Settings' }
 ]
+
+const tabMeta: Record<TabKey, { eyebrow: string; title: string; description: string }> = {
+  dashboard: {
+    eyebrow: 'Admin Overview',
+    title: 'Workspace control centre',
+    description: 'Track client access, live modules, and the most recent workspace activity in one vertical dashboard.'
+  },
+  clients: {
+    eyebrow: 'Client Operations',
+    title: 'Client management',
+    description: 'Create accounts, manage access, and update assignments without changing any connected workflows.'
+  },
+  modules: {
+    eyebrow: 'Module Directory',
+    title: 'Module management',
+    description: 'Maintain module presentation, launch destinations, and client-ready availability from one place.'
+  },
+  masters: {
+    eyebrow: 'Labour Master Data',
+    title: 'Masters and dependencies',
+    description: 'Manage central labour dropdown values and dependency mappings from the main admin workspace.'
+  },
+  settings: {
+    eyebrow: 'Content Settings',
+    title: 'Settings and routing',
+    description: 'Update login page content and verify the core admin route references used across the workspace.'
+  }
+}
 
 const emptyClientDraft = (): ClientDraft => ({
   name: '',
@@ -734,24 +765,30 @@ export default function AdminPage() {
     {
       label: 'Active Clients',
       value: clientUsers.filter(user => (user.status || 'active') === 'active').length,
-      color: '#10b981'
+      color: '#10b981',
+      description: 'Clients currently able to sign in'
     },
     {
       label: 'Assigned Modules',
       value: clientUsers.reduce((count, user) => count + (user.assignedModuleIds?.length || 0), 0),
-      color: '#f59e0b'
+      color: '#f59e0b',
+      description: 'Live mapping across all clients'
     },
     {
       label: 'Live Modules',
       value: activeModules.length,
-      color: '#4f46e5'
+      color: '#4f46e5',
+      description: 'Available for active accounts'
     },
     {
       label: 'Connected Modules',
       value: connectedModules.length,
-      color: '#b45309'
+      color: '#b45309',
+      description: 'Ready for launch and assignment'
     }
   ]
+
+  const currentTabMeta = tabMeta[activeTab]
 
   if (loading) {
     return (
@@ -763,7 +800,7 @@ export default function AdminPage() {
           justifyContent: 'center',
           background: PAGE,
           color: MUTED,
-          fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
+          fontFamily: '"Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif'
         }}
       >
         Loading admin workspace...
@@ -777,93 +814,213 @@ export default function AdminPage() {
         * { box-sizing: border-box; }
         body {
           margin: 0;
-          font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+          font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
           background: ${PAGE};
           color: ${INK};
         }
         .admin-shell {
           min-height: 100vh;
-          background: linear-gradient(180deg, #fbfdff 0%, #f5f8fc 18%, ${PAGE} 100%);
+          display: grid;
+          grid-template-columns: 280px minmax(0, 1fr);
+          background:
+            radial-gradient(circle at top left, rgba(54, 99, 204, 0.08), transparent 26%),
+            radial-gradient(circle at bottom right, rgba(15, 34, 64, 0.08), transparent 28%),
+            linear-gradient(180deg, #f9fbff 0%, #f4f7fb 42%, #eef3f9 100%);
         }
-        .topbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
+        .admin-sidebar {
+          position: sticky;
+          top: 0;
+          height: 100vh;
+          padding: 20px 18px;
+          border-right: 1px solid rgba(213, 223, 236, 0.92);
+          background: rgba(255,255,255,0.78);
+          backdrop-filter: blur(18px);
+        }
+        .sidebar-panel {
+          height: 100%;
+          display: grid;
+          grid-template-rows: auto auto 1fr auto;
           gap: 18px;
-          padding: 16px 24px 12px;
-          background: rgba(255,255,255,0.9);
-          border-bottom: 1px solid rgba(213, 223, 236, 0.82);
         }
-        .brand-wrap {
-          display: flex;
-          align-items: center;
-          gap: 14px;
+        .sidebar-brand {
+          display: grid;
+          gap: 12px;
         }
-        .brand-icon {
-          width: 40px;
-          height: 40px;
-          border-radius: 13px;
+        .brand-mark {
+          width: 48px;
+          height: 48px;
+          border-radius: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, ${BRAND_BLUE} 0%, #163fa2 100%);
+          background: linear-gradient(135deg, #2f5fd6 0%, #153a91 100%);
           color: white;
-          font-size: 17px;
-          font-weight: 800;
-          box-shadow: 0 10px 24px rgba(41, 79, 188, 0.16);
+          font-size: 18px;
+          font-weight: 700;
+          letter-spacing: -0.04em;
+          box-shadow: 0 12px 24px rgba(41, 79, 188, 0.16);
         }
         .brand-title {
-          font-size: 14px;
-          font-weight: 800;
           margin: 0;
+          font-size: 22px;
+          line-height: 1.1;
+          font-weight: 700;
+          letter-spacing: -0.03em;
+        }
+        .brand-subtitle {
+          margin: 0;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #58749a;
         }
         .brand-copy {
-          margin-top: 3px;
-          font-size: 12px;
+          margin: 6px 0 0;
+          font-size: 13px;
           color: ${MUTED};
+          line-height: 1.6;
+        }
+        .sidebar-section {
+          display: grid;
+          gap: 12px;
+        }
+        .tabbar {
+          display: grid;
+          gap: 8px;
+        }
+        .nav-item {
+          width: 100%;
+          border: 1px solid transparent;
+          border-radius: 16px;
+          padding: 11px 12px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 14px;
+          font-weight: 600;
+          color: #29415f;
+          background: transparent;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .nav-item:hover {
+          background: rgba(237, 243, 255, 0.84);
+          border-color: rgba(195, 214, 244, 0.9);
+          color: ${BRAND};
+        }
+        .nav-item.active {
+          background: linear-gradient(180deg, #eef4ff 0%, #e7f0ff 100%);
+          border-color: rgba(194, 213, 244, 1);
+          color: #13356f;
+          box-shadow: 0 12px 24px rgba(41, 79, 188, 0.1);
+        }
+        .nav-icon {
+          width: 18px;
+          height: 18px;
+          flex: 0 0 auto;
+        }
+        .sidebar-footer {
+          padding: 16px;
+          display: grid;
+          gap: 8px;
+          align-self: end;
+        }
+        .sidebar-footer-icon {
+          width: 38px;
+          height: 38px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #eef3fb;
+          color: ${BRAND_BLUE};
+        }
+        .sidebar-footer-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: ${BRAND};
+        }
+        .workspace-shell {
+          min-width: 0;
+          display: grid;
+          grid-template-rows: auto 1fr;
+        }
+        .topbar {
+          position: sticky;
+          top: 0;
+          z-index: 20;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 18px;
+          padding: 18px 24px 14px;
+          background: rgba(244, 247, 251, 0.84);
+          backdrop-filter: blur(16px);
+          border-bottom: 1px solid rgba(213, 223, 236, 0.86);
+        }
+        .header-copy {
           max-width: 760px;
-          line-height: 1.4;
+        }
+        .header-title {
+          margin: 0;
+          font-size: 28px;
+          line-height: 1.1;
+          font-weight: 700;
+          letter-spacing: -0.03em;
+          color: #091427;
+        }
+        .header-subtitle {
+          margin: 6px 0 0;
+          font-size: 13px;
+          line-height: 1.55;
+          color: ${MUTED};
         }
         .page-actions {
           display: flex;
           gap: 10px;
           flex-wrap: wrap;
+          justify-content: flex-end;
         }
         .page-shell {
-          padding: 20px;
+          padding: 20px 24px 28px;
+        }
+        .workspace-stack {
+          width: min(1280px, 100%);
           display: grid;
           gap: 14px;
         }
         .surface-card {
-          background: rgba(255,255,255,0.98);
+          background: rgba(255,255,255,0.96);
           border: 1px solid rgba(213, 223, 236, 0.94);
-          border-radius: 22px;
+          border-radius: 20px;
           box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
         }
         .utility-bar {
-          padding: 16px 18px;
-          display: flex;
-          justify-content: space-between;
+          padding: 18px 20px;
+          display: grid;
+          grid-template-columns: minmax(0, 1.25fr) auto;
+          gap: 16px;
           align-items: center;
-          gap: 14px;
-          flex-wrap: wrap;
         }
         .utility-kicker {
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 0.16em;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.18em;
           text-transform: uppercase;
           color: #46658f;
           margin-bottom: 6px;
         }
         .utility-copy {
-          font-size: 12px;
+          font-size: 14px;
           color: ${MUTED};
+          line-height: 1.55;
         }
         .utility-actions {
           display: flex;
-          gap: 10px;
+          gap: 12px;
           flex-wrap: wrap;
+          justify-content: flex-end;
         }
         .stats-grid {
           display: grid;
@@ -872,50 +1029,52 @@ export default function AdminPage() {
         }
         .stat-card {
           padding: 16px 18px;
-          min-height: 102px;
+          min-height: 112px;
+          display: grid;
+          gap: 8px;
+          position: relative;
+          overflow: hidden;
+        }
+        .stat-card::after {
+          content: "";
+          position: absolute;
+          inset: auto -28px -28px auto;
+          width: 72px;
+          height: 72px;
+          border-radius: 999px;
+          background: rgba(219, 230, 246, 0.3);
+        }
+        .stat-card-head {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
         }
         .stat-label {
-          font-size: 10px;
-          font-weight: 800;
+          font-size: 11px;
+          font-weight: 600;
           letter-spacing: 0.16em;
           text-transform: uppercase;
           color: #58749a;
-          margin-bottom: 12px;
+        }
+        .stat-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          box-shadow: 0 0 0 4px rgba(219, 230, 246, 0.38);
         }
         .stat-value {
-          font-size: 32px;
-          line-height: 1;
-          font-weight: 800;
-          letter-spacing: -0.04em;
-        }
-        .tabbar {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .tab-pill {
-          border-radius: 15px;
-          padding: 10px 14px;
-          font-size: 13px;
-          font-weight: 700;
-          border: 1px solid ${BORDER};
-          background: rgba(255,255,255,0.96);
-          color: #47617f;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .tab-pill:hover {
-          border-color: rgba(41, 79, 188, 0.22);
-          color: ${BRAND};
-        }
-        .tab-pill.active {
-          background: white;
-          color: ${BRAND};
-          border-color: rgba(41, 79, 188, 0.24);
-          box-shadow: 0 10px 24px rgba(41, 79, 188, 0.08);
+          position: relative;
+          z-index: 1;
+          font-size: 31px;
+          line-height: 1.05;
+          font-weight: 600;
+          letter-spacing: -0.03em;
         }
         .content-panel {
-          padding: 18px;
+          padding: 20px;
           display: grid;
           gap: 14px;
         }
@@ -923,34 +1082,52 @@ export default function AdminPage() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 14px;
+          gap: 16px;
           flex-wrap: wrap;
         }
         .panel-title {
           margin: 0 0 4px;
-          font-size: 16px;
-          font-weight: 800;
+          font-size: 22px;
+          line-height: 1.15;
+          font-weight: 600;
+          letter-spacing: -0.02em;
         }
         .panel-copy {
           margin: 0;
-          font-size: 12px;
+          font-size: 13px;
           color: ${MUTED};
-          line-height: 1.5;
+          line-height: 1.55;
         }
         .card-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
+          gap: 14px;
         }
         .inner-card {
-          padding: 16px;
+          padding: 16px 18px;
           border-radius: 18px;
           background: ${SURFACE};
           border: 1px solid rgba(213, 223, 236, 0.96);
         }
-        .list-stack {
+        .section-title {
+          margin: 0 0 14px;
+          font-size: 18px;
+          line-height: 1.2;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          color: #081427;
+        }
+        .dashboard-stack {
+          display: grid;
+          gap: 14px;
+        }
+        .quick-actions-card {
           display: grid;
           gap: 12px;
+        }
+        .list-stack {
+          display: grid;
+          gap: 4px;
         }
         .list-row {
           padding: 12px 0;
@@ -972,7 +1149,7 @@ export default function AdminPage() {
         .client-toolbar {
           display: flex;
           justify-content: space-between;
-          align-items: flex-end;
+          align-items: center;
           gap: 16px;
           flex-wrap: wrap;
         }
@@ -1085,7 +1262,7 @@ export default function AdminPage() {
           align-items: center;
         }
         .client-panel > .row-between {
-          padding: 12px 14px;
+          padding: 14px 16px;
           border-radius: 18px;
           border: 1px solid rgba(213, 223, 236, 0.9);
           background: linear-gradient(180deg, #fcfdff 0%, #f7faff 100%);
@@ -1138,7 +1315,7 @@ export default function AdminPage() {
         }
         .field label {
           font-size: 11px;
-          font-weight: 700;
+          font-weight: 600;
           color: #274563;
         }
         .field input, .field select, .field textarea {
@@ -1146,7 +1323,7 @@ export default function AdminPage() {
           border: 1px solid ${BORDER};
           background: ${SURFACE_SOFT};
           border-radius: 13px;
-          padding: 10px 12px;
+          padding: 9px 11px;
           font-size: 13px;
           color: ${INK};
           outline: none;
@@ -1167,12 +1344,17 @@ export default function AdminPage() {
           flex-wrap: wrap;
         }
         .primary-btn, .secondary-btn, .danger-btn {
-          border-radius: 15px;
-          padding: 10px 14px;
-          font-weight: 800;
+          border-radius: 16px;
+          padding: 9px 14px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          font-weight: 600;
           font-size: 13px;
           cursor: pointer;
           transition: all 0.2s ease;
+          text-decoration: none;
         }
         .primary-btn {
           background: ${BRAND};
@@ -1189,8 +1371,32 @@ export default function AdminPage() {
           color: ${DANGER};
           border: 1px solid #fecaca;
         }
-        .primary-btn:hover { filter: brightness(1.03); }
-        .secondary-btn:hover { border-color: rgba(41, 79, 188, 0.26); }
+        .button-icon {
+          width: 16px;
+          height: 16px;
+          flex: 0 0 auto;
+        }
+        .primary-btn:hover,
+        .secondary-btn:hover,
+        .danger-btn:hover,
+        .module-card:hover,
+        .surface-card:hover {
+          transform: translateY(-1px);
+        }
+        .primary-btn:hover { filter: brightness(1.04); box-shadow: 0 14px 28px rgba(15, 34, 64, 0.16); }
+        .secondary-btn:hover { border-color: rgba(41, 79, 188, 0.26); background: #f8fbff; }
+        .danger-btn:hover { border-color: #fca5a5; }
+        .nav-item:focus-visible,
+        .primary-btn:focus-visible,
+        .secondary-btn:focus-visible,
+        .danger-btn:focus-visible,
+        .field input:focus-visible,
+        .field select:focus-visible,
+        .field textarea:focus-visible,
+        .selection-card:focus-visible {
+          outline: 0;
+          box-shadow: 0 0 0 4px rgba(41, 79, 188, 0.12);
+        }
         .chip-row {
           display: flex;
           gap: 8px;
@@ -1201,9 +1407,9 @@ export default function AdminPage() {
           align-items: center;
           gap: 6px;
           border-radius: 999px;
-          padding: 5px 9px;
+          padding: 5px 8px;
           font-size: 10px;
-          font-weight: 800;
+          font-weight: 600;
           border: 1px solid transparent;
         }
         .chip.success {
@@ -1221,8 +1427,8 @@ export default function AdminPage() {
         }
         .flash {
           padding: 14px 16px;
-          border-radius: 16px;
-          font-weight: 700;
+          border-radius: 18px;
+          font-weight: 600;
         }
         .flash.success {
           background: ${SUCCESS_BG};
@@ -1234,23 +1440,84 @@ export default function AdminPage() {
           color: ${DANGER};
           border: 1px solid #fecaca;
         }
+        .module-toolbar {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 4px;
+        }
+        .module-toolbar-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
         .module-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 12px;
+          grid-template-columns: 1fr;
+          gap: 14px;
         }
         .module-card {
-          padding: 0;
+          padding: 18px 20px;
+          display: grid;
+          grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(240px, 320px);
+          gap: 18px;
+          align-items: center;
           overflow: hidden;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .module-card-head {
-          padding: 16px 16px 10px;
-          border-bottom: 1px solid rgba(213, 223, 236, 0.8);
+          min-width: 0;
+        }
+        .module-card-summary {
+          display: flex;
+          gap: 14px;
+          align-items: center;
+          min-width: 0;
+        }
+        .module-card-title {
+          min-width: 0;
+          display: grid;
+          gap: 5px;
+        }
+        .module-card-title-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .module-card-name {
+          font-size: 17px;
+          line-height: 1.2;
+          font-weight: 600;
+          color: #13233f;
+        }
+        .module-card-subtitle {
+          font-size: 13px;
+          line-height: 1.5;
+          color: #617a9f;
         }
         .module-card-body {
-          padding: 12px 16px 16px;
+          min-width: 0;
           display: grid;
+          gap: 12px;
+        }
+        .module-card-copy {
+          color: #617a9f;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+        .module-card-side {
+          min-width: 0;
+          display: flex;
+          justify-content: flex-end;
+        }
+        .module-actions {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: flex-end;
           gap: 10px;
+          max-width: 320px;
         }
         .module-icon {
           width: 42px;
@@ -1374,184 +1641,321 @@ export default function AdminPage() {
           background: white;
           border-radius: 20px;
           border: 1px solid rgba(213, 223, 236, 0.94);
-          padding: 18px;
+          padding: 16px;
           box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
         }
         .metric-subtext {
-          margin-top: 6px;
-          font-size: 11px;
+          position: relative;
+          z-index: 1;
+          margin-top: 0;
+          font-size: 12px;
+          line-height: 1.45;
           color: ${MUTED};
         }
+        .overview-actions {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
         @media (max-width: 1100px) {
+          .admin-shell {
+            grid-template-columns: 1fr;
+          }
+          .admin-sidebar {
+            position: static;
+            height: auto;
+            padding: 18px 18px 0;
+            border-right: 0;
+            border-bottom: 1px solid rgba(213, 223, 236, 0.92);
+          }
+          .sidebar-panel {
+            grid-template-rows: auto auto auto;
+          }
+          .sidebar-footer {
+            display: none;
+          }
+          .topbar {
+            padding: 18px 20px 14px;
+          }
           .page-shell { padding: 18px; }
           .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .card-grid { grid-template-columns: 1fr; }
           .module-grid { grid-template-columns: 1fr; }
+          .module-card {
+            grid-template-columns: minmax(0, 1fr);
+            align-items: stretch;
+          }
+          .module-card-side {
+            justify-content: flex-start;
+          }
+          .module-actions {
+            justify-content: flex-start;
+            max-width: none;
+          }
           .selection-grid { grid-template-columns: 1fr; }
         }
+        @media (max-width: 860px) {
+          .utility-bar {
+            grid-template-columns: 1fr;
+          }
+          .utility-actions {
+            justify-content: flex-start;
+          }
+          .module-toolbar {
+            flex-direction: column;
+            align-items: stretch;
+          }
+        }
         @media (max-width: 720px) {
-          .topbar { padding: 16px 14px; }
+          .topbar { padding: 18px 14px 14px; }
+          .header-title,
+          .panel-title { font-size: 22px; }
           .page-shell { padding: 16px; }
           .stats-grid { grid-template-columns: 1fr; }
           .utility-bar, .panel-head, .row-between { flex-direction: column; align-items: stretch; }
+          .tabbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .page-actions,
+          .actions,
+          .overview-actions {
+            width: 100%;
+          }
+          .page-actions > button,
+          .actions > button,
+          .overview-actions > button {
+            flex: 1 1 180px;
+          }
+          .module-toolbar-actions,
+          .module-actions {
+            width: 100%;
+          }
+          .module-meta-grid {
+            grid-template-columns: 1fr;
+          }
+          .module-card {
+            padding: 16px;
+          }
           .client-card-top, .client-main { flex-direction: column; }
           .client-side { justify-items: start; min-width: 0; }
         }
       `}</style>
 
       <div className="admin-shell">
-        <header className="topbar">
-          <div className="brand-wrap">
-            <div className="brand-icon">SV</div>
-            <div>
-              <h1 className="brand-title">ScaleVyapar Admin</h1>
-              <div className="brand-copy">
-                Manage clients, modules, credentials, labour tools, website editor access, and destination links.
+        <aside className="admin-sidebar">
+          <div className="sidebar-panel">
+            <div className="sidebar-brand">
+              <div className="brand-mark">SV</div>
+              <div>
+                <p className="brand-subtitle">Workspace Control</p>
+                <h1 className="brand-title">ScaleVyapar Admin</h1>
+                <p className="brand-copy">
+                  Manage clients, modules, credentials, labour tools, website editor access, and destination links.
+                </p>
               </div>
+            </div>
+
+            <div className="sidebar-section">
+              <div className="utility-kicker">Navigation</div>
+              <div className="tabbar">
+                {navItems.map(item => {
+                  const Icon =
+                    item.key === 'dashboard'
+                      ? LayoutDashboard
+                      : item.key === 'clients'
+                        ? Users2
+                        : item.key === 'modules'
+                          ? Boxes
+                          : item.key === 'masters'
+                            ? Database
+                            : Settings2
+
+                  return (
+                    <button
+                      key={item.key}
+                      className={`nav-item ${activeTab === item.key ? 'active' : ''}`}
+                      onClick={() => setActiveTab(item.key)}
+                    >
+                      <Icon className="nav-icon" />
+                      <span>{item.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div />
+
+            <div className="surface-card sidebar-footer">
+              <div className="sidebar-footer-icon">
+                <ShieldCheck className="nav-icon" />
+              </div>
+              <div className="sidebar-footer-title">Admin workspace</div>
+              <p className="panel-copy">
+                This refresh keeps all existing dashboard connectivity, handlers, and access flows intact while improving the frontend layout.
+              </p>
             </div>
           </div>
+        </aside>
 
-          <div className="page-actions">
-            <button className="secondary-btn" onClick={() => window.open('/dashboard', '_blank', 'noopener,noreferrer')}>Client Dashboard</button>
-            <button className="secondary-btn" onClick={() => window.open('/labour/company', '_blank', 'noopener,noreferrer')}>Labour Site</button>
-            <button className="primary-btn" onClick={handleLogout}>Logout</button>
-          </div>
-        </header>
-
-        <div className="page-shell">
-          {flash ? (
-            <div className={`flash ${flash.type}`}>
-              {flash.message}
-            </div>
-          ) : null}
-
-          {generatedCredentials ? (
-            <div className="credentials-card">
-              <div className="row-between" style={{ marginBottom: 18 }}>
-                <div>
-                  <div className="utility-kicker">Generated Credentials</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>{generatedCredentials.title}</div>
-                  <div className="muted">Save these credentials before closing the card.</div>
-                </div>
-                <div className="actions">
-                  <button className="secondary-btn" onClick={copyGeneratedCredentials}>Copy</button>
-                  <button className="secondary-btn" onClick={() => setGeneratedCredentials(null)}>Close</button>
-                </div>
-              </div>
-              <div className="card-grid">
-                <div className="inner-card">
-                  <div className="utility-kicker">Client ID</div>
-                  <code>{generatedCredentials.clientId || 'Not returned'}</code>
-                </div>
-                <div className="inner-card">
-                  <div className="utility-kicker">Email</div>
-                  <code>{generatedCredentials.email}</code>
-                </div>
-              </div>
-              <div className="inner-card" style={{ marginTop: 18 }}>
-                <div className="utility-kicker">Password</div>
-                <code>{generatedCredentials.temporaryPassword}</code>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="surface-card utility-bar">
-            <div>
-              <div className="utility-kicker">Control Mode</div>
-              <div className="utility-copy">
-                This panel controls client access, module routing, and Rozgar operations from one workspace.
-              </div>
+        <main className="workspace-shell">
+          <header className="topbar">
+            <div className="header-copy">
+              <div className="utility-kicker">{currentTabMeta.eyebrow}</div>
+              <h2 className="header-title">{currentTabMeta.title}</h2>
+              <p className="header-subtitle">{currentTabMeta.description}</p>
             </div>
 
-            <div className="utility-actions">
-              <button className="secondary-btn" onClick={openCreateClient}>Add Client</button>
-              <button className="secondary-btn" onClick={openCreateModule}>Add Module</button>
-              <button className="secondary-btn" onClick={() => window.open('/admin/labour', '_blank', 'noopener,noreferrer')}>Labour Admin</button>
-              <button className="secondary-btn" onClick={() => window.open('/admin/main-website', '_blank', 'noopener,noreferrer')}>Main Website</button>
-              <button className="secondary-btn" onClick={() => window.open('/admin/labour/website', '_blank', 'noopener,noreferrer')}>Labour Website</button>
-              <button className="primary-btn" onClick={() => void loadData()}>Refresh</button>
-            </div>
-          </div>
-
-          <div className="stats-grid">
-            {statCards.map(card => (
-              <div className="surface-card stat-card" key={card.label}>
-                <div className="stat-label">{card.label}</div>
-                <div className="stat-value" style={{ color: card.color }}>{card.value}</div>
-                <div className="metric-subtext">
-                  {card.label === 'Connected Modules'
-                    ? 'Ready for launch and assignment'
-                    : card.label === 'Assigned Modules'
-                      ? 'Live mapping across all clients'
-                      : card.label === 'Live Modules'
-                        ? 'Available for active accounts'
-                        : 'Clients currently able to sign in'}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="tabbar">
-            {navItems.map(item => (
-              <button
-                key={item.key}
-                className={`tab-pill ${activeTab === item.key ? 'active' : ''}`}
-                onClick={() => setActiveTab(item.key)}
-              >
-                {item.label}
+            <div className="page-actions">
+              <button className="secondary-btn" onClick={() => window.open('/dashboard', '_blank', 'noopener,noreferrer')}>
+                <ArrowUpRight className="button-icon" />
+                Client Dashboard
               </button>
-            ))}
-          </div>
+              <button className="secondary-btn" onClick={() => window.open('/labour/company', '_blank', 'noopener,noreferrer')}>
+                <ArrowUpRight className="button-icon" />
+                Labour Site
+              </button>
+              <button className="primary-btn" onClick={handleLogout}>
+                <LogOut className="button-icon" />
+                Logout
+              </button>
+            </div>
+          </header>
 
-          {activeTab === 'dashboard' ? (
-            <section className="surface-card content-panel">
-              <div className="panel-head">
+          <div className="page-shell">
+            <div className="workspace-stack">
+              {flash ? (
+                <div className={`flash ${flash.type}`}>
+                  {flash.message}
+                </div>
+              ) : null}
+
+              {generatedCredentials ? (
+                <div className="credentials-card">
+                  <div className="row-between" style={{ marginBottom: 14 }}>
+                    <div>
+                      <div className="utility-kicker">Generated Credentials</div>
+                      <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{generatedCredentials.title}</div>
+                      <div className="muted">Save these credentials before closing the card.</div>
+                    </div>
+                    <div className="actions">
+                      <button className="secondary-btn" onClick={copyGeneratedCredentials}>Copy</button>
+                      <button className="secondary-btn" onClick={() => setGeneratedCredentials(null)}>Close</button>
+                    </div>
+                  </div>
+                  <div className="card-grid">
+                    <div className="inner-card">
+                      <div className="utility-kicker">Client ID</div>
+                      <code>{generatedCredentials.clientId || 'Not returned'}</code>
+                    </div>
+                    <div className="inner-card">
+                      <div className="utility-kicker">Email</div>
+                      <code>{generatedCredentials.email}</code>
+                    </div>
+                  </div>
+                  <div className="inner-card" style={{ marginTop: 14 }}>
+                    <div className="utility-kicker">Password</div>
+                    <code>{generatedCredentials.temporaryPassword}</code>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="surface-card utility-bar">
                 <div>
-                  <h2 className="panel-title">Workspace overview</h2>
-                  <p className="panel-copy">Quick visibility into clients, modules, and the live admin toolkit.</p>
+                  <div className="utility-kicker">Control Mode</div>
+                  <div className="utility-copy">
+                    This panel controls client access, module routing, and Rozgar operations from one workspace.
+                  </div>
+                </div>
+
+                <div className="utility-actions">
+                  <button className="secondary-btn" onClick={openCreateClient}>
+                    <Plus className="button-icon" />
+                    Add Client
+                  </button>
+                  <button className="secondary-btn" onClick={openCreateModule}>
+                    <Plus className="button-icon" />
+                    Add Module
+                  </button>
+                  <button className="secondary-btn" onClick={() => window.open('/admin/labour', '_blank', 'noopener,noreferrer')}>
+                    <ArrowUpRight className="button-icon" />
+                    Labour Admin
+                  </button>
+                  <button className="secondary-btn" onClick={() => window.open('/admin/labour/website', '_blank', 'noopener,noreferrer')}>
+                    <ArrowUpRight className="button-icon" />
+                    Edit Website
+                  </button>
+                  <button className="primary-btn" onClick={() => void loadData()}>
+                    <RefreshCw className="button-icon" />
+                    Refresh
+                  </button>
                 </div>
               </div>
 
-              <div className="card-grid">
-                <div className="inner-card">
-                  <h3 style={{ marginTop: 0, marginBottom: 16 }}>Recent clients</h3>
-                  <div className="list-stack">
-                    {clientUsers.slice(-5).reverse().map(user => (
-                      <div key={user.id} className="row-between">
-                        <div>
-                          <div style={{ fontWeight: 800 }}>{user.name}</div>
-                          <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>{user.email}</div>
-                        </div>
-                        <div className="chip-row">
-                          <span className={`chip ${(user.status || 'active') === 'active' ? 'success' : 'warning'}`}>
-                            {user.status || 'active'}
-                          </span>
-                          <span className="chip neutral">{user.assignedModuleIds?.length || 0} modules</span>
-                        </div>
+              <div className="stats-grid">
+                {statCards.map(card => (
+                  <div className="surface-card stat-card" key={card.label}>
+                    <div className="stat-card-head">
+                      <div className="stat-label">{card.label}</div>
+                      <span className="stat-dot" style={{ backgroundColor: card.color }} />
+                    </div>
+                    <div className="stat-value" style={{ color: card.color }}>{card.value}</div>
+                    <div className="metric-subtext">{card.description}</div>
+                  </div>
+                ))}
+              </div>
+
+              {activeTab === 'dashboard' ? (
+                <section className="surface-card content-panel">
+                  <div className="panel-head">
+                    <div>
+                      <h2 className="panel-title">Workspace overview</h2>
+                      <p className="panel-copy">Quick visibility into clients, modules, and the live admin toolkit.</p>
+                    </div>
+                  </div>
+
+                  <div className="dashboard-stack">
+                    <div className="inner-card">
+                      <h3 className="section-title">Recent clients</h3>
+                      <div className="list-stack">
+                        {clientUsers.slice(-5).reverse().map(user => (
+                          <div key={user.id} className="list-row">
+                            <div className="row-between">
+                              <div>
+                                <div style={{ fontWeight: 600, fontSize: 16 }}>{user.name}</div>
+                                <div className="muted" style={{ fontSize: 14, marginTop: 5 }}>{user.email}</div>
+                              </div>
+                              <div className="chip-row">
+                                <span className={`chip ${(user.status || 'active') === 'active' ? 'success' : 'warning'}`}>
+                                  {user.status || 'active'}
+                                </span>
+                                <span className="chip neutral">{user.assignedModuleIds?.length || 0} modules</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
 
-                <div className="inner-card">
-                  <h3 style={{ marginTop: 0, marginBottom: 16 }}>Quick actions</h3>
-                  <div className="actions">
-                    <button className="primary-btn" onClick={openCreateClient}>Create Client</button>
-                    <button className="secondary-btn" onClick={openCreateModule}>Create Module</button>
-                    <button className="secondary-btn" onClick={() => window.open('/admin/main-website', '_blank', 'noopener,noreferrer')}>Main Website Editor</button>
-                    <button className="secondary-btn" onClick={() => window.open('/admin/labour/website', '_blank', 'noopener,noreferrer')}>Labour Website Editor</button>
-                    <button className="secondary-btn" onClick={() => window.open('/api/setup', '_blank', 'noopener,noreferrer')}>Recreate Admin</button>
+                    <div className="inner-card quick-actions-card">
+                      <div>
+                        <h3 className="section-title" style={{ marginBottom: 10 }}>Quick actions</h3>
+                        <p className="panel-copy">
+                          Use the modules section to assign launch-ready tools and use the Rozgar actions to jump into labour management.
+                        </p>
+                      </div>
+                      <div className="overview-actions">
+                        <button className="primary-btn" onClick={openCreateClient}>Create Client</button>
+                        <button className="secondary-btn" onClick={openCreateModule}>Create Module</button>
+                        <button className="secondary-btn" onClick={() => window.open('/api/setup', '_blank', 'noopener,noreferrer')}>
+                          Recreate Admin
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <p className="panel-copy" style={{ marginTop: 18 }}>
-                    Use the modules section to assign launch-ready tools and use the Rozgar actions to jump into labour management.
-                  </p>
-                </div>
-              </div>
-            </section>
-          ) : null}
+                </section>
+              ) : null}
 
-          {activeTab === 'clients' ? (
-            <section className="surface-card content-panel client-panel">
+              {activeTab === 'clients' ? (
+                <section className="surface-card content-panel client-panel">
               <div className="panel-head">
                 <div>
                   <h2 className="panel-title">Client management</h2>
@@ -1595,14 +1999,14 @@ export default function AdminPage() {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              fontWeight: 800,
-                              fontSize: 20
+                              fontWeight: 700,
+                              fontSize: 18
                             }}
                           >
                             {initials(user.name)}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 800, fontSize: 16 }}>{user.name}</div>
+                            <div style={{ fontWeight: 600, fontSize: 15 }}>{user.name}</div>
                             <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>{user.email}</div>
                             <div className="muted" style={{ fontSize: 14, marginTop: 6 }}>
                               {user.phone || 'No phone'} · {user.plan || 'Starter'} · Created {prettyDate(user.createdAt)}
@@ -1639,11 +2043,11 @@ export default function AdminPage() {
                   ))
                 )}
               </div>
-            </section>
-          ) : null}
+                </section>
+              ) : null}
 
-          {activeTab === 'modules' ? (
-            <section className="surface-card content-panel">
+              {activeTab === 'modules' ? (
+                <section className="surface-card content-panel">
               <div className="panel-head">
                 <div>
                   <h2 className="panel-title">Module management</h2>
@@ -1652,8 +2056,8 @@ export default function AdminPage() {
                 <button className="primary-btn" onClick={openCreateModule}>Add Module</button>
               </div>
 
-              <div className="row-between">
-                <div className="actions">
+              <div className="module-toolbar">
+                <div className="module-toolbar-actions">
                   <button className="secondary-btn" onClick={() => openModulePreset('leads')}>Lead Preset</button>
                   <button className="secondary-btn" onClick={() => openModulePreset('labour')}>Rozgar Preset</button>
                   <button className="secondary-btn" onClick={() => openModulePreset('vizora')}>Vizora Preset</button>
@@ -1676,27 +2080,27 @@ export default function AdminPage() {
                   return (
                     <div className="surface-card module-card" key={module.id}>
                       <div className="module-card-head">
-                        <div className="row-between">
-                          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                            <div
-                              className="module-icon"
-                              style={{ background: `linear-gradient(135deg, ${module.color || BRAND_BLUE} 0%, ${BRAND} 100%)` }}
-                            >
-                              {moduleBadge(module)}
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 17, fontWeight: 800 }}>{module.name}</div>
-                              <div className="muted" style={{ marginTop: 4 }}>{module.type || 'Operations'}</div>
-                            </div>
+                        <div className="module-card-summary">
+                          <div
+                            className="module-icon"
+                            style={{ background: `linear-gradient(135deg, ${module.color || BRAND_BLUE} 0%, ${BRAND} 100%)` }}
+                          >
+                            {moduleBadge(module)}
                           </div>
-                          <span className={`chip ${module.isActive === false ? 'warning' : 'success'}`}>
-                            {module.isActive === false ? 'Paused' : 'Live'}
-                          </span>
+                          <div className="module-card-title">
+                            <div className="module-card-title-row">
+                              <div className="module-card-name">{module.name}</div>
+                              <span className={`chip ${module.isActive === false ? 'warning' : 'success'}`}>
+                                {module.isActive === false ? 'Paused' : 'Live'}
+                              </span>
+                            </div>
+                            <div className="module-card-subtitle">{module.type || 'Operations'}</div>
+                          </div>
                         </div>
                       </div>
 
                       <div className="module-card-body">
-                        <div className="muted" style={{ lineHeight: 1.65, minHeight: 76 }}>
+                        <div className="module-card-copy">
                           {module.description || 'Module workspace ready to be assigned and launched for clients.'}
                         </div>
 
@@ -1722,8 +2126,10 @@ export default function AdminPage() {
                             <span className="muted">No feature list added.</span>
                           )}
                         </div>
+                      </div>
 
-                        <div className="actions">
+                      <div className="module-card-side">
+                        <div className="module-actions">
                           <button className="secondary-btn" onClick={() => openEditModule(module)}>Edit</button>
                           <button className="secondary-btn" onClick={() => handleToggleModule(module)}>
                             {module.isActive === false ? 'Activate' : 'Pause'}
@@ -1765,11 +2171,15 @@ export default function AdminPage() {
                   )
                 })}
               </div>
-            </section>
-          ) : null}
+                </section>
+              ) : null}
 
-          {activeTab === 'settings' ? (
-            <section className="surface-card content-panel">
+              {activeTab === 'masters' ? (
+                <LabourMastersPanel />
+              ) : null}
+
+              {activeTab === 'settings' ? (
+                <section className="surface-card content-panel">
               <div className="panel-head">
                 <div>
                   <h2 className="panel-title">Settings and routing</h2>
@@ -1886,9 +2296,11 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
-            </section>
-          ) : null}
-        </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        </main>
 
         {showClientModal ? (
           <div className="modal-overlay">
@@ -1959,7 +2371,7 @@ export default function AdminPage() {
                       >
                         <div className="row-between">
                           <div>
-                            <div style={{ fontWeight: 800 }}>{moduleBadge(module)} {module.name}</div>
+                            <div style={{ fontWeight: 600 }}>{moduleBadge(module)} {module.name}</div>
                             <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>
                               {module.type || 'Operations'}
                             </div>
@@ -2014,7 +2426,7 @@ export default function AdminPage() {
                     >
                       <div className="row-between">
                         <div>
-                          <div style={{ fontWeight: 800 }}>{moduleBadge(module)} {module.name}</div>
+                          <div style={{ fontWeight: 600 }}>{moduleBadge(module)} {module.name}</div>
                           <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>
                             {(module.features || []).slice(0, 2).join(' · ') || 'No feature list added'}
                           </div>

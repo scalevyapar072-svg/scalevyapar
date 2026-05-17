@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
   BadgeCheck,
@@ -36,6 +36,7 @@ type PlanOption = {
 
 type Props = {
   content: LabourCompanyWebsiteContent
+  industryCategories: string[]
   companyPlans: PlanOption[]
   stats: {
     activeCompanies: number
@@ -114,7 +115,26 @@ function renderHeroTitle(title: string, highlightedText: string) {
   )
 }
 
-export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props) {
+function HeroBannerImage({ src, alt, priority = false }: { src: string; alt: string; priority?: boolean }) {
+  const isRemote = /^https?:\/\//i.test(src)
+
+  if (isRemote) {
+    return <img src={src} alt={alt} className={styles.homeHeroVisualImage} loading={priority ? 'eager' : 'lazy'} />
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill
+      sizes="(max-width: 960px) 100vw, 42vw"
+      className={styles.homeHeroVisualImage}
+      priority={priority}
+    />
+  )
+}
+
+export function LabourCompanyHomeClient({ content, industryCategories, companyPlans, stats }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const showPricingLink = companyPlans.length > 0
 
@@ -124,9 +144,6 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
   const loginHref = '/labour/company/signin'
   const panelHref = '/labour/company/panel'
   const workerJoinHref = content.home.workerCta.buttonHref || '/labour'
-  const primaryHeroImageSrc = content.home.hero.primaryImageSrc || '/worker-hero-reference.png'
-  const secondaryHeroImageSrc = content.home.hero.secondaryImageSrc || primaryHeroImageSrc
-  const useSplitHeroImages = secondaryHeroImageSrc.trim() !== '' && secondaryHeroImageSrc !== primaryHeroImageSrc
 
   const categorySearchOptions = useMemo(() => {
     const dynamicCategories = content.home.categories.cards
@@ -136,6 +153,14 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
 
     return [content.home.searchBar.categoryLabel || 'All Categories', ...dynamicCategories]
   }, [content.home.categories.cards, content.home.searchBar.categoryLabel])
+
+  const industrySearchOptions = useMemo(() => {
+    const dynamicIndustries = industryCategories
+      .map(item => item.trim())
+      .filter(Boolean)
+
+    return ['All Industry Categories', ...dynamicIndustries]
+  }, [industryCategories])
 
   const heroTrustPoints = useMemo(() => {
     const items = content.home.trustStrip.items
@@ -154,9 +179,60 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
   }, [content.home.trustStrip.items])
 
   const benefitCards = content.home.features.cards
-  const processSteps = content.home.process.steps
+  const processSteps = content.home.process.steps.slice(0, 5)
   const categoryCards = content.home.categories.cards
   const testimonials = (content.home.testimonials.items.length ? content.home.testimonials.items : fallbackTestimonials).slice(0, 3)
+  const heroSlides = useMemo(() => {
+    const slides = content.home.hero.slides
+      .slice(0, 5)
+      .map(slide => {
+        const primaryImageSrc = slide.primaryImageSrc?.trim() || content.home.hero.primaryImageSrc || '/worker-hero-reference.png'
+
+        return {
+          primaryImageSrc,
+          secondaryImageSrc: primaryImageSrc,
+          imageBadgeTitle: slide.imageBadgeTitle?.trim() || content.home.hero.imageBadgeTitle || 'Trusted by 1000+',
+          imageBadgeSubtitle: slide.imageBadgeSubtitle?.trim() || content.home.hero.imageBadgeSubtitle || 'Companies Across India',
+          ratingText: slide.ratingText?.trim() || '4.8/5'
+        }
+      })
+      .filter(slide => slide.primaryImageSrc)
+
+    if (slides.length > 0) {
+      return slides
+    }
+
+    const fallbackPrimaryImage = content.home.hero.primaryImageSrc || '/worker-hero-reference.png'
+    return [{
+      primaryImageSrc: fallbackPrimaryImage,
+      secondaryImageSrc: fallbackPrimaryImage,
+      imageBadgeTitle: content.home.hero.imageBadgeTitle || 'Trusted by 1000+',
+      imageBadgeSubtitle: content.home.hero.imageBadgeSubtitle || 'Companies Across India',
+      ratingText: '4.8/5'
+    }]
+  }, [content.home.hero])
+  const [activeHeroSlide, setActiveHeroSlide] = useState(0)
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) {
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      setActiveHeroSlide(current => (current + 1) % heroSlides.length)
+    }, 5000)
+
+    return () => window.clearInterval(timer)
+  }, [heroSlides.length])
+
+  const normalizedActiveHeroSlide = heroSlides.length > 0 ? activeHeroSlide % heroSlides.length : 0
+  const currentHeroSlide = heroSlides[normalizedActiveHeroSlide] || heroSlides[0]
+  const primaryHeroImageSrc = currentHeroSlide?.primaryImageSrc || content.home.hero.primaryImageSrc || '/worker-hero-reference.png'
+  const secondaryHeroImageSrc = primaryHeroImageSrc
+  const useSplitHeroImages = false
+  const heroBadgeTitle = currentHeroSlide?.imageBadgeTitle || content.home.hero.imageBadgeTitle
+  const heroBadgeSubtitle = currentHeroSlide?.imageBadgeSubtitle || content.home.hero.imageBadgeSubtitle
+  const heroRatingText = currentHeroSlide?.ratingText || '4.8/5'
 
   const statItems = [
     {
@@ -179,9 +255,9 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
 
   const headerNav = [
     { label: 'Home', href: '/labour/company', isLink: true },
-    { label: 'About Us', href: '#about-rozgar', isLink: false },
+    { label: 'About Us', href: '/labour/company/about', isLink: true },
     ...(showPricingLink ? [{ label: 'Pricing', href: '/labour/company/pricing', isLink: true }] : []),
-    { label: 'How It Works', href: '#how-it-works', isLink: false },
+    { label: 'Search Worker', href: '/labour/company/search', isLink: true },
     { label: 'Company Panel', href: panelHref, isLink: true },
     { label: 'Contact Us', href: '/labour/company/contact', isLink: true }
   ]
@@ -195,7 +271,7 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
             <span className={styles.homeLandingBrandText}>
               <span className={styles.homeLandingBrandName}>{content.theme.brandName || 'ScaleVyapar'}</span>
               <span className={styles.homeLandingBrandTagline}>
-                {content.theme.brandTagline || 'Hire daily-basis workers faster across industries'}
+                {content.theme.brandTagline || 'Find skilled workers and hire faster across India'}
               </span>
             </span>
           </Link>
@@ -271,10 +347,16 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
             <p className={styles.homeHeroText}>{content.home.hero.subtitle}</p>
 
             <div className={styles.homeHeroButtonRow}>
-              <Link href={content.home.hero.primaryCtaHref || jobPostHref} className={styles.homeHeroPrimaryButton}>
+              <Link
+                href={content.home.hero.primaryCtaHref || jobPostHref}
+                className={`${styles.homeHeroPrimaryButton} ${styles.homeHeroAnimatedButton}`}
+              >
                 {content.home.hero.primaryCtaLabel}
               </Link>
-              <Link href={content.home.hero.secondaryCtaHref || searchHref} className={styles.homeHeroSecondaryButton}>
+              <Link
+                href={content.home.hero.secondaryCtaHref || searchHref}
+                className={`${styles.homeHeroSecondaryButton} ${styles.homeHeroAnimatedButton} ${styles.homeHeroAnimatedButtonDelay}`}
+              >
                 {content.home.hero.secondaryCtaLabel}
               </Link>
             </div>
@@ -292,29 +374,39 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
           <div className={styles.homeHeroShowcase}>
             <div className={`${styles.homeHeroVisualGrid} ${!useSplitHeroImages ? styles.homeHeroVisualGridSingle : ''}`}>
               <div className={`${styles.homeHeroImagePrimary} ${!useSplitHeroImages ? styles.homeHeroImagePrimarySingle : ''}`}>
-                <Image
-                  src={primaryHeroImageSrc}
-                  alt="Skilled worker hiring showcase"
-                  fill
-                  sizes="(max-width: 960px) 100vw, 34vw"
-                  className={styles.homeHeroVisualImage}
-                  priority
-                />
+                <HeroBannerImage src={primaryHeroImageSrc} alt="Skilled worker hiring showcase" priority />
               </div>
               {useSplitHeroImages ? (
-                <div className={styles.homeHeroImageSecondary}>
-                  <Image
-                    src={secondaryHeroImageSrc}
-                    alt="Worker showcase"
-                    fill
-                    sizes="(max-width: 960px) 100vw, 22vw"
-                    className={styles.homeHeroVisualImage}
-                  />
-                </div>
+                <>
+                  <div className={styles.homeHeroImageSecondary}>
+                    <Image
+                      src={secondaryHeroImageSrc}
+                      alt="Worker showcase"
+                      fill
+                      sizes="(max-width: 960px) 100vw, 24vw"
+                      className={styles.homeHeroVisualImage}
+                    />
+                  </div>
+                  <div className={styles.homeHeroInsightCard}>
+                    <strong>{heroBadgeTitle}</strong>
+                    <p>{heroBadgeSubtitle}</p>
+                    <div className={styles.homeHeroInsightFooter}>
+                      <div className={styles.homeHeroInsightAvatars} aria-hidden="true">
+                        {[0, 1, 2, 3].map(index => (
+                          <span key={index} className={styles.homeHeroInsightAvatar} />
+                        ))}
+                      </div>
+                      <div className={styles.homeHeroInsightRating}>
+                        <span className={styles.homeStars}>★★★★★</span>
+                        <small>{heroRatingText}</small>
+                      </div>
+                    </div>
+                  </div>
+                </>
               ) : null}
               <div className={styles.homeHeroInsightCard}>
-                <strong>{content.home.hero.imageBadgeTitle}</strong>
-                <p>{content.home.hero.imageBadgeSubtitle}</p>
+                <strong>{heroBadgeTitle}</strong>
+                <p>{heroBadgeSubtitle}</p>
                 <div className={styles.homeHeroInsightFooter}>
                   <div className={styles.homeHeroInsightAvatars} aria-hidden="true">
                     {[0, 1, 2, 3].map(index => (
@@ -323,11 +415,25 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
                   </div>
                   <div className={styles.homeHeroInsightRating}>
                     <span className={styles.homeStars}>★★★★★</span>
-                    <small>4.8/5</small>
+                    <small>{heroRatingText}</small>
                   </div>
                 </div>
               </div>
             </div>
+            {heroSlides.length > 1 ? (
+              <div className={styles.homeHeroSliderDots} aria-label="Hero image slides">
+                {heroSlides.map((slide, index) => (
+                  <button
+                    key={`${slide.primaryImageSrc}-${index}`}
+                    type="button"
+                    className={`${styles.homeHeroSliderDot} ${index === normalizedActiveHeroSlide ? styles.homeHeroSliderDotActive : ''}`}
+                    aria-label={`Show hero slide ${index + 1}`}
+                    aria-pressed={index === normalizedActiveHeroSlide}
+                    onClick={() => setActiveHeroSlide(index)}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -343,6 +449,14 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
                   placeholder={content.home.searchBar.placeholder}
                   className={styles.homeSearchInput}
                 />
+              </div>
+
+              <div className={styles.homeSearchField}>
+                <select name="industryCategory" className={styles.homeSearchSelect} defaultValue="All Industry Categories">
+                  {industrySearchOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
               </div>
 
               <div className={styles.homeSearchField}>
@@ -376,7 +490,7 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
               return (
                 <div key={`${item.label}-${index}`} className={styles.homeStatsCard}>
                   <span className={styles.homeStatsIconWrap}>
-                    <Icon size={24} className={styles.homeStatsIcon} />
+                    <Icon size={22} className={styles.homeStatsIcon} />
                   </span>
                   <strong>{item.value}</strong>
                   <span>{item.label}</span>
@@ -421,7 +535,7 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
               return (
                 <article key={`${step.title}-${index}`} className={styles.homeHowTimelineCard}>
                   <span className={styles.homeHowTimelineDot}>
-                    <Icon size={20} />
+                    <Icon size={18} />
                   </span>
                   <div className={styles.homeHowTimelineLine} aria-hidden={index === processSteps.length - 1} />
                   <h3>{step.title}</h3>
@@ -444,7 +558,7 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
               return (
                 <Link key={`${category.title}-${index}`} href={category.href || searchHref} className={styles.homeCategoryCard}>
                   <span className={styles.homeCategoryIconWrap}>
-                    <Icon size={22} />
+                    <Icon size={20} />
                   </span>
                   <h3>{category.title}</h3>
                   <p>{category.subtitle}</p>
@@ -539,9 +653,9 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
             <h4 className={styles.homeFooterTitle}>Quick Links</h4>
             <div className={styles.homeFooterLinks}>
               <Link href="/labour/company">Home</Link>
-              <a href="#about-rozgar">About Us</a>
+              <Link href="/labour/company/about">About Us</Link>
               {showPricingLink ? <Link href="/labour/company/pricing">Pricing</Link> : null}
-              <a href="#how-it-works">How It Works</a>
+              <Link href="/labour/company/search">Search Worker</Link>
               <Link href="/labour/company/contact">Contact Us</Link>
             </div>
           </div>
@@ -584,7 +698,7 @@ export function LabourCompanyHomeClient({ content, companyPlans, stats }: Props)
 
         <div className={styles.homeFooterBottom}>
           <span>{content.footer.copyrightText}</span>
-          <span>Made with ❤️ in India for a stronger workforce.</span>
+          <span>Made with care in India for a stronger workforce.</span>
         </div>
       </footer>
     </div>

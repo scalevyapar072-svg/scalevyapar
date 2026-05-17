@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import styles from './company-site.module.css'
-import type { LabourCompanyRegisterCompanyPageContent } from '@/lib/labour-company-website'
 import {
   LabourIndustryBusinessDependency,
   LabourMasterOption,
@@ -36,9 +35,7 @@ type Props = {
   industryCategoryOptions: LabourMasterOption[]
   businessTypeOptions: LabourMasterOption[]
   industryBusinessDependencies: LabourIndustryBusinessDependency[]
-  companyCount?: number
   accentColor?: string
-  pageContent: LabourCompanyRegisterCompanyPageContent
 }
 
 type UploadKey = 'gstCertificate' | 'companyProof' | 'ownerIdProof'
@@ -70,35 +67,18 @@ type UploadState = {
   fileName: string
 }
 
-const REGISTRATION_PANEL_ITEMS = [
-  {
-    title: 'Verified Workers',
-    description: 'Access verified and background checked workers.'
-  },
-  {
-    title: 'Time Based Postings',
-    description: 'Post jobs for specific time duration. Only active and relevant jobs.'
-  },
-  {
-    title: 'Quality Matches',
-    description: 'Get matched with skilled workers who fit your requirements.'
-  },
-  {
-    title: 'Easy Management',
-    description: 'Manage applications, shortlist and hire from one dashboard.'
-  },
-  {
-    title: 'No Useless Data',
-    description: 'We remove expired jobs and inactive profiles automatically.'
-  },
-  {
-    title: 'Faster Hiring',
-    description: 'Find the right workers quickly and complete your work on time.'
-  },
-  {
-    title: 'Secure & Trusted Platform',
-    description: 'Your data is safe with us. We are committed to transparency and trust.'
-  }
+const REGISTRATION_BENEFITS = [
+  'Register your company once and keep your hiring details connected with the ScaleVyapar worker admin workflow.',
+  'Keep company profile, location, and business identity ready for faster approval and onboarding.',
+  'Submit business details clearly so your company can be reviewed and activated without repeated follow-up.',
+  'Use one company profile for requirement posting, worker discovery, and company-panel activity tracking.'
+]
+
+const FAST_HIRING_STEPS = [
+  'Fill the company details with contact person, business type, city, and area so onboarding reaches the right admin flow.',
+  'After submission, your registration reaches the ScaleVyapar worker admin companies list for review.',
+  'Once approved, you can post requirements, receive worker responses, and manage hiring from the company panel.',
+  'A complete location and business profile helps ScaleVyapar connect your company with the right worker requirements faster.'
 ]
 
 const initialFormState: FormState = {
@@ -136,9 +116,7 @@ export function CompanyRegistrationForm({
   industryCategoryOptions,
   businessTypeOptions,
   industryBusinessDependencies,
-  companyCount = 1000,
-  accentColor = '#1d4ed8',
-  pageContent
+  accentColor = '#1d4ed8'
 }: Props) {
   const [form, setForm] = useState<FormState>(initialFormState)
   const [errors, setErrors] = useState<Partial<Record<keyof FormState | UploadKey | 'submit', string>>>({})
@@ -375,7 +353,6 @@ export function CompanyRegistrationForm({
           companyName: form.companyName.trim(),
           contactPerson: form.contactPerson.trim(),
           email: form.companyEmail.trim().toLowerCase(),
-          password: form.password,
           mobile: form.mobile.trim(),
           contactMobile: form.whatsAppNumber.trim(),
           city: form.city.trim(),
@@ -403,7 +380,7 @@ export function CompanyRegistrationForm({
         throw new Error(data.error || 'Failed to submit company registration.')
       }
 
-      setSuccess('Your company registration has been submitted successfully. You can now sign in and access your company account.')
+      setSuccess('Your company registration has been submitted successfully. Our team will review and activate your account shortly.')
       setForm(initialFormState)
       setErrors({})
       setUploads({
@@ -438,7 +415,7 @@ export function CompanyRegistrationForm({
           onChange={event => handleFileChange(key, event.target.files?.[0] || null)}
           accept=".jpg,.jpeg,.png,.webp,.pdf"
         />
-        <div className={styles.companyRegisterUploadIcon}>{state.file ? 'OK' : '+'}</div>
+        <div className={styles.companyRegisterUploadIcon}>{state.file ? '✓' : '+'}</div>
         <div className={styles.companyRegisterUploadBody}>
           <p className={styles.companyRegisterUploadTitle}>{label}</p>
           <p className={styles.companyRegisterUploadText}>{state.file ? state.file.name : subtitle}</p>
@@ -464,68 +441,52 @@ export function CompanyRegistrationForm({
   const fieldClass = (name: keyof FormState) =>
     `${styles.companyRegisterInput} ${errors[name] ? styles.companyRegisterInputError : ''}`
 
-  const trustedCompanyCount = `${Math.max(companyCount, 1000)}+`
-  const hasHighlightedTitle = pageContent.hero.title.includes(pageContent.hero.highlightedText)
-  const heroTitleParts = hasHighlightedTitle
-    ? pageContent.hero.title.split(pageContent.hero.highlightedText)
-    : [pageContent.hero.title, '']
-
   return (
-    <section className={`${styles.companyRegisterShell} ${styles.companyRegistrationShell}`}>
-      <div className={styles.companyRegistrationHero}>
-        <div className={styles.companyRegistrationHeroCopy}>
-          <p className={styles.companyRegistrationEyebrow}>{pageContent.hero.eyebrow}</p>
-          <h1 className={styles.companyRegistrationHeroTitle}>
-            {hasHighlightedTitle ? (
-              <>
-                {heroTitleParts[0]}
-                <span>{pageContent.hero.highlightedText}</span>
-                {heroTitleParts[1] || ''}
-              </>
-            ) : (
-              pageContent.hero.title
-            )}
-          </h1>
-          <p className={styles.companyRegistrationHeroText}>{pageContent.hero.subtitle}</p>
-        </div>
-
-        <div
-          className={styles.companyRegistrationHeroVisual}
-          style={pageContent.hero.imageSrc ? { backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.84), rgba(239,246,255,0.9)), url(${pageContent.hero.imageSrc})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
-        >
-          <div className={styles.companyRegistrationHeroDots} />
-          <div className={styles.companyRegistrationHeroSkyline}>
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className={styles.companyRegistrationHeroShield}>
-            <span className={styles.companyRegistrationHeroShieldBadge}>OK</span>
-          </div>
-          <div className={styles.companyRegistrationTrustCard}>
-            <p className={styles.companyRegistrationTrustTitle}>
-              {pageContent.hero.trustCardTitle.replace('1000+', trustedCompanyCount)}
-            </p>
-            <div className={styles.companyRegistrationTrustMeta}>
-              <div className={styles.companyRegistrationTrustFaces}>
-                <span>A</span>
-                <span>S</span>
-                <span>R</span>
-                <span>C</span>
+    <section className={styles.companyRegisterShell}>
+      <div className={styles.companyRegisterSplit}>
+        <aside className={styles.companyRegisterAside}>
+          <div className={styles.companyRegisterIllustration}>
+            <div className={styles.companyRegisterIllustrationOrb} />
+            <div className={styles.companyRegisterIllustrationCard}>
+              <span className={styles.companyRegisterIllustrationTag}>Enterprise onboarding</span>
+              <p className={styles.companyRegisterIllustrationHeadline}>Register your company and get workers faster with ScaleVyapar Rozgar</p>
+              <p className={styles.companyRegisterIllustrationText}>
+                ScaleVyapar Rozgar helps companies organise worker hiring in one connected flow, from company registration to requirement posting and worker response management.
+              </p>
+              <div className={styles.companyRegisterBenefitGrid}>
+                {REGISTRATION_BENEFITS.map(item => (
+                  <div key={item} className={styles.companyRegisterBenefitCard}>
+                    <span className={styles.companyRegisterBenefitDot} />
+                    <span>{item}</span>
+                  </div>
+                ))}
               </div>
-              <strong>{pageContent.hero.trustCardRating}</strong>
+              <div className={styles.companyRegisterInfoCard}>
+                <p className={styles.companyRegisterInfoTitle}>How to get workers faster from ScaleVyapar</p>
+                <div className={styles.companyRegisterBenefitGrid}>
+                  {FAST_HIRING_STEPS.map(item => (
+                    <div key={item} className={styles.companyRegisterBenefitCard}>
+                      <span className={styles.companyRegisterBenefitDot} />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </aside>
 
-      <div className={styles.companyRegisterSplit}>
         <div className={styles.companyRegisterFormWrap}>
+          <div className={styles.companyRegisterHeader}>
+            <p className={styles.companyRegisterEyebrow}>Company registration</p>
+            <p className={styles.companyRegisterSubtitle}>
+              Join ScaleVyapar Rozgar and hire skilled daily-basis workers faster for your business.
+            </p>
+          </div>
+
           {success ? (
             <div className={styles.companyRegisterSuccessCard}>
-              <div className={styles.companyRegisterSuccessIcon}>OK</div>
+              <div className={styles.companyRegisterSuccessIcon}>✓</div>
               <p className={styles.companyRegisterSuccessTitle}>Registration submitted successfully</p>
               <p className={styles.companyRegisterSuccessText}>{success}</p>
               <div className={styles.companyRegisterSuccessActions}>
@@ -537,38 +498,30 @@ export function CompanyRegistrationForm({
 
           <form className={styles.companyRegisterForm} onSubmit={handleSubmit} noValidate>
             <div className={styles.companyRegisterSection}>
-              <div className={styles.companyRegistrationSectionHeader}>
-                <div className={styles.companyRegistrationSectionIcon}>01</div>
-                <div>
-                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.companyInformationTitle}</p>
-                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.companyInformationHelper}</p>
-                </div>
-              </div>
+              <p className={styles.companyRegisterSectionTitle}>Company information</p>
               <div className={styles.companyRegisterGridTwo}>
                 <div>
                   <label className={styles.companyRegisterLabel}>Company Name *</label>
-                  <input className={fieldClass('companyName')} value={form.companyName} onChange={event => setField('companyName', event.target.value)} placeholder="Enter company name" />
+                  <input className={fieldClass('companyName')} value={form.companyName} onChange={event => setField('companyName', event.target.value)} />
                   {errors.companyName ? <p className={styles.companyRegisterFieldError}>{errors.companyName}</p> : null}
                 </div>
                 <div>
                   <label className={styles.companyRegisterLabel}>Owner/Contact Person Name *</label>
-                  <input className={fieldClass('contactPerson')} value={form.contactPerson} onChange={event => setField('contactPerson', event.target.value)} placeholder="Enter contact person name" />
+                  <input className={fieldClass('contactPerson')} value={form.contactPerson} onChange={event => setField('contactPerson', event.target.value)} />
                   {errors.contactPerson ? <p className={styles.companyRegisterFieldError}>{errors.contactPerson}</p> : null}
                 </div>
                 <div>
-                  <label className={styles.companyRegisterLabel}>Company Email *</label>
-                  <input className={fieldClass('companyEmail')} value={form.companyEmail} onChange={event => setField('companyEmail', event.target.value)} placeholder="Enter company email" />
-                  {errors.companyEmail ? <p className={styles.companyRegisterFieldError}>{errors.companyEmail}</p> : null}
-                </div>
-                <div>
-                  <label className={styles.companyRegisterLabel}>Mobile Number *</label>
-                  <input className={fieldClass('mobile')} value={form.mobile} maxLength={10} onChange={event => setField('mobile', event.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Enter mobile number" />
-                  {errors.mobile ? <p className={styles.companyRegisterFieldError}>{errors.mobile}</p> : null}
-                </div>
-                <div>
-                  <label className={styles.companyRegisterLabel}>WhatsApp Number *</label>
-                  <input className={fieldClass('whatsAppNumber')} value={form.whatsAppNumber} maxLength={10} onChange={event => setField('whatsAppNumber', event.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Enter WhatsApp number" />
-                  {errors.whatsAppNumber ? <p className={styles.companyRegisterFieldError}>{errors.whatsAppNumber}</p> : null}
+                  <label className={styles.companyRegisterLabel}>Business Type *</label>
+                  <select
+                    className={fieldClass('businessType')}
+                    value={form.businessType}
+                    onChange={event => setField('businessType', event.target.value)}
+                    disabled={!form.industryCategory}
+                  >
+                    <option value="">Select business type</option>
+                    {visibleBusinessTypeOptions.map(item => <option key={item.id} value={item.value}>{item.label}</option>)}
+                  </select>
+                  {errors.businessType ? <p className={styles.companyRegisterFieldError}>{errors.businessType}</p> : null}
                 </div>
                 <div>
                   <label className={styles.companyRegisterLabel}>Industry Category *</label>
@@ -579,38 +532,37 @@ export function CompanyRegistrationForm({
                   {errors.industryCategory ? <p className={styles.companyRegisterFieldError}>{errors.industryCategory}</p> : null}
                 </div>
                 <div>
-                  <label className={styles.companyRegisterLabel}>Business Type *</label>
-                  <select className={fieldClass('businessType')} value={form.businessType} onChange={event => setField('businessType', event.target.value)} disabled={!form.industryCategory}>
-                    <option value="">Select business type</option>
-                    {visibleBusinessTypeOptions.map(item => <option key={item.id} value={item.value}>{item.label}</option>)}
-                  </select>
-                  {errors.businessType ? <p className={styles.companyRegisterFieldError}>{errors.businessType}</p> : null}
-                </div>
-                <div>
                   <label className={styles.companyRegisterLabel}>GST Number</label>
-                  <input className={fieldClass('gstNumber')} value={form.gstNumber} onChange={event => setField('gstNumber', event.target.value.toUpperCase())} placeholder="Enter GST number (optional)" />
+                  <input className={fieldClass('gstNumber')} value={form.gstNumber} onChange={event => setField('gstNumber', event.target.value.toUpperCase())} />
                   {errors.gstNumber ? <p className={styles.companyRegisterFieldError}>{errors.gstNumber}</p> : null}
                 </div>
-              </div>
-            </div>
-
-            <div className={styles.companyRegisterSection}>
-              <div className={styles.companyRegistrationSectionHeader}>
-                <div className={styles.companyRegistrationSectionIcon}>02</div>
                 <div>
-                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.companyAddressTitle}</p>
-                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.companyAddressHelper}</p>
+                  <label className={styles.companyRegisterLabel}>Company Email *</label>
+                  <input className={fieldClass('companyEmail')} value={form.companyEmail} onChange={event => setField('companyEmail', event.target.value)} />
+                  {errors.companyEmail ? <p className={styles.companyRegisterFieldError}>{errors.companyEmail}</p> : null}
+                </div>
+                <div>
+                  <label className={styles.companyRegisterLabel}>Mobile Number *</label>
+                  <input className={fieldClass('mobile')} value={form.mobile} maxLength={10} onChange={event => setField('mobile', event.target.value.replace(/\D/g, '').slice(0, 10))} />
+                  {errors.mobile ? <p className={styles.companyRegisterFieldError}>{errors.mobile}</p> : null}
+                </div>
+                <div>
+                  <label className={styles.companyRegisterLabel}>WhatsApp Number *</label>
+                  <input className={fieldClass('whatsAppNumber')} value={form.whatsAppNumber} maxLength={10} onChange={event => setField('whatsAppNumber', event.target.value.replace(/\D/g, '').slice(0, 10))} />
+                  {errors.whatsAppNumber ? <p className={styles.companyRegisterFieldError}>{errors.whatsAppNumber}</p> : null}
                 </div>
               </div>
+
               <div className={styles.companyRegisterGridTwo}>
                 <div className={styles.companyRegisterGridWide}>
                   <label className={styles.companyRegisterLabel}>Company Address *</label>
-                  <textarea className={fieldClass('companyAddress')} rows={4} value={form.companyAddress} onChange={event => setField('companyAddress', event.target.value)} placeholder="Enter company address" />
+                  <textarea className={fieldClass('companyAddress')} rows={4} value={form.companyAddress} onChange={event => setField('companyAddress', event.target.value)} />
                   {errors.companyAddress ? <p className={styles.companyRegisterFieldError}>{errors.companyAddress}</p> : null}
                 </div>
+                <div />
                 <div>
                   <label className={styles.companyRegisterLabel}>State *</label>
-                  <input className={fieldClass('state')} value={form.state} onChange={event => setField('state', event.target.value)} placeholder="Enter state" />
+                  <input className={fieldClass('state')} value={form.state} onChange={event => setField('state', event.target.value)} />
                   {errors.state ? <p className={styles.companyRegisterFieldError}>{errors.state}</p> : null}
                 </div>
                 <div>
@@ -623,51 +575,43 @@ export function CompanyRegistrationForm({
                 </div>
                 <div>
                   <label className={styles.companyRegisterLabel}>Area *</label>
-                  <input className={fieldClass('area')} value={form.area} onChange={event => setField('area', event.target.value)} placeholder="Enter area or locality" />
+                  <input className={fieldClass('area')} value={form.area} onChange={event => setField('area', event.target.value)} />
                   {errors.area ? <p className={styles.companyRegisterFieldError}>{errors.area}</p> : null}
                 </div>
                 <div>
                   <label className={styles.companyRegisterLabel}>Pincode *</label>
-                  <input className={fieldClass('pincode')} maxLength={6} value={form.pincode} onChange={event => setField('pincode', event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter pincode" />
+                  <input className={fieldClass('pincode')} maxLength={6} value={form.pincode} onChange={event => setField('pincode', event.target.value.replace(/\D/g, '').slice(0, 6))} />
                   {errors.pincode ? <p className={styles.companyRegisterFieldError}>{errors.pincode}</p> : null}
                 </div>
               </div>
             </div>
 
             <div className={styles.companyRegisterSection}>
-              <div className={styles.companyRegistrationSectionHeader}>
-                <div className={styles.companyRegistrationSectionIcon}>03</div>
-                <div>
-                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.accountSetupTitle}</p>
-                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.accountSetupHelper}</p>
-                </div>
-              </div>
+              <p className={styles.companyRegisterSectionTitle}>Account setup</p>
+              <p className={styles.companyRegisterSectionNote}>
+                Password fields are validated here for professional onboarding, while the current reviewed company access flow remains unchanged.
+              </p>
               <div className={styles.companyRegisterGridTwo}>
                 <div>
                   <label className={styles.companyRegisterLabel}>Create Password *</label>
-                  <input type="password" className={fieldClass('password')} value={form.password} onChange={event => setField('password', event.target.value)} placeholder="Create a strong password" />
+                  <input type="password" className={fieldClass('password')} value={form.password} onChange={event => setField('password', event.target.value)} />
                   {errors.password ? <p className={styles.companyRegisterFieldError}>{errors.password}</p> : null}
                 </div>
                 <div>
                   <label className={styles.companyRegisterLabel}>Confirm Password *</label>
-                  <input type="password" className={fieldClass('confirmPassword')} value={form.confirmPassword} onChange={event => setField('confirmPassword', event.target.value)} placeholder="Confirm your password" />
+                  <input type="password" className={fieldClass('confirmPassword')} value={form.confirmPassword} onChange={event => setField('confirmPassword', event.target.value)} />
                   {errors.confirmPassword ? <p className={styles.companyRegisterFieldError}>{errors.confirmPassword}</p> : null}
                 </div>
               </div>
             </div>
 
             <div className={styles.companyRegisterSection}>
-              <div className={styles.companyRegistrationSectionHeader}>
-                <div className={styles.companyRegistrationSectionIcon}>04</div>
-                <div>
-                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.additionalDetailsTitle}</p>
-                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.additionalDetailsHelper}</p>
-                </div>
-              </div>
+              <p className={styles.companyRegisterSectionTitle}>Document uploads</p>
+              <p className={styles.companyRegisterSectionNote}>Optional. You can submit the form without uploading documents.</p>
               <div className={styles.companyRegisterUploadGridCompact}>
-                {renderUploadCard('gstCertificate', 'Upload GST Certificate', 'Upload GST certificate')}
-                {renderUploadCard('companyProof', 'Upload Company Proof', 'Upload company proof or business certificate')}
-                {renderUploadCard('ownerIdProof', 'Upload Owner ID Proof', 'Upload owner identity proof')}
+                {renderUploadCard('gstCertificate', 'Upload GST Certificate', 'Drag and drop or click to add GST certificate')}
+                {renderUploadCard('companyProof', 'Upload Company Proof', 'Upload company proof document or business certificate')}
+                {renderUploadCard('ownerIdProof', 'Upload Owner ID Proof', 'Upload owner identity proof in JPG, PNG, WEBP, or PDF')}
               </div>
             </div>
 
@@ -678,41 +622,17 @@ export function CompanyRegistrationForm({
                 className={styles.companyRegisterPrimaryButton}
                 style={{ background: submitting ? '#94a3b8' : `linear-gradient(135deg, ${accentColor}, #1d4ed8)` }}
               >
-                {submitting ? 'Submitting Registration...' : pageContent.submitArea.registerCompanyLabel}
+                {submitting ? 'Submitting Registration...' : 'Register Company'}
               </button>
-              <p className={styles.companyRegisterSubmitNote}>
-                By registering, you agree to our <Link href="/labour/company/terms-of-service">{pageContent.submitArea.termsLabel}</Link> and <Link href="/labour/company/privacy-policy">{pageContent.submitArea.privacyPolicyLabel}</Link>.
-              </p>
-              <p className={styles.companyRegisterSubmitNote}>
-                {isValid
-                  ? 'Your company registration is ready to submit.'
-                  : 'Complete the required fields below. GST number and document uploads can be left blank if not available.'}
-              </p>
-              <p className={styles.companyRegistrationLoginPrompt}>
-                {pageContent.submitArea.alreadyHaveAccountText} <Link href="/labour/company/signin">{pageContent.submitArea.loginLabel}</Link>
-              </p>
+                <p className={styles.companyRegisterSubmitNote}>
+                  {isValid
+                    ? 'Your company registration is ready to submit.'
+                    : 'Complete the required fields below. GST number and document uploads can be left blank if not available.'}
+                </p>
               {errors.submit ? <p className={styles.companyRegisterFieldError}>{errors.submit}</p> : null}
             </div>
           </form>
         </div>
-
-        <aside className={styles.companyRegisterAside}>
-          <div className={styles.companyRegistrationBenefitsCard}>
-            <h2 className={styles.companyRegistrationBenefitsTitle}>{pageContent.benefitsPanel.title}</h2>
-            <p className={styles.companyRegistrationBenefitsText}>{pageContent.benefitsPanel.description}</p>
-            <div className={styles.companyRegistrationBenefitsList}>
-              {(pageContent.benefitsPanel.items.length ? pageContent.benefitsPanel.items : REGISTRATION_PANEL_ITEMS).map((item, index) => (
-                <div key={item.title} className={styles.companyRegistrationBenefitRow}>
-                  <span className={styles.companyRegistrationBenefitIcon}>{index + 1}</span>
-                  <div>
-                    <h3>{item.title}</h3>
-                    <p>{item.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
       </div>
     </section>
   )

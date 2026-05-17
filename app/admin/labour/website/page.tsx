@@ -3,14 +3,10 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import type {
-  LabourCompanyLegalPageContent,
-  LabourCompanyWebsiteContent,
-  LabourCompanyWebsiteSection
-} from '@/lib/labour-company-website'
+import type { LabourCompanyLegalPageContent, LabourCompanyWebsiteContent, LabourCompanyWebsiteSection } from '@/lib/labour-company-website'
 import styles from './website-editor.module.css'
 
-type EditorTab = 'theme' | 'headerFooter' | 'home' | 'about' | 'pricing' | 'search' | 'postJob' | 'registerCompany' | 'companyPanel' | 'signin' | 'contact' | 'legal'
+type EditorTab = 'theme' | 'headerFooter' | 'home' | 'about' | 'pricing' | 'search' | 'companyPanel' | 'signin' | 'contact' | 'legal'
 
 const homeSections: LabourCompanyWebsiteSection[] = ['hero', 'trust', 'features', 'process', 'pricing', 'testimonials', 'faq', 'cta', 'intake']
 
@@ -184,8 +180,6 @@ const tabs: Array<{ id: EditorTab; label: string }> = [
   { id: 'about', label: 'About Us' },
   { id: 'pricing', label: 'Pricing' },
   { id: 'search', label: 'Search Workers' },
-  { id: 'postJob', label: 'Post Job' },
-  { id: 'registerCompany', label: 'Register Company' },
   { id: 'companyPanel', label: 'Company Panel' },
   { id: 'signin', label: 'Sign In' },
   { id: 'contact', label: 'Contact' },
@@ -1992,222 +1986,6 @@ export default function LabourWebsiteEditorPage() {
           </div>
         )}
 
-        {activeTab === 'postJob' && (
-          <div style={{ display: 'grid', gap: '20px' }}>
-            <SectionCard title="Post Job Hero" description="Edit the visible banner content for the public job-post page.">
-              <div style={{ display: 'grid', gap: '14px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-                  <Field label="Eyebrow Text" value={content.postJobPage.hero.eyebrow} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, hero: { ...current.postJobPage.hero, eyebrow: value } } } : current)} />
-                  <Field label="Dashboard Access Button Label" value={content.postJobPage.hero.dashboardAccessLabel} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, hero: { ...current.postJobPage.hero, dashboardAccessLabel: value } } } : current)} />
-                </div>
-                <TextAreaField label="Page Title" value={content.postJobPage.hero.title} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, hero: { ...current.postJobPage.hero, title: value } } } : current)} rows={3} />
-                <TextAreaField label="Page Subtitle" value={content.postJobPage.hero.subtitle} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, hero: { ...current.postJobPage.hero, subtitle: value } } } : current)} rows={3} />
-                <ImageUploadField
-                  label="Hero Image / Illustration Path"
-                  value={content.postJobPage.hero.imageSrc}
-                  onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, hero: { ...current.postJobPage.hero, imageSrc: value } } } : current)}
-                  placeholder="/job-post-hero-illustration.png"
-                  uploadKey="post-job-hero"
-                  uploading={uploadingField === 'post-job-hero'}
-                  onUpload={async file => {
-                    const publicUrl = await uploadWebsiteImage(file, 'post-job-hero')
-                    if (!publicUrl) return
-                    setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, hero: { ...current.postJobPage.hero, imageSrc: publicUrl } } } : current)
-                  }}
-                />
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Why Post Sidebar" description="Control the benefit cards shown in the left help column.">
-              <div style={{ display: 'grid', gap: '14px' }}>
-                <Field label="Sidebar Title" value={content.postJobPage.sidebarBenefits.title} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, sidebarBenefits: { ...current.postJobPage.sidebarBenefits, title: value } } } : current)} />
-                {content.postJobPage.sidebarBenefits.items.map((item, index) => (
-                  <div key={`post-benefit-${index}`} style={cardStyle}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                      <Field label={`Benefit ${index + 1} Title`} value={item.title} onChange={value => setContent(current => current ? {
-                        ...current,
-                        postJobPage: {
-                          ...current.postJobPage,
-                          sidebarBenefits: {
-                            ...current.postJobPage.sidebarBenefits,
-                            items: current.postJobPage.sidebarBenefits.items.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, title: value } : currentItem)
-                          }
-                        }
-                      } : current)} />
-                      <TextAreaField label={`Benefit ${index + 1} Description`} value={item.description} onChange={value => setContent(current => current ? {
-                        ...current,
-                        postJobPage: {
-                          ...current.postJobPage,
-                          sidebarBenefits: {
-                            ...current.postJobPage.sidebarBenefits,
-                            items: current.postJobPage.sidebarBenefits.items.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, description: value } : currentItem)
-                          }
-                        }
-                      } : current)} rows={3} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Simple Steps & Help Card" description="Edit the step rail descriptions and support card details.">
-              <div style={{ display: 'grid', gap: '14px' }}>
-                <Field label="Steps Section Title" value={content.postJobPage.simpleSteps.title} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, simpleSteps: { ...current.postJobPage.simpleSteps, title: value } } } : current)} />
-                {content.postJobPage.simpleSteps.items.map((item, index) => (
-                  <div key={`post-step-${index}`} style={cardStyle}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                      <Field label={`Step ${index + 1} Title`} value={item.title} onChange={value => setContent(current => current ? {
-                        ...current,
-                        postJobPage: {
-                          ...current.postJobPage,
-                          simpleSteps: {
-                            ...current.postJobPage.simpleSteps,
-                            items: current.postJobPage.simpleSteps.items.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, title: value } : currentItem)
-                          }
-                        }
-                      } : current)} />
-                      <TextAreaField label={`Step ${index + 1} Description`} value={item.description} onChange={value => setContent(current => current ? {
-                        ...current,
-                        postJobPage: {
-                          ...current.postJobPage,
-                          simpleSteps: {
-                            ...current.postJobPage.simpleSteps,
-                            items: current.postJobPage.simpleSteps.items.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, description: value } : currentItem)
-                          }
-                        }
-                      } : current)} rows={3} />
-                    </div>
-                  </div>
-                ))}
-                <div style={{ ...cardStyle, display: 'grid', gap: '12px' }}>
-                  <Field label="Help Card Title" value={content.postJobPage.helpCard.title} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, helpCard: { ...current.postJobPage.helpCard, title: value } } } : current)} />
-                  <TextAreaField label="Help Card Description" value={content.postJobPage.helpCard.description} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, helpCard: { ...current.postJobPage.helpCard, description: value } } } : current)} rows={3} />
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                    <Field label="Phone Number" value={content.postJobPage.helpCard.phone} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, helpCard: { ...current.postJobPage.helpCard, phone: value } } } : current)} />
-                    <Field label="Email" value={content.postJobPage.helpCard.email} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, helpCard: { ...current.postJobPage.helpCard, email: value } } } : current)} />
-                    <Field label="Support Hours" value={content.postJobPage.helpCard.supportHours} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, helpCard: { ...current.postJobPage.helpCard, supportHours: value } } } : current)} />
-                  </div>
-                </div>
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Form Section Titles, Buttons & Stats" description="Only visible labels are editable here. Form fields and submit handlers stay unchanged.">
-              <div style={{ display: 'grid', gap: '14px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                  <Field label="Section 1 Title" value={content.postJobPage.formSections.companyDetailsTitle} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, formSections: { ...current.postJobPage.formSections, companyDetailsTitle: value } } } : current)} />
-                  <Field label="Section 2 Title" value={content.postJobPage.formSections.jobRequirementTitle} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, formSections: { ...current.postJobPage.formSections, jobRequirementTitle: value } } } : current)} />
-                  <Field label="Section 3 Title" value={content.postJobPage.formSections.workDetailsTitle} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, formSections: { ...current.postJobPage.formSections, workDetailsTitle: value } } } : current)} />
-                  <Field label="Section 4 Title" value={content.postJobPage.formSections.salaryFacilitiesTitle} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, formSections: { ...current.postJobPage.formSections, salaryFacilitiesTitle: value } } } : current)} />
-                  <Field label="Section 5 Title" value={content.postJobPage.formSections.jobDescriptionTitle} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, formSections: { ...current.postJobPage.formSections, jobDescriptionTitle: value } } } : current)} />
-                </div>
-                <TextAreaField label="Section 1 Helper Text" value={content.postJobPage.formSections.companyDetailsHelper} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, formSections: { ...current.postJobPage.formSections, companyDetailsHelper: value } } } : current)} rows={2} />
-                <TextAreaField label="Section 2 Helper Text" value={content.postJobPage.formSections.jobRequirementHelper} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, formSections: { ...current.postJobPage.formSections, jobRequirementHelper: value } } } : current)} rows={2} />
-                <TextAreaField label="Section 3 Helper Text" value={content.postJobPage.formSections.workDetailsHelper} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, formSections: { ...current.postJobPage.formSections, workDetailsHelper: value } } } : current)} rows={2} />
-                <TextAreaField label="Section 4 Helper Text" value={content.postJobPage.formSections.salaryFacilitiesHelper} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, formSections: { ...current.postJobPage.formSections, salaryFacilitiesHelper: value } } } : current)} rows={2} />
-                <TextAreaField label="Section 5 Helper Text" value={content.postJobPage.formSections.jobDescriptionHelper} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, formSections: { ...current.postJobPage.formSections, jobDescriptionHelper: value } } } : current)} rows={2} />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                  <Field label="Save Draft Button" value={content.postJobPage.buttonLabels.saveDraft} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, buttonLabels: { ...current.postJobPage.buttonLabels, saveDraft: value } } } : current)} />
-                  <Field label="Preview Button" value={content.postJobPage.buttonLabels.previewPost} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, buttonLabels: { ...current.postJobPage.buttonLabels, previewPost: value } } } : current)} />
-                  <Field label="Hide Preview Button" value={content.postJobPage.buttonLabels.hidePreview} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, buttonLabels: { ...current.postJobPage.buttonLabels, hidePreview: value } } } : current)} />
-                  <Field label="Submit Button" value={content.postJobPage.buttonLabels.submitJobPost} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, buttonLabels: { ...current.postJobPage.buttonLabels, submitJobPost: value } } } : current)} />
-                  <Field label="Update Button" value={content.postJobPage.buttonLabels.updateJobPost} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, buttonLabels: { ...current.postJobPage.buttonLabels, updateJobPost: value } } } : current)} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                  <Field label="Stats Label 1" value={content.postJobPage.statsLabels.verifiedWorkers} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, statsLabels: { ...current.postJobPage.statsLabels, verifiedWorkers: value } } } : current)} />
-                  <Field label="Stats Label 2" value={content.postJobPage.statsLabels.companiesTrustUs} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, statsLabels: { ...current.postJobPage.statsLabels, companiesTrustUs: value } } } : current)} />
-                  <Field label="Stats Label 3" value={content.postJobPage.statsLabels.jobsPosted} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, statsLabels: { ...current.postJobPage.statsLabels, jobsPosted: value } } } : current)} />
-                  <Field label="Stats Label 4" value={content.postJobPage.statsLabels.averageCompanyRating} onChange={value => setContent(current => current ? { ...current, postJobPage: { ...current.postJobPage, statsLabels: { ...current.postJobPage.statsLabels, averageCompanyRating: value } } } : current)} />
-                </div>
-              </div>
-            </SectionCard>
-          </div>
-        )}
-
-        {activeTab === 'registerCompany' && (
-          <div style={{ display: 'grid', gap: '20px' }}>
-            <SectionCard title="Register Company Hero" description="Edit the hero content for the public company registration page.">
-              <div style={{ display: 'grid', gap: '14px' }}>
-                <Field label="Eyebrow Text" value={content.registerCompanyPage.hero.eyebrow} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, hero: { ...current.registerCompanyPage.hero, eyebrow: value } } } : current)} />
-                <TextAreaField label="Page Title" value={content.registerCompanyPage.hero.title} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, hero: { ...current.registerCompanyPage.hero, title: value } } } : current)} rows={3} />
-                <Field label="Highlighted Title Text" value={content.registerCompanyPage.hero.highlightedText} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, hero: { ...current.registerCompanyPage.hero, highlightedText: value } } } : current)} />
-                <TextAreaField label="Page Subtitle" value={content.registerCompanyPage.hero.subtitle} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, hero: { ...current.registerCompanyPage.hero, subtitle: value } } } : current)} rows={3} />
-                <ImageUploadField
-                  label="Hero Image / Illustration Path"
-                  value={content.registerCompanyPage.hero.imageSrc}
-                  onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, hero: { ...current.registerCompanyPage.hero, imageSrc: value } } } : current)}
-                  placeholder="/company-registration-trust-illustration.png"
-                  uploadKey="register-company-hero"
-                  uploading={uploadingField === 'register-company-hero'}
-                  onUpload={async file => {
-                    const publicUrl = await uploadWebsiteImage(file, 'register-company-hero')
-                    if (!publicUrl) return
-                    setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, hero: { ...current.registerCompanyPage.hero, imageSrc: publicUrl } } } : current)
-                  }}
-                />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                  <Field label="Trust Card Title" value={content.registerCompanyPage.hero.trustCardTitle} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, hero: { ...current.registerCompanyPage.hero, trustCardTitle: value } } } : current)} />
-                  <Field label="Trust Card Rating Text" value={content.registerCompanyPage.hero.trustCardRating} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, hero: { ...current.registerCompanyPage.hero, trustCardRating: value } } } : current)} />
-                </div>
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Form Section Titles & Submit Area" description="Only visible form section titles, helper text and submit-area labels are editable.">
-              <div style={{ display: 'grid', gap: '14px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                  <Field label="Company Information Title" value={content.registerCompanyPage.formSections.companyInformationTitle} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, formSections: { ...current.registerCompanyPage.formSections, companyInformationTitle: value } } } : current)} />
-                  <Field label="Account Setup Title" value={content.registerCompanyPage.formSections.accountSetupTitle} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, formSections: { ...current.registerCompanyPage.formSections, accountSetupTitle: value } } } : current)} />
-                  <Field label="Company Address Title" value={content.registerCompanyPage.formSections.companyAddressTitle} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, formSections: { ...current.registerCompanyPage.formSections, companyAddressTitle: value } } } : current)} />
-                  <Field label="Additional Details Title" value={content.registerCompanyPage.formSections.additionalDetailsTitle} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, formSections: { ...current.registerCompanyPage.formSections, additionalDetailsTitle: value } } } : current)} />
-                </div>
-                <TextAreaField label="Company Information Helper Text" value={content.registerCompanyPage.formSections.companyInformationHelper} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, formSections: { ...current.registerCompanyPage.formSections, companyInformationHelper: value } } } : current)} rows={2} />
-                <TextAreaField label="Account Setup Helper Text" value={content.registerCompanyPage.formSections.accountSetupHelper} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, formSections: { ...current.registerCompanyPage.formSections, accountSetupHelper: value } } } : current)} rows={2} />
-                <TextAreaField label="Company Address Helper Text" value={content.registerCompanyPage.formSections.companyAddressHelper} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, formSections: { ...current.registerCompanyPage.formSections, companyAddressHelper: value } } } : current)} rows={2} />
-                <TextAreaField label="Additional Details Helper Text" value={content.registerCompanyPage.formSections.additionalDetailsHelper} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, formSections: { ...current.registerCompanyPage.formSections, additionalDetailsHelper: value } } } : current)} rows={2} />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                  <Field label="Register Button Label" value={content.registerCompanyPage.submitArea.registerCompanyLabel} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, submitArea: { ...current.registerCompanyPage.submitArea, registerCompanyLabel: value } } } : current)} />
-                  <Field label="Already Have Account Text" value={content.registerCompanyPage.submitArea.alreadyHaveAccountText} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, submitArea: { ...current.registerCompanyPage.submitArea, alreadyHaveAccountText: value } } } : current)} />
-                  <Field label="Login Link Label" value={content.registerCompanyPage.submitArea.loginLabel} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, submitArea: { ...current.registerCompanyPage.submitArea, loginLabel: value } } } : current)} />
-                  <Field label="Terms Label" value={content.registerCompanyPage.submitArea.termsLabel} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, submitArea: { ...current.registerCompanyPage.submitArea, termsLabel: value } } } : current)} />
-                  <Field label="Privacy Policy Label" value={content.registerCompanyPage.submitArea.privacyPolicyLabel} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, submitArea: { ...current.registerCompanyPage.submitArea, privacyPolicyLabel: value } } } : current)} />
-                </div>
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Why Register Benefits Panel" description="Edit the right-side registration benefits card content.">
-              <div style={{ display: 'grid', gap: '14px' }}>
-                <Field label="Panel Title" value={content.registerCompanyPage.benefitsPanel.title} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, benefitsPanel: { ...current.registerCompanyPage.benefitsPanel, title: value } } } : current)} />
-                <TextAreaField label="Panel Description" value={content.registerCompanyPage.benefitsPanel.description} onChange={value => setContent(current => current ? { ...current, registerCompanyPage: { ...current.registerCompanyPage, benefitsPanel: { ...current.registerCompanyPage.benefitsPanel, description: value } } } : current)} rows={3} />
-                {content.registerCompanyPage.benefitsPanel.items.map((item, index) => (
-                  <div key={`register-benefit-${index}`} style={cardStyle}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                      <Field label={`Benefit ${index + 1} Title`} value={item.title} onChange={value => setContent(current => current ? {
-                        ...current,
-                        registerCompanyPage: {
-                          ...current.registerCompanyPage,
-                          benefitsPanel: {
-                            ...current.registerCompanyPage.benefitsPanel,
-                            items: current.registerCompanyPage.benefitsPanel.items.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, title: value } : currentItem)
-                          }
-                        }
-                      } : current)} />
-                      <TextAreaField label={`Benefit ${index + 1} Description`} value={item.description} onChange={value => setContent(current => current ? {
-                        ...current,
-                        registerCompanyPage: {
-                          ...current.registerCompanyPage,
-                          benefitsPanel: {
-                            ...current.registerCompanyPage.benefitsPanel,
-                            items: current.registerCompanyPage.benefitsPanel.items.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, description: value } : currentItem)
-                          }
-                        }
-                      } : current)} rows={3} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-          </div>
-        )}
-
         {activeTab === 'companyPanel' && (
           <div style={{ display: 'grid', gap: '20px' }}>
             <SectionCard title="Company Panel Header and Hero" description="Edit the company panel branding, dashboard intro, hero image, feature chips and floating trust card.">
@@ -2357,11 +2135,13 @@ export default function LabourWebsiteEditorPage() {
 
         {activeTab === 'signin' && (
           <div style={{ display: 'grid', gap: '20px' }}>
-            <SectionCard title="Sign In Hero" description="Edit the sign-in page headline, intro copy and left-side benefits.">
+            <SectionCard title="Sign In Page">
               <div style={{ display: 'grid', gap: '14px' }}>
                 <Field label="Eyebrow" value={content.signinPage.eyebrow} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, eyebrow: value } } : current)} />
                 <TextAreaField label="Title" value={content.signinPage.title} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, title: value } } : current)} rows={3} />
-                <TextAreaField label="Page Description" value={content.signinPage.heroDescription} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, subtitle: value, heroDescription: value } } : current)} rows={4} />
+                <TextAreaField label="Subtitle" value={content.signinPage.subtitle} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, subtitle: value } } : current)} rows={4} />
+                <Field label="Info Box Title" value={content.signinPage.infoTitle} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, infoTitle: value } } : current)} />
+                <TextAreaField label="Info Box Description" value={content.signinPage.infoDescription} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, infoDescription: value } } : current)} rows={3} />
                 {content.signinPage.benefits.map((item, index) => (
                   <div key={`${item}-${index}`} style={{ display: 'flex', gap: '10px', alignItems: 'end' }}>
                     <div style={{ flex: 1 }}>
@@ -2383,94 +2163,12 @@ export default function LabourWebsiteEditorPage() {
                   </div>
                 ))}
                 <button onClick={() => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, benefits: [...current.signinPage.benefits, ''] } } : current)} style={subtleButtonStyle}>Add Benefit</button>
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Login Card" description="Edit the visible labels and helper copy inside the sign-in form without changing the real auth flow.">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-                <Field label="Card Title" value={content.signinPage.loginCard.title} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, title: value } } } : current)} />
-                <Field label="Card Subtitle" value={content.signinPage.loginCard.subtitle} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, subtitle: value } } } : current)} />
-                <Field label="Email Label" value={content.signinPage.loginCard.emailLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, emailLabel: value } } } : current)} />
-                <Field label="Email Placeholder" value={content.signinPage.loginCard.emailPlaceholder} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, emailPlaceholder: value } } } : current)} />
-                <Field label="Password Label" value={content.signinPage.loginCard.passwordLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, passwordLabel: value } } } : current)} />
-                <Field label="Password Placeholder" value={content.signinPage.loginCard.passwordPlaceholder} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, passwordPlaceholder: value } } } : current)} />
-                <Field label="Remember Me Label" value={content.signinPage.loginCard.rememberMeLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, rememberMeLabel: value } } } : current)} />
-                <Field label="Forgot Password Label" value={content.signinPage.loginCard.forgotPasswordLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, forgotPasswordLabel: value } } } : current)} />
-                <Field label="Sign In Button Label" value={content.signinPage.loginCard.signInButtonLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, signInButtonLabel: value } } } : current)} />
-                <Field label="Register Prompt Text" value={content.signinPage.loginCard.registerPromptText} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, registerPromptText: value } } } : current)} />
-                <Field label="Register Company Button Label" value={content.signinPage.loginCard.registerCompanyButtonLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, registerCompanyButtonLabel: value } } } : current)} />
-                <TextAreaField label="Redirect Note Text" value={content.signinPage.loginCard.redirectNoteText} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, redirectNoteText: value } } } : current)} rows={3} />
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Right Benefits Panel" description="Control the benefit panel content shown next to the sign-in card.">
-              <div style={{ display: 'grid', gap: '14px' }}>
-                <Field label="Panel Title" value={content.signinPage.rightPanel.title} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, rightPanel: { ...current.signinPage.rightPanel, title: value } } } : current)} />
-                {content.signinPage.rightPanel.items.map((item, index) => (
-                  <div key={`${item.title}-${index}`} style={cardStyle}>
-                    <div style={{ display: 'grid', gap: '12px' }}>
-                      <Field label={`Benefit ${index + 1} Title`} value={item.title} onChange={value => setContent(current => current ? {
-                        ...current,
-                        signinPage: {
-                          ...current.signinPage,
-                          rightPanel: {
-                            ...current.signinPage.rightPanel,
-                            items: current.signinPage.rightPanel.items.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, title: value } : currentItem)
-                          }
-                        }
-                      } : current)} />
-                      <TextAreaField label={`Benefit ${index + 1} Description`} value={item.description} onChange={value => setContent(current => current ? {
-                        ...current,
-                        signinPage: {
-                          ...current.signinPage,
-                          rightPanel: {
-                            ...current.signinPage.rightPanel,
-                            items: current.signinPage.rightPanel.items.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, description: value } : currentItem)
-                          }
-                        }
-                      } : current)} rows={3} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Bottom Banner & Feature Strip" description="Edit the lower banner image and feature highlights shown below the sign-in card.">
-              <div style={{ display: 'grid', gap: '14px' }}>
-                <ImageUploadField
-                  label="Banner Image"
-                  value={content.signinPage.banner.imageSrc}
-                  onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, banner: { ...current.signinPage.banner, imageSrc: value } } } : current)}
-                  uploadKey="signin-banner-image"
-                  onUpload={async (file, uploadKey) => {
-                    const publicUrl = await uploadWebsiteImage(file, uploadKey)
-                    if (!publicUrl) return
-                    setContent(current => current ? { ...current, signinPage: { ...current.signinPage, banner: { ...current.signinPage.banner, imageSrc: publicUrl } } } : current)
-                  }}
-                  uploading={uploadingField === 'signin-banner-image'}
-                />
-                <Field label="Banner Title" value={content.signinPage.banner.title} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, banner: { ...current.signinPage.banner, title: value } } } : current)} />
-                <TextAreaField label="Banner Description" value={content.signinPage.banner.description} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, banner: { ...current.signinPage.banner, description: value } } } : current)} rows={3} />
-                {content.signinPage.featureStrip.map((item, index) => (
-                  <div key={`${item.title}-${index}`} style={cardStyle}>
-                    <div style={{ display: 'grid', gap: '12px' }}>
-                      <Field label={`Feature ${index + 1} Title`} value={item.title} onChange={value => setContent(current => current ? {
-                        ...current,
-                        signinPage: {
-                          ...current.signinPage,
-                          featureStrip: current.signinPage.featureStrip.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, title: value } : currentItem)
-                        }
-                      } : current)} />
-                      <TextAreaField label={`Feature ${index + 1} Description`} value={item.description} onChange={value => setContent(current => current ? {
-                        ...current,
-                        signinPage: {
-                          ...current.signinPage,
-                          featureStrip: current.signinPage.featureStrip.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, description: value } : currentItem)
-                        }
-                      } : current)} rows={3} />
-                    </div>
-                  </div>
-                ))}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                  <Field label="Primary Button Text" value={content.signinPage.primaryCtaLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, primaryCtaLabel: value } } : current)} />
+                  <Field label="Primary Button Link" value={content.signinPage.primaryCtaHref} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, primaryCtaHref: value } } : current)} />
+                  <Field label="Secondary Button Text" value={content.signinPage.secondaryCtaLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, secondaryCtaLabel: value } } : current)} />
+                  <Field label="Secondary Button Link" value={content.signinPage.secondaryCtaHref} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, secondaryCtaHref: value } } : current)} />
+                </div>
               </div>
             </SectionCard>
           </div>
@@ -2484,18 +2182,7 @@ export default function LabourWebsiteEditorPage() {
                 <TextAreaField label="Title" value={content.contactPage.title} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, title: value } } : current)} rows={3} />
                 <Field label="Highlighted Text" value={content.contactPage.highlightedText} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, highlightedText: value } } : current)} />
                 <TextAreaField label="Subtitle" value={content.contactPage.subtitle} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, subtitle: value } } : current)} rows={4} />
-                <ImageUploadField
-                  label="Hero Image"
-                  value={content.contactPage.imageSrc}
-                  onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, imageSrc: value } } : current)}
-                  uploadKey="contact-hero-image"
-                  onUpload={async (file, uploadKey) => {
-                    const publicUrl = await uploadWebsiteImage(file, uploadKey)
-                    if (!publicUrl) return
-                    setContent(current => current ? { ...current, contactPage: { ...current.contactPage, imageSrc: publicUrl } } : current)
-                  }}
-                  uploading={uploadingField === 'contact-hero-image'}
-                />
+                <Field label="Hero Image" value={content.contactPage.imageSrc} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, imageSrc: value } } : current)} />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
                   <Field label="Floating Card Title" value={content.contactPage.floatingCardTitle} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, floatingCardTitle: value } } : current)} />
                   <Field label="Floating Card Description" value={content.contactPage.floatingCardDescription} onChange={value => setContent(current => current ? { ...current, contactPage: { ...current.contactPage, floatingCardDescription: value } } : current)} />

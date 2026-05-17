@@ -25,99 +25,6 @@ export interface LabourCompanyLegalPageContent {
   sections: LabourCompanyLegalPageSection[]
 }
 
-export interface LabourCompanyPostJobPageContent {
-  hero: {
-    eyebrow: string
-    title: string
-    subtitle: string
-    imageSrc: string
-    dashboardAccessLabel: string
-  }
-  sidebarBenefits: {
-    title: string
-    items: Array<{
-      title: string
-      description: string
-    }>
-  }
-  simpleSteps: {
-    title: string
-    items: Array<{
-      title: string
-      description: string
-    }>
-  }
-  helpCard: {
-    title: string
-    description: string
-    phone: string
-    email: string
-    supportHours: string
-  }
-  formSections: {
-    companyDetailsTitle: string
-    companyDetailsHelper: string
-    jobRequirementTitle: string
-    jobRequirementHelper: string
-    workDetailsTitle: string
-    workDetailsHelper: string
-    salaryFacilitiesTitle: string
-    salaryFacilitiesHelper: string
-    jobDescriptionTitle: string
-    jobDescriptionHelper: string
-  }
-  buttonLabels: {
-    saveDraft: string
-    previewPost: string
-    hidePreview: string
-    submitJobPost: string
-    updateJobPost: string
-  }
-  statsLabels: {
-    verifiedWorkers: string
-    companiesTrustUs: string
-    jobsPosted: string
-    averageCompanyRating: string
-  }
-}
-
-export interface LabourCompanyRegisterCompanyPageContent {
-  hero: {
-    eyebrow: string
-    title: string
-    highlightedText: string
-    subtitle: string
-    imageSrc: string
-    trustCardTitle: string
-    trustCardRating: string
-  }
-  formSections: {
-    companyInformationTitle: string
-    companyInformationHelper: string
-    accountSetupTitle: string
-    accountSetupHelper: string
-    companyAddressTitle: string
-    companyAddressHelper: string
-    additionalDetailsTitle: string
-    additionalDetailsHelper: string
-  }
-  submitArea: {
-    registerCompanyLabel: string
-    alreadyHaveAccountText: string
-    loginLabel: string
-    termsLabel: string
-    privacyPolicyLabel: string
-  }
-  benefitsPanel: {
-    title: string
-    description: string
-    items: Array<{
-      title: string
-      description: string
-    }>
-  }
-}
-
 export interface LabourCompanyWebsiteContent {
   theme: {
     brandName: string
@@ -384,38 +291,13 @@ export interface LabourCompanyWebsiteContent {
     eyebrow: string
     title: string
     subtitle: string
-    heroDescription: string
+    infoTitle: string
+    infoDescription: string
     benefits: string[]
-    loginCard: {
-      title: string
-      subtitle: string
-      emailLabel: string
-      emailPlaceholder: string
-      passwordLabel: string
-      passwordPlaceholder: string
-      rememberMeLabel: string
-      forgotPasswordLabel: string
-      signInButtonLabel: string
-      registerCompanyButtonLabel: string
-      registerPromptText: string
-      redirectNoteText: string
-    }
-    rightPanel: {
-      title: string
-      items: Array<{
-        title: string
-        description: string
-      }>
-    }
-    banner: {
-      imageSrc: string
-      title: string
-      description: string
-    }
-    featureStrip: Array<{
-      title: string
-      description: string
-    }>
+    primaryCtaLabel: string
+    primaryCtaHref: string
+    secondaryCtaLabel: string
+    secondaryCtaHref: string
   }
   contactPage: {
     eyebrow: string
@@ -490,8 +372,6 @@ export interface LabourCompanyWebsiteContent {
     emptyTitle: string
     emptyDescription: string
   }
-  postJobPage: LabourCompanyPostJobPageContent
-  registerCompanyPage: LabourCompanyRegisterCompanyPageContent
   companyPanel: {
     header: {
       panelTitle: string
@@ -1201,78 +1081,21 @@ const defaultContent: LabourCompanyWebsiteContent = {
     }
   },
   signinPage: {
-    eyebrow: 'Welcome Back!',
-    title: 'Sign In to Your Company Account',
-    subtitle: 'Customers can log in using their registered email and password. After successful login, you’ll be redirected to your company dashboard.',
-    heroDescription: 'Customers can log in using their registered email and password. After successful login, you’ll be redirected to your company dashboard.',
+    eyebrow: 'Existing company access',
+    title: 'Sign in to manage your company profile, plans and worker requirements.',
+    subtitle: 'Keep this page simple for employers. Use it as a branded login page with clear actions for existing customers and new enquiries.',
+    infoTitle: 'What you can do after sign in',
+    infoDescription: 'View active plans, manage requirements, follow job status and connect with the admin team.',
     benefits: [
-      'Access your Company Panel and manage your profile',
-      'Browse and connect with verified workers',
-      'Post job requirements and hire the right talent',
-      'Track applications and manage enquiries'
+      'Manage posted worker requirements',
+      'Review plan validity and payment status',
+      'Track city and category hiring activity',
+      'Connect with support for activation and follow-up'
     ],
-    loginCard: {
-      title: 'Company Sign In',
-      subtitle: 'Use your registered email and password',
-      emailLabel: 'Email Address',
-      emailPlaceholder: 'Enter your email address',
-      passwordLabel: 'Password',
-      passwordPlaceholder: 'Enter your password',
-      rememberMeLabel: 'Remember me',
-      forgotPasswordLabel: 'Forgot Password?',
-      signInButtonLabel: 'Sign In',
-      registerCompanyButtonLabel: 'Register Company',
-      registerPromptText: 'Don’t have a company account?',
-      redirectNoteText: 'After login, you’ll be redirected to your company dashboard.'
-    },
-    rightPanel: {
-      title: 'With your company account, you can:',
-      items: [
-        {
-          title: 'Access Company Panel',
-          description: 'Manage your company profile, team and settings.'
-        },
-        {
-          title: 'Post Job Requirements',
-          description: 'Create and publish job vacancies in minutes.'
-        },
-        {
-          title: 'Browse Verified Workers',
-          description: 'Search and connect with skilled and verified workers.'
-        },
-        {
-          title: 'Track Applications',
-          description: 'View and manage applications in one place.'
-        },
-        {
-          title: 'Logged-in Account Access',
-          description: 'Secure access to your account dashboard anytime.'
-        }
-      ]
-    },
-    banner: {
-      imageSrc: '/worker-hero-reference.png',
-      title: 'Hiring Made Simple. Workforce Made Strong.',
-      description: 'ScaleVyapar Rozgar helps businesses find skilled workers and build a reliable workforce with ease.'
-    },
-    featureStrip: [
-      {
-        title: 'Secure Login',
-        description: 'Your data and account are protected with industry-standard security.'
-      },
-      {
-        title: 'Verified Access',
-        description: 'Only authorized companies can access the company panel and features.'
-      },
-      {
-        title: 'Fast Dashboard Entry',
-        description: 'Quick and seamless access to your company dashboard.'
-      },
-      {
-        title: 'Post Jobs Quickly',
-        description: 'Create job posts in minutes and reach the right workers instantly.'
-      }
-    ]
+    primaryCtaLabel: 'Go to client login',
+    primaryCtaHref: '/login',
+    secondaryCtaLabel: 'New company enquiry',
+    secondaryCtaHref: '/labour/company/company-registration'
   },
   contactPage: {
     eyebrow: 'Get In Touch',
@@ -1390,109 +1213,6 @@ const defaultContent: LabourCompanyWebsiteContent = {
     floatingCardDescription: 'Verified profiles • Active & relevant • Faster hiring',
     emptyTitle: 'No workers found for the selected filters.',
     emptyDescription: 'Try another combination or clear filters to see more workers.'
-  },
-  postJobPage: {
-    hero: {
-      eyebrow: 'Post Worker Requirement',
-      title: 'Post Worker Requirement',
-      subtitle: 'Post your worker requirements and connect with verified, active and skilled workers quickly.',
-      imageSrc: '/job-post-hero-illustration.png',
-      dashboardAccessLabel: 'Dashboard Access'
-    },
-    sidebarBenefits: {
-      title: 'Why Post with ScaleVyapar Rozgar?',
-      items: [
-        { title: 'Verified & Active Workers', description: 'Connect with verified workers across industries.' },
-        { title: 'Time-Based Active Postings', description: 'Your job posts remain active only for the selected time.' },
-        { title: 'Faster Matching', description: 'Get relevant worker applications faster.' },
-        { title: 'Admin Reviewed Posts', description: 'Every post is reviewed for quality and authenticity.' },
-        { title: 'Location & Category Filters', description: 'Find the right workers from your preferred location and category.' },
-        { title: 'No Stale Data', description: 'Old and inactive worker/company data is automatically cleaned.' }
-      ]
-    },
-    simpleSteps: {
-      title: 'Simple Steps to Post a Job',
-      items: [
-        { title: 'Fill Company Details', description: 'Your company info is auto-filled from your profile.' },
-        { title: 'Add Requirement Details', description: 'Tell us what kind of workers you need and job conditions.' },
-        { title: 'Set Salary & Facilities', description: 'Mention salary, facilities and other employee benefits.' },
-        { title: 'Choose Location & Add Notes', description: 'Add work location and requirement details for better matching.' },
-        { title: 'Review & Submit', description: 'Preview your post and submit for admin review.' }
-      ]
-    },
-    helpCard: {
-      title: 'Need Help?',
-      description: 'Our support team is here to help you at every step.',
-      phone: '+91 98765 43210',
-      email: 'support@scalevyapar.in',
-      supportHours: 'Mon - Sat: 9:00 AM - 6:00 PM'
-    },
-    formSections: {
-      companyDetailsTitle: '1. Company Details',
-      companyDetailsHelper: 'Some details are auto-filled from your company profile.',
-      jobRequirementTitle: '2. Job Requirement Details',
-      jobRequirementHelper: 'Choose accurate details to get the most relevant worker applications.',
-      workDetailsTitle: '3. Work Details',
-      workDetailsHelper: 'Add work timing, duration and requirement details.',
-      salaryFacilitiesTitle: '4. Salary & Facilities',
-      salaryFacilitiesHelper: 'Mention salary, benefits and facilities clearly.',
-      jobDescriptionTitle: '5. Job Description',
-      jobDescriptionHelper: 'Describe the job role, responsibilities, skills required and any other important details.'
-    },
-    buttonLabels: {
-      saveDraft: 'Save Draft',
-      previewPost: 'Preview Post',
-      hidePreview: 'Hide Preview',
-      submitJobPost: 'Submit Job Post',
-      updateJobPost: 'Update Job Requirement'
-    },
-    statsLabels: {
-      verifiedWorkers: 'Verified Workers',
-      companiesTrustUs: 'Companies Trust Us',
-      jobsPosted: 'Jobs Posted',
-      averageCompanyRating: 'Avg. Company Rating'
-    }
-  },
-  registerCompanyPage: {
-    hero: {
-      eyebrow: 'Register Company',
-      title: 'Create Your Company Account and Start Hiring Verified Workers',
-      highlightedText: 'Verified Workers',
-      subtitle: 'Join thousands of companies already using ScaleVyapar Rozgar to find skilled, verified and available workers for their requirements.',
-      imageSrc: '/company-registration-trust-illustration.png',
-      trustCardTitle: 'Trusted by 1000+ Companies Across India',
-      trustCardRating: '4.8/5'
-    },
-    formSections: {
-      companyInformationTitle: 'Company Information',
-      companyInformationHelper: 'Enter your company and contact details.',
-      accountSetupTitle: 'Account Setup',
-      accountSetupHelper: 'Create your login details to access the company panel.',
-      companyAddressTitle: 'Company Address',
-      companyAddressHelper: 'Add your company location details.',
-      additionalDetailsTitle: 'Additional Details',
-      additionalDetailsHelper: 'Share extra business information if available.'
-    },
-    submitArea: {
-      registerCompanyLabel: 'Register Company',
-      alreadyHaveAccountText: 'Already have an account?',
-      loginLabel: 'Login',
-      termsLabel: 'Terms & Conditions',
-      privacyPolicyLabel: 'Privacy Policy'
-    },
-    benefitsPanel: {
-      title: 'Why Register Your Company',
-      description: 'Get access to the best workforce and power your business growth.',
-      items: [
-        { title: 'Verified Workers', description: 'Access verified and background checked workers.' },
-        { title: 'Time Based Postings', description: 'Post jobs for specific time duration. Only active and relevant jobs.' },
-        { title: 'Quality Matches', description: 'Get matched with skilled workers who fit your requirements.' },
-        { title: 'Easy Management', description: 'Manage applications, shortlist and hire from one dashboard.' },
-        { title: 'No Useless Data', description: 'We remove expired jobs and inactive profiles automatically.' },
-        { title: 'Faster Hiring', description: 'Find the right workers quickly and complete your work on time.' },
-        { title: 'Secure & Trusted Platform', description: 'Your data is safe with us. We are committed to transparency and trust.' }
-      ]
-    }
   },
   companyPanel: {
     header: {
@@ -1930,6 +1650,13 @@ const LEGACY_REFERENCE_HOMEPAGE = {
   finalCtaTitle: 'Start hiring your next worker team'
 } as const
 
+const LEGACY_REFERENCE_CONTACT = {
+  title: 'Contact the ScaleVyapar worker hiring team',
+  subtitle: 'Use this page for support, sales follow-up, activation help and pricing discussions.',
+  supportEmail: 'support@scalevyapar.com',
+  phone: '+91 98765 43210'
+} as const
+
 const refreshReferenceHomepageTheme = (content: LabourCompanyWebsiteContent): LabourCompanyWebsiteContent => {
   const next = structuredClone(content)
 
@@ -2009,6 +1736,25 @@ const refreshReferenceHomepageTheme = (content: LabourCompanyWebsiteContent): La
 
   if (next.home.workerCta.buttonHref === '/login') {
     next.home.workerCta = defaultContent.home.workerCta
+  }
+
+  const hasLegacyContactCopy =
+    next.contactPage.title === LEGACY_REFERENCE_CONTACT.title ||
+    next.contactPage.subtitle === LEGACY_REFERENCE_CONTACT.subtitle ||
+    next.contactPage.supportEmail === LEGACY_REFERENCE_CONTACT.supportEmail ||
+    next.contactPage.phone === LEGACY_REFERENCE_CONTACT.phone ||
+    /^Talk to sales$/i.test(next.contactPage.cards[0]?.title || '') ||
+    /^Need support$/i.test(next.contactPage.cards[1]?.title || '')
+
+  if (hasLegacyContactCopy) {
+    next.contactPage = {
+      ...defaultContent.contactPage,
+      socialLinks: {
+        ...defaultContent.contactPage.socialLinks,
+        ...next.contactPage.socialLinks
+      },
+      directionsHref: next.contactPage.directionsHref?.trim() || defaultContent.contactPage.directionsHref
+    }
   }
 
   return next
@@ -2370,45 +2116,13 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
       }
     },
     signinPage: {
-      eyebrow: merged.signinPage?.eyebrow || defaultContent.signinPage.eyebrow,
-      title: merged.signinPage?.title || defaultContent.signinPage.title,
-      subtitle: merged.signinPage?.subtitle || defaultContent.signinPage.subtitle,
-      heroDescription:
-        merged.signinPage?.heroDescription ||
-        merged.signinPage?.subtitle ||
-        defaultContent.signinPage.heroDescription,
-      benefits: Array.isArray(merged.signinPage?.benefits) && merged.signinPage.benefits.length
-        ? merged.signinPage.benefits
-        : defaultContent.signinPage.benefits,
-      loginCard: {
-        ...defaultContent.signinPage.loginCard,
-        ...merged.signinPage?.loginCard
-      },
-      rightPanel: {
-        title: merged.signinPage?.rightPanel?.title || defaultContent.signinPage.rightPanel.title,
-        items: Array.isArray(merged.signinPage?.rightPanel?.items) && merged.signinPage.rightPanel.items.length
-          ? merged.signinPage.rightPanel.items.map((item, index) => {
-              const fallback = defaultContent.signinPage.rightPanel.items[index] || defaultContent.signinPage.rightPanel.items[0]
-              return {
-                title: item?.title || fallback.title,
-                description: item?.description || fallback.description
-              }
-            })
-          : defaultContent.signinPage.rightPanel.items
-      },
-      banner: {
-        ...defaultContent.signinPage.banner,
-        ...merged.signinPage?.banner
-      },
-      featureStrip: Array.isArray(merged.signinPage?.featureStrip) && merged.signinPage.featureStrip.length
-        ? merged.signinPage.featureStrip.map((item, index) => {
-            const fallback = defaultContent.signinPage.featureStrip[index] || defaultContent.signinPage.featureStrip[0]
-            return {
-              title: item?.title || fallback.title,
-              description: item?.description || fallback.description
-            }
-          })
-        : defaultContent.signinPage.featureStrip
+      ...defaultContent.signinPage,
+      ...merged.signinPage,
+      secondaryCtaHref: normalizeCompanyRegistrationHref(
+        merged.signinPage?.secondaryCtaHref,
+        defaultContent.signinPage.secondaryCtaHref
+      ),
+      benefits: Array.isArray(merged.signinPage?.benefits) && merged.signinPage.benefits.length ? merged.signinPage.benefits : defaultContent.signinPage.benefits
     },
     contactPage: {
       ...defaultContent.contactPage,
@@ -2466,79 +2180,6 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
       trustPoints: Array.isArray(merged.searchPage?.trustPoints) && merged.searchPage.trustPoints.length
         ? merged.searchPage.trustPoints
         : defaultContent.searchPage.trustPoints
-    },
-    postJobPage: {
-      hero: {
-        ...defaultContent.postJobPage.hero,
-        ...merged.postJobPage?.hero
-      },
-      sidebarBenefits: {
-        title: merged.postJobPage?.sidebarBenefits?.title || defaultContent.postJobPage.sidebarBenefits.title,
-        items: Array.isArray(merged.postJobPage?.sidebarBenefits?.items) && merged.postJobPage.sidebarBenefits.items.length
-          ? merged.postJobPage.sidebarBenefits.items.map((item, index) => {
-              const fallback = defaultContent.postJobPage.sidebarBenefits.items[index] || defaultContent.postJobPage.sidebarBenefits.items[0]
-              return {
-                title: item?.title || fallback.title,
-                description: item?.description || fallback.description
-              }
-            })
-          : defaultContent.postJobPage.sidebarBenefits.items
-      },
-      simpleSteps: {
-        title: merged.postJobPage?.simpleSteps?.title || defaultContent.postJobPage.simpleSteps.title,
-        items: Array.isArray(merged.postJobPage?.simpleSteps?.items) && merged.postJobPage.simpleSteps.items.length
-          ? merged.postJobPage.simpleSteps.items.map((item, index) => {
-              const fallback = defaultContent.postJobPage.simpleSteps.items[index] || defaultContent.postJobPage.simpleSteps.items[0]
-              return {
-                title: item?.title || fallback.title,
-                description: item?.description || fallback.description
-              }
-            })
-          : defaultContent.postJobPage.simpleSteps.items
-      },
-      helpCard: {
-        ...defaultContent.postJobPage.helpCard,
-        ...merged.postJobPage?.helpCard
-      },
-      formSections: {
-        ...defaultContent.postJobPage.formSections,
-        ...merged.postJobPage?.formSections
-      },
-      buttonLabels: {
-        ...defaultContent.postJobPage.buttonLabels,
-        ...merged.postJobPage?.buttonLabels
-      },
-      statsLabels: {
-        ...defaultContent.postJobPage.statsLabels,
-        ...merged.postJobPage?.statsLabels
-      }
-    },
-    registerCompanyPage: {
-      hero: {
-        ...defaultContent.registerCompanyPage.hero,
-        ...merged.registerCompanyPage?.hero
-      },
-      formSections: {
-        ...defaultContent.registerCompanyPage.formSections,
-        ...merged.registerCompanyPage?.formSections
-      },
-      submitArea: {
-        ...defaultContent.registerCompanyPage.submitArea,
-        ...merged.registerCompanyPage?.submitArea
-      },
-      benefitsPanel: {
-        title: merged.registerCompanyPage?.benefitsPanel?.title || defaultContent.registerCompanyPage.benefitsPanel.title,
-        description: merged.registerCompanyPage?.benefitsPanel?.description || defaultContent.registerCompanyPage.benefitsPanel.description,
-        items: Array.isArray(merged.registerCompanyPage?.benefitsPanel?.items) && merged.registerCompanyPage.benefitsPanel.items.length
-          ? merged.registerCompanyPage.benefitsPanel.items.map((item, index) => {
-              const fallback = defaultContent.registerCompanyPage.benefitsPanel.items[index] || defaultContent.registerCompanyPage.benefitsPanel.items[0]
-              return {
-                title: item?.title || fallback.title,
-                description: item?.description || fallback.description
-              }
-            })
-          : defaultContent.registerCompanyPage.benefitsPanel.items
-      }
     },
     companyPanel: {
       header: {

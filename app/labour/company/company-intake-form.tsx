@@ -65,7 +65,7 @@ const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleStrin
 export function CompanyIntakeForm({
   categories,
   plans,
-  heading = 'Post Your Labour Requirement',
+  heading = 'Post Your Worker Requirement',
   description = 'Submit your company details and first hiring requirement. We will review the enquiry, activate your company profile, and publish the requirement.',
   submitLabel = 'Submit Company Requirement',
   accentColor = '#0f172a'
@@ -193,7 +193,7 @@ export function CompanyIntakeForm({
         </div>
 
         <div>
-          <label style={labelStyle}>Labour Categories *</label>
+          <label style={labelStyle}>Worker Categories *</label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
             {categories.map(category => (
               <label key={category.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 14px', border: `1px solid ${form.categoryIds.includes(category.id) ? '#0f172a' : '#dbe2ea'}`, borderRadius: '14px', cursor: 'pointer', background: form.categoryIds.includes(category.id) ? '#f8fafc' : '#ffffff' }}>

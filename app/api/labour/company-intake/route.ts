@@ -8,7 +8,6 @@ import {
   groupLabourMasterOptions
 } from '@/lib/labour-masters-schema'
 import { createLabourEntity, getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
-import { createClient, getUserByEmail } from '@/lib/db'
 
 const addDays = (dateValue: string, days: number) => {
   const date = new Date(dateValue)
@@ -65,11 +64,10 @@ const buildRegistrationMetaDescription = (
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-  const companyName = String(body.companyName || '').trim()
-  const contactPerson = String(body.contactPerson || '').trim()
-  const email = String(body.email || '').trim().toLowerCase()
-  const password = String(body.password || '')
-  const mobile = String(body.mobile || '').trim()
+    const companyName = String(body.companyName || '').trim()
+    const contactPerson = String(body.contactPerson || '').trim()
+    const email = String(body.email || '').trim().toLowerCase()
+    const mobile = String(body.mobile || '').trim()
     const contactMobile = String(body.contactMobile || '').trim()
     const city = String(body.city || '').trim()
     const area = String((body.registrationMeta as Record<string, unknown> | undefined)?.area || '').trim()
@@ -113,9 +111,6 @@ export async function POST(request: NextRequest) {
 
     if (email && !isValidEmail(email)) {
       return NextResponse.json({ error: 'Company email is not valid.' }, { status: 400 })
-    }
-    if (!password || password.length < 8) {
-      return NextResponse.json({ error: 'A valid company password is required.' }, { status: 400 })
     }
 
     const snapshot = await getLabourMarketplaceSnapshot()
@@ -178,18 +173,6 @@ export async function POST(request: NextRequest) {
     ].filter(Boolean).join('\n\n')
 
     const today = new Date().toISOString().slice(0, 10)
-
-    const existingUser = await getUserByEmail(email)
-    if (!existingUser) {
-      await createClient({
-        name: companyName,
-        email,
-        password,
-        phone: mobile,
-        plan: 'labour-company'
-      })
-    }
-
     const companySnapshot = await createLabourEntity(
       'companies',
       {
@@ -213,7 +196,7 @@ export async function POST(request: NextRequest) {
         companyProofPath: uploadedDocuments[1]?.storagePath || '',
         ownerIdProofPath: uploadedDocuments[2]?.storagePath || '',
         categoryIds,
-        status: 'active',
+        status: 'pending',
         registrationFeePaid: false,
         activePlan
       },
@@ -248,7 +231,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Company registration submitted successfully. Your company account is now active.',
+      message: 'Company enquiry submitted successfully. Our team will review it and activate the account.',
       companyId: createdCompany.id,
       snapshot: finalSnapshot
     })

@@ -646,6 +646,50 @@ const toStringArray = (value: unknown) => {
   return []
 }
 
+const normalizeStatusToken = (value: unknown) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, ' ')
+
+const normalizeCompanyStatus = (value: unknown): CompanyStatus => {
+  const normalized = normalizeStatusToken(value)
+  if (!normalized) return 'pending'
+
+  if (['active', 'approved', 'enabled', 'live', 'published'].includes(normalized)) {
+    return 'active'
+  }
+
+  if (['blocked', 'rejected', 'suspended'].includes(normalized)) {
+    return 'blocked'
+  }
+
+  if (['inactive', 'deactivated', 'disabled'].includes(normalized)) {
+    return 'inactive'
+  }
+
+  return 'pending'
+}
+
+const normalizeJobPostStatus = (value: unknown): JobPostStatus => {
+  const normalized = normalizeStatusToken(value)
+  if (!normalized) return 'draft'
+
+  if (['live', 'active', 'approved', 'open', 'published'].includes(normalized)) {
+    return 'live'
+  }
+
+  if (['expired', 'closed'].includes(normalized)) {
+    return 'expired'
+  }
+
+  if (['paused', 'inactive', 'on hold'].includes(normalized)) {
+    return 'paused'
+  }
+
+  return 'draft'
+}
+
 const ensureDataFile = async () => {
   await fs.mkdir(path.dirname(DATA_FILE_PATH), { recursive: true })
 
@@ -1228,7 +1272,7 @@ const normalizeCompany = (
     companyProofPath: String(payload.companyProofPath || existing?.companyProofPath || '').trim(),
     ownerIdProofPath: String(payload.ownerIdProofPath || existing?.ownerIdProofPath || '').trim(),
     categoryIds: toStringArray(payload.categoryIds || existing?.categoryIds || []),
-    status: (payload.status || existing?.status || 'active') as CompanyStatus,
+    status: normalizeCompanyStatus(payload.status || existing?.status || 'pending'),
     registrationFeePaid: toBoolean(payload.registrationFeePaid, existing?.registrationFeePaid ?? false),
     activePlan: String(payload.activePlan || existing?.activePlan || '').trim(),
     createdAt: existing?.createdAt || now,
@@ -1262,14 +1306,22 @@ const isExpiredJobPostRecord = (jobPost: LabourJobPostRecord) => {
 const getEffectiveCompanyStatus = (
   company: LabourCompanyRecord,
   plans: LabourPlanRecord[],
-  walletTransactions: LabourWalletTransactionRecord[]
+  walletTransactions: LabourWalletTransactionRecord[],
+  jobPosts: LabourJobPostRecord[]
 ): CompanyStatus => {
-  if (company.status !== 'active') {
-    return company.status
+  const explicitStatus = normalizeCompanyStatus(company.status)
+  if (explicitStatus !== 'active') {
+    return explicitStatus
   }
 
+  const hasLiveJobs = jobPosts.some(jobPost =>
+    jobPost.companyId === company.id &&
+    normalizeJobPostStatus(jobPost.status) === 'live' &&
+    !isExpiredJobPostRecord(jobPost)
+  )
+
   if (!company.activePlan) {
-    return 'inactive'
+    return explicitStatus
   }
 
   const companyPlan = plans.find(plan =>
@@ -1279,7 +1331,7 @@ const getEffectiveCompanyStatus = (
   )
 
   if (!companyPlan || companyPlan.validityDays <= 0) {
-    return 'inactive'
+    return hasLiveJobs ? 'active' : 'inactive'
   }
 
   const latestPlanPurchase = walletTransactions
@@ -1291,33 +1343,48 @@ const getEffectiveCompanyStatus = (
     )
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
 
-  const planStartDate = latestPlanPurchase?.createdAt || company.createdAt
+  if (!latestPlanPurchase?.createdAt) {
+    return explicitStatus
+  }
+
+  const planStartDate = latestPlanPurchase.createdAt
   const expiresAt = addDays(planStartDate, companyPlan.validityDays)
 
   if (!expiresAt) {
-    return 'inactive'
+    return explicitStatus
   }
 
   const expiryDate = new Date(expiresAt)
   if (Number.isNaN(expiryDate.getTime())) {
-    return 'inactive'
+    return explicitStatus
   }
 
   expiryDate.setHours(23, 59, 59, 999)
-  return new Date() > expiryDate ? 'inactive' : 'active'
+  if (new Date() > expiryDate && !hasLiveJobs) {
+    return 'inactive'
+  }
+
+  return 'active'
 }
 
-const applyEffectiveCompanyStatuses = (data: LabourMarketplaceData): LabourMarketplaceData => ({
-  ...data,
-  companies: data.companies.map(company => ({
-    ...company,
-    status: getEffectiveCompanyStatus(company, data.plans, data.walletTransactions)
-  })),
-  jobPosts: data.jobPosts.map(jobPost => ({
-    ...jobPost,
-    status: isExpiredJobPostRecord(jobPost) ? 'expired' : jobPost.status
-  }))
-})
+const applyEffectiveCompanyStatuses = (data: LabourMarketplaceData): LabourMarketplaceData => {
+  const jobPosts = data.jobPosts.map(jobPost => {
+    const normalizedStatus = normalizeJobPostStatus(jobPost.status)
+    return {
+      ...jobPost,
+      status: isExpiredJobPostRecord({ ...jobPost, status: normalizedStatus }) ? 'expired' : normalizedStatus
+    }
+  })
+
+  return {
+    ...data,
+    companies: data.companies.map(company => ({
+      ...company,
+      status: getEffectiveCompanyStatus(company, data.plans, data.walletTransactions, jobPosts)
+    })),
+    jobPosts
+  }
+}
 
 const normalizeJobPost = (
   payload: Partial<LabourJobPostRecord>,

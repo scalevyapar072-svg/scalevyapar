@@ -2,6 +2,9 @@ import { CompanySiteShell } from '../company-site-shell'
 import styles from '../company-site.module.css'
 import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function LabourCompanyTermsOfServicePage() {
   const { content } = await getLabourCompanyWebsiteContent()
   const page = content.legalPages.termsOfService

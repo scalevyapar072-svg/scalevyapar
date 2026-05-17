@@ -22,10 +22,6 @@ export default async function LabourCompanyJobPostPage() {
   const activeCompanyPlans = snapshot.plans.filter(plan => plan.isActive && plan.audience === 'company')
   const cityOptions = adminSettings.settings.workerHomeControls.popularCitySuggestions
   const masterOptionsByKey = groupLabourMasterOptions(mastersSnapshot.options)
-  const verifiedWorkers = snapshot.workers.filter(worker => worker.status === 'active').length
-  const companiesTrustUs = snapshot.companies.length
-  const jobsPosted = snapshot.jobPosts.length
-  const contact = website.content.contactPage
 
   return (
     <CompanySiteShell content={content} currentPath="/labour/company/job-post">
@@ -47,15 +43,6 @@ export default async function LabourCompanyJobPostPage() {
         industryBusinessDependencies={mastersSnapshot.industryBusinessDependencies || []}
         cityOptions={cityOptions}
         accentColor={content.theme.highlightColor || content.theme.accentColor}
-        supportPhone={contact.phone}
-        supportEmail={contact.supportEmail}
-        supportHours={contact.officeHours}
-        stats={{
-          verifiedWorkers,
-          companiesTrustUs,
-          jobsPosted,
-          averageRating: '4.8 / 5'
-        }}
       />
     </CompanySiteShell>
   )

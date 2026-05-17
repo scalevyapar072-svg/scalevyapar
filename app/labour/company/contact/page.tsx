@@ -9,12 +9,12 @@ import {
   MapPin,
   Phone,
   Plus,
+  Send,
   Share2,
   ShieldCheck,
   Users
 } from 'lucide-react'
 import { CompanySiteShell } from '../company-site-shell'
-import { ContactFormClient } from './contact-form-client'
 import styles from '../company-site.module.css'
 import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 
@@ -23,10 +23,10 @@ export const revalidate = 0
 
 const featureIcons = [Headphones, ShieldCheck, Users] as const
 const socialPlatforms = [
-  { key: 'facebook', label: 'Facebook', mark: 'f' },
-  { key: 'twitter', label: 'Twitter / X', mark: 'x' },
-  { key: 'linkedin', label: 'LinkedIn', mark: 'in' },
-  { key: 'instagram', label: 'Instagram', mark: 'ig' }
+  { key: 'facebook', label: 'Facebook', mark: 'Fb' },
+  { key: 'twitter', label: 'Twitter / X', mark: 'X' },
+  { key: 'linkedin', label: 'LinkedIn', mark: 'In' },
+  { key: 'instagram', label: 'Instagram', mark: 'Ig' }
 ] as const
 
 function renderHighlightedText(title: string, highlightedText: string, className: string) {
@@ -75,9 +75,18 @@ function ContactMapImage() {
   )
 }
 
+function splitContactAddress(address: string) {
+  const [primary, ...rest] = address.split(',').map(part => part.trim()).filter(Boolean)
+  return {
+    primaryLine: primary || address,
+    secondaryLine: rest.join(', ')
+  }
+}
+
 export default async function LabourCompanyContactPage() {
   const { content } = await getLabourCompanyWebsiteContent()
   const contact = content.contactPage
+  const address = splitContactAddress(contact.address)
 
   return (
     <CompanySiteShell content={content} currentPath="/labour/company/contact">
@@ -139,12 +148,54 @@ export default async function LabourCompanyContactPage() {
         </section>
 
         <section className={styles.contactContentGrid}>
-          <ContactFormClient
-            title={contact.formTitle}
-            subtitle={contact.formSubtitle}
-            subjectOptions={contact.subjectOptions}
-            buttonLabel={contact.formButtonLabel}
-          />
+          <div className={styles.contactFormCard}>
+            <div className={styles.contactSectionHeading}>
+              <h2>{contact.formTitle}</h2>
+              <p>{contact.formSubtitle}</p>
+            </div>
+
+            <form className={styles.contactFormLayout}>
+              <div className={styles.contactFormRow}>
+                <label className={styles.contactField}>
+                  <span>Your Name *</span>
+                  <input type="text" name="name" placeholder="Enter your name" />
+                </label>
+                <label className={styles.contactField}>
+                  <span>Your Email *</span>
+                  <input type="email" name="email" placeholder="Enter your email" />
+                </label>
+              </div>
+
+              <label className={styles.contactField}>
+                <span>Phone Number *</span>
+                <input type="tel" name="phone" placeholder="Enter your phone number" />
+              </label>
+
+              <label className={styles.contactField}>
+                <span>Subject *</span>
+                <select name="subject" defaultValue="">
+                  <option value="" disabled>
+                    Select a subject
+                  </option>
+                  {contact.subjectOptions.map(option => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className={styles.contactField}>
+                <span>Your Message *</span>
+                <textarea name="message" rows={5} placeholder="Type your message here..." />
+              </label>
+
+              <button type="button" className={styles.contactSubmitButton}>
+                <Send size={16} />
+                {contact.formButtonLabel}
+              </button>
+            </form>
+          </div>
 
           <aside className={styles.contactInfoCard}>
             <div className={styles.contactSectionHeading}>
@@ -159,7 +210,9 @@ export default async function LabourCompanyContactPage() {
                 </span>
                 <div>
                   <h3>{contact.phoneLabel}</h3>
-                  <strong>{contact.phone}</strong>
+                  <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className={styles.contactInfoPrimaryLink}>
+                    {contact.phone}
+                  </a>
                   <p>{contact.officeHours}</p>
                 </div>
               </article>
@@ -170,7 +223,9 @@ export default async function LabourCompanyContactPage() {
                 </span>
                 <div>
                   <h3>{contact.emailLabel}</h3>
-                  <strong>{contact.supportEmail}</strong>
+                  <a href={`mailto:${contact.supportEmail}`} className={styles.contactInfoPrimaryLink}>
+                    {contact.supportEmail}
+                  </a>
                   <p>{contact.emailResponseText}</p>
                   {contact.escalationEmail ? <small>Escalation: {contact.escalationEmail}</small> : null}
                 </div>
@@ -182,7 +237,8 @@ export default async function LabourCompanyContactPage() {
                 </span>
                 <div>
                   <h3>{contact.addressLabel}</h3>
-                  <strong>{contact.address}</strong>
+                  <strong className={styles.contactInfoAddressLine}>{address.primaryLine}</strong>
+                  {address.secondaryLine ? <p className={styles.contactInfoAddressSecondary}>{address.secondaryLine}</p> : null}
                 </div>
               </article>
 
@@ -231,19 +287,19 @@ export default async function LabourCompanyContactPage() {
         <section className={styles.contactMapSection}>
           <div className={styles.contactMapFrame}>
             <ContactMapImage />
-            <div className={styles.contactMapMarker} aria-hidden="true">
-              <span className={styles.contactMapMarkerPin}>
-                <MapPin size={16} />
+            <div className={styles.contactMapPin} aria-hidden="true">
+              <span className={styles.contactMapPinIcon}>
+                <MapPin size={18} />
               </span>
-              <span className={styles.contactMapMarkerLabel}>ScaleVyapar</span>
+              <span className={styles.contactMapPinLabel}>ScaleVyapar</span>
             </div>
             <div className={styles.contactMapOverlayCard}>
               <h2>{contact.locationTitle}</h2>
               <p>{contact.locationDescription}</p>
-              <a href={contact.directionsHref} className={styles.contactMapButton} target="_blank" rel="noreferrer">
+              <Link href={contact.directionsHref} className={styles.contactMapButton}>
                 <ArrowRight size={16} />
                 {contact.directionsLabel}
-              </a>
+              </Link>
             </div>
           </div>
         </section>
@@ -254,7 +310,7 @@ export default async function LabourCompanyContactPage() {
           </div>
           <div className={styles.contactFaqGrid}>
             {contact.faqs.map((item, index) => (
-              <details key={`${item.question}-${index}`} className={styles.contactFaqCard} open={index === 0}>
+              <details key={`${item.question}-${index}`} className={styles.contactFaqCard}>
                 <summary className={styles.contactFaqSummary}>
                   <span>{item.question}</span>
                   <span className={styles.contactFaqIcon}>

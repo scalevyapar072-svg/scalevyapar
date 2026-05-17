@@ -3,23 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import {
-  BadgeCheck,
-  BriefcaseBusiness,
-  Clock3,
-  Headphones,
-  Layers3,
-  Lock,
-  Mail,
-  MapPin,
-  Phone,
-  ShieldCheck,
-  Sparkles,
-  Users,
-  Zap
-} from 'lucide-react'
 import styles from './company-site.module.css'
-import type { LabourCompanyPostJobPageContent } from '@/lib/labour-company-website'
 import {
   LabourCategoryDependency,
   LabourIndustryBusinessDependency,
@@ -55,16 +39,6 @@ type Props = {
   categoryDependencies: LabourCategoryDependency[]
   industryBusinessDependencies: LabourIndustryBusinessDependency[]
   accentColor?: string
-  pageContent: LabourCompanyPostJobPageContent
-  supportPhone: string
-  supportEmail: string
-  supportHours: string
-  stats: {
-    verifiedWorkers: number
-    companiesTrustUs: number
-    jobsPosted: number
-    averageRating: string
-  }
 }
 
 type UploadKey = 'companyLogo' | 'workplacePhotos' | 'requirementPdf' | 'supportingDocuments'
@@ -159,53 +133,26 @@ const SALARY_TYPES = ['Daily Wage', 'Weekly Payment', 'Monthly Salary', 'Contrac
 const YES_NO_OPTIONS = ['Yes', 'No']
 const FACILITY_OPTIONS = ['Available', 'Not Available']
 
-const JOB_POST_STEPS = [
-  'Company Details',
-  'Requirement Details',
-  'Work Details',
-  'Salary & Facilities',
-  'Review & Submit'
+const JOB_POST_BENEFITS = [
+  'Share detailed workforce needs so admins and workers understand the requirement clearly before response.',
+  'Submit worker category, salary, shift, joining date, and facilities in one connected ScaleVyapar workflow.',
+  'Keep your company data tied to the worker admin panel so approvals, edits, and visibility remain centrally managed.',
+  'Use a structured requirement to reach more suitable workers faster across city and category filters.'
 ]
 
-const JOB_POST_SIDEBAR_BENEFITS = [
-  {
-    title: 'Verified & Active Workers',
-    description: 'Connect with verified workers across industries.',
-    icon: BadgeCheck
-  },
-  {
-    title: 'Time-Based Active Postings',
-    description: 'Your job posts remain active only for the selected time.',
-    icon: Clock3
-  },
-  {
-    title: 'Faster Matching',
-    description: 'Get relevant worker applications faster.',
-    icon: Zap
-  },
-  {
-    title: 'Admin Reviewed Posts',
-    description: 'Every post is reviewed for quality and authenticity.',
-    icon: ShieldCheck
-  },
-  {
-    title: 'Location & Category Filters',
-    description: 'Find the right workers from your preferred location and category.',
-    icon: MapPin
-  },
-  {
-    title: 'No Stale Data',
-    description: 'Old and inactive worker/company data is automatically cleaned.',
-    icon: Layers3
-  }
-] as const
+const JOB_POST_FAST_FLOW = [
+  'Log in from the company dashboard or use your registered company details to prefill the form.',
+  'Choose the correct worker category and describe shift, salary, facilities, and work conditions clearly.',
+  'Publish the requirement for admin review so it appears with the correct company and job details in the worker panel.',
+  'After review, workers can discover the job faster and the company team can manage status from one panel.'
+]
 
-const JOB_POST_SIMPLE_STEPS = [
-  'Fill Company Details',
-  'Add Requirement Details',
-  'Set Salary & Facilities',
-  'Choose Location & Add Notes',
-  'Review & Submit'
+const JOB_POST_STEPS = [
+  'Company Details',
+  'Job Requirement',
+  'Work Details',
+  'Salary & Facilities',
+  'Description'
 ]
 
 const initialFormState: FormState = {
@@ -311,12 +258,7 @@ export function CompanyJobPostForm({
   businessTypeOptions,
   categoryDependencies,
   industryBusinessDependencies,
-  accentColor = '#2563eb',
-  pageContent,
-  supportPhone,
-  supportEmail,
-  supportHours,
-  stats
+  accentColor = '#2563eb'
 }: Props) {
   const searchParams = useSearchParams()
   const editJobId = searchParams.get('edit') || ''
@@ -331,7 +273,6 @@ export function CompanyJobPostForm({
   const [submitMode, setSubmitMode] = useState<'publish' | 'draft'>('publish')
   const [submitting, setSubmitting] = useState(false)
   const [successState, setSuccessState] = useState<SuccessState | null>(null)
-  const [showPreview, setShowPreview] = useState(false)
   const [prefillState, setPrefillState] = useState<'idle' | 'loading' | 'ready' | 'missing'>('idle')
   const [prefilledJobId, setPrefilledJobId] = useState('')
   const [uploads, setUploads] = useState<Record<UploadKey, UploadState>>({
@@ -399,10 +340,6 @@ export function CompanyJobPostForm({
       ),
     [businessTypeOptions, categories, categoryDependencies, form.businessType, form.industryType, industryCategoryOptions]
   )
-
-  const simpleSteps = pageContent.simpleSteps.items.length
-    ? pageContent.simpleSteps.items
-    : JOB_POST_SIMPLE_STEPS.map(title => ({ title, description: '' }))
 
   useEffect(() => {
     let cancelled = false
@@ -744,28 +681,6 @@ export function CompanyJobPostForm({
     )
   }, [form])
 
-  const formatCompactNumber = (value: number) => {
-    return new Intl.NumberFormat('en-IN').format(Math.max(0, value || 0))
-  }
-
-  const selectedPlanLabel = plans.find(plan => plan.id === form.selectedPlanId)?.name || 'Not selected'
-  const selectedLabourCategoryLabel =
-    visibleLabourCategories.find(category => category.id === form.labourCategoryId)?.name ||
-    categories.find(category => category.id === form.labourCategoryId)?.name ||
-    'Not selected'
-  const isCompanySessionChecking = autofillState === 'loading'
-  const showJobPostAuthGate = !companyToken && autofillState === 'not-found'
-  const showFixedAuthOverlay = isCompanySessionChecking || showJobPostAuthGate
-  const previewItems = [
-    ['Company', form.companyName || 'Not filled'],
-    ['Job Title', form.jobTitle || 'Not filled'],
-    ['Labour Category', selectedLabourCategoryLabel],
-    ['Connected Plan', selectedPlanLabel],
-    ['Workers Needed', form.workersRequired || 'Not filled'],
-    ['Salary', form.salaryAmount ? `${form.salaryType || 'Salary'} | Rs ${form.salaryAmount}` : 'Not filled'],
-    ['Location', form.jobLocation || form.city || 'Not filled']
-  ] as const
-
   const handleFileChange = (key: UploadKey, file: File | null) => {
     if (!file) {
       setUploadState(key, emptyUploadState())
@@ -986,123 +901,59 @@ export function CompanyJobPostForm({
     )
   }
 
-  useEffect(() => {
-    if (typeof document === 'undefined' || !showFixedAuthOverlay) {
-      return
-    }
-
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
-  }, [showFixedAuthOverlay])
-
   return (
-    <section className={`${styles.companyRegisterShell} ${styles.jobPostShell}`}>
-      <div className={showJobPostAuthGate ? styles.jobPostLockedBackdrop : ''}>
-        <div className={styles.jobPostHero}>
-          <div className={styles.jobPostHeroCopy}>
-            <p className={styles.jobPostHeroEyebrow}>{pageContent.hero.eyebrow}</p>
-            <h1 className={styles.jobPostHeroTitle}>{pageContent.hero.title}</h1>
-            <p className={styles.jobPostHeroText}>{pageContent.hero.subtitle}</p>
-          </div>
-        <div
-          className={styles.jobPostHeroVisual}
-          aria-hidden="true"
-          style={pageContent.hero.imageSrc ? { backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.85), rgba(239,246,255,0.92)), url(${pageContent.hero.imageSrc})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
-        >
-          <div className={styles.jobPostHeroSkyline}>
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className={styles.jobPostHeroWorkers}>
-            <div className={styles.jobPostHeroShield}>
-              <ShieldCheck size={22} />
-            </div>
-            <div className={styles.jobPostHeroWorkerRow}>
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
-          </div>
-        </div>
-      </div>
+    <section className={styles.companyRegisterShell}>
+      <div className={styles.companyRegisterSplit}>
+        <aside className={styles.companyRegisterAside}>
+          <div className={styles.companyRegisterIllustration}>
+            <div className={styles.companyRegisterIllustrationOrb} />
+            <div className={styles.companyRegisterIllustrationCard}>
+              <span className={styles.companyRegisterIllustrationTag}>Registered companies only</span>
+              <p className={styles.companyRegisterIllustrationHeadline}>Post worker requirement with enterprise-ready hiring detail</p>
+              <p className={styles.companyRegisterIllustrationText}>
+                Share complete job details so ScaleVyapar Rozgar can route the requirement cleanly into admin review,
+                worker visibility, and company dashboard follow-up.
+              </p>
 
-        <div className={styles.companyRegisterSplit}>
-          <aside className={styles.companyRegisterAside}>
-            <div className={styles.jobPostSidebarPrimary}>
-              <h2>{pageContent.sidebarBenefits.title}</h2>
-              <div className={styles.jobPostSidebarBenefitList}>
-              {(pageContent.sidebarBenefits.items.length ? pageContent.sidebarBenefits.items : JOB_POST_SIDEBAR_BENEFITS).map((item, index) => {
-                const Icon = 'icon' in item && item.icon ? item.icon : JOB_POST_SIDEBAR_BENEFITS[index]?.icon || BadgeCheck
-                return (
-                  <article key={item.title} className={styles.jobPostSidebarBenefit}>
-                    <span className={styles.jobPostSidebarBenefitIcon}>
-                      {Icon ? <Icon size={16} /> : <BadgeCheck size={16} />}
-                    </span>
-                    <div>
-                      <h3>{item.title}</h3>
-                      <p>{item.description}</p>
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className={styles.jobPostSidebarCard}>
-            <h2>{pageContent.simpleSteps.title}</h2>
-            <div className={styles.jobPostSidebarStepList}>
-              {simpleSteps.map((step, index) => (
-                <article key={step.title} className={styles.jobPostSidebarStep}>
-                  <span>{index + 1}</span>
-                  <div>
-                    <h3>{step.title}</h3>
-                    <p>{step.description}</p>
+              <div className={styles.companyRegisterBenefitGrid}>
+                {JOB_POST_BENEFITS.map(item => (
+                  <div key={item} className={styles.companyRegisterBenefitCard}>
+                    <span className={styles.companyRegisterBenefitDot} />
+                    <span>{item}</span>
                   </div>
-                </article>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
 
-          <div className={styles.jobPostSidebarHelpCard}>
-            <h2>{pageContent.helpCard.title}</h2>
-            <p>{pageContent.helpCard.description}</p>
-            <div className={styles.jobPostSidebarHelpList}>
-              <div>
-                <Phone size={15} />
-                <span>{pageContent.helpCard.phone || supportPhone}</span>
-              </div>
-              <div>
-                <Mail size={15} />
-                <span>{pageContent.helpCard.email || supportEmail}</span>
-              </div>
-              <div>
-                <Headphones size={15} />
-                <span>{pageContent.helpCard.supportHours || supportHours}</span>
+              <div className={styles.companyRegisterInfoCard}>
+                <p className={styles.companyRegisterInfoTitle}>How to get workers faster from ScaleVyapar</p>
+                <div className={styles.companyRegisterBenefitGrid}>
+                  {JOB_POST_FAST_FLOW.map(item => (
+                    <div key={item} className={styles.companyRegisterBenefitCard}>
+                      <span className={styles.companyRegisterBenefitDot} />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </aside>
 
         <div className={styles.companyRegisterFormWrap}>
-          <div className={styles.jobPostTopCard}>
-            <div className={styles.jobPostStepRail}>
-              {JOB_POST_STEPS.map((step, index) => (
-                <div key={step} className={styles.jobPostStepItem}>
-                  <span className={styles.jobPostStepCount}>{index + 1}</span>
-                  <span className={styles.jobPostStepLabel}>{step}</span>
-                  {index < JOB_POST_STEPS.length - 1 ? <span className={styles.jobPostStepConnector} /> : null}
-                </div>
-              ))}
-            </div>
+          <div className={styles.companyRegisterHeader}>
+            <p className={styles.companyRegisterEyebrow}>Post Worker Requirement</p>
+            <p className={styles.companyRegisterSubtitle}>
+              Share your workforce requirement and connect with suitable workers faster.
+            </p>
+          </div>
+
+          <div className={styles.jobPostStepRow}>
+            {JOB_POST_STEPS.map((step, index) => (
+              <span key={step} className={styles.jobPostStepPill}>
+                <span className={styles.jobPostStepCount}>{index + 1}</span>
+                {step}
+              </span>
+            ))}
           </div>
 
           {autofillState === 'ready' ? (
@@ -1122,8 +973,29 @@ export function CompanyJobPostForm({
               {prefillState === 'loading'
                 ? 'Loading your selected job details for quick posting.'
                 : isEditMode
-                  ? 'Edit mode is active. Labour Category and Select Plan stay locked while you update the rest of the job.'
+                  ? 'Edit mode is active. Worker Category and Select Plan stay locked while you update the rest of the job.'
                   : 'Duplicate mode is active. Review the copied job details and publish the new requirement.'}
+            </div>
+          ) : null}
+
+          {successState ? (
+            <div className={styles.companyRegisterSuccessCard}>
+              <div className={styles.companyRegisterSuccessIcon}>✓</div>
+              <p className={styles.companyRegisterSuccessTitle}>
+                {isEditMode
+                  ? 'Job requirement updated successfully'
+                  : successState.statusLabel.toLowerCase() === 'draft'
+                    ? 'Job requirement saved successfully'
+                    : 'Job requirement submitted successfully'}
+              </p>
+              <p className={styles.companyRegisterSuccessText}>{successState.message}</p>
+              <p className={styles.jobPostSuccessMeta}>
+                Current status: <strong>{successState.statusLabel}</strong>{successState.jobId ? ` | Job ID: ${successState.jobId}` : ''}
+              </p>
+              <div className={styles.companyRegisterSuccessActions}>
+                <Link href="/labour/company/panel" className={styles.companyRegisterPrimaryButton}>Open Company Panel</Link>
+                <Link href="/labour/company/search" className={styles.companyRegisterSecondaryButton}>Search Workers</Link>
+              </div>
             </div>
           ) : null}
 
@@ -1136,18 +1008,8 @@ export function CompanyJobPostForm({
             noValidate
           >
             <div className={styles.companyRegisterSection}>
-              <div className={styles.jobPostSectionHeader}>
-                <div>
-                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.companyDetailsTitle}</p>
-                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.companyDetailsHelper}</p>
-                </div>
-                {companyFieldsLocked ? (
-                  <span className={styles.jobPostLockPill}>
-                    <Lock size={14} />
-                    Auto-filled & locked
-                  </span>
-                ) : null}
-              </div>
+              <p className={styles.companyRegisterSectionTitle}>Section 1 - Company Details</p>
+              <p className={styles.companyRegisterSectionNote}>Auto-fetched if your company dashboard session is already active.</p>
               <div className={styles.companyRegisterGridTwo}>
                 <div>
                   <label className={styles.companyRegisterLabel}>Company Name *</label>
@@ -1175,9 +1037,9 @@ export function CompanyJobPostForm({
                   {errors.whatsAppNumber ? <p className={styles.companyRegisterFieldError}>{errors.whatsAppNumber}</p> : null}
                 </div>
                 <div>
-                  <label className={styles.companyRegisterLabel}>Industry Category *</label>
+                  <label className={styles.companyRegisterLabel}>Industry Type *</label>
                   <select className={fieldClass('industryType')} value={form.industryType} onChange={event => setField('industryType', event.target.value)} disabled={companyFieldsLocked}>
-                    <option value="">Select industry category</option>
+                    <option value="">Select industry type</option>
                     {visibleIndustryCategoryOptions.map(item => <option key={item.id} value={item.value}>{item.label}</option>)}
                   </select>
                   {errors.industryType ? <p className={styles.companyRegisterFieldError}>{errors.industryType}</p> : null}
@@ -1227,27 +1089,30 @@ export function CompanyJobPostForm({
             </div>
 
             <div className={styles.companyRegisterSection}>
-              <div className={styles.jobPostSectionHeader}>
-                <div>
-                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.jobRequirementTitle}</p>
-                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.jobRequirementHelper}</p>
-                </div>
-              </div>
-              <div className={styles.jobPostGridThree}>
+              <p className={styles.companyRegisterSectionTitle}>Section 2 - Job Requirement Details</p>
+              <div className={styles.companyRegisterGridTwo}>
                 <div className={styles.companyRegisterGridWide}>
-                  <label className={styles.companyRegisterLabel}>Job Title / Role *</label>
+                  <label className={styles.companyRegisterLabel}>Job Title *</label>
                   <input className={fieldClass('jobTitle')} value={form.jobTitle} onChange={event => setField('jobTitle', event.target.value)} placeholder="Factory Helper, Loader, Delivery Staff, Machine Operator" />
                   {errors.jobTitle ? <p className={styles.companyRegisterFieldError}>{errors.jobTitle}</p> : null}
                 </div>
                 <div>
-                  <label className={styles.companyRegisterLabel}>Labour Category *</label>
+                  <label className={styles.companyRegisterLabel}>Worker Category</label>
+                  <select className={fieldClass('workerCategory')} value={form.workerCategory} onChange={event => setField('workerCategory', event.target.value)}>
+                    <option value="">Select worker category</option>
+                    {WORKER_CATEGORIES.map(item => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                  {errors.workerCategory ? <p className={styles.companyRegisterFieldError}>{errors.workerCategory}</p> : null}
+                </div>
+                <div>
+                  <label className={styles.companyRegisterLabel}>Worker Category *</label>
                   <select
                     className={fieldClass('labourCategoryId')}
                     value={form.labourCategoryId}
                     onChange={event => setField('labourCategoryId', event.target.value)}
                     disabled={jobLockedFields || !form.industryType || !form.businessType}
                   >
-                    <option value="">Select labour category</option>
+                    <option value="">Select worker category</option>
                     {visibleLabourCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                   </select>
                   {errors.labourCategoryId ? <p className={styles.companyRegisterFieldError}>{errors.labourCategoryId}</p> : null}
@@ -1261,15 +1126,7 @@ export function CompanyJobPostForm({
                   {errors.selectedPlanId ? <p className={styles.companyRegisterFieldError}>{errors.selectedPlanId}</p> : null}
                 </div>
                 <div>
-                  <label className={styles.companyRegisterLabel}>Worker Category *</label>
-                  <select className={fieldClass('workerCategory')} value={form.workerCategory} onChange={event => setField('workerCategory', event.target.value)}>
-                    <option value="">Select worker category</option>
-                    {WORKER_CATEGORIES.map(item => <option key={item} value={item}>{item}</option>)}
-                  </select>
-                  {errors.workerCategory ? <p className={styles.companyRegisterFieldError}>{errors.workerCategory}</p> : null}
-                </div>
-                <div>
-                  <label className={styles.companyRegisterLabel}>Number of Workers Required *</label>
+                  <label className={styles.companyRegisterLabel}>Workers Needed - Quantity *</label>
                   <input className={fieldClass('workersRequired')} type="number" min="1" value={form.workersRequired} onChange={event => setField('workersRequired', event.target.value)} />
                   {errors.workersRequired ? <p className={styles.companyRegisterFieldError}>{errors.workersRequired}</p> : null}
                 </div>
@@ -1282,12 +1139,42 @@ export function CompanyJobPostForm({
                   {errors.genderPreference ? <p className={styles.companyRegisterFieldError}>{errors.genderPreference}</p> : null}
                 </div>
                 <div>
+                  <label className={styles.companyRegisterLabel}>Age Requirement</label>
+                  <input className={fieldClass('ageRequirement')} value={form.ageRequirement} onChange={event => setField('ageRequirement', event.target.value)} placeholder="18-35 years" />
+                  {errors.ageRequirement ? <p className={styles.companyRegisterFieldError}>{errors.ageRequirement}</p> : null}
+                </div>
+                <div>
                   <label className={styles.companyRegisterLabel}>Experience Required</label>
                   <select className={fieldClass('experienceRequired')} value={form.experienceRequired} onChange={event => setField('experienceRequired', event.target.value)}>
                     <option value="">Select experience requirement</option>
                     {EXPERIENCE_OPTIONS.map(item => <option key={item} value={item}>{item}</option>)}
                   </select>
                   {errors.experienceRequired ? <p className={styles.companyRegisterFieldError}>{errors.experienceRequired}</p> : null}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.companyRegisterSection}>
+              <p className={styles.companyRegisterSectionTitle}>Section 3 - Work Details</p>
+              <div className={styles.companyRegisterGridTwo}>
+                <div>
+                  <label className={styles.companyRegisterLabel}>Job Location</label>
+                  <input
+                    list="job-post-location-options"
+                    className={fieldClass('jobLocation')}
+                    value={form.jobLocation}
+                    onChange={event => setField('jobLocation', event.target.value)}
+                    placeholder="Enter job city or location"
+                  />
+                  <datalist id="job-post-location-options">
+                    {availableCities.map(city => <option key={`job-${city}`} value={city} />)}
+                  </datalist>
+                  {errors.jobLocation ? <p className={styles.companyRegisterFieldError}>{errors.jobLocation}</p> : null}
+                </div>
+                <div>
+                  <label className={styles.companyRegisterLabel}>Duty Hours</label>
+                  <input className={fieldClass('dutyHours')} value={form.dutyHours} onChange={event => setField('dutyHours', event.target.value)} placeholder="9 AM - 6 PM" />
+                  {errors.dutyHours ? <p className={styles.companyRegisterFieldError}>{errors.dutyHours}</p> : null}
                 </div>
                 <div>
                   <label className={styles.companyRegisterLabel}>Shift Type</label>
@@ -1310,58 +1197,12 @@ export function CompanyJobPostForm({
                   </select>
                   {errors.jobDuration ? <p className={styles.companyRegisterFieldError}>{errors.jobDuration}</p> : null}
                 </div>
-                <div>
-                  <label className={styles.companyRegisterLabel}>Age Requirement</label>
-                  <input className={fieldClass('ageRequirement')} value={form.ageRequirement} onChange={event => setField('ageRequirement', event.target.value)} placeholder="18-35 years" />
-                  {errors.ageRequirement ? <p className={styles.companyRegisterFieldError}>{errors.ageRequirement}</p> : null}
-                </div>
               </div>
             </div>
 
             <div className={styles.companyRegisterSection}>
-              <div className={styles.jobPostSectionHeader}>
-                <div>
-                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.workDetailsTitle}</p>
-                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.workDetailsHelper}</p>
-                </div>
-              </div>
-              <div className={styles.jobPostGridThree}>
-                <div>
-                  <label className={styles.companyRegisterLabel}>Job Location</label>
-                  <input
-                    list="job-post-location-options"
-                    className={fieldClass('jobLocation')}
-                    value={form.jobLocation}
-                    onChange={event => setField('jobLocation', event.target.value)}
-                    placeholder="Enter job city or location"
-                  />
-                  <datalist id="job-post-location-options">
-                    {availableCities.map(city => <option key={`job-${city}`} value={city} />)}
-                  </datalist>
-                  {errors.jobLocation ? <p className={styles.companyRegisterFieldError}>{errors.jobLocation}</p> : null}
-                </div>
-                <div>
-                  <label className={styles.companyRegisterLabel}>Duty Hours</label>
-                  <input className={fieldClass('dutyHours')} value={form.dutyHours} onChange={event => setField('dutyHours', event.target.value)} placeholder="9 AM - 6 PM" />
-                  {errors.dutyHours ? <p className={styles.companyRegisterFieldError}>{errors.dutyHours}</p> : null}
-                </div>
-                <div className={styles.companyRegisterGridWide}>
-                  <div className={styles.jobPostTipBox}>
-                    <ShieldCheck size={16} />
-                    <span>Choose accurate details to get the most relevant worker applications.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.companyRegisterSection}>
-              <div className={styles.jobPostSectionHeader}>
-                <div>
-                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.salaryFacilitiesTitle}</p>
-                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.salaryFacilitiesHelper}</p>
-                </div>
-              </div>
-              <div className={styles.jobPostGridThree}>
+              <p className={styles.companyRegisterSectionTitle}>Section 4 - Salary & Facilities</p>
+              <div className={styles.companyRegisterGridTwo}>
                 <div>
                   <label className={styles.companyRegisterLabel}>Salary Type *</label>
                   <select className={fieldClass('salaryType')} value={form.salaryType} onChange={event => setField('salaryType', event.target.value)}>
@@ -1371,7 +1212,7 @@ export function CompanyJobPostForm({
                   {errors.salaryType ? <p className={styles.companyRegisterFieldError}>{errors.salaryType}</p> : null}
                 </div>
                 <div>
-                  <label className={styles.companyRegisterLabel}>Salary / Wage Amount *</label>
+                  <label className={styles.companyRegisterLabel}>Salary Amount *</label>
                   <input className={fieldClass('salaryAmount')} type="number" min="1" value={form.salaryAmount} onChange={event => setField('salaryAmount', event.target.value)} />
                   {errors.salaryAmount ? <p className={styles.companyRegisterFieldError}>{errors.salaryAmount}</p> : null}
                 </div>
@@ -1411,12 +1252,7 @@ export function CompanyJobPostForm({
             </div>
 
             <div className={styles.companyRegisterSection}>
-              <div className={styles.jobPostSectionHeader}>
-                <div>
-                  <p className={styles.companyRegisterSectionTitle}>{pageContent.formSections.jobDescriptionTitle}</p>
-                  <p className={styles.companyRegisterSectionNote}>{pageContent.formSections.jobDescriptionHelper}</p>
-                </div>
-              </div>
+              <p className={styles.companyRegisterSectionTitle}>Section 5 - Job Description</p>
               <div className={styles.companyRegisterGridTwo}>
                 <div className={styles.companyRegisterGridWide}>
                   <label className={styles.companyRegisterLabel}>Job Description *</label>
@@ -1440,29 +1276,7 @@ export function CompanyJobPostForm({
                 </div>
               </div>
             </div>
-
             <div className={styles.companyRegisterSubmitRow}>
-              {showPreview ? (
-                <div className={styles.jobPostPreviewCard}>
-                  <div className={styles.jobPostPreviewHeader}>
-                    <div>
-                      <p className={styles.jobPostPreviewEyebrow}>Preview</p>
-                      <h3>Review & Submit</h3>
-                    </div>
-                    <button type="button" className={styles.jobPostPreviewClose} onClick={() => setShowPreview(false)}>
-                      Close
-                    </button>
-                  </div>
-                  <div className={styles.jobPostPreviewGrid}>
-                    {previewItems.map(([label, value]) => (
-                      <div key={label} className={styles.jobPostPreviewItem}>
-                        <span>{label}</span>
-                        <strong>{value}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
               {errors.form ? <p className={styles.companyRegisterFieldError}>{errors.form}</p> : null}
               <div className={styles.jobPostActionRow}>
                 <button
@@ -1471,14 +1285,7 @@ export function CompanyJobPostForm({
                   disabled={submitting}
                   onClick={() => void submitForm('draft')}
                 >
-                  {submitting && submitMode === 'draft' ? 'Saving Draft...' : pageContent.buttonLabels.saveDraft}
-                </button>
-                <button
-                  type="button"
-                  className={styles.companyRegisterSecondaryButton}
-                  onClick={() => setShowPreview(current => !current)}
-                >
-                  {showPreview ? pageContent.buttonLabels.hidePreview : pageContent.buttonLabels.previewPost}
+                  {submitting && submitMode === 'draft' ? 'Saving Draft...' : 'Save as Draft'}
                 </button>
                 <button
                   type="submit"
@@ -1488,108 +1295,18 @@ export function CompanyJobPostForm({
                 >
                   {submitting && submitMode === 'publish'
                     ? (isEditMode ? 'Updating Job Requirement...' : 'Submitting Job Requirement...')
-                    : (isEditMode ? pageContent.buttonLabels.updateJobPost : pageContent.buttonLabels.submitJobPost)}
+                    : (isEditMode ? 'Update Job Requirement' : 'Publish Job Requirement')}
                 </button>
               </div>
               <p className={styles.companyRegisterSubmitNote}>
                 {isValid
-                  ? 'Your post will be reviewed by our admin team before it goes live.'
-                  : 'Complete these required fields to publish: Job Title, Labour Category, Select Plan, Workers Needed, Salary Type, Salary Amount, and Job Description.'}
+                  ? 'The requirement is ready to submit into ScaleVyapar worker admin for review and visibility control.'
+                  : 'Complete these required fields to publish: Job Title, Worker Category, Select Plan, Workers Needed, Salary Type, Salary Amount, and Job Description.'}
               </p>
-              {successState ? (
-                <div className={styles.companyRegisterSuccessCard}>
-                  <div className={styles.companyRegisterSuccessIcon}>✓</div>
-                  <p className={styles.companyRegisterSuccessTitle}>
-                    {isEditMode
-                      ? 'Job requirement updated successfully'
-                      : successState.statusLabel.toLowerCase() === 'draft'
-                        ? 'Job requirement saved successfully'
-                        : 'Job post submitted successfully. Our admin team will review it shortly.'}
-                  </p>
-                  <p className={styles.companyRegisterSuccessText}>
-                    {isEditMode
-                      ? successState.message
-                      : successState.statusLabel.toLowerCase() === 'draft'
-                        ? successState.message
-                        : 'You can track this requirement from your company panel.'}
-                  </p>
-                  <p className={styles.jobPostSuccessMeta}>
-                    Current status: <strong>{successState.statusLabel}</strong>{successState.jobId ? ` | Job ID: ${successState.jobId}` : ''}
-                  </p>
-                  <div className={styles.companyRegisterSuccessActions}>
-                    <Link href="/labour/company/panel" className={styles.companyRegisterPrimaryButton}>Open Company Panel</Link>
-                    <Link href="/labour/company/search" className={styles.companyRegisterSecondaryButton}>Search Workers</Link>
-                  </div>
-                </div>
-              ) : null}
             </div>
           </form>
         </div>
       </div>
-
-        <section className={styles.jobPostStatsStrip}>
-        <article className={styles.jobPostStatsItem}>
-            <span className={styles.jobPostStatsIcon}><Users size={18} /></span>
-            <div>
-              <strong>{formatCompactNumber(stats.verifiedWorkers)}+</strong>
-              <p>{pageContent.statsLabels.verifiedWorkers}</p>
-            </div>
-          </article>
-        <article className={styles.jobPostStatsItem}>
-            <span className={styles.jobPostStatsIcon}><BriefcaseBusiness size={18} /></span>
-            <div>
-              <strong>{formatCompactNumber(stats.companiesTrustUs)}+</strong>
-              <p>{pageContent.statsLabels.companiesTrustUs}</p>
-            </div>
-          </article>
-        <article className={styles.jobPostStatsItem}>
-            <span className={styles.jobPostStatsIcon}><Sparkles size={18} /></span>
-            <div>
-              <strong>{formatCompactNumber(stats.jobsPosted)}+</strong>
-              <p>{pageContent.statsLabels.jobsPosted}</p>
-            </div>
-          </article>
-        <article className={styles.jobPostStatsItem}>
-            <span className={styles.jobPostStatsIcon}><BadgeCheck size={18} /></span>
-            <div>
-              <strong>{stats.averageRating}</strong>
-              <p>{pageContent.statsLabels.averageCompanyRating}</p>
-            </div>
-          </article>
-      </section>
-      </div>
-      {isCompanySessionChecking ? (
-        <div className={styles.jobPostAuthOverlay}>
-          <div className={styles.jobPostAuthModal}>
-            <div className={styles.jobPostAuthIcon}>
-              <Lock size={22} />
-            </div>
-            <p className={styles.jobPostAuthTitle}>Checking company access</p>
-            <p className={styles.jobPostAuthText}>Please wait while we verify your company session for job posting.</p>
-          </div>
-        </div>
-      ) : null}
-      {showJobPostAuthGate ? (
-        <div className={styles.jobPostAuthOverlay}>
-          <div className={styles.jobPostAuthModal}>
-            <div className={styles.jobPostAuthIcon}>
-              <Lock size={22} />
-            </div>
-            <p className={styles.jobPostAuthTitle}>Register & Login to Post a Job</p>
-            <p className={styles.jobPostAuthText}>
-              Please register your company or log in to your account before posting a job requirement.
-            </p>
-            <div className={styles.jobPostAuthActions}>
-              <Link href="/labour/company/signin" className={styles.companyRegisterPrimaryButton}>
-                Login Here
-              </Link>
-              <Link href="/labour/company/company-registration" className={styles.companyRegisterSecondaryButton}>
-                Register Company
-              </Link>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   )
 }

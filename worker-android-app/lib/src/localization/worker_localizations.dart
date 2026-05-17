@@ -87,7 +87,7 @@ class WorkerLocalizations {
       : 'Useful when your account is active and you want direct contacts.';
   String get noJobsMatchMessage => isHindi
       ? 'मौजूदा फिल्टर से कोई जॉब नहीं मिली। खोज साफ़ करें या अपना प्रोफाइल सक्रिय रखें।'
-      : 'No jobs match the current filters. Try clearing your search or keeping your worker profile active.';
+      : 'No jobs match the current filters. Try clearing your search, selecting another city, or increasing the distance range.';
   String workersNeeded(int count) => isHindi ? '$count वर्कर चाहिए' : '$count workers needed';
   String get saved => isHindi ? 'सेव्ड' : 'Saved';
   String appliedStatusLabel(String status) => isHindi ? 'अप्लाई किया • ${prettyValue(status)}' : 'Applied • ${prettyValue(status)}';

@@ -20,7 +20,6 @@ export default async function LabourCompanyRegistrationPage() {
   const categories = snapshot.categories.filter(category => category.isActive)
   const companyPlans = snapshot.plans.filter(plan => plan.audience === 'company' && plan.isActive)
   const masterOptionsByKey = groupLabourMasterOptions(mastersSnapshot.options)
-  const companyCount = snapshot.companies.length
 
   return (
     <CompanySiteShell content={content} currentPath="/labour/company/company-registration">
@@ -45,7 +44,6 @@ export default async function LabourCompanyRegistrationPage() {
         industryBusinessDependencies={mastersSnapshot.industryBusinessDependencies || []}
         cityOptions={adminSettings.settings.workerHomeControls.popularCitySuggestions}
         accentColor={content.theme.accentColor}
-        companyCount={companyCount}
       />
     </CompanySiteShell>
   )

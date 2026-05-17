@@ -2,22 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import type { MainWebsiteContent } from '@/lib/main-website-content'
-import { buildWhatsAppLink } from '@/lib/whatsapp'
 
-const iconForPath = (href: string) => {
-  if (href === '/') return 'Home'
-  if (href.includes('tools')) return 'Tools'
-  if (href.includes('pricing')) return 'Price'
-  if (href.includes('contact')) return 'Call'
-  if (href.includes('about')) return 'Info'
-  return 'Go'
-}
-
-export default function MobileBottomBar({ content }: { content: MainWebsiteContent }) {
+export default function MobileBottomBar() {
   const pathname = usePathname()
-  const navItems = content.header.navItems.slice(0, 4)
-  const whatsappHref = content.contact.whatsappLink || buildWhatsAppLink(content.floatingContact.whatsappNumber, content.floatingContact.whatsappMessage)
 
   return (
     <>
@@ -38,8 +25,7 @@ export default function MobileBottomBar({ content }: { content: MainWebsiteConte
           display: grid;
           grid-template-columns: repeat(5, 1fr);
         }
-        .mobile-bottom-item,
-        .mobile-bottom-cta {
+        .mobile-bottom-item {
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -48,31 +34,40 @@ export default function MobileBottomBar({ content }: { content: MainWebsiteConte
           text-decoration: none;
           color: #94a3b8;
           font-size: 10px;
-          font-weight: 600;
+          font-weight: 500;
+          transition: all 0.2s;
         }
         .mobile-bottom-item.active {
-          color: ${content.theme.primaryColor};
+          color: #374655;
         }
         .mobile-bottom-item span:first-child {
-          font-size: 12px;
-          font-weight: 800;
+          font-size: 20px;
+        }
+        .mobile-bottom-cta {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3px;
+          padding: 6px 4px;
+          text-decoration: none;
+          font-size: 10px;
+          font-weight: 700;
+          transition: all 0.2s;
         }
         .mobile-bottom-cta-icon {
           width: 40px;
           height: 40px;
-          background: ${content.theme.primaryColor};
+          background: #374655;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 10px;
+          font-size: 20px;
           margin-top: -16px;
           box-shadow: 0 4px 12px rgba(55,70,85,0.3);
-          color: white;
-          font-weight: 800;
         }
         .mobile-bottom-cta span:last-child {
-          color: ${content.theme.primaryColor};
+          color: #374655;
         }
         @media (max-width: 768px) {
           .mobile-bottom-bar { display: block; }
@@ -81,16 +76,26 @@ export default function MobileBottomBar({ content }: { content: MainWebsiteConte
 
       <div className="mobile-bottom-bar">
         <div className="mobile-bottom-grid">
-          {navItems.map(item => (
-            <Link key={`${item.label}-${item.href}`} href={item.href} className={`mobile-bottom-item ${pathname === item.href ? 'active' : ''}`}>
-              <span>{iconForPath(item.href)}</span>
-              <span>{item.label}</span>
-            </Link>
-          ))}
-          <a href={whatsappHref} className="mobile-bottom-cta" target="_blank" rel="noreferrer">
-            <div className="mobile-bottom-cta-icon">Chat</div>
+          <Link href="/" className={`mobile-bottom-item ${pathname === '/' ? 'active' : ''}`}>
+            <span>🏠</span>
+            <span>Home</span>
+          </Link>
+          <Link href="/tools" className={`mobile-bottom-item ${pathname === '/tools' ? 'active' : ''}`}>
+            <span>🛠️</span>
+            <span>Tools</span>
+          </Link>
+          <a href="https://wa.me/919314023719" className="mobile-bottom-cta" target="_blank">
+            <div className="mobile-bottom-cta-icon">💬</div>
             <span>Chat</span>
           </a>
+          <Link href="/pricing" className={`mobile-bottom-item ${pathname === '/pricing' ? 'active' : ''}`}>
+            <span>💰</span>
+            <span>Pricing</span>
+          </Link>
+          <Link href="/contact" className={`mobile-bottom-item ${pathname === '/contact' ? 'active' : ''}`}>
+            <span>📞</span>
+            <span>Contact</span>
+          </Link>
         </div>
       </div>
     </>

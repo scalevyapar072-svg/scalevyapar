@@ -28,7 +28,10 @@ export async function middleware(request: NextRequest) {
     '/data-deletion-status',
     '/privacy/scalevyapar-rozgar'
   ]
-  if (publicPages.includes(pathname)) {
+  const isPublicLabourCompanyRoute =
+    pathname === '/labour/company' || pathname.startsWith('/labour/company/')
+
+  if (publicPages.includes(pathname) || isPublicLabourCompanyRoute) {
     return NextResponse.next()
   }
 

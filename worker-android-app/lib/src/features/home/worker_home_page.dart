@@ -415,8 +415,12 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       final matchesLock = !_showUnlockedOnly || !item.companyLocked;
       final matchesSaved = !_showSavedOnly || item.isSaved;
       final matchesApplied = !_showAppliedOnly || item.hasApplied;
-      final matchesCategory = _selectedCategoryFilter == 'all' || item.categoryName == _selectedCategoryFilter;
-      final matchesCity = _selectedCityFilter == 'all' || item.city == _selectedCityFilter;
+      final matchesCategory = _selectedCategoryFilter == 'all' ||
+          item.categoryName.trim().toLowerCase() ==
+              _selectedCategoryFilter.trim().toLowerCase();
+      final matchesCity = _selectedCityFilter == 'all' ||
+          item.city.trim().toLowerCase() ==
+              _selectedCityFilter.trim().toLowerCase();
       final matchesWage = _matchesWageBand(item.wageAmount, _selectedWageBand);
       return matchesQuery &&
           matchesLock &&
@@ -1148,9 +1152,22 @@ class _FeedTab extends StatelessWidget {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(22),
-              child: Text(
-                l10n.noJobsMatchMessage,
-                style: const TextStyle(color: Color(0xFF475569), height: 1.6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.noJobsMatchMessage,
+                    style: const TextStyle(color: Color(0xFF475569), height: 1.6),
+                  ),
+                  if (activeFilters.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    TextButton.icon(
+                      onPressed: onClearFilters,
+                      icon: const Icon(Icons.filter_alt_off_outlined),
+                      label: const Text('Clear filters'),
+                    ),
+                  ],
+                ],
               ),
             ),
           )

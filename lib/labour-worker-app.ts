@@ -846,7 +846,6 @@ const isWorkerRegistrationComplete = (worker: LabourWorkerRecord) =>
   isWorkerProfileComplete(worker) &&
   Boolean(worker.profilePhotoPath.trim()) &&
   Boolean(worker.identityProofType) &&
-  Boolean(worker.identityProofNumber.trim()) &&
   Boolean(worker.identityProofPath.trim())
 
 const canWorkerAccessApp = (worker: LabourWorkerRecord) =>
@@ -918,9 +917,6 @@ const assertWorkerRegistrationPayload = (payload: WorkerRegistrationPayload) => 
   }
   if (!payload.identityProofType) {
     throw new Error('Identity proof type is required.')
-  }
-  if (!payload.identityProofNumber.trim()) {
-    throw new Error('Identity proof number is required.')
   }
   if (!payload.identityProofPath.trim()) {
     throw new Error('Identity proof upload is required.')

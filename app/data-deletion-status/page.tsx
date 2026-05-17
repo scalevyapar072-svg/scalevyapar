@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import { getSafeMainWebsiteContent } from '@/lib/main-website-content'
 
 export const metadata: Metadata = {
   title: 'Data Deletion Status | ScaleVyapar',
@@ -12,12 +13,13 @@ export default async function DataDeletionStatusPage({
 }: {
   searchParams: Promise<{ code?: string }>
 }) {
+  const { content } = await getSafeMainWebsiteContent()
   const params = await searchParams
   const code = params.code || 'pending'
 
   return (
     <>
-      <Navbar />
+      <Navbar content={content} />
       <main
         style={{
           minHeight: '100vh',
@@ -85,7 +87,7 @@ export default async function DataDeletionStatusPage({
           </p>
         </div>
       </main>
-      <Footer />
+      <Footer content={content} />
     </>
   )
 }

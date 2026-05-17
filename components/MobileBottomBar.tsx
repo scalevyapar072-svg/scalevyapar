@@ -2,9 +2,20 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import type { MainWebsiteContent } from '@/lib/main-website-content'
 
-export default function MobileBottomBar() {
+const iconForPath = (href: string) => {
+  if (href === '/') return 'Home'
+  if (href.includes('tools')) return 'Tools'
+  if (href.includes('pricing')) return 'Price'
+  if (href.includes('contact')) return 'Call'
+  if (href.includes('about')) return 'Info'
+  return 'Go'
+}
+
+export default function MobileBottomBar({ content }: { content: MainWebsiteContent }) {
   const pathname = usePathname()
+  const navItems = content.header.navItems.slice(0, 4)
 
   return (
     <>
@@ -25,7 +36,8 @@ export default function MobileBottomBar() {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
         }
-        .mobile-bottom-item {
+        .mobile-bottom-item,
+        .mobile-bottom-cta {
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -34,40 +46,31 @@ export default function MobileBottomBar() {
           text-decoration: none;
           color: #94a3b8;
           font-size: 10px;
-          font-weight: 500;
-          transition: all 0.2s;
+          font-weight: 600;
         }
         .mobile-bottom-item.active {
-          color: #374655;
+          color: ${content.theme.primaryColor};
         }
         .mobile-bottom-item span:first-child {
-          font-size: 20px;
-        }
-        .mobile-bottom-cta {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 3px;
-          padding: 6px 4px;
-          text-decoration: none;
-          font-size: 10px;
-          font-weight: 700;
-          transition: all 0.2s;
+          font-size: 12px;
+          font-weight: 800;
         }
         .mobile-bottom-cta-icon {
           width: 40px;
           height: 40px;
-          background: #374655;
+          background: ${content.theme.primaryColor};
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 20px;
+          font-size: 10px;
           margin-top: -16px;
           box-shadow: 0 4px 12px rgba(55,70,85,0.3);
+          color: white;
+          font-weight: 800;
         }
         .mobile-bottom-cta span:last-child {
-          color: #374655;
+          color: ${content.theme.primaryColor};
         }
         @media (max-width: 768px) {
           .mobile-bottom-bar { display: block; }
@@ -76,26 +79,16 @@ export default function MobileBottomBar() {
 
       <div className="mobile-bottom-bar">
         <div className="mobile-bottom-grid">
-          <Link href="/" className={`mobile-bottom-item ${pathname === '/' ? 'active' : ''}`}>
-            <span>🏠</span>
-            <span>Home</span>
-          </Link>
-          <Link href="/tools" className={`mobile-bottom-item ${pathname === '/tools' ? 'active' : ''}`}>
-            <span>🛠️</span>
-            <span>Tools</span>
-          </Link>
-          <a href="https://wa.me/919314023719" className="mobile-bottom-cta" target="_blank">
-            <div className="mobile-bottom-cta-icon">💬</div>
+          {navItems.map(item => (
+            <Link key={`${item.label}-${item.href}`} href={item.href} className={`mobile-bottom-item ${pathname === item.href ? 'active' : ''}`}>
+              <span>{iconForPath(item.href)}</span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+          <a href={content.contact.whatsappLink} className="mobile-bottom-cta" target="_blank" rel="noreferrer">
+            <div className="mobile-bottom-cta-icon">Chat</div>
             <span>Chat</span>
           </a>
-          <Link href="/pricing" className={`mobile-bottom-item ${pathname === '/pricing' ? 'active' : ''}`}>
-            <span>💰</span>
-            <span>Pricing</span>
-          </Link>
-          <Link href="/contact" className={`mobile-bottom-item ${pathname === '/contact' ? 'active' : ''}`}>
-            <span>📞</span>
-            <span>Contact</span>
-          </Link>
         </div>
       </div>
     </>

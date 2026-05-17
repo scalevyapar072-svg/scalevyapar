@@ -3,10 +3,10 @@ import LegalPage from '@/components/main-website/LegalPage'
 import { buildMainWebsiteMetadata, getSafeMainWebsiteContent } from '@/lib/main-website-content'
 
 export async function generateMetadata(): Promise<Metadata> {
-  return buildMainWebsiteMetadata('privacy')
+  return buildMainWebsiteMetadata('disclaimer')
 }
 
-export default async function PrivacyPolicyPage() {
+export default async function DisclaimerPage() {
   const { content } = await getSafeMainWebsiteContent()
-  return <LegalPage content={content} page={content.legal.privacy} />
+  return <LegalPage content={content} page={content.legal.disclaimer} />
 }

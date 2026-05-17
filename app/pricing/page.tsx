@@ -1,100 +1,104 @@
+import type { Metadata } from 'next'
+import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
-import AnimateOnScroll from '@/components/AnimateOnScroll'
 import PricingCalculator from './PricingCalculatorClient'
+import { buildMainWebsiteMetadata, getSafeMainWebsiteContent } from '@/lib/main-website-content'
 
-export default function PricingPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  return buildMainWebsiteMetadata('pricing')
+}
+
+export default async function PricingPage() {
+  const { content } = await getSafeMainWebsiteContent()
+  const theme = content.theme
+
   return (
     <>
-      <style>{`
-        .pricing-hero { background: #374655; padding: 80px 48px; text-align: center; position: relative; overflow: hidden; }
-        .pricing-hero::before { content: ''; position: absolute; top: -100px; right: -100px; width: 400px; height: 400px; background: rgba(255,255,255,0.04); border-radius: 50%; animation: pulse 4s ease-in-out infinite; }
-        .pricing-hero::after { content: ''; position: absolute; bottom: -100px; left: -100px; width: 300px; height: 300px; background: rgba(255,255,255,0.04); border-radius: 50%; animation: pulse 4s ease-in-out infinite 2s; }
-        @keyframes pulse { 0%,100%{transform:scale(1);}50%{transform:scale(1.05);} }
-        @keyframes fadeInDown { from{opacity:0;transform:translateY(-30px);}to{opacity:1;transform:translateY(0);} }
-        @keyframes fadeInUp { from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);} }
-        .pricing-hero h1 { color: white; font-size: 42px; font-weight: 800; margin-bottom: 16px; position: relative; animation: fadeInDown 0.8s ease; }
-        .pricing-hero p { color: rgba(255,255,255,0.7); font-size: 17px; max-width: 600px; margin: 0 auto; line-height: 1.7; position: relative; animation: fadeInUp 0.8s ease 0.2s both; }
-        .pricing-section { background: #f8fafc; padding: 80px 48px; }
-        .pricing-container { max-width: 900px; margin: 0 auto; }
-        .section-label { background: #374655; color: white; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block; margin-bottom: 16px; }
-        .faq-section { background: white; padding: 80px 48px; }
-        .faq-item { border-bottom: 1px solid #f1f5f9; padding: 24px 0; transition: all 0.2s; }
-        .faq-item:hover { padding-left: 8px; }
-        .faq-item h4 { color: #1e293b; font-size: 16px; font-weight: 700; margin-bottom: 10px; }
-        .faq-item p { color: #64748b; font-size: 14px; line-height: 1.7; }
-        .cta-strip { background: #374655; padding: 60px 48px; text-align: center; position: relative; overflow: hidden; }
-        .cta-strip::before { content: ''; position: absolute; top: -80px; right: -80px; width: 300px; height: 300px; background: rgba(255,255,255,0.05); border-radius: 50%; }
-        .cta-strip h2 { color: white; font-size: 28px; font-weight: 800; margin-bottom: 12px; position: relative; }
-        .cta-strip p { color: rgba(255,255,255,0.7); font-size: 15px; margin-bottom: 24px; position: relative; }
-        .whatsapp-btn { background: #25d366; color: white; padding: 14px 32px; border-radius: 10px; font-weight: 700; font-size: 15px; display: inline-block; transition: all 0.3s; text-decoration: none; position: relative; }
-        .whatsapp-btn:hover { background: #20b958; transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.2); }
-        @media (max-width: 768px) {
-          .pricing-hero { padding: 60px 20px; }
-          .pricing-hero h1 { font-size: 28px; }
-          .pricing-section { padding: 40px 20px; }
-          .faq-section { padding: 60px 20px; }
-          .cta-strip { padding: 40px 20px; }
-        }
-      `}</style>
+      <Navbar content={content} />
+      <main style={{ background: theme.backgroundColor, color: '#0f172a', fontFamily: theme.fontFamily || 'system-ui, sans-serif' }}>
+        <section style={{ background: theme.primaryColor, color: 'white', padding: '72px 20px' }}>
+          <div style={{ maxWidth: '1040px', margin: '0 auto', textAlign: 'center' }}>
+            <span style={{ display: 'inline-flex', padding: '7px 14px', borderRadius: '999px', background: 'rgba(255,255,255,0.12)', fontSize: '12px', fontWeight: 800, marginBottom: '16px' }}>
+              Pricing
+            </span>
+            <h1 style={{ margin: '0 0 14px', fontSize: 'clamp(36px, 5vw, 56px)', lineHeight: 1.04 }}>{content.pricing.pageTitle}</h1>
+            <p style={{ margin: 0, color: 'rgba(255,255,255,0.76)', fontSize: '16px', lineHeight: 1.75, maxWidth: '760px', marginInline: 'auto' }}>
+              {content.pricing.pageDescription}
+            </p>
+          </div>
+        </section>
 
-      <Navbar />
-
-      <section className="pricing-hero">
-        <h1>Build Your Own Plan 🎯</h1>
-        <p>Choose only the tools your business needs. Pay for what you use — no hidden fees, no long term contracts.</p>
-      </section>
-
-      <section className="pricing-section">
-        <div className="pricing-container">
-          <AnimateOnScroll direction="up">
-            <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-              <span className="section-label">Custom Plan Builder</span>
-              <h2 style={{ color: '#1e293b', fontSize: '32px', fontWeight: '800', marginBottom: '12px' }}>Choose Your Tools</h2>
-              <p style={{ color: '#64748b', fontSize: '15px', lineHeight: '1.7' }}>Select the tools you need and get a monthly credit subscription. Buy extra credits anytime you run out.</p>
+        <section style={{ padding: '76px 20px 0' }}>
+          <div style={{ maxWidth: '1120px', margin: '0 auto', display: 'grid', gap: '34px' }}>
+            <div style={{ textAlign: 'center' }}>
+              <span style={{ display: 'inline-flex', padding: '7px 14px', borderRadius: '999px', background: `${theme.accentColor}14`, color: theme.accentColor, fontSize: '12px', fontWeight: 800, marginBottom: '14px' }}>
+                Plan builder
+              </span>
+              <h2 style={{ margin: '0 0 10px', fontSize: 'clamp(28px, 4vw, 42px)' }}>{content.pricing.introTitle}</h2>
+              <p style={{ margin: 0, color: '#64748b', lineHeight: 1.75, maxWidth: '720px', marginInline: 'auto' }}>{content.pricing.introDescription}</p>
             </div>
-          </AnimateOnScroll>
-          <AnimateOnScroll direction="up" delay={200}>
-            <PricingCalculator />
-          </AnimateOnScroll>
-        </div>
-      </section>
 
-      <section className="faq-section">
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <AnimateOnScroll direction="up">
-            <h2 style={{ color: '#1e293b', fontSize: '28px', fontWeight: '800', marginBottom: '32px', textAlign: 'center' }}>Frequently Asked Questions</h2>
-          </AnimateOnScroll>
-          {[
-            { q: 'What are credits?', a: 'Credits are the currency used inside ScaleVyapar. Every time you use a tool — extract leads, generate photos, or use any service — credits are deducted. Each action costs 100 credits.' },
-            { q: 'What happens when my credits run out?', a: 'When your monthly credits run out you can buy extra credit packs instantly. Your subscription continues and resets next month.' },
-            { q: 'Can I change my plan anytime?', a: 'Yes! You can add or remove tools anytime. Changes take effect from the next billing cycle.' },
-            { q: 'Is there a free trial?', a: 'Yes we offer a 7 day free trial for all new clients with 200 free credits. No credit card required.' },
-            { q: 'How does the Website Builder work?', a: 'Website Builder is a one time payment to build your website. After that modifications are included in your monthly subscription credits.' },
-            { q: 'Do you provide training?', a: 'Yes! We provide free onboarding training for all clients via WhatsApp and video call.' },
-            { q: 'What payment methods do you accept?', a: 'We accept UPI, bank transfer, and all major credit and debit cards.' },
-          ].map((faq, idx) => (
-            <AnimateOnScroll key={faq.q} direction="up" delay={idx * 80}>
-              <div className="faq-item">
-                <h4>{faq.q}</h4>
-                <p>{faq.a}</p>
+            {content.pricing.enabled && content.pricing.plans.length ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px' }}>
+                {content.pricing.plans.map(plan => (
+                  <div key={plan.name} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '24px', padding: '24px', boxShadow: '0 14px 40px rgba(15, 23, 42, 0.06)' }}>
+                    {plan.badge ? <span style={{ display: 'inline-flex', padding: '5px 10px', borderRadius: '999px', background: `${theme.primaryColor}12`, color: theme.primaryColor, fontSize: '11px', fontWeight: 800, marginBottom: '14px' }}>{plan.badge}</span> : null}
+                    <h3 style={{ margin: '0 0 8px', fontSize: '24px' }}>{plan.name}</h3>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '34px', fontWeight: 900, color: theme.primaryColor }}>{plan.price}</span>
+                      <span style={{ color: '#64748b' }}>{plan.cadence}</span>
+                    </div>
+                    <p style={{ margin: '0 0 16px', color: '#64748b', lineHeight: 1.75 }}>{plan.description}</p>
+                    <div style={{ display: 'grid', gap: '8px', marginBottom: '20px' }}>
+                      {plan.features.map(item => (
+                        <div key={item} style={{ color: '#334155', fontSize: '14px', lineHeight: 1.6 }}>- {item}</div>
+                      ))}
+                    </div>
+                    <Link href={plan.buttonHref} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', borderRadius: '14px', padding: '13px 18px', background: theme.primaryColor, color: 'white', textDecoration: 'none', fontSize: '14px', fontWeight: 800 }}>
+                      {plan.buttonLabel}
+                    </Link>
+                  </div>
+                ))}
               </div>
-            </AnimateOnScroll>
-          ))}
-        </div>
-      </section>
+            ) : null}
 
-      <section className="cta-strip">
-        <AnimateOnScroll direction="up">
-          <h2>Not sure which tools you need?</h2>
-          <p>Talk to our team on WhatsApp and we will help you choose the right plan for your business.</p>
-          <a href="https://wa.me/919314023719" className="whatsapp-btn" target="_blank">
-            💬 Chat on WhatsApp
-          </a>
-        </AnimateOnScroll>
-      </section>
+            <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '28px', padding: '24px' }}>
+              <PricingCalculator />
+            </div>
+          </div>
+        </section>
 
-      <Footer />
+        <section style={{ padding: '76px 20px 0' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto', background: 'white', border: '1px solid #e2e8f0', borderRadius: '28px', padding: '28px' }}>
+            <h2 style={{ marginTop: 0, textAlign: 'center', fontSize: 'clamp(26px, 4vw, 38px)' }}>{content.pricing.faqTitle}</h2>
+            <div style={{ display: 'grid', gap: '18px' }}>
+              {content.pricing.faqItems.map(item => (
+                <div key={item.question} style={{ borderTop: '1px solid #e2e8f0', paddingTop: '18px' }}>
+                  <h3 style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '18px' }}>{item.question}</h3>
+                  <p style={{ margin: 0, color: '#64748b', lineHeight: 1.75 }}>{item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section style={{ padding: '76px 20px 80px' }}>
+          <div style={{ maxWidth: '980px', margin: '0 auto', background: theme.primaryColor, color: 'white', borderRadius: '32px', padding: '42px 28px', textAlign: 'center' }}>
+            <h2 style={{ margin: '0 0 10px', fontSize: 'clamp(28px, 4vw, 40px)' }}>{content.pricing.ctaTitle}</h2>
+            <p style={{ margin: '0 auto 22px', color: 'rgba(255,255,255,0.76)', lineHeight: 1.75, maxWidth: '720px' }}>{content.pricing.ctaDescription}</p>
+            <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link href={content.pricing.ctaPrimaryButton.href} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', padding: '14px 22px', background: 'white', color: theme.primaryColor, fontSize: '14px', fontWeight: 800, textDecoration: 'none' }}>
+                {content.pricing.ctaPrimaryButton.label}
+              </Link>
+              <Link href={content.pricing.ctaSecondaryButton.href} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', padding: '14px 22px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', color: 'white', fontSize: '14px', fontWeight: 800, textDecoration: 'none' }}>
+                {content.pricing.ctaSecondaryButton.label}
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+      <Footer content={content} />
     </>
   )
 }

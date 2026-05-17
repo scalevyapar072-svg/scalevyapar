@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import { getSafeMainWebsiteContent } from '@/lib/main-website-content'
 
 export const metadata: Metadata = {
   title: 'User Data Deletion | ScaleVyapar',
@@ -15,10 +16,12 @@ const sectionStyle = {
   boxShadow: '0 18px 50px rgba(15, 23, 42, 0.06)',
 }
 
-export default function ScaleVyaparUserDataDeletionPage() {
+export default async function ScaleVyaparUserDataDeletionPage() {
+  const { content } = await getSafeMainWebsiteContent()
+
   return (
     <>
-      <Navbar />
+      <Navbar content={content} />
       <main
         style={{
           minHeight: '100vh',
@@ -103,7 +106,7 @@ export default function ScaleVyaparUserDataDeletionPage() {
           </div>
         </div>
       </main>
-      <Footer />
+      <Footer content={content} />
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { promises as fs } from 'fs'
+﻿import { promises as fs } from 'fs'
 import path from 'path'
 import { jwtVerify, SignJWT } from 'jose'
 import {
@@ -1291,7 +1291,7 @@ const buildWorkerFeed = (
         categoryName,
         companyLocked: !activation.canViewCompanyDetails,
         companyName: activation.canViewCompanyDetails ? company?.companyName || 'Company not found' : 'Unlock company details after activation',
-        companyArea: company?.area || '',
+        companyArea: toStringValue(companyRecord?.area),
         companyCity: company?.city || '',
         contactPerson: activation.canViewCompanyDetails ? company?.contactPerson || null : null,
         companyMobile: activation.canViewCompanyDetails ? resolveCompanyContactMobile(company) || null : null,
@@ -2113,3 +2113,4 @@ export const markWorkerNotificationsRead = async (workerId: string, notification
 
   return getWorkerAppDashboard(workerId)
 }
+

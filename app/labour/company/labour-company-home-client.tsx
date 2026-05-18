@@ -24,6 +24,8 @@ import {
 import styles from './company-site.module.css'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 
+const COMPANY_TOKEN_KEY = 'labour_company_token'
+
 type PlanOption = {
   id: string
   name: string
@@ -136,6 +138,7 @@ function HeroBannerImage({ src, alt, priority = false }: { src: string; alt: str
 
 export function LabourCompanyHomeClient({ content, industryCategories, companyPlans, stats }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const showPricingLink = companyPlans.length > 0
 
   const jobPostHref = '/labour/company/job-post'
@@ -144,6 +147,9 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
   const loginHref = '/labour/company/signin'
   const panelHref = '/labour/company/panel'
   const workerJoinHref = content.home.workerCta.buttonHref || '/labour'
+  const currentPath = '/labour/company'
+  const accountHref = isLoggedIn ? panelHref : loginHref
+  const accountLabel = isLoggedIn ? 'Logged In' : 'Login'
 
   const categorySearchOptions = useMemo(() => {
     const dynamicCategories = content.home.categories.cards
@@ -225,6 +231,24 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
     return () => window.clearInterval(timer)
   }, [heroSlides.length])
 
+  useEffect(() => {
+    const syncAuthState = () => {
+      const hasToken = Boolean(
+        window.localStorage.getItem(COMPANY_TOKEN_KEY) ||
+        window.sessionStorage.getItem(COMPANY_TOKEN_KEY)
+      )
+      setIsLoggedIn(hasToken)
+    }
+
+    syncAuthState()
+    window.addEventListener('storage', syncAuthState)
+    window.addEventListener('labour-company-auth-change', syncAuthState)
+    return () => {
+      window.removeEventListener('storage', syncAuthState)
+      window.removeEventListener('labour-company-auth-change', syncAuthState)
+    }
+  }, [])
+
   const normalizedActiveHeroSlide = heroSlides.length > 0 ? activeHeroSlide % heroSlides.length : 0
   const currentHeroSlide = heroSlides[normalizedActiveHeroSlide] || heroSlides[0]
   const primaryHeroImageSrc = currentHeroSlide?.primaryImageSrc || content.home.hero.primaryImageSrc || '/worker-hero-reference.png'
@@ -258,7 +282,7 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
     { label: 'About Us', href: '/labour/company/about', isLink: true },
     ...(showPricingLink ? [{ label: 'Pricing', href: '/labour/company/pricing', isLink: true }] : []),
     { label: 'Search Worker', href: '/labour/company/search', isLink: true },
-    { label: 'Company Panel', href: panelHref, isLink: true },
+    { label: 'Client Dashboard', href: panelHref, isLink: true },
     { label: 'Contact Us', href: '/labour/company/contact', isLink: true }
   ]
 
@@ -279,11 +303,11 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
           <nav className={styles.homeLandingDesktopNav}>
             {headerNav.map(item =>
               item.isLink ? (
-                <Link key={item.href} href={item.href} className={styles.homeLandingNavLink}>
+                <Link key={item.href} href={item.href} className={`${styles.homeLandingNavLink} ${currentPath === item.href ? styles.homeLandingNavLinkActive : ''}`}>
                   {item.label}
                 </Link>
               ) : (
-                <a key={item.href} href={item.href} className={styles.homeLandingNavLink}>
+                <a key={item.href} href={item.href} className={`${styles.homeLandingNavLink} ${currentPath === item.href ? styles.homeLandingNavLinkActive : ''}`}>
                   {item.label}
                 </a>
               )
@@ -297,8 +321,8 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
             <Link href={registrationHref} className={styles.homeHeaderSecondaryButton}>
               Register Company
             </Link>
-            <Link href={loginHref} className={styles.homeHeaderGhostButton}>
-              Login
+            <Link href={accountHref} className={styles.homeHeaderGhostButton}>
+              {accountLabel}
             </Link>
           </div>
 
@@ -319,11 +343,11 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
           <div className={styles.homeLandingNav}>
             {headerNav.map(item =>
               item.isLink ? (
-                <Link key={`${item.href}-mobile`} href={item.href} className={styles.homeLandingNavLink}>
+                <Link key={`${item.href}-mobile`} href={item.href} className={`${styles.homeLandingNavLink} ${currentPath === item.href ? styles.homeLandingNavLinkActive : ''}`}>
                   {item.label}
                 </Link>
               ) : (
-                <a key={`${item.href}-mobile`} href={item.href} className={styles.homeLandingNavLink}>
+                <a key={`${item.href}-mobile`} href={item.href} className={`${styles.homeLandingNavLink} ${currentPath === item.href ? styles.homeLandingNavLinkActive : ''}`}>
                   {item.label}
                 </a>
               )

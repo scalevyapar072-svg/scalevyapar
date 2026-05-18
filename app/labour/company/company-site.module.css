@@ -11846,3 +11846,142 @@
     padding: 26px 22px;
   }
 }
+
+/* Final shared header and sign-in refinements */
+.homeLandingDesktopNav .homeLandingNavLink,
+.homeLandingNav .homeLandingNavLink {
+  color: #334155;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.homeLandingDesktopNav .homeLandingNavLink:hover,
+.homeLandingNav .homeLandingNavLink:hover,
+.homeLandingDesktopNav .homeLandingNavLinkActive,
+.homeLandingNav .homeLandingNavLinkActive {
+  color: #2563eb;
+}
+
+.homeLandingDesktopNav .homeLandingNavLinkActive,
+.homeLandingNav .homeLandingNavLinkActive {
+  font-weight: 600;
+}
+
+.homeHeaderGhostButton {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.signinHeroTitle {
+  font-size: clamp(34px, 3.8vw, 42px);
+  line-height: 1.16;
+  font-weight: 600;
+}
+
+.signinHeroSubtitle {
+  font-size: 15px;
+  line-height: 1.72;
+  font-weight: 400;
+}
+
+.signinBenefitItem {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.signinRedirectTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.signinRedirectLink {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.signinFormTitle {
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.signinFormSubtitle {
+  font-size: 15px;
+  line-height: 1.65;
+  font-weight: 400;
+}
+
+.signinFieldLabel {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.signinInput {
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.signinForgotLink,
+.signinRemember,
+.signinInfoNote,
+.signinRegisterPrompt {
+  font-size: 14px;
+}
+
+.signinSubmitButton,
+.signinSecondaryButton {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.signinSideTitle {
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.signinSideIcon,
+.signinFeatureIcon {
+  font-weight: 700;
+}
+
+.signinSideItem strong,
+.signinFeatureCard strong {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.signinSideItem p,
+.signinFeatureCard p {
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.signinBannerTitle {
+  font-size: clamp(28px, 2.9vw, 38px);
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.signinBannerText {
+  font-size: 15px;
+  line-height: 1.72;
+}
+
+@media (max-width: 720px) {
+  .homeLandingDesktopNav .homeLandingNavLink,
+  .homeLandingNav .homeLandingNavLink {
+    font-size: 15px;
+  }
+
+  .signinHeroTitle {
+    font-size: 32px;
+  }
+
+  .signinFormTitle,
+  .signinSideTitle {
+    font-size: 21px;
+  }
+}

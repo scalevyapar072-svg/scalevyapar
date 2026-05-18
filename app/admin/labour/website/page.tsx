@@ -2135,40 +2135,145 @@ export default function LabourWebsiteEditorPage() {
 
         {activeTab === 'signin' && (
           <div style={{ display: 'grid', gap: '20px' }}>
-            <SectionCard title="Sign In Page">
+            <SectionCard title="Sign In Hero" description="Control the Sign In page eyebrow, title, page description and left-side benefit bullets.">
               <div style={{ display: 'grid', gap: '14px' }}>
                 <Field label="Eyebrow" value={content.signinPage.eyebrow} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, eyebrow: value } } : current)} />
                 <TextAreaField label="Title" value={content.signinPage.title} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, title: value } } : current)} rows={3} />
-                <TextAreaField label="Subtitle" value={content.signinPage.subtitle} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, subtitle: value } } : current)} rows={4} />
-                <Field label="Info Box Title" value={content.signinPage.infoTitle} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, infoTitle: value } } : current)} />
-                <TextAreaField label="Info Box Description" value={content.signinPage.infoDescription} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, infoDescription: value } } : current)} rows={3} />
-                {content.signinPage.benefits.map((item, index) => (
-                  <div key={`${item}-${index}`} style={{ display: 'flex', gap: '10px', alignItems: 'end' }}>
-                    <div style={{ flex: 1 }}>
-                      <Field label={`Benefit ${index + 1}`} value={item} onChange={value => setContent(current => current ? {
-                        ...current,
-                        signinPage: {
-                          ...current.signinPage,
-                          benefits: current.signinPage.benefits.map((currentItem, currentIndex) => currentIndex === index ? value : currentItem)
-                        }
-                      } : current)} />
+                <TextAreaField label="Page Description" value={content.signinPage.subtitle} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, subtitle: value } } : current)} rows={4} />
+                {content.signinPage.benefits.slice(0, 4).map((item, index) => (
+                  <Field key={`${item}-${index}`} label={`Benefit ${index + 1}`} value={item} onChange={value => setContent(current => current ? {
+                    ...current,
+                    signinPage: {
+                      ...current.signinPage,
+                      benefits: current.signinPage.benefits.map((currentItem, currentIndex) => currentIndex === index ? value : currentItem)
+                    }
+                  } : current)} />
+                ))}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Login Card" description="Edit the visible login card copy while keeping the existing sign-in logic intact.">
+              <div style={{ display: 'grid', gap: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                  <Field label="Card Title" value={content.signinPage.loginCard.title} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, title: value } } } : current)} />
+                  <Field label="Card Subtitle" value={content.signinPage.loginCard.subtitle} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, subtitle: value } } } : current)} />
+                  <Field label="Email Label" value={content.signinPage.loginCard.emailLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, emailLabel: value } } } : current)} />
+                  <Field label="Email Placeholder" value={content.signinPage.loginCard.emailPlaceholder} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, emailPlaceholder: value } } } : current)} />
+                  <Field label="Password Label" value={content.signinPage.loginCard.passwordLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, passwordLabel: value } } } : current)} />
+                  <Field label="Password Placeholder" value={content.signinPage.loginCard.passwordPlaceholder} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, passwordPlaceholder: value } } } : current)} />
+                  <Field label="Remember Me Label" value={content.signinPage.loginCard.rememberMeLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, rememberMeLabel: value } } } : current)} />
+                  <Field label="Forgot Password Label" value={content.signinPage.loginCard.forgotPasswordLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, forgotPasswordLabel: value } } } : current)} />
+                  <Field label="Sign In Button Label" value={content.signinPage.loginCard.signInButtonLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, primaryCtaLabel: value, loginCard: { ...current.signinPage.loginCard, signInButtonLabel: value } } } : current)} />
+                  <Field label="Register Company Button Label" value={content.signinPage.loginCard.registerCompanyButtonLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, secondaryCtaLabel: value, loginCard: { ...current.signinPage.loginCard, registerCompanyButtonLabel: value } } } : current)} />
+                </div>
+                <TextAreaField label="Register Prompt Text" value={content.signinPage.loginCard.registerPromptText} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, registerPromptText: value } } } : current)} rows={2} />
+                <TextAreaField label="Redirect Note Text" value={content.signinPage.loginCard.redirectNoteText} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, loginCard: { ...current.signinPage.loginCard, redirectNoteText: value } } } : current)} rows={3} />
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Right Benefits Panel" description="Update the panel title and the five benefit rows shown beside the login form.">
+              <div style={{ display: 'grid', gap: '14px' }}>
+                <Field label="Panel Title" value={content.signinPage.rightPanel.title} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, infoTitle: value, rightPanel: { ...current.signinPage.rightPanel, title: value } } } : current)} />
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {content.signinPage.rightPanel.items.map((item, index) => (
+                    <div key={`${item.title}-${index}`} style={cardStyle}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                        <Field
+                          label={`Benefit Row ${index + 1} Title`}
+                          value={item.title}
+                          onChange={value => setContent(current => current ? {
+                            ...current,
+                            signinPage: {
+                              ...current.signinPage,
+                              rightPanel: {
+                                ...current.signinPage.rightPanel,
+                                items: current.signinPage.rightPanel.items.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, title: value } : currentItem)
+                              }
+                            }
+                          } : current)}
+                        />
+                        <TextAreaField
+                          label={`Benefit Row ${index + 1} Description`}
+                          value={item.description}
+                          onChange={value => setContent(current => current ? {
+                            ...current,
+                            signinPage: {
+                              ...current.signinPage,
+                              rightPanel: {
+                                ...current.signinPage.rightPanel,
+                                items: current.signinPage.rightPanel.items.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, description: value } : currentItem)
+                              }
+                            }
+                          } : current)}
+                          rows={3}
+                        />
+                      </div>
                     </div>
-                    <button onClick={() => setContent(current => current ? {
+                  ))}
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Bottom Banner" description="Control the image and copy for the Sign In page banner section.">
+              <div style={{ display: 'grid', gap: '14px' }}>
+                <ImageUploadField
+                  label="Banner Image"
+                  value={content.signinPage.banner.imageSrc}
+                  onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, banner: { ...current.signinPage.banner, imageSrc: value } } } : current)}
+                  placeholder="/worker-hero-reference.png"
+                  uploadKey="signin-banner"
+                  uploading={uploadingField === 'signin-banner'}
+                  onUpload={async file => {
+                    const publicUrl = await uploadWebsiteImage(file, 'signin-banner')
+                    if (!publicUrl) return
+                    setContent(current => current ? {
                       ...current,
                       signinPage: {
                         ...current.signinPage,
-                        benefits: current.signinPage.benefits.filter((_, currentIndex) => currentIndex !== index)
+                        banner: {
+                          ...current.signinPage.banner,
+                          imageSrc: publicUrl
+                        }
                       }
-                    } : current)} style={dangerButtonStyle}>Remove</button>
+                    } : current)
+                  }}
+                />
+                <Field label="Banner Title" value={content.signinPage.banner.title} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, banner: { ...current.signinPage.banner, title: value } } } : current)} />
+                <TextAreaField label="Banner Description" value={content.signinPage.banner.description} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, banner: { ...current.signinPage.banner, description: value } } } : current)} rows={3} />
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Feature Strip" description="Edit the four cards shown below the Sign In banner.">
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {content.signinPage.featureStrip.map((item, index) => (
+                  <div key={`${item.title}-${index}`} style={cardStyle}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                      <Field
+                        label={`Feature ${index + 1} Title`}
+                        value={item.title}
+                        onChange={value => setContent(current => current ? {
+                          ...current,
+                          signinPage: {
+                            ...current.signinPage,
+                            featureStrip: current.signinPage.featureStrip.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, title: value } : currentItem)
+                          }
+                        } : current)}
+                      />
+                      <TextAreaField
+                        label={`Feature ${index + 1} Description`}
+                        value={item.description}
+                        onChange={value => setContent(current => current ? {
+                          ...current,
+                          signinPage: {
+                            ...current.signinPage,
+                            featureStrip: current.signinPage.featureStrip.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, description: value } : currentItem)
+                          }
+                        } : current)}
+                        rows={3}
+                      />
+                    </div>
                   </div>
                 ))}
-                <button onClick={() => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, benefits: [...current.signinPage.benefits, ''] } } : current)} style={subtleButtonStyle}>Add Benefit</button>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-                  <Field label="Primary Button Text" value={content.signinPage.primaryCtaLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, primaryCtaLabel: value } } : current)} />
-                  <Field label="Primary Button Link" value={content.signinPage.primaryCtaHref} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, primaryCtaHref: value } } : current)} />
-                  <Field label="Secondary Button Text" value={content.signinPage.secondaryCtaLabel} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, secondaryCtaLabel: value } } : current)} />
-                  <Field label="Secondary Button Link" value={content.signinPage.secondaryCtaHref} onChange={value => setContent(current => current ? { ...current, signinPage: { ...current.signinPage, secondaryCtaHref: value } } : current)} />
-                </div>
               </div>
             </SectionCard>
           </div>

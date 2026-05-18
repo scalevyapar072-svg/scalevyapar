@@ -298,6 +298,36 @@ export interface LabourCompanyWebsiteContent {
     primaryCtaHref: string
     secondaryCtaLabel: string
     secondaryCtaHref: string
+    loginCard: {
+      title: string
+      subtitle: string
+      emailLabel: string
+      emailPlaceholder: string
+      passwordLabel: string
+      passwordPlaceholder: string
+      rememberMeLabel: string
+      forgotPasswordLabel: string
+      signInButtonLabel: string
+      registerCompanyButtonLabel: string
+      registerPromptText: string
+      redirectNoteText: string
+    }
+    rightPanel: {
+      title: string
+      items: Array<{
+        title: string
+        description: string
+      }>
+    }
+    banner: {
+      imageSrc: string
+      title: string
+      description: string
+    }
+    featureStrip: Array<{
+      title: string
+      description: string
+    }>
   }
   contactPage: {
     eyebrow: string
@@ -1081,21 +1111,83 @@ const defaultContent: LabourCompanyWebsiteContent = {
     }
   },
   signinPage: {
-    eyebrow: 'Existing company access',
-    title: 'Sign in to manage your company profile, plans and worker requirements.',
-    subtitle: 'Keep this page simple for employers. Use it as a branded login page with clear actions for existing customers and new enquiries.',
-    infoTitle: 'What you can do after sign in',
-    infoDescription: 'View active plans, manage requirements, follow job status and connect with the admin team.',
+    eyebrow: 'Welcome Back!',
+    title: 'Sign In to Your Company Account',
+    subtitle: 'Customers can log in using their registered email and password. After successful login, you’ll be redirected to your company dashboard.',
+    infoTitle: 'With your company account, you can:',
+    infoDescription: 'Secure access to your account dashboard anytime.',
     benefits: [
-      'Manage posted worker requirements',
-      'Review plan validity and payment status',
-      'Track city and category hiring activity',
-      'Connect with support for activation and follow-up'
+      'Access your Company Panel and manage your profile',
+      'Browse and connect with verified workers',
+      'Post job requirements and hire the right talent',
+      'Track applications and manage enquiries'
     ],
-    primaryCtaLabel: 'Go to client login',
-    primaryCtaHref: '/login',
-    secondaryCtaLabel: 'New company enquiry',
-    secondaryCtaHref: '/labour/company/company-registration'
+    primaryCtaLabel: 'Sign In',
+    primaryCtaHref: '/labour/company/signin',
+    secondaryCtaLabel: 'Register Company',
+    secondaryCtaHref: '/labour/company/company-registration',
+    loginCard: {
+      title: 'Company Sign In',
+      subtitle: 'Use your registered email and password',
+      emailLabel: 'Email Address',
+      emailPlaceholder: 'Enter your email address',
+      passwordLabel: 'Password',
+      passwordPlaceholder: 'Enter your password',
+      rememberMeLabel: 'Remember me',
+      forgotPasswordLabel: 'Forgot Password?',
+      signInButtonLabel: 'Sign In',
+      registerCompanyButtonLabel: 'Register Company',
+      registerPromptText: 'Don’t have a company account?',
+      redirectNoteText: 'After login, you’ll be redirected to your company dashboard.'
+    },
+    rightPanel: {
+      title: 'With your company account, you can:',
+      items: [
+        {
+          title: 'Access Company Panel',
+          description: 'Manage your company profile, team and settings.'
+        },
+        {
+          title: 'Post Job Requirements',
+          description: 'Create and publish job vacancies in minutes.'
+        },
+        {
+          title: 'Browse Verified Workers',
+          description: 'Search and connect with skilled and verified workers.'
+        },
+        {
+          title: 'Track Applications',
+          description: 'View and manage applications in one place.'
+        },
+        {
+          title: 'Logged-in Account Access',
+          description: 'Secure access to your account dashboard anytime.'
+        }
+      ]
+    },
+    banner: {
+      imageSrc: '/worker-hero-reference.png',
+      title: 'Hiring Made Simple. Workforce Made Strong.',
+      description: 'ScaleVyapar Rozgar helps businesses find skilled workers and build a reliable workforce with ease.'
+    },
+    featureStrip: [
+      {
+        title: 'Secure Login',
+        description: 'Your data and account are protected with industry-standard security.'
+      },
+      {
+        title: 'Verified Access',
+        description: 'Only authorized companies can access the company panel and features.'
+      },
+      {
+        title: 'Fast Dashboard Entry',
+        description: 'Quick and seamless access to your company dashboard.'
+      },
+      {
+        title: 'Post Jobs Quickly',
+        description: 'Create job posts in minutes and reach the right workers instantly.'
+      }
+    ]
   },
   contactPage: {
     eyebrow: 'Get In Touch',
@@ -2118,11 +2210,50 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
     signinPage: {
       ...defaultContent.signinPage,
       ...merged.signinPage,
+      primaryCtaHref: merged.signinPage?.primaryCtaHref || defaultContent.signinPage.primaryCtaHref,
       secondaryCtaHref: normalizeCompanyRegistrationHref(
         merged.signinPage?.secondaryCtaHref,
         defaultContent.signinPage.secondaryCtaHref
       ),
-      benefits: Array.isArray(merged.signinPage?.benefits) && merged.signinPage.benefits.length ? merged.signinPage.benefits : defaultContent.signinPage.benefits
+      benefits: Array.isArray(merged.signinPage?.benefits) && merged.signinPage.benefits.length
+        ? defaultContent.signinPage.benefits.map((fallback, index) => merged.signinPage?.benefits?.[index] || fallback)
+        : defaultContent.signinPage.benefits,
+      loginCard: {
+        ...defaultContent.signinPage.loginCard,
+        ...merged.signinPage?.loginCard,
+        signInButtonLabel:
+          merged.signinPage?.loginCard?.signInButtonLabel ||
+          merged.signinPage?.primaryCtaLabel ||
+          defaultContent.signinPage.loginCard.signInButtonLabel,
+        registerCompanyButtonLabel:
+          merged.signinPage?.loginCard?.registerCompanyButtonLabel ||
+          merged.signinPage?.secondaryCtaLabel ||
+          defaultContent.signinPage.loginCard.registerCompanyButtonLabel
+      },
+      rightPanel: {
+        ...defaultContent.signinPage.rightPanel,
+        ...merged.signinPage?.rightPanel,
+        title:
+          merged.signinPage?.rightPanel?.title ||
+          merged.signinPage?.infoTitle ||
+          defaultContent.signinPage.rightPanel.title,
+        items: Array.isArray(merged.signinPage?.rightPanel?.items) && merged.signinPage.rightPanel.items.length
+          ? defaultContent.signinPage.rightPanel.items.map((fallback, index) => ({
+              title: merged.signinPage?.rightPanel?.items?.[index]?.title || fallback.title,
+              description: merged.signinPage?.rightPanel?.items?.[index]?.description || fallback.description
+            }))
+          : defaultContent.signinPage.rightPanel.items
+      },
+      banner: {
+        ...defaultContent.signinPage.banner,
+        ...merged.signinPage?.banner
+      },
+      featureStrip: Array.isArray(merged.signinPage?.featureStrip) && merged.signinPage.featureStrip.length
+        ? defaultContent.signinPage.featureStrip.map((fallback, index) => ({
+            title: merged.signinPage?.featureStrip?.[index]?.title || fallback.title,
+            description: merged.signinPage?.featureStrip?.[index]?.description || fallback.description
+          }))
+        : defaultContent.signinPage.featureStrip
     },
     contactPage: {
       ...defaultContent.contactPage,

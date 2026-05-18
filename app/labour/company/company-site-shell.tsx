@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import styles from './company-site.module.css'
@@ -15,6 +15,7 @@ type Props = {
 }
 
 const socialLabels = ['LinkedIn', 'Instagram', 'Facebook', 'YouTube']
+const COMPANY_TOKEN_KEY = 'labour_company_token'
 
 function SocialMark({ label }: { label: string }) {
   const initials = label === 'LinkedIn' ? 'in' : label.charAt(0)
@@ -29,6 +30,7 @@ export function CompanySiteShell({
   showFooter = true
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const jobPostHref = '/labour/company/job-post'
   const registrationHref = '/labour/company/company-registration'
   const loginHref = '/labour/company/signin'
@@ -40,9 +42,36 @@ export function CompanySiteShell({
     { label: 'About Us', href: '/labour/company/about' },
     { label: 'Pricing', href: '/labour/company/pricing' },
     { label: 'Search Worker', href: '/labour/company/search' },
-    { label: 'Company Panel', href: '/labour/company/panel' },
+    { label: 'Client Dashboard', href: '/labour/company/panel' },
     { label: 'Contact Us', href: '/labour/company/contact' }
   ]
+  const accountHref = isLoggedIn ? dashboardHref : loginHref
+  const accountLabel = isLoggedIn ? 'Logged In' : 'Login'
+
+  useEffect(() => {
+    const syncAuthState = () => {
+      const hasToken = Boolean(
+        window.localStorage.getItem(COMPANY_TOKEN_KEY) ||
+        window.sessionStorage.getItem(COMPANY_TOKEN_KEY)
+      )
+      setIsLoggedIn(hasToken)
+    }
+
+    syncAuthState()
+    window.addEventListener('storage', syncAuthState)
+    window.addEventListener('labour-company-auth-change', syncAuthState)
+    return () => {
+      window.removeEventListener('storage', syncAuthState)
+      window.removeEventListener('labour-company-auth-change', syncAuthState)
+    }
+  }, [])
+
+  const isActiveLink = (href: string) => {
+    if (href === '/labour/company') {
+      return currentPath === href
+    }
+    return currentPath === href || currentPath.startsWith(`${href}/`)
+  }
 
   return (
     <div className={styles.homeLandingPage}>
@@ -66,7 +95,7 @@ export function CompanySiteShell({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`${styles.homeLandingNavLink} ${currentPath === item.href || (item.href !== '/labour/company' && currentPath.startsWith(item.href)) ? styles.homeLandingNavLinkActive : ''}`}
+                    className={`${styles.homeLandingNavLink} ${isActiveLink(item.href) ? styles.homeLandingNavLinkActive : ''}`}
                   >
                     {item.label}
                   </Link>
@@ -80,8 +109,8 @@ export function CompanySiteShell({
                 <Link href={registrationHref} className={styles.homeHeaderSecondaryButton}>
                   Register Company
                 </Link>
-                <Link href={loginHref} className={styles.homeHeaderGhostButton}>
-                  Login
+                <Link href={accountHref} className={styles.homeHeaderGhostButton}>
+                  {accountLabel}
                 </Link>
               </div>
 
@@ -104,7 +133,7 @@ export function CompanySiteShell({
                   <Link
                     key={`${item.href}-mobile`}
                     href={item.href}
-                    className={`${styles.homeLandingNavLink} ${currentPath === item.href || (item.href !== '/labour/company' && currentPath.startsWith(item.href)) ? styles.homeLandingNavLinkActive : ''}`}
+                    className={`${styles.homeLandingNavLink} ${isActiveLink(item.href) ? styles.homeLandingNavLinkActive : ''}`}
                   >
                     {item.label}
                   </Link>

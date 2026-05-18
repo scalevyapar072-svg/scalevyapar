@@ -464,6 +464,19 @@ export function CompanyJobPostForm({
   }, [successState, companyToken])
 
   useEffect(() => {
+    if (typeof document === 'undefined' || !isAccessLocked) return
+
+    const { body } = document
+    const previousOverflow = body.style.overflow
+
+    body.style.overflow = 'hidden'
+
+    return () => {
+      body.style.overflow = previousOverflow
+    }
+  }, [isAccessLocked])
+
+  useEffect(() => {
     if (!prefillJobId || !companyToken) {
       if (!prefillJobId) {
         setPrefillState('idle')

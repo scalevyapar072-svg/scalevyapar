@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -16,6 +17,7 @@ type Props = {
 
 const socialLabels = ['LinkedIn', 'Instagram', 'Facebook', 'YouTube']
 const COMPANY_TOKEN_KEY = 'labour_company_token'
+const HEADER_LOGO_SRC = '/images/rozgar/rozgar-logo-3d.png'
 
 function SocialMark({ label }: { label: string }) {
   const initials = label === 'LinkedIn' ? 'in' : label.charAt(0)
@@ -81,12 +83,24 @@ export function CompanySiteShell({
           <header className={styles.homeLandingHeader}>
             <div className={styles.homeLandingHeaderRow}>
               <Link href="/labour/company" className={styles.homeLandingBrand}>
-                <span className={styles.homeLandingBrandMark}>SV</span>
+                <span className={styles.homeLandingBrandLogoWrap} aria-hidden="true">
+                  <Image
+                    src={HEADER_LOGO_SRC}
+                    alt=""
+                    width={1280}
+                    height={1280}
+                    sizes="(max-width: 720px) 40px, 52px"
+                    className={styles.rozgarLogo3d}
+                  />
+                </span>
                 <span className={styles.homeLandingBrandText}>
-                  <span className={styles.homeLandingBrandName}>{content.theme.brandName || 'ScaleVyapar'}</span>
+                  <span className={styles.homeLandingBrandName}>Rozgar</span>
                   <span className={styles.homeLandingBrandTagline}>
-                    {content.theme.brandTagline || 'Find skilled workers and hire faster across India'}
+                    By ScaleVyapar
                   </span>
+                </span>
+                <span className={styles.homeLandingBrandScreenReader}>
+                  {content.theme.brandName || 'ScaleVyapar Rozgar'}
                 </span>
               </Link>
 

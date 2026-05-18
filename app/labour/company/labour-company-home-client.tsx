@@ -25,6 +25,7 @@ import styles from './company-site.module.css'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
+const HEADER_LOGO_SRC = '/images/rozgar/rozgar-logo-3d.png'
 
 type PlanOption = {
   id: string
@@ -291,12 +292,25 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
       <header className={styles.homeLandingHeader}>
         <div className={styles.homeLandingHeaderRow}>
           <Link href="/labour/company" className={styles.homeLandingBrand}>
-            <span className={styles.homeLandingBrandMark}>SV</span>
+            <span className={styles.homeLandingBrandLogoWrap} aria-hidden="true">
+              <Image
+                src={HEADER_LOGO_SRC}
+                alt=""
+                width={1280}
+                height={1280}
+                sizes="(max-width: 720px) 40px, 52px"
+                className={styles.rozgarLogo3d}
+                priority
+              />
+            </span>
             <span className={styles.homeLandingBrandText}>
-              <span className={styles.homeLandingBrandName}>{content.theme.brandName || 'ScaleVyapar'}</span>
+              <span className={styles.homeLandingBrandName}>Rozgar</span>
               <span className={styles.homeLandingBrandTagline}>
-                {content.theme.brandTagline || 'Find skilled workers and hire faster across India'}
+                By ScaleVyapar
               </span>
+            </span>
+            <span className={styles.homeLandingBrandScreenReader}>
+              {content.theme.brandName || 'ScaleVyapar Rozgar'}
             </span>
           </Link>
 

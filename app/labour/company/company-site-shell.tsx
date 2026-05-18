@@ -40,7 +40,7 @@ export function CompanySiteShell({
   const navItems = content.header.navItems
   const accountHref = isLoggedIn ? dashboardHref : loginHref
   const accountLabel = isLoggedIn ? 'Logged In' : 'Login'
-  const logoSrc = content.header.logoSrc || '/rozgar-logo-source.png'
+  const logoSrc = content.header.logoSrc || '/images/rozgar/rozgar-logo.png'
   const logoWidth = (() => {
     const parsed = Number.parseInt(content.header.logoWidth || '260', 10)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 260

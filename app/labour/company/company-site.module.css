@@ -11892,17 +11892,67 @@
 }
 
 /* Final shared header and sign-in refinements */
-.homeLandingDesktopNav .homeLandingNavLink,
-.homeLandingNav .homeLandingNavLink {
+.homeLandingHeader {
+  width: min(1360px, calc(100% - 24px));
+  padding: 16px 18px;
+}
+
+.homeLandingHeaderRow {
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: nowrap;
+}
+
+.homeLandingBrand {
+  gap: 12px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.homeLandingBrandText {
+  min-width: 0;
+}
+
+.homeLandingBrandName {
+  font-size: 16px;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.homeLandingBrandTagline {
+  white-space: nowrap;
+}
+
+.homeLandingDesktopNav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.homeLandingDesktopNav .homeLandingNavLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
   color: #334155;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
   transition: color 0.2s ease, border-color 0.2s ease;
 }
 
 .homeLandingDesktopNav .homeLandingNavLink:hover,
-.homeLandingNav .homeLandingNavLink:hover,
 .homeLandingDesktopNav .homeLandingNavLinkActive,
 .homeLandingNav .homeLandingNavLinkActive {
   color: #2563eb;
@@ -11913,9 +11963,69 @@
   font-weight: 600;
 }
 
+.homeLandingHeaderButtons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 0;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.homeHeaderPrimaryButton,
+.homeHeaderSecondaryButton,
 .homeHeaderGhostButton {
+  min-height: 44px;
+  padding: 10px 20px;
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.homeHeaderPrimaryButton {
+  box-shadow: 0 14px 28px rgba(29, 78, 216, 0.18);
+}
+
+@media (max-width: 1280px) {
+  .homeLandingHeader {
+    width: min(100%, calc(100% - 20px));
+    padding: 14px 16px;
+  }
+
+  .homeLandingBrandTagline {
+    display: none;
+  }
+
+  .homeLandingDesktopNav .homeLandingNavLink {
+    padding-inline: 8px;
+    font-size: 14px;
+  }
+
+  .homeLandingHeaderButtons {
+    gap: 10px;
+  }
+
+  .homeHeaderPrimaryButton,
+  .homeHeaderSecondaryButton,
+  .homeHeaderGhostButton {
+    padding-inline: 16px;
+  }
+}
+
+@media (max-width: 1140px) {
+  .homeLandingDesktopNav .homeLandingNavLink {
+    padding-inline: 7px;
+    font-size: 13px;
+  }
+
+  .homeHeaderPrimaryButton,
+  .homeHeaderSecondaryButton,
+  .homeHeaderGhostButton {
+    min-height: 42px;
+    padding-inline: 14px;
+    font-size: 13px;
+  }
 }
 
 .signinHeroTitle {

@@ -8747,30 +8747,36 @@
 }
 
 .homeStatsBand {
-  width: 100%;
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: start;
   justify-items: stretch;
-  gap: 24px;
+  column-gap: clamp(24px, 2.6vw, 40px);
+  row-gap: 24px;
 }
 
 .homeStatsCard {
-  display: grid;
-  grid-template-rows: 68px 52px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   width: 100%;
-  justify-items: center;
-  align-content: start;
   min-height: auto;
-  padding: 0 8px;
+  padding: 0 10px;
+  text-align: center;
 }
 
 .homeStatsIconWrap {
-  width: 68px;
-  height: 68px;
-  margin: 0;
-  position: relative;
-  display: grid;
-  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 0;
+  flex-shrink: 0;
 }
 
 .homeStatsIcon {
@@ -8787,12 +8793,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0;
+  min-height: 52px;
+  margin: 18px 0 0;
 }
 
 .homeStatsCard span:last-child {
-  max-width: 210px;
-  margin: 0;
+  max-width: 190px;
+  min-height: 2.8em;
+  margin: 12px 0 0;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -8884,12 +8892,14 @@
 
 @media (max-width: 960px) {
   .homeStatsBand {
-    gap: 18px;
+    width: min(100%, 760px);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 18px;
   }
 
   .homeStatsCard {
-    grid-template-rows: auto auto auto;
     min-height: 0;
+    padding: 0 8px;
   }
 
   .homeHowTimeline {
@@ -8904,6 +8914,17 @@
   .homeHowTimelineCard h3,
   .homeHowTimelineCard p {
     min-height: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .homeStatsBand {
+    width: min(100%, 320px);
+    grid-template-columns: 1fr;
+  }
+
+  .homeStatsCard {
+    padding: 0;
   }
 }
 

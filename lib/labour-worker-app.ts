@@ -1,4 +1,4 @@
-import { promises as fs } from 'fs'
+﻿import { promises as fs } from 'fs'
 import path from 'path'
 import { jwtVerify, SignJWT } from 'jose'
 import {
@@ -37,6 +37,21 @@ const OTP_EXPIRY_MINUTES = 10
 const DEV_OTP_CODE = process.env.LABOUR_WORKER_STATIC_OTP || '123456'
 const ALLOW_STATELESS_DEMO_OTP = DEV_OTP_CODE.trim().length > 0
 const WORKER_UPLOAD_BUCKET = 'labour-worker-files'
+const LABOUR_ADMIN_SETTINGS_TABLE = 'labour_admin_settings'
+
+type LabourMasterDataPayload = {
+  options?: unknown[]
+  industryBusinessDependencies?: unknown[]
+  categoryDependencies?: unknown[]
+}
+
+type WorkerAppMasterData = {
+  availableIndustryCategories: WorkerAppMasterOption[]
+  availableBusinessTypes: WorkerAppMasterOption[]
+  industryBusinessDependencies: WorkerAppIndustryBusinessDependency[]
+  categoryDependencies: WorkerAppCategoryDependency[]
+  availableCities: string[]
+}
 
 type WorkerAuthSession = {
   id: string
@@ -125,6 +140,16 @@ export type WorkerAppFeedItem = {
   title: string
   description: string
   city: string
+  categoryId: string
+  categorySlug: string
+  industryCategoryId: string
+  industryCategoryLabel: string
+  industryCategoryValue: string
+  industryCategorySlug: string
+  businessTypeId: string
+  businessTypeLabel: string
+  businessTypeValue: string
+  businessTypeSlug: string
   locationLabel: string
   latitude: number | null
   longitude: number | null
@@ -133,6 +158,7 @@ export type WorkerAppFeedItem = {
   categoryName: string
   companyLocked: boolean
   companyName: string
+  companyArea: string
   companyCity: string
   contactPerson: string | null
   companyMobile: string | null
@@ -155,6 +181,28 @@ export type WorkerAppNotification = {
   isRead: boolean
   priority: string
   createdAt: string
+}
+
+export type WorkerAppMasterOption = {
+  id: string
+  label: string
+  value: string
+  slug: string
+}
+
+export type WorkerAppIndustryBusinessDependency = {
+  id: string
+  industryCategory: WorkerAppMasterOption
+  businessType: WorkerAppMasterOption
+}
+
+export type WorkerAppCategoryDependency = {
+  id: string
+  industryCategory: WorkerAppMasterOption
+  businessType: WorkerAppMasterOption | null
+  categoryId: string
+  categoryName: string
+  categorySlug: string
 }
 
 export type WorkerApplicationDeliveryDebugItem = {
@@ -197,6 +245,11 @@ export type WorkerAppDashboard = {
     showOnHome: boolean
     homeOrder: number
   }>
+  availableIndustryCategories: WorkerAppMasterOption[]
+  availableBusinessTypes: WorkerAppMasterOption[]
+  industryBusinessDependencies: WorkerAppIndustryBusinessDependency[]
+  categoryDependencies: WorkerAppCategoryDependency[]
+  availableCities: string[]
   popularCitySuggestions: string[]
   workerPlan: {
     id: string
@@ -206,6 +259,264 @@ export type WorkerAppDashboard = {
     registrationFee: number
     walletCredit: number
   } | null
+}
+
+const toStringValue = (value: unknown) => String(value || '').trim()
+
+const normalizeFilterValue = (value: unknown) =>
+  toStringValue(value)
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+
+const normalizeComparableKey = (value: unknown) =>
+  normalizeFilterValue(value)
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+
+const parseBooleanLike = (value: unknown): boolean | null => {
+  if (typeof value === 'boolean') {
+    return value
+  }
+  if (typeof value === 'number') {
+    return value !== 0
+  }
+  const normalized = normalizeFilterValue(value)
+  if (!normalized) {
+    return null
+  }
+  if (['true', '1', 'yes', 'y', 'active', 'enabled', 'live'].includes(normalized)) {
+    return true
+  }
+  if (['false', '0', 'no', 'n', 'inactive', 'disabled', 'deleted', 'deactivated', 'archived'].includes(normalized)) {
+    return false
+  }
+  return null
+}
+
+const hasNonEmptyValue = (value: unknown) => {
+  if (typeof value === 'string') {
+    return value.trim().length > 0
+  }
+  return value !== null && value !== undefined
+}
+
+const isMasterRecordActive = (value: unknown) => {
+  const record = asRecord(value)
+  if (!record) {
+    return false
+  }
+
+  const deletedFlag = [
+    record.isDeleted,
+    record.is_deleted,
+    record.deleted,
+    record.deleted_at,
+    record.deletedAt,
+    record.isDeactivated,
+    record.is_deactivated,
+    record.deactivated,
+    record.deactivated_at,
+    record.deactivatedAt
+  ]
+    .map(item => parseBooleanLike(item) ?? hasNonEmptyValue(item))
+    .find(item => item)
+
+  if (deletedFlag) {
+    return false
+  }
+
+  const explicitActive = [
+    record.isActive,
+    record.is_active,
+    record.active
+  ]
+    .map(parseBooleanLike)
+    .find(item => item !== null)
+
+  if (explicitActive !== undefined && explicitActive !== null) {
+    return explicitActive
+  }
+
+  const normalizedStatus = normalizeFilterValue(record.status)
+  if (normalizedStatus) {
+    if (['inactive', 'disabled', 'deleted', 'deactivated', 'archived'].includes(normalizedStatus)) {
+      return false
+    }
+    if (['active', 'enabled', 'live', 'published'].includes(normalizedStatus)) {
+      return true
+    }
+  }
+
+  return true
+}
+
+const resolveMasterKey = (value: unknown) => {
+  const record = asRecord(value)
+  if (!record) {
+    return ''
+  }
+
+  return normalizeComparableKey(
+    record.masterKey ||
+    record.master_key ||
+    record.key ||
+    record.type ||
+    record.group
+  )
+}
+
+const uniqueStrings = (values: Array<unknown>) => {
+  const seen = new Map<string, string>()
+  for (const value of values) {
+    const label = toStringValue(value)
+    const key = normalizeComparableKey(label)
+    if (!label || !key || seen.has(key)) {
+      continue
+    }
+    seen.set(key, label)
+  }
+  return Array.from(seen.values()).sort((left, right) => left.localeCompare(right, 'en-IN'))
+}
+
+const matchesComparable = (selected: string, ...candidates: Array<unknown>) => {
+  const normalizedSelected = normalizeComparableKey(selected)
+  if (!normalizedSelected) {
+    return false
+  }
+  return candidates.some(candidate => normalizeComparableKey(candidate) === normalizedSelected)
+}
+
+const toWorkerAppMasterOption = (value: unknown): WorkerAppMasterOption | null => {
+  const record = asRecord(value)
+  if (!record) {
+    return null
+  }
+
+  const label = toStringValue(record.label || record.name || record.value)
+  const optionValue = toStringValue(record.value || record.label || record.slug)
+  const id = toStringValue(record.id || optionValue || label)
+  const slug = toStringValue(record.slug || optionValue || label)
+  if (!id || !label || !optionValue) {
+    return null
+  }
+
+  return {
+    id,
+    label,
+    value: optionValue,
+    slug
+  }
+}
+
+const buildMasterOptionLookup = (options: WorkerAppMasterOption[]) => {
+  const lookup = new Map<string, WorkerAppMasterOption>()
+  for (const option of options) {
+    const keys = [option.id, option.value, option.label, option.slug]
+      .map(normalizeComparableKey)
+      .filter(Boolean)
+    for (const key of keys) {
+      lookup.set(key, option)
+    }
+  }
+  return lookup
+}
+
+const resolveMasterOption = (
+  lookup: Map<string, WorkerAppMasterOption>,
+  value: unknown
+): WorkerAppMasterOption | null => {
+  const record = asRecord(value)
+  if (record) {
+    const direct = toWorkerAppMasterOption(record)
+    if (direct) {
+      const resolved = [direct.id, direct.value, direct.label, direct.slug]
+        .map(item => lookup.get(normalizeComparableKey(item)))
+        .find(Boolean)
+      return resolved || direct
+    }
+  }
+
+  const key = normalizeComparableKey(value)
+  return key ? lookup.get(key) || null : null
+}
+
+const buildCategoryLookup = (categories: LabourCategoryRecord[]) => {
+  const lookup = new Map<string, LabourCategoryRecord>()
+  for (const category of categories) {
+    const keys = [category.id, category.slug, category.name]
+      .map(normalizeComparableKey)
+      .filter(Boolean)
+    for (const key of keys) {
+      lookup.set(key, category)
+    }
+  }
+  return lookup
+}
+
+const findCategoryRecord = (
+  lookup: Map<string, LabourCategoryRecord>,
+  ...values: Array<unknown>
+) => values
+  .map(normalizeComparableKey)
+  .filter(Boolean)
+  .map(value => lookup.get(value))
+  .find(Boolean) || null
+
+const toDashboardCategoryOption = (category: LabourCategoryRecord) => ({
+  id: category.id,
+  name: category.name,
+  description: category.description,
+  imageUrl: category.imageUrl,
+  showOnHome: category.showOnHome,
+  homeOrder: category.homeOrder
+})
+
+const buildAvailableWorkerCategories = (
+  categories: LabourCategoryRecord[],
+  categoryDependencies: WorkerAppCategoryDependency[],
+  feed: WorkerAppFeedItem[]
+) => {
+  const activeCategories = categories.filter(category => category.isActive)
+  const categoryLookup = buildCategoryLookup(activeCategories)
+  const selected = new Map<string, LabourCategoryRecord>()
+  const addCategory = (category: LabourCategoryRecord | null) => {
+    if (!category || selected.has(category.id)) {
+      return
+    }
+    selected.set(category.id, category)
+  }
+
+  for (const dependency of categoryDependencies) {
+    addCategory(
+      findCategoryRecord(
+        categoryLookup,
+        dependency.categoryId,
+        dependency.categorySlug,
+        dependency.categoryName
+      )
+    )
+  }
+
+  if (selected.size === 0) {
+    for (const item of feed) {
+      addCategory(
+        findCategoryRecord(
+          categoryLookup,
+          item.categoryId,
+          item.categorySlug,
+          item.categoryName
+        )
+      )
+    }
+  }
+
+  const source = selected.size > 0 ? Array.from(selected.values()) : activeCategories
+  return source.map(toDashboardCategoryOption)
 }
 
 const ensureOtpFile = async () => {
@@ -303,6 +614,135 @@ const writeOtpSessions = async (sessions: WorkerAuthSession[], storage: 'supabas
   const { error } = await supabaseAdmin.from(OTP_TABLE_NAME).upsert(payload, { onConflict: 'id' })
   if (error) {
     throw new Error(`Failed to save worker auth sessions: ${error.message}`)
+  }
+}
+
+const readLabourMasterData = async (
+  categories: LabourCategoryRecord[],
+  popularCitySuggestions: string[]
+): Promise<WorkerAppMasterData> => {
+  const { data, error } = await supabaseAdmin
+    .from(LABOUR_ADMIN_SETTINGS_TABLE)
+    .select('id, settings_json')
+    .eq('id', 'labour-master-data')
+    .maybeSingle()
+
+  if (error && !isMissingSupabaseTableError(error.message)) {
+    throw new Error(`Failed to load labour master data: ${error.message}`)
+  }
+
+  const masterData = ((data?.settings_json || {}) as LabourMasterDataPayload)
+  const rawOptions = (masterData.options as unknown[]) || []
+  const options = rawOptions
+    .map(item => toWorkerAppMasterOption(item))
+    .filter((item): item is WorkerAppMasterOption => Boolean(item))
+
+  const activeOptions = options.filter(option => {
+    const raw = rawOptions.find(item =>
+      matchesComparable(
+        option.id,
+        asRecord(item)?.id,
+        asRecord(item)?.value,
+        asRecord(item)?.label,
+        asRecord(item)?.slug
+      )
+    )
+    return isMasterRecordActive(raw)
+  })
+
+  const optionLookup = buildMasterOptionLookup(activeOptions)
+  const industryOptions = activeOptions.filter(option => {
+    const raw = rawOptions.find(item =>
+      matchesComparable(
+        option.id,
+        asRecord(item)?.id,
+        asRecord(item)?.value,
+        asRecord(item)?.label,
+        asRecord(item)?.slug
+      )
+    )
+    return resolveMasterKey(raw) === 'industry_category'
+  })
+
+  const businessOptions = activeOptions.filter(option => {
+    const raw = rawOptions.find(item =>
+      matchesComparable(
+        option.id,
+        asRecord(item)?.id,
+        asRecord(item)?.value,
+        asRecord(item)?.label,
+        asRecord(item)?.slug
+      )
+    )
+    return resolveMasterKey(raw) === 'business_type'
+  })
+
+  const cityOptions = rawOptions
+    .filter(item =>
+      resolveMasterKey(item) === 'city' &&
+      isMasterRecordActive(item)
+    )
+    .map(item => toStringValue(asRecord(item)?.label || asRecord(item)?.value))
+
+  const categoryLookup = buildCategoryLookup(categories)
+
+  const industryBusinessDependencies = ((masterData.industryBusinessDependencies as unknown[]) || [])
+    .filter(item => isMasterRecordActive(item))
+    .map(item => {
+      const raw = asRecord(item)
+      if (!raw) {
+        return null
+      }
+      const industryCategory = resolveMasterOption(optionLookup, raw.industryCategoryOptionId || raw.industryCategory)
+      const businessType = resolveMasterOption(optionLookup, raw.businessTypeOptionId || raw.businessType)
+      if (!industryCategory || !businessType) {
+        return null
+      }
+      return {
+        id: toStringValue(raw.id || `${industryCategory.id}-${businessType.id}`),
+        industryCategory,
+        businessType
+      } satisfies WorkerAppIndustryBusinessDependency
+    })
+    .filter((item): item is WorkerAppIndustryBusinessDependency => Boolean(item))
+
+  const categoryDependencies = ((masterData.categoryDependencies as unknown[]) || [])
+    .filter(item => isMasterRecordActive(item))
+    .map(item => {
+      const raw = asRecord(item)
+      if (!raw) {
+        return null
+      }
+      const industryCategory = resolveMasterOption(optionLookup, raw.industryCategoryOptionId || raw.industryCategory)
+      const businessType = resolveMasterOption(optionLookup, raw.businessTypeOptionId || raw.businessType)
+      const category = categoryLookup.get(
+        normalizeComparableKey(raw.categoryId || raw.categorySlug || raw.categoryName || raw.categoryLabel)
+      )
+      const categoryId = toStringValue(raw.categoryId || category?.id)
+      const categoryName = toStringValue(raw.categoryName || raw.categoryLabel || category?.name)
+      const categorySlug = toStringValue(raw.categorySlug || category?.slug)
+      if (!industryCategory || !categoryId || !categoryName) {
+        return null
+      }
+      return {
+        id: toStringValue(raw.id || `${industryCategory.id}-${businessType?.id || 'all'}-${categoryId}`),
+        industryCategory,
+        businessType,
+        categoryId,
+        categoryName,
+        categorySlug
+      } satisfies WorkerAppCategoryDependency
+    })
+    .filter((item): item is WorkerAppCategoryDependency => Boolean(item))
+
+  return {
+    availableIndustryCategories: industryOptions,
+    availableBusinessTypes: businessOptions,
+    industryBusinessDependencies,
+    categoryDependencies,
+    availableCities: cityOptions.length > 0
+      ? uniqueStrings(cityOptions)
+      : uniqueStrings(popularCitySuggestions)
   }
 }
 
@@ -564,7 +1004,6 @@ const isWorkerRegistrationComplete = (worker: LabourWorkerRecord) =>
   isWorkerProfileComplete(worker) &&
   Boolean(worker.profilePhotoPath.trim()) &&
   Boolean(worker.identityProofType) &&
-  Boolean(worker.identityProofNumber.trim()) &&
   Boolean(worker.identityProofPath.trim())
 
 const canWorkerAccessApp = (worker: LabourWorkerRecord) =>
@@ -636,9 +1075,6 @@ const assertWorkerRegistrationPayload = (payload: WorkerRegistrationPayload) => 
   }
   if (!payload.identityProofType) {
     throw new Error('Identity proof type is required.')
-  }
-  if (!payload.identityProofNumber.trim()) {
-    throw new Error('Identity proof number is required.')
   }
   if (!payload.identityProofPath.trim()) {
     throw new Error('Identity proof upload is required.')
@@ -921,23 +1357,63 @@ const buildWorkerFeed = (
   categories: LabourCategoryRecord[],
   applications: LabourJobApplicationRecord[],
   savedJobs: LabourSavedJobRecord[],
-  activation: WorkerAppActivationSummary
+  activation: WorkerAppActivationSummary,
+  masterData: WorkerAppMasterData
 ): WorkerAppFeedItem[] => {
+  const companyMap = new Map(companies.map(company => [company.id, company]))
+  const categoryMap = new Map(categories.map(category => [category.id, category]))
+  const optionLookup = buildMasterOptionLookup([
+    ...masterData.availableIndustryCategories,
+    ...masterData.availableBusinessTypes
+  ])
+  const categoryDependencyLookup = new Map<string, WorkerAppCategoryDependency[]>()
+  for (const dependency of masterData.categoryDependencies) {
+    const key = normalizeComparableKey(dependency.categoryId || dependency.categorySlug || dependency.categoryName)
+    const items = categoryDependencyLookup.get(key) || []
+    items.push(dependency)
+    categoryDependencyLookup.set(key, items)
+  }
+
   const matchingPosts = jobPosts
     .filter(jobPost => {
       if (jobPost.status !== 'live') {
         return false
       }
-      const company = companies.find(item => item.id === jobPost.companyId)
+      const expiresAt = Date.parse(jobPost.expiresAt)
+      if (jobPost.expiresAt && !Number.isNaN(expiresAt) && expiresAt < Date.now()) {
+        return false
+      }
+      const company = companyMap.get(jobPost.companyId)
       return company?.status === 'active'
     })
     .map(jobPost => {
-      const company = companies.find(item => item.id === jobPost.companyId)
-      const categoryName = categories.find(category => category.id === jobPost.categoryId)?.name || jobPost.categoryId
+      const company = companyMap.get(jobPost.companyId)
+      const companyRecord = asRecord(company)
+      const category = categoryMap.get(jobPost.categoryId)
+      const categoryName = category?.name || jobPost.categoryId
       const categoryMatch = worker.categoryIds.includes(jobPost.categoryId)
       const cityMatch = worker.city && jobPost.city && worker.city.toLowerCase() === jobPost.city.toLowerCase()
       const application = applications.find(item => item.jobPostId === jobPost.id)
       const savedJob = savedJobs.find(item => item.jobPostId === jobPost.id)
+      const categoryDependencies = categoryDependencyLookup.get(
+        normalizeComparableKey(jobPost.categoryId || category?.slug || categoryName)
+      ) || []
+      const directIndustryCategory = resolveMasterOption(optionLookup, companyRecord?.industryCategory)
+      const directBusinessType = resolveMasterOption(optionLookup, companyRecord?.businessType)
+      const inferredIndustryCategory = categoryDependencies[0]?.industryCategory || null
+      const inferredBusinessType = categoryDependencies.find(dependency =>
+        directIndustryCategory
+          ? matchesComparable(
+              directIndustryCategory.id,
+              dependency.industryCategory.id,
+              dependency.industryCategory.value,
+              dependency.industryCategory.label,
+              dependency.industryCategory.slug
+            )
+          : true
+      )?.businessType || categoryDependencies[0]?.businessType || null
+      const industryCategory = directIndustryCategory || inferredIndustryCategory
+      const businessType = directBusinessType || inferredBusinessType
       const matchReason = categoryMatch
         ? cityMatch
           ? 'Strong match in your city and category'
@@ -951,6 +1427,16 @@ const buildWorkerFeed = (
         title: jobPost.title,
         description: jobPost.description,
         city: jobPost.city,
+        categoryId: jobPost.categoryId,
+        categorySlug: category?.slug || '',
+        industryCategoryId: industryCategory?.id || '',
+        industryCategoryLabel: industryCategory?.label || '',
+        industryCategoryValue: industryCategory?.value || '',
+        industryCategorySlug: industryCategory?.slug || '',
+        businessTypeId: businessType?.id || '',
+        businessTypeLabel: businessType?.label || '',
+        businessTypeValue: businessType?.value || '',
+        businessTypeSlug: businessType?.slug || '',
         locationLabel: jobPost.locationLabel,
         latitude: jobPost.latitude,
         longitude: jobPost.longitude,
@@ -959,6 +1445,7 @@ const buildWorkerFeed = (
         categoryName,
         companyLocked: !activation.canViewCompanyDetails,
         companyName: activation.canViewCompanyDetails ? company?.companyName || 'Company not found' : 'Unlock company details after activation',
+        companyArea: toStringValue(companyRecord?.area),
         companyCity: company?.city || '',
         contactPerson: activation.canViewCompanyDetails ? company?.contactPerson || null : null,
         companyMobile: activation.canViewCompanyDetails ? resolveCompanyContactMobile(company) || null : null,
@@ -1255,6 +1742,10 @@ export const verifyWorkerOtpCode = async (mobile: string, otpCode: string) => {
 export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerAppDashboard> => {
   const snapshot = await getLabourMarketplaceSnapshot()
   const adminSettings = await getLabourAdminSettings()
+  const masterData = await readLabourMasterData(
+    snapshot.categories,
+    adminSettings.settings.workerHomeControls.popularCitySuggestions
+  )
   const worker = findWorkerById(snapshot, workerId)
   if (!worker) {
     throw new Error('Worker account not found.')
@@ -1277,6 +1768,16 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
   const notifications = snapshot.workerNotifications
     .filter(notification => notification.workerId === worker.id)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+  const feed = buildWorkerFeed(
+    worker,
+    snapshot.companies,
+    snapshot.jobPosts,
+    snapshot.categories,
+    applications,
+    savedJobs,
+    activation,
+    masterData
+  )
 
   return {
     profile: toWorkerProfile(worker, snapshot.categories),
@@ -1292,27 +1793,26 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
       extraUrl: adminSettings.settings.helpControls.supportExtraUrl,
       prefilledMessage: adminSettings.settings.helpControls.supportPrefilledMessage
     },
-    feed: buildWorkerFeed(
-      worker,
-      snapshot.companies,
-      snapshot.jobPosts,
-      snapshot.categories,
-      applications,
-      savedJobs,
-      activation
-    ),
+    feed,
     notifications: notifications.map(toWorkerNotification),
     unreadNotificationCount: notifications.filter(notification => !notification.isRead).length,
-    availableCategories: snapshot.categories
-      .filter(category => category.isActive)
-      .map(category => ({
-        id: category.id,
-        name: category.name,
-        description: category.description,
-        imageUrl: category.imageUrl,
-        showOnHome: category.showOnHome,
-        homeOrder: category.homeOrder
-      })),
+    availableCategories: buildAvailableWorkerCategories(
+      snapshot.categories,
+      masterData.categoryDependencies,
+      feed
+    ),
+    availableIndustryCategories: masterData.availableIndustryCategories,
+    availableBusinessTypes: masterData.availableBusinessTypes,
+    industryBusinessDependencies: masterData.industryBusinessDependencies,
+    categoryDependencies: masterData.categoryDependencies,
+    availableCities: masterData.availableCities.length > 0
+      ? uniqueStrings(masterData.availableCities)
+      : uniqueStrings([
+          ...adminSettings.settings.workerHomeControls.popularCitySuggestions,
+          ...feed.map(item => item.city),
+          ...feed.map(item => item.companyCity),
+          worker.city
+        ]),
     popularCitySuggestions: adminSettings.settings.workerHomeControls.popularCitySuggestions,
     workerPlan: workerPlan ? {
       id: workerPlan.id,
@@ -1762,3 +2262,4 @@ export const markWorkerNotificationsRead = async (workerId: string, notification
 
   return getWorkerAppDashboard(workerId)
 }
+

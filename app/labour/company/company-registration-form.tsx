@@ -70,14 +70,14 @@ type UploadState = {
 const REGISTRATION_BENEFITS = [
   'Register your company once and keep your hiring details connected with the ScaleVyapar worker admin workflow.',
   'Keep company profile, location, and business identity ready for faster approval and onboarding.',
-  'Submit business details clearly so your company can be reviewed and activated without repeated follow-up.',
+  'Submit business details clearly so your company account becomes active without repeated manual follow-up.',
   'Use one company profile for requirement posting, worker discovery, and company-panel activity tracking.'
 ]
 
 const FAST_HIRING_STEPS = [
   'Fill the company details with contact person, business type, city, and area so onboarding reaches the right admin flow.',
-  'After submission, your registration reaches the ScaleVyapar worker admin companies list for review.',
-  'Once approved, you can post requirements, receive worker responses, and manage hiring from the company panel.',
+  'After submission, your registration reaches the ScaleVyapar worker admin companies list and stays active for company access.',
+  'After registration, you can sign in with email and password, post requirements, receive worker responses, and manage hiring from the company panel.',
   'A complete location and business profile helps ScaleVyapar connect your company with the right worker requirements faster.'
 ]
 
@@ -353,6 +353,7 @@ export function CompanyRegistrationForm({
           companyName: form.companyName.trim(),
           contactPerson: form.contactPerson.trim(),
           email: form.companyEmail.trim().toLowerCase(),
+          password: form.password,
           mobile: form.mobile.trim(),
           contactMobile: form.whatsAppNumber.trim(),
           city: form.city.trim(),
@@ -380,7 +381,7 @@ export function CompanyRegistrationForm({
         throw new Error(data.error || 'Failed to submit company registration.')
       }
 
-      setSuccess('Your company registration has been submitted successfully. Our team will review and activate your account shortly.')
+      setSuccess('Your company registration was submitted successfully. Your company account is now active and can be used to sign in with email and password.')
       setForm(initialFormState)
       setErrors({})
       setUploads({

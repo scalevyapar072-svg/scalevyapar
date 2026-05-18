@@ -141,7 +141,7 @@ const JOB_POST_BENEFITS = [
 ]
 
 const JOB_POST_FAST_FLOW = [
-  'Log in from the company dashboard or use your registered company details to prefill the form.',
+  'Sign in with your registered company email and password to unlock the job post workflow instantly.',
   'Choose the correct worker category and describe shift, salary, facilities, and work conditions clearly.',
   'Publish the requirement for admin review so it appears with the correct company and job details in the worker panel.',
   'After review, workers can discover the job faster and the company team can manage status from one panel.'
@@ -269,7 +269,7 @@ export function CompanyJobPostForm({
   const [errors, setErrors] = useState<Partial<Record<keyof FormState | UploadKey | 'form', string>>>({})
   const [submissionId, setSubmissionId] = useState(() => `company-job-post-${Date.now()}`)
   const [companyToken, setCompanyToken] = useState('')
-  const [autofillState, setAutofillState] = useState<'idle' | 'loading' | 'ready' | 'not-found'>('idle')
+  const [autofillState, setAutofillState] = useState<'idle' | 'loading' | 'ready' | 'not-found'>('loading')
   const [submitMode, setSubmitMode] = useState<'publish' | 'draft'>('publish')
   const [submitting, setSubmitting] = useState(false)
   const [successState, setSuccessState] = useState<SuccessState | null>(null)
@@ -282,6 +282,7 @@ export function CompanyJobPostForm({
     supportingDocuments: emptyUploadState()
   })
   const companyFieldsLocked = autofillState === 'ready'
+  const isAccessLocked = autofillState === 'loading' || autofillState === 'not-found'
   const jobLockedFields = isEditMode
 
   const availableCities = useMemo(() => {
@@ -758,6 +759,14 @@ export function CompanyJobPostForm({
   }
 
   const submitForm = async (mode: 'publish' | 'draft') => {
+    if (isAccessLocked) {
+      setErrors(current => ({
+        ...current,
+        form: 'Register & login to post a job. Please sign in with your company account first.'
+      }))
+      return
+    }
+
     setSubmitMode(mode)
     setSuccessState(null)
 
@@ -902,8 +911,8 @@ export function CompanyJobPostForm({
   }
 
   return (
-    <section className={styles.companyRegisterShell}>
-      <div className={styles.companyRegisterSplit}>
+    <section className={`${styles.companyRegisterShell} ${styles.companyJobPostLockedShell}`}>
+      <div className={`${styles.companyRegisterSplit} ${isAccessLocked ? styles.companyJobPostLockedContentBlurred : ''}`}>
         <aside className={styles.companyRegisterAside}>
           <div className={styles.companyRegisterIllustration}>
             <div className={styles.companyRegisterIllustrationOrb} />
@@ -959,12 +968,6 @@ export function CompanyJobPostForm({
           {autofillState === 'ready' ? (
             <div className={styles.jobPostAutofillNotice}>
               Company details are auto-filled from your logged-in company dashboard and locked here for posting.
-            </div>
-          ) : null}
-
-          {autofillState === 'not-found' ? (
-            <div className={styles.jobPostAutofillNotice}>
-              This page is for registered companies. If you are not logged in, use your registered company details so the requirement connects to the correct admin company record.
             </div>
           ) : null}
 
@@ -1282,14 +1285,14 @@ export function CompanyJobPostForm({
                 <button
                   type="button"
                   className={styles.companyRegisterSecondaryButton}
-                  disabled={submitting}
+                  disabled={submitting || isAccessLocked}
                   onClick={() => void submitForm('draft')}
                 >
                   {submitting && submitMode === 'draft' ? 'Saving Draft...' : 'Save as Draft'}
                 </button>
                 <button
                   type="submit"
-                  disabled={!isValid || submitting}
+                  disabled={!isValid || submitting || isAccessLocked}
                   className={styles.companyRegisterPrimaryButton}
                   style={{ background: submitting ? '#94a3b8' : `linear-gradient(135deg, ${accentColor}, #1d4ed8)` }}
                 >
@@ -1307,6 +1310,33 @@ export function CompanyJobPostForm({
           </form>
         </div>
       </div>
+      {isAccessLocked ? (
+        <div className={styles.companyJobPostGateOverlay}>
+          <div className={styles.companyJobPostGateCard}>
+            <div className={styles.companyJobPostGateIcon} aria-hidden="true">
+              {autofillState === 'loading' ? '...' : '🔒'}
+            </div>
+            <h2 className={styles.companyJobPostGateTitle}>
+              {autofillState === 'loading' ? 'Checking company access...' : 'Register & Login to Post a Job'}
+            </h2>
+            <p className={styles.companyJobPostGateText}>
+              {autofillState === 'loading'
+                ? 'We are verifying whether your company session is active before opening the job posting workflow.'
+                : 'Please register your company or log in to your account before posting a job requirement.'}
+            </p>
+            {autofillState === 'not-found' ? (
+              <div className={styles.companyJobPostGateActions}>
+                <Link href="/labour/company/signin" className={styles.companyJobPostGatePrimary}>
+                  Login Here
+                </Link>
+                <Link href="/labour/company/company-registration" className={styles.companyJobPostGateSecondary}>
+                  Register Company
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

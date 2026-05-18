@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
       return user
     }
 
-    const result = await loginCompanyAppFromDashboard(user.email, user.name)
+    const result = await loginCompanyAppFromDashboard(user.email)
 
     return NextResponse.json({
       success: true,

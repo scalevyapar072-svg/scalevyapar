@@ -7,6 +7,7 @@ import {
   getVisibleLabourMasterOptions,
   groupLabourMasterOptions
 } from '@/lib/labour-masters-schema'
+import { createClient, getUserByEmail } from '@/lib/db'
 import { createLabourEntity, getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
 
 const addDays = (dateValue: string, days: number) => {
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
     const companyName = String(body.companyName || '').trim()
     const contactPerson = String(body.contactPerson || '').trim()
     const email = String(body.email || '').trim().toLowerCase()
+    const password = String(body.password || '')
     const mobile = String(body.mobile || '').trim()
     const contactMobile = String(body.contactMobile || '').trim()
     const city = String(body.city || '').trim()
@@ -93,8 +95,8 @@ export async function POST(request: NextRequest) {
     const categoryId = String(body.categoryId || categoryIds[0] || '').trim()
     const actor = 'company-website'
 
-    if (!companyName || !contactPerson || !mobile) {
-      return NextResponse.json({ error: 'Company name, contact person and mobile are required.' }, { status: 400 })
+    if (!companyName || !contactPerson || !mobile || !email || !password) {
+      return NextResponse.json({ error: 'Company name, contact person, email, password and mobile are required.' }, { status: 400 })
     }
 
     if (!city || !area) {
@@ -113,6 +115,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company email is not valid.' }, { status: 400 })
     }
 
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      return NextResponse.json({ error: 'Password must be at least 8 characters and include letters and numbers.' }, { status: 400 })
+    }
+
     const snapshot = await getLabourMarketplaceSnapshot()
     const mastersSnapshot = await getLabourMastersSnapshot()
     const masterOptionsByKey = groupLabourMasterOptions(mastersSnapshot.options)
@@ -121,6 +127,11 @@ export async function POST(request: NextRequest) {
     )
     if (duplicateCompany) {
       return NextResponse.json({ error: 'A company with this mobile number or email already exists.' }, { status: 409 })
+    }
+
+    const existingUser = await getUserByEmail(email)
+    if (existingUser) {
+      return NextResponse.json({ error: 'A login account already exists with this email address.' }, { status: 409 })
     }
 
     const plan = activePlan
@@ -173,6 +184,14 @@ export async function POST(request: NextRequest) {
     ].filter(Boolean).join('\n\n')
 
     const today = new Date().toISOString().slice(0, 10)
+    await createClient({
+      name: companyName,
+      email,
+      password,
+      phone: mobile,
+      plan: activePlan || undefined
+    })
+
     const companySnapshot = await createLabourEntity(
       'companies',
       {
@@ -196,7 +215,7 @@ export async function POST(request: NextRequest) {
         companyProofPath: uploadedDocuments[1]?.storagePath || '',
         ownerIdProofPath: uploadedDocuments[2]?.storagePath || '',
         categoryIds,
-        status: 'pending',
+        status: 'active',
         registrationFeePaid: false,
         activePlan
       },
@@ -231,7 +250,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Company enquiry submitted successfully. Our team will review it and activate the account.',
+      message: 'Company registration submitted successfully. Your company account is active and ready for sign in.',
       companyId: createdCompany.id,
       snapshot: finalSnapshot
     })

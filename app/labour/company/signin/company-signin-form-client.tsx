@@ -48,7 +48,7 @@ export function CompanySigninFormClient({ content }: Props) {
         },
         body: JSON.stringify({
           email,
-          identity: password
+          password
         })
       })
 

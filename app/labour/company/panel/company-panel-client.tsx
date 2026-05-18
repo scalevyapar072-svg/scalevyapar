@@ -238,7 +238,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
         },
         body: JSON.stringify({
           email,
-          identity
+          password: identity
         })
       })
 
@@ -589,29 +589,30 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
           <p className={styles.eyebrow}>Company panel</p>
           <h1 className={styles.pageTitle}>Receive worker applications in one place</h1>
           <p className={styles.textMuted} style={{ marginBottom: '20px' }}>
-            Sign in with your registered company email and the company name or contact person linked to your account to open the company dashboard.
+            Sign in with your registered company email address and password to open the company dashboard.
           </p>
           <form className={styles.stack} onSubmit={submitLogin}>
             <label style={{ display: 'grid', gap: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company email</span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Email address</span>
               <input
                 value={email}
                 onChange={event => setEmail(event.target.value)}
-                placeholder="Registered company email"
+                placeholder="Enter your registered email address"
                 style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
               />
             </label>
             <label style={{ display: 'grid', gap: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Company name or contact person</span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Password</span>
               <input
+                type="password"
                 value={identity}
                 onChange={event => setIdentity(event.target.value)}
-                placeholder="Company name or contact person"
+                placeholder="Enter your password"
                 style={{ width: '100%', padding: '12px 14px', border: '1px solid #dbe2ea', borderRadius: '14px', fontSize: '14px' }}
               />
             </label>
             <div className={styles.softCard} style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
-              <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use your company email and the saved company/contact name.</p>
+              <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use the email address and password from your registered company account.</p>
             </div>
             {error ? (
               <div className={styles.softCard} style={{ borderColor: '#fecaca', background: '#fef2f2' }}>
@@ -625,7 +626,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
                 style={{ background: '#2563eb', color: '#ffffff', border: '1px solid transparent', flex: '1 1 220px' }}
                 disabled={submitting}
               >
-                {submitting ? 'Opening company panel...' : 'Open company panel'}
+                {submitting ? 'Signing in...' : 'Sign In'}
               </button>
               <button
                 type="button"
@@ -663,7 +664,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
             <div className={styles.softCard} style={{ background: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.16)' }}>
               <p style={{ margin: '0 0 6px', color: '#ffffff', fontSize: '14px', fontWeight: 700 }}>How access works</p>
               <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.82)', fontSize: '13px', lineHeight: 1.7 }}>
-                Sign in using the registered company email together with the company name or contact person saved in worker admin.
+                Sign in using the registered company email address and password saved for your company account.
               </p>
             </div>
             <div className={styles.softCard} style={{ background: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.16)' }}>

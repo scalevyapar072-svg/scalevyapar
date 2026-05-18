@@ -22,7 +22,6 @@ const addDays = (dateValue: string, days: number) => {
 
 const normalize = (value: unknown) => String(value || '').trim()
 const normalizeEmail = (value: unknown) => normalize(value).toLowerCase()
-const normalizeName = (value: unknown) => normalize(value).toLowerCase()
 const normalizeLookup = (value: unknown) => normalize(value).toLowerCase()
 
 const formatStatusLabel = (value: string) => {
@@ -179,17 +178,14 @@ export async function POST(request: NextRequest) {
       const auth = await requireCompanyApp(request)
       company = snapshot.companies.find(item => item.id === auth.companyId) || null
     } catch {
-      company = snapshot.companies.find(item =>
-        normalizeEmail(item.email) === companyEmail &&
-        item.mobile === mobile &&
-        normalizeName(item.companyName) === normalizeName(companyName)
-      ) || snapshot.companies.find(item =>
-        normalizeEmail(item.email) === companyEmail && item.mobile === mobile
-      ) || null
+      return NextResponse.json(
+        { error: 'Register & login to post a job. Please sign in with your company account first.' },
+        { status: 401 }
+      )
     }
 
     if (!company) {
-      return NextResponse.json({ error: 'This page is only for registered companies. Please use your registered company details or log in first.' }, { status: 404 })
+      return NextResponse.json({ error: 'This registered company account could not be found. Please sign in again.' }, { status: 404 })
     }
 
     if (company.status === 'blocked') {

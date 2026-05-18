@@ -25,7 +25,6 @@ import styles from './company-site.module.css'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
-const HEADER_LOGO_SRC = '/images/rozgar/rozgar-logo-3d.png'
 
 type PlanOption = {
   id: string
@@ -151,6 +150,11 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
   const currentPath = '/labour/company'
   const accountHref = isLoggedIn ? panelHref : loginHref
   const accountLabel = isLoggedIn ? 'Logged In' : 'Login'
+  const logoSrc = content.header.logoSrc || '/rozgar-logo-source.png'
+  const logoWidth = (() => {
+    const parsed = Number.parseInt(content.header.logoWidth || '260', 10)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 260
+  })()
 
   const categorySearchOptions = useMemo(() => {
     const dynamicCategories = content.home.categories.cards
@@ -278,14 +282,9 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
     }
   ]
 
-  const headerNav = [
-    { label: 'Home', href: '/labour/company', isLink: true },
-    { label: 'About Us', href: '/labour/company/about', isLink: true },
-    ...(showPricingLink ? [{ label: 'Pricing', href: '/labour/company/pricing', isLink: true }] : []),
-    { label: 'Search Worker', href: '/labour/company/search', isLink: true },
-    { label: 'Client Dashboard', href: panelHref, isLink: true },
-    { label: 'Contact Us', href: '/labour/company/contact', isLink: true }
-  ]
+  const headerNav = content.header.navItems
+    .filter(item => showPricingLink || item.href !== '/labour/company/pricing')
+    .map(item => ({ ...item, isLink: true }))
 
   return (
     <div className={styles.homeLandingPage}>
@@ -293,20 +292,21 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
         <div className={styles.homeLandingHeaderRow}>
           <Link href="/labour/company" className={styles.homeLandingBrand}>
             <span className={styles.homeLandingBrandLogoWrap} aria-hidden="true">
-              <Image
-                src={HEADER_LOGO_SRC}
-                alt=""
-                width={1280}
-                height={1280}
-                sizes="(max-width: 720px) 40px, 52px"
+              <img
+                src={logoSrc}
+                alt={content.theme.brandName || 'ScaleVyapar Rozgar'}
                 className={styles.rozgarLogo3d}
-                priority
+                style={{
+                  width: `${logoWidth}px`,
+                  maxWidth: `min(${logoWidth}px, calc(100vw - 32px))`,
+                  height: 'auto'
+                }}
               />
             </span>
             <span className={styles.homeLandingBrandText}>
-              <span className={styles.homeLandingBrandName}>Rozgar</span>
+              <span className={styles.homeLandingBrandName}>{content.theme.brandName || 'ScaleVyapar Rozgar'}</span>
               <span className={styles.homeLandingBrandTagline}>
-                By ScaleVyapar
+                {content.theme.brandTagline || 'Find skilled workers and hire faster across India'}
               </span>
             </span>
             <span className={styles.homeLandingBrandScreenReader}>

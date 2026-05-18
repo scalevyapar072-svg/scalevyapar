@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -17,7 +16,6 @@ type Props = {
 
 const socialLabels = ['LinkedIn', 'Instagram', 'Facebook', 'YouTube']
 const COMPANY_TOKEN_KEY = 'labour_company_token'
-const HEADER_LOGO_SRC = '/images/rozgar/rozgar-logo-3d.png'
 
 function SocialMark({ label }: { label: string }) {
   const initials = label === 'LinkedIn' ? 'in' : label.charAt(0)
@@ -39,16 +37,14 @@ export function CompanySiteShell({
   const dashboardHref = '/labour/company/panel'
   const searchHref = '/labour/company/search'
   const workerJoinHref = '/login'
-  const navItems = [
-    { label: 'Home', href: '/labour/company' },
-    { label: 'About Us', href: '/labour/company/about' },
-    { label: 'Pricing', href: '/labour/company/pricing' },
-    { label: 'Search Worker', href: '/labour/company/search' },
-    { label: 'Client Dashboard', href: '/labour/company/panel' },
-    { label: 'Contact Us', href: '/labour/company/contact' }
-  ]
+  const navItems = content.header.navItems
   const accountHref = isLoggedIn ? dashboardHref : loginHref
   const accountLabel = isLoggedIn ? 'Logged In' : 'Login'
+  const logoSrc = content.header.logoSrc || '/rozgar-logo-source.png'
+  const logoWidth = (() => {
+    const parsed = Number.parseInt(content.header.logoWidth || '260', 10)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 260
+  })()
 
   useEffect(() => {
     const syncAuthState = () => {
@@ -84,19 +80,21 @@ export function CompanySiteShell({
             <div className={styles.homeLandingHeaderRow}>
               <Link href="/labour/company" className={styles.homeLandingBrand}>
                 <span className={styles.homeLandingBrandLogoWrap} aria-hidden="true">
-                  <Image
-                    src={HEADER_LOGO_SRC}
-                    alt=""
-                    width={1280}
-                    height={1280}
-                    sizes="(max-width: 720px) 40px, 52px"
+                  <img
+                    src={logoSrc}
+                    alt={content.theme.brandName || 'ScaleVyapar Rozgar'}
                     className={styles.rozgarLogo3d}
+                    style={{
+                      width: `${logoWidth}px`,
+                      maxWidth: `min(${logoWidth}px, calc(100vw - 32px))`,
+                      height: 'auto'
+                    }}
                   />
                 </span>
                 <span className={styles.homeLandingBrandText}>
-                  <span className={styles.homeLandingBrandName}>Rozgar</span>
+                  <span className={styles.homeLandingBrandName}>{content.theme.brandName || 'ScaleVyapar Rozgar'}</span>
                   <span className={styles.homeLandingBrandTagline}>
-                    By ScaleVyapar
+                    {content.theme.brandTagline || 'Find skilled workers and hire faster across India'}
                   </span>
                 </span>
                 <span className={styles.homeLandingBrandScreenReader}>

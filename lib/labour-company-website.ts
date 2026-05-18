@@ -510,7 +510,7 @@ const defaultContent: LabourCompanyWebsiteContent = {
   },
   header: {
     announcement: 'Daily worker hiring for factories, workshops, contractors and growing businesses',
-    logoSrc: '/images/rozgar/rozgar-logo.png',
+    logoSrc: '/images/rozgar/rozgar-logo-3d.png',
     logoWidth: '260',
     primaryCtaLabel: 'Post Requirement',
     primaryCtaHref: '/labour/company/job-post',
@@ -1873,7 +1873,7 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
     const normalized = merged.header.logoSrc.trim().replace(/\.pwg$/i, '.png')
     if (
       normalized === '/rozgar-logo-source.png' ||
-      normalized === '/images/rozgar/rozgar-logo-3d.png'
+      normalized === '/images/rozgar/rozgar-logo.png'
     ) {
       return defaultContent.header.logoSrc
     }

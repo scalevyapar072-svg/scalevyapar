@@ -141,17 +141,58 @@ function HeroBannerImage({ src, alt, priority = false }: { src: string; alt: str
 export function LabourCompanyHomeClient({ content, industryCategories, companyPlans, stats }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const showPricingLink = companyPlans.length > 0
 
   const jobPostHref = '/labour/company/job-post'
   const registrationHref = '/labour/company/company-registration'
   const searchHref = '/labour/company/search'
   const loginHref = '/labour/company/signin'
   const panelHref = '/labour/company/panel'
+  const hasCompanyPlans = companyPlans.length > 0
   const workerJoinHref = content.home.workerCta.buttonHref || '/labour'
   const currentPath = '/labour/company'
   const accountHref = isLoggedIn ? panelHref : loginHref
   const accountLabel = isLoggedIn ? 'Logged In' : 'Login'
+  const fallbackHeaderNav = [
+    { label: 'Home', href: '/labour/company' },
+    { label: 'About Us', href: '/labour/company/about' },
+    ...(hasCompanyPlans ? [{ label: 'Pricing', href: '/labour/company/pricing' }] : []),
+    { label: 'Search Worker', href: '/labour/company/search' },
+    { label: 'Client Dashboard', href: panelHref },
+    { label: 'Contact Us', href: '/labour/company/contact' }
+  ]
+  const headerNav = (content.header.navItems.length ? content.header.navItems : fallbackHeaderNav)
+    .filter(item => item?.label?.trim() && item?.href?.trim())
+  const fallbackFooterLinkGroups = [
+    {
+      title: 'Quick Links',
+      links: [
+        { label: 'Home', href: '/labour/company' },
+        { label: 'About Us', href: '/labour/company/about' },
+        { label: 'Pricing', href: '/labour/company/pricing' },
+        { label: 'Search Worker', href: '/labour/company/search' },
+        { label: 'Contact Us', href: '/labour/company/contact' }
+      ]
+    },
+    {
+      title: 'For Companies',
+      links: [
+        { label: 'Post a Job', href: jobPostHref },
+        { label: 'Register Company', href: registrationHref },
+        { label: 'Company Portal', href: panelHref },
+        { label: 'Login', href: loginHref }
+      ]
+    },
+    {
+      title: 'For Workers',
+      links: [
+        { label: 'Find Jobs', href: searchHref },
+        { label: 'Join as Worker', href: workerJoinHref },
+        { label: 'Browse Categories', href: searchHref }
+      ]
+    }
+  ]
+  const footerLinkGroups = (content.footer.linkGroups.length ? content.footer.linkGroups : fallbackFooterLinkGroups)
+    .filter(group => group?.title?.trim() && Array.isArray(group.links) && group.links.some(link => link?.label?.trim() && link?.href?.trim()))
 
   const categorySearchOptions = useMemo(() => {
     const dynamicCategories = content.home.categories.cards
@@ -279,14 +320,6 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
     }
   ]
 
-  const headerNav = [
-    { label: 'Home', href: '/labour/company', isLink: true },
-    { label: 'About Us', href: '/labour/company/about', isLink: true },
-    ...(showPricingLink ? [{ label: 'Pricing', href: '/labour/company/pricing', isLink: true }] : []),
-    { label: 'Search Worker', href: '/labour/company/search', isLink: true },
-    { label: 'Client Dashboard', href: panelHref, isLink: true },
-    { label: 'Contact Us', href: '/labour/company/contact', isLink: true }
-  ]
   const logoSrc = normalizeWebsiteAssetPath(content.header.logoSrc, DEFAULT_ROZGAR_LOGO_SRC)
   const parsedLogoWidth = Number(content.header.logoWidth)
   const logoWidth = Number.isFinite(parsedLogoWidth) && parsedLogoWidth > 0 ? Math.round(parsedLogoWidth) : 220
@@ -310,17 +343,15 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
           </Link>
 
           <nav className={styles.homeLandingDesktopNav}>
-            {headerNav.map(item =>
-              item.isLink ? (
-                <Link key={item.href} href={item.href} className={`${styles.homeLandingNavLink} ${currentPath === item.href ? styles.homeLandingNavLinkActive : ''}`}>
-                  {item.label}
-                </Link>
-              ) : (
-                <a key={item.href} href={item.href} className={`${styles.homeLandingNavLink} ${currentPath === item.href ? styles.homeLandingNavLinkActive : ''}`}>
-                  {item.label}
-                </a>
-              )
-            )}
+            {headerNav.map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${styles.homeLandingNavLink} ${currentPath === item.href || currentPath.startsWith(`${item.href}/`) ? styles.homeLandingNavLinkActive : ''}`}
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
 
           <div className={styles.homeLandingHeaderButtons}>
@@ -350,17 +381,15 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
 
         <div className={`${styles.homeLandingNavRow} ${menuOpen ? styles.homeLandingNavRowOpen : ''}`}>
           <div className={styles.homeLandingNav}>
-            {headerNav.map(item =>
-              item.isLink ? (
-                <Link key={`${item.href}-mobile`} href={item.href} className={`${styles.homeLandingNavLink} ${currentPath === item.href ? styles.homeLandingNavLinkActive : ''}`}>
-                  {item.label}
-                </Link>
-              ) : (
-                <a key={`${item.href}-mobile`} href={item.href} className={`${styles.homeLandingNavLink} ${currentPath === item.href ? styles.homeLandingNavLinkActive : ''}`}>
-                  {item.label}
-                </a>
-              )
-            )}
+            {headerNav.map(item => (
+              <Link
+                key={`${item.href}-mobile`}
+                href={item.href}
+                className={`${styles.homeLandingNavLink} ${currentPath === item.href || currentPath.startsWith(`${item.href}/`) ? styles.homeLandingNavLinkActive : ''}`}
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
           <div className={styles.homeLandingNavUtilities}>
             <Link href={searchHref} className={styles.homeHeaderDashboardButton}>
@@ -688,35 +717,20 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
             </div>
           </div>
 
-          <div>
-            <h4 className={styles.homeFooterTitle}>Quick Links</h4>
-            <div className={styles.homeFooterLinks}>
-              <Link href="/labour/company">Home</Link>
-              <Link href="/labour/company/about">About Us</Link>
-              {showPricingLink ? <Link href="/labour/company/pricing">Pricing</Link> : null}
-              <Link href="/labour/company/search">Search Worker</Link>
-              <Link href="/labour/company/contact">Contact Us</Link>
+          {footerLinkGroups.map(group => (
+            <div key={group.title}>
+              <h4 className={styles.homeFooterTitle}>{group.title}</h4>
+              <div className={styles.homeFooterLinks}>
+                {group.links
+                  .filter(link => link?.label?.trim() && link?.href?.trim())
+                  .map(link => (
+                    <Link key={`${group.title}-${link.label}-${link.href}`} href={link.href}>
+                      {link.label}
+                    </Link>
+                  ))}
+              </div>
             </div>
-          </div>
-
-          <div>
-            <h4 className={styles.homeFooterTitle}>For Companies</h4>
-            <div className={styles.homeFooterLinks}>
-              <Link href={jobPostHref}>Post a Job</Link>
-              <Link href={registrationHref}>Register Company</Link>
-              <Link href={panelHref}>Company Portal</Link>
-              <Link href={loginHref}>Login</Link>
-            </div>
-          </div>
-
-          <div>
-            <h4 className={styles.homeFooterTitle}>For Workers</h4>
-            <div className={styles.homeFooterLinks}>
-              <Link href={searchHref}>Find Jobs</Link>
-              <Link href={workerJoinHref}>Join as Worker</Link>
-              <Link href={searchHref}>Browse Categories</Link>
-            </div>
-          </div>
+          ))}
 
           <div>
             <h4 className={styles.homeFooterTitle}>Legal</h4>

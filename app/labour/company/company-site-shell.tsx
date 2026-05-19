@@ -42,7 +42,7 @@ export function CompanySiteShell({
   const logoSrc = normalizeWebsiteAssetPath(content.header.logoSrc, DEFAULT_ROZGAR_LOGO_SRC)
   const parsedLogoWidth = Number(content.header.logoWidth)
   const logoWidth = Number.isFinite(parsedLogoWidth) && parsedLogoWidth > 0 ? Math.round(parsedLogoWidth) : 220
-  const navItems = [
+  const fallbackNavItems = [
     { label: 'Home', href: '/labour/company' },
     { label: 'About Us', href: '/labour/company/about' },
     { label: 'Pricing', href: '/labour/company/pricing' },
@@ -50,6 +50,39 @@ export function CompanySiteShell({
     { label: 'Client Dashboard', href: '/labour/company/panel' },
     { label: 'Contact Us', href: '/labour/company/contact' }
   ]
+  const navItems = (content.header.navItems.length ? content.header.navItems : fallbackNavItems)
+    .filter(item => item?.label?.trim() && item?.href?.trim())
+  const fallbackFooterLinkGroups = [
+    {
+      title: 'Quick Links',
+      links: [
+        { label: 'Home', href: '/labour/company' },
+        { label: 'About Us', href: '/labour/company/about' },
+        { label: 'Pricing', href: '/labour/company/pricing' },
+        { label: 'Search Worker', href: '/labour/company/search' },
+        { label: 'Contact Us', href: '/labour/company/contact' }
+      ]
+    },
+    {
+      title: 'For Companies',
+      links: [
+        { label: 'Post a Job', href: jobPostHref },
+        { label: 'Register Company', href: registrationHref },
+        { label: 'Company Portal', href: dashboardHref },
+        { label: 'Login', href: loginHref }
+      ]
+    },
+    {
+      title: 'For Workers',
+      links: [
+        { label: 'Find Jobs', href: searchHref },
+        { label: 'Join as Worker', href: workerJoinHref },
+        { label: 'Browse Categories', href: searchHref }
+      ]
+    }
+  ]
+  const footerLinkGroups = (content.footer.linkGroups.length ? content.footer.linkGroups : fallbackFooterLinkGroups)
+    .filter(group => group?.title?.trim() && Array.isArray(group.links) && group.links.some(link => link?.label?.trim() && link?.href?.trim()))
   const accountHref = isLoggedIn ? dashboardHref : loginHref
   const accountLabel = isLoggedIn ? 'Logged In' : 'Login'
 
@@ -186,35 +219,20 @@ export function CompanySiteShell({
                 </div>
               </div>
 
-              <div>
-                <h4 className={styles.homeFooterTitle}>Quick Links</h4>
-                <div className={styles.homeFooterLinks}>
-                  <Link href="/labour/company">Home</Link>
-                  <Link href="/labour/company/about">About Us</Link>
-                  <Link href="/labour/company/pricing">Pricing</Link>
-                  <Link href="/labour/company/search">Search Worker</Link>
-                  <Link href="/labour/company/contact">Contact Us</Link>
+              {footerLinkGroups.map(group => (
+                <div key={group.title}>
+                  <h4 className={styles.homeFooterTitle}>{group.title}</h4>
+                  <div className={styles.homeFooterLinks}>
+                    {group.links
+                      .filter(link => link?.label?.trim() && link?.href?.trim())
+                      .map(link => (
+                        <Link key={`${group.title}-${link.label}-${link.href}`} href={link.href}>
+                          {link.label}
+                        </Link>
+                      ))}
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <h4 className={styles.homeFooterTitle}>For Companies</h4>
-                <div className={styles.homeFooterLinks}>
-                  <Link href={jobPostHref}>Post a Job</Link>
-                  <Link href={registrationHref}>Register Company</Link>
-                  <Link href={dashboardHref}>Company Portal</Link>
-                  <Link href={loginHref}>Login</Link>
-                </div>
-              </div>
-
-              <div>
-                <h4 className={styles.homeFooterTitle}>For Workers</h4>
-                <div className={styles.homeFooterLinks}>
-                  <Link href={searchHref}>Find Jobs</Link>
-                  <Link href={workerJoinHref}>Join as Worker</Link>
-                  <Link href={searchHref}>Browse Categories</Link>
-                </div>
-              </div>
+              ))}
 
               <div>
                 <h4 className={styles.homeFooterTitle}>Legal</h4>

@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs'
 import path from 'path'
+import { unstable_noStore as noStore } from 'next/cache'
 import { supabaseAdmin } from './supabase-admin'
 import {
   DEFAULT_CONTACT_SUPPORT_SRC,
@@ -1520,6 +1521,22 @@ const writeJsonContent = async (content: LabourCompanyWebsiteContent) => {
   await fs.writeFile(DATA_FILE_PATH, JSON.stringify(content, null, 2), 'utf8')
 }
 
+const persistSupabaseContent = async (content: LabourCompanyWebsiteContent) => {
+  const { error } = await supabaseAdmin
+    .from(TABLE_NAME)
+    .upsert({
+      id: RECORD_ID,
+      page_key: 'company',
+      title: content.theme.brandName,
+      content_json: content,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' })
+
+  if (error) {
+    throw error
+  }
+}
+
 const uniqueSections = (sections: LabourCompanyWebsiteSection[]) => {
   const allowed: LabourCompanyWebsiteSection[] = ['hero', 'trust', 'features', 'process', 'pricing', 'testimonials', 'faq', 'cta', 'intake']
   const seen = new Set<LabourCompanyWebsiteSection>()
@@ -2384,6 +2401,7 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
 }
 
 export const getLabourCompanyWebsiteContent = async (): Promise<{ content: LabourCompanyWebsiteContent; storage: 'supabase' | 'json' }> => {
+  noStore()
   const { data, error } = await supabaseAdmin
     .from(TABLE_NAME)
     .select('content_json')
@@ -2399,7 +2417,9 @@ export const getLabourCompanyWebsiteContent = async (): Promise<{ content: Labou
   }
 
   if (!data?.content_json) {
-    return { content: normalizeContent(await readJsonContent()), storage: 'json' }
+    const seededContent = normalizeContent(await readJsonContent())
+    await persistSupabaseContent(seededContent)
+    return { content: seededContent, storage: 'supabase' }
   }
 
   return {
@@ -2409,24 +2429,22 @@ export const getLabourCompanyWebsiteContent = async (): Promise<{ content: Labou
 }
 
 export const updateLabourCompanyWebsiteContent = async (content: LabourCompanyWebsiteContent) => {
+  noStore()
   const normalized = normalizeContent(content)
-  const { error } = await supabaseAdmin
-    .from(TABLE_NAME)
-    .upsert({
-      id: RECORD_ID,
-      page_key: 'company',
-      title: normalized.theme.brandName,
-      content_json: normalized,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'id' })
 
-  if (error && isMissingSupabaseTableError(error.message)) {
-    await writeJsonContent(normalized)
-    return { content: normalized, storage: 'json' as const }
-  }
+  try {
+    await persistSupabaseContent(normalized)
+  } catch (error) {
+    if (error && typeof error === 'object' && 'message' in error && isMissingSupabaseTableError(String(error.message))) {
+      await writeJsonContent(normalized)
+      return { content: normalized, storage: 'json' as const }
+    }
 
-  if (error) {
-    throw new Error(`Failed to update labour company website content: ${error.message}`)
+    if (error instanceof Error) {
+      throw new Error(`Failed to update labour company website content: ${error.message}`)
+    }
+
+    throw error
   }
 
   return { content: normalized, storage: 'supabase' as const }

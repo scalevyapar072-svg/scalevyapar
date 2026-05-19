@@ -1,9 +1,19 @@
 'use client'
 
+import { BadgeCheck, CircleAlert, Download, PhoneCall, RotateCcw } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from '../company-site.module.css'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import {
+  FALLBACK_BILLING_HISTORY,
+  billingStatusTone as getBillingStatusTone,
+  buildBillingAddress,
+  type BillingHistoryTab,
+  type CompanyBillingRecord,
+  formatBillingAmount as formatCompanyBillingAmount,
+  resolveCompanyBillingHistory
+} from '@/lib/labour-company-billing'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
 const COMPANY_PROFILE_KEY = 'labour_company_profile'
@@ -53,7 +63,10 @@ type CompanyDashboard = {
     email: string
     mobile: string
     gstNumber?: string
+    companyAddress?: string
+    pincode?: string
     city: string
+    area?: string
     state?: string
     status: string
     activePlan: string
@@ -68,21 +81,7 @@ type CompanyDashboard = {
   }
   jobs: CompanyJob[]
   recentApplications: CompanyApplicant[]
-}
-
-type BillingHistoryTab = 'all' | 'success' | 'pending' | 'failed'
-
-type CompanyBillingRecord = {
-  id: string
-  date: string
-  time: string
-  planDetails: string
-  appliesUntil: string
-  amount: number
-  status: string
-  statusType: Exclude<BillingHistoryTab, 'all'>
-  actionLabel: string
-  actionType: 'retry' | 'invoice' | 'contact'
+  billingHistory?: CompanyBillingRecord[] | null
 }
 
 type Props = {
@@ -90,45 +89,6 @@ type Props = {
   jobId?: string
   content: LabourCompanyWebsiteContent['companyPanel']
 }
-
-const FALLBACK_BILLING_HISTORY: CompanyBillingRecord[] = [
-  {
-    id: 'pending-3-months-2026-05-19',
-    date: '19 May 2026',
-    time: '11:13:45 PM',
-    planDetails: '3 Months Plan',
-    appliesUntil: 'Ordered on: May 19, 2026',
-    amount: 4306,
-    status: 'Pending',
-    statusType: 'pending',
-    actionLabel: 'Retry payment',
-    actionType: 'retry'
-  },
-  {
-    id: 'success-2-job-credit-2026-04-30',
-    date: '30 Apr 2026',
-    time: '3:52:33 PM',
-    planDetails: '2 Job Credit Package',
-    appliesUntil: 'Paid on: Apr 30, 2026',
-    amount: 1651,
-    status: 'Success',
-    statusType: 'success',
-    actionLabel: 'Invoice',
-    actionType: 'invoice'
-  },
-  {
-    id: 'failed-2-job-credit-2026-05-06',
-    date: '06 May 2026',
-    time: '3:03:54 AM',
-    planDetails: '2 Job Credit Package',
-    appliesUntil: 'Ordered on: May 6, 2026',
-    amount: 1651,
-    status: 'Cancelled',
-    statusType: 'failed',
-    actionLabel: 'Contact us',
-    actionType: 'contact'
-  }
-]
 
 const formatDateTime = (value: string) =>
   new Date(value).toLocaleString('en-IN', {
@@ -205,14 +165,18 @@ const resolveBillingHistory = (dashboard: CompanyDashboard | null): CompanyBilli
   return FALLBACK_BILLING_HISTORY
 }
 
+type PanelView = 'dashboard' | 'billing'
+
 export function CompanyPanelClient({ signinMode = false, jobId, content }: Props) {
   const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
   const [dashboard, setDashboard] = useState<CompanyDashboard | null>(null)
   const [email, setEmail] = useState('')
   const [identity, setIdentity] = useState('')
+  const [selectedPanelView, setSelectedPanelView] = useState<PanelView>('dashboard')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [selectedBillingTab, setSelectedBillingTab] = useState<BillingHistoryTab>('all')
+  const [billingActionLoadingId, setBillingActionLoadingId] = useState<string | null>(null)
   const [openJobMenuId, setOpenJobMenuId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState('')
   const [sortBy, setSortBy] = useState<'recent' | 'wage-high' | 'experience-high'>('recent')
@@ -366,6 +330,59 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
     }
   }
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || signinMode) {
+      return
+    }
+
+    const syncViewFromHash = () => {
+      setSelectedPanelView(window.location.hash === '#billing-plan' ? 'billing' : 'dashboard')
+    }
+
+    syncViewFromHash()
+    window.addEventListener('hashchange', syncViewFromHash)
+    return () => window.removeEventListener('hashchange', syncViewFromHash)
+  }, [signinMode])
+
+  const setPanelHash = (view: PanelView) => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const nextUrl = view === 'billing'
+      ? `${window.location.pathname}#billing-plan`
+      : window.location.pathname
+    window.history.replaceState(null, '', nextUrl)
+  }
+
+  const openDashboardView = () => {
+    setSelectedPanelView('dashboard')
+    setPanelHash('dashboard')
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const openBillingView = () => {
+    setSelectedPanelView('billing')
+    setSelectedBillingTab('all')
+    setPanelHash('billing')
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const openDashboardSection = (sectionId: string) => {
+    setSelectedPanelView('dashboard')
+    setPanelHash('dashboard')
+    window.setTimeout(() => scrollToSection(sectionId), 40)
+  }
+
+  const handleBillingProfileUpdate = () => {
+    // TODO: connect this CTA to the company profile GST edit flow once profile editing is available inside the panel.
+    setActionMessage('GST update will be connected to the company profile tools soon.')
+  }
+
   const updateStatus = async (applicationId: string, status: 'reviewed' | 'shortlisted' | 'rejected' | 'hired') => {
     if (!token) return
     setSubmitting(true)
@@ -402,7 +419,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
     return dashboard.recentApplications.filter(applicant => applicant.status === 'submitted')
   }, [dashboard])
 
-  const billingHistoryRecords = useMemo(() => resolveBillingHistory(dashboard), [dashboard])
+  const billingHistoryRecords = useMemo(() => resolveCompanyBillingHistory(dashboard), [dashboard])
 
   const filteredBillingHistory = useMemo(() => {
     if (selectedBillingTab === 'all') {
@@ -488,6 +505,35 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
       description: content.quickActions.items[index]?.description || fallback.description
     }))
   }, [content.quickActions.items])
+
+  const billingPanelCopy = useMemo(() => ({
+    eyebrow: content.sidebar.billingPlanLabel || 'Billing & Plan',
+    title: 'Billing',
+    subtitle: 'Review GST details, payment history, and invoices from one place.'
+  }), [content.sidebar.billingPlanLabel])
+
+  const billingProfileName = useMemo(
+    () => dashboard?.profile.companyName?.trim() || dashboard?.profile.contactPerson?.trim() || 'Company account holder',
+    [dashboard?.profile.companyName, dashboard?.profile.contactPerson]
+  )
+
+  const billingProfileAddress = useMemo(
+    () => buildBillingAddress(dashboard?.profile || {}) || 'Address not added',
+    [dashboard?.profile]
+  )
+
+  const billingProfileGstin = useMemo(
+    () => dashboard?.profile.gstNumber?.trim() || 'Not added',
+    [dashboard?.profile.gstNumber]
+  )
+
+  const billingProfileStatus = useMemo(() => {
+    if (dashboard?.profile.status === 'blocked') {
+      return 'Review required'
+    }
+
+    return 'Verified'
+  }, [dashboard?.profile.status])
 
   const latestJobs = useMemo(() => dashboard?.jobs.slice(0, 4) ?? [], [dashboard])
 
@@ -616,7 +662,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
     setActionMessage(`${job.title} expiry changes should be handled in worker admin right now.`)
   }
 
-  const handleBillingAction = (record: CompanyBillingRecord) => {
+  const handleBillingAction = async (record: CompanyBillingRecord) => {
     if (record.actionType === 'retry') {
       // TODO: connect this action to the existing retry payment flow when billing actions are available.
       router.push('/labour/company/pricing')
@@ -624,8 +670,46 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
     }
 
     if (record.actionType === 'invoice') {
-      // TODO: connect this action to the existing invoice download flow when billing documents are available.
-      setActionMessage(`Invoice access for "${record.planDetails}" will be connected soon.`)
+      if (!token) {
+        setActionMessage('Sign in again to download the invoice for this payment.')
+        return
+      }
+
+      setBillingActionLoadingId(record.id)
+      setActionMessage('')
+
+      try {
+        const response = await fetch(`/api/labour/company/invoice/${encodeURIComponent(record.id)}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          cache: 'no-store'
+        })
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          throw new Error(typeof data.error === 'string' ? data.error : 'Failed to download invoice.')
+        }
+
+        const blob = await response.blob()
+        const downloadUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        const disposition = response.headers.get('content-disposition') || ''
+        const fileNameMatch = disposition.match(/filename=\"?([^"]+)\"?$/i)
+
+        link.href = downloadUrl
+        link.download = fileNameMatch?.[1] || `invoice-${record.id}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        window.URL.revokeObjectURL(downloadUrl)
+        setActionMessage(`Invoice downloaded for "${record.planDetails}".`)
+      } catch (billingError) {
+        setActionMessage(billingError instanceof Error ? billingError.message : 'Failed to download invoice.')
+      } finally {
+        setBillingActionLoadingId(null)
+      }
+
       return
     }
 
@@ -1079,15 +1163,19 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
           </div>
 
           <nav className={styles.companyDashboardSidebarNav}>
-            <button type="button" className={`${styles.companyDashboardSidebarItem} ${styles.companyDashboardSidebarItemActive}`} onClick={() => scrollToSection('dashboard-top')}>
+            <button
+              type="button"
+              className={`${styles.companyDashboardSidebarItem} ${selectedPanelView === 'dashboard' ? styles.companyDashboardSidebarItemActive : ''}`}
+              onClick={openDashboardView}
+            >
               <span className={styles.companyDashboardSidebarIcon}>D</span>
               <span>{content.sidebar.dashboardLabel}</span>
             </button>
-            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => scrollToSection('recent-job-posts')}>
+            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => openDashboardSection('recent-job-posts')}>
               <span className={styles.companyDashboardSidebarIcon}>J</span>
               <span>{content.sidebar.jobRequirementsLabel}</span>
             </button>
-            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => scrollToSection('recent-applications')}>
+            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => openDashboardSection('recent-applications')}>
               <span className={styles.companyDashboardSidebarIcon}>A</span>
               <span>{content.sidebar.applicationsLabel}</span>
             </button>
@@ -1095,7 +1183,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
               type="button"
               className={styles.companyDashboardSidebarItem}
               onClick={() => {
-                scrollToSection('recent-applications')
+                openDashboardSection('recent-applications')
               }}
             >
               <span className={styles.companyDashboardSidebarIcon}>S</span>
@@ -1105,7 +1193,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
               type="button"
               className={styles.companyDashboardSidebarItem}
               onClick={() => {
-                scrollToSection('recent-applications')
+                openDashboardSection('recent-applications')
               }}
             >
               <span className={styles.companyDashboardSidebarIcon}>H</span>
@@ -1115,19 +1203,23 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
               <span className={styles.companyDashboardSidebarIcon}>W</span>
               <span>{content.sidebar.searchWorkersLabel}</span>
             </a>
-            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => scrollToSection('company-profile')}>
+            <button type="button" className={styles.companyDashboardSidebarItem} onClick={handleBillingProfileUpdate}>
               <span className={styles.companyDashboardSidebarIcon}>P</span>
               <span>{content.sidebar.companyProfileLabel}</span>
             </button>
-            <a href="/labour/company/pricing" className={styles.companyDashboardSidebarItem}>
+            <button
+              type="button"
+              className={`${styles.companyDashboardSidebarItem} ${selectedPanelView === 'billing' ? styles.companyDashboardSidebarItemActive : ''}`}
+              onClick={openBillingView}
+            >
               <span className={styles.companyDashboardSidebarIcon}>B</span>
               <span>{content.sidebar.billingPlanLabel}</span>
-            </a>
+            </button>
             <a href="/labour/company/contact" className={styles.companyDashboardSidebarItem}>
               <span className={styles.companyDashboardSidebarIcon}>M</span>
               <span>{content.sidebar.messagesLabel}</span>
             </a>
-            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => scrollToSection('need-help')}>
+            <button type="button" className={styles.companyDashboardSidebarItem} onClick={() => openDashboardSection('need-help')}>
               <span className={styles.companyDashboardSidebarIcon}>T</span>
               <span>{content.sidebar.settingsLabel}</span>
             </button>
@@ -1174,6 +1266,8 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
             </div>
           </section>
 
+          {selectedPanelView === 'dashboard' ? (
+            <>
           <div className={styles.companyDashboardActionRow}>
             <div>
               <p className={styles.eyebrow}>{panelHeaderCopy.eyebrow}</p>
@@ -1530,6 +1624,62 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
             </a>
           </section>
 
+            </>
+          ) : (
+            <>
+              {error ? (
+                <div className={styles.companyPanelActionNotice}>
+                  <p style={{ margin: 0, color: '#b91c1c' }}>{error}</p>
+                </div>
+              ) : null}
+
+              {actionMessage ? (
+                <div className={styles.companyPanelActionNotice}>
+                  <p style={{ margin: 0 }}>{actionMessage}</p>
+                </div>
+              ) : null}
+
+              <div className={styles.companyDashboardActionRow}>
+                <div>
+                  <p className={styles.eyebrow}>{billingPanelCopy.eyebrow}</p>
+                  <h2 className={styles.companyDashboardPageTitle}>{billingPanelCopy.title}</h2>
+                  <p className={styles.companyDashboardPageText}>{billingPanelCopy.subtitle}</p>
+                </div>
+              </div>
+
+              <section id="billing-plan" className={styles.companyDashboardSectionCard}>
+                <div className={styles.companyBillingProfileHeader}>
+                  <div>
+                    <h3 className={styles.companyDashboardSectionTitle}>Billing profile</h3>
+                    <div className={styles.companyBillingProfileMeta}>
+                      <span>GSTIN: {billingProfileGstin}</span>
+                      <span className={styles.companyBillingVerifiedText}>
+                        <BadgeCheck size={16} />
+                        {billingProfileStatus}
+                      </span>
+                    </div>
+                  </div>
+                  <button type="button" className={styles.companyBillingProfileButton} onClick={handleBillingProfileUpdate}>
+                    Update GSTIN / ISD-GSTIN
+                  </button>
+                </div>
+
+                <div className={styles.companyBillingProfileDetails}>
+                  <p><strong>Company name:</strong> {billingProfileName}</p>
+                  <p><strong>Address:</strong> {billingProfileAddress}</p>
+                </div>
+              </section>
+
+              <div className={styles.companyBillingInfoBanner}>
+                <div className={styles.companyBillingInfoBannerCopy}>
+                  <CircleAlert size={18} />
+                  <span>If you&apos;re registered with ISD-GSTIN, kindly update your GSTIN accordingly.</span>
+                </div>
+                <button type="button" className={styles.companyBillingInfoBannerLink} onClick={handleBillingProfileUpdate}>
+                  Update GSTIN / ISD-GSTIN
+                </button>
+              </div>
+
           <section id="billing-history" className={styles.companyDashboardSectionCard}>
             <div className={styles.companyDashboardSectionHeader}>
               <div>
@@ -1574,42 +1724,55 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
                       <td colSpan={6} className={styles.companyBillingEmptyState}>No billing records found.</td>
                     </tr>
                   ) : (
-                    filteredBillingHistory.map(record => (
-                      <tr key={record.id}>
-                        <td>
-                          <div className={styles.companyBillingDateCell}>
-                            <strong>{record.date}</strong>
-                            <span>{record.time}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <a href="/labour/company/pricing" className={styles.companyBillingPlanLink}>
-                            {record.planDetails}
-                          </a>
-                        </td>
-                        <td className={styles.companyBillingMetaCell}>{record.appliesUntil}</td>
-                        <td className={styles.companyBillingAmountCell}>{formatBillingAmount(record.amount)}</td>
-                        <td>
-                          <span className={styles.companyBillingStatusBadge} style={billingStatusTone(record.statusType)}>
-                            {record.status}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className={styles.companyBillingActionButton}
-                            onClick={() => handleBillingAction(record)}
-                          >
-                            {record.actionLabel}
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    filteredBillingHistory.map(record => {
+                      const isActionLoading = billingActionLoadingId === record.id
+                      const actionIcon = record.actionType === 'retry'
+                        ? <RotateCcw size={16} />
+                        : record.actionType === 'invoice'
+                          ? <Download size={16} />
+                          : <PhoneCall size={16} />
+
+                      return (
+                        <tr key={record.id}>
+                          <td>
+                            <div className={styles.companyBillingDateCell}>
+                              <strong>{record.date}</strong>
+                              <span>{record.time}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <a href="/labour/company/pricing" className={styles.companyBillingPlanLink}>
+                              {record.planDetails}
+                            </a>
+                          </td>
+                          <td className={styles.companyBillingMetaCell}>{record.appliesUntil}</td>
+                          <td className={styles.companyBillingAmountCell}>{formatCompanyBillingAmount(record.amount)}</td>
+                          <td>
+                            <span className={styles.companyBillingStatusBadge} style={getBillingStatusTone(record.statusType)}>
+                              {record.status}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className={styles.companyBillingActionButton}
+                              onClick={() => void handleBillingAction(record)}
+                              disabled={isActionLoading}
+                            >
+                              {actionIcon}
+                              <span>{isActionLoading ? 'Loading...' : record.actionLabel}</span>
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           </section>
+            </>
+          )}
         </div>
       </section>
     </>

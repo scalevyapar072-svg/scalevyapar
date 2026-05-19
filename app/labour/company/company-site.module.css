@@ -3611,6 +3611,87 @@
   font-weight: 600;
 }
 
+.companyBillingProfileHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.companyBillingProfileMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.companyBillingVerifiedText {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #047857;
+  font-size: 15px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.companyBillingProfileButton,
+.companyBillingInfoBannerLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(191, 219, 254, 0.98);
+  background: #ffffff;
+  color: #1e3a8a;
+  font-size: 15px;
+  line-height: 1.2;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.companyBillingProfileDetails {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.companyBillingProfileDetails p {
+  margin: 0;
+}
+
+.companyBillingInfoBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 22px;
+  border: 1px solid rgba(253, 230, 138, 0.9);
+  border-radius: 20px;
+  background: #fffbeb;
+}
+
+.companyBillingInfoBannerCopy {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #1e293b;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
 .companyBillingTabs {
   display: flex;
   flex-wrap: wrap;
@@ -3733,6 +3814,9 @@
 }
 
 .companyBillingActionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border: 0;
   background: transparent;
   color: #0f766e;
@@ -3742,6 +3826,11 @@
   cursor: pointer;
   padding: 0;
   white-space: nowrap;
+}
+
+.companyBillingActionButton:disabled {
+  opacity: 0.7;
+  cursor: progress;
 }
 
 .companyBillingEmptyState {
@@ -5135,6 +5224,12 @@
     align-items: flex-start;
   }
 
+  .companyBillingProfileHeader,
+  .companyBillingInfoBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .companyDashboardHeroFloatingCard {
     right: 18px;
     bottom: 18px;
@@ -5232,6 +5327,22 @@
   .companyDashboardHelpButton,
   .companyDashboardPlanButton {
     width: 100%;
+  }
+
+  .companyBillingProfileMeta {
+    gap: 10px;
+    font-size: 14px;
+  }
+
+  .companyBillingProfileDetails,
+  .companyBillingInfoBannerCopy {
+    font-size: 14px;
+  }
+
+  .companyBillingProfileButton,
+  .companyBillingInfoBannerLink {
+    width: 100%;
+    justify-content: center;
   }
 
   .companyDashboardHeroMedia {

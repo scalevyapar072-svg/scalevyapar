@@ -70,11 +70,65 @@ type CompanyDashboard = {
   recentApplications: CompanyApplicant[]
 }
 
+type BillingHistoryTab = 'all' | 'success' | 'pending' | 'failed'
+
+type CompanyBillingRecord = {
+  id: string
+  date: string
+  time: string
+  planDetails: string
+  appliesUntil: string
+  amount: number
+  status: string
+  statusType: Exclude<BillingHistoryTab, 'all'>
+  actionLabel: string
+  actionType: 'retry' | 'invoice' | 'contact'
+}
+
 type Props = {
   signinMode?: boolean
   jobId?: string
   content: LabourCompanyWebsiteContent['companyPanel']
 }
+
+const FALLBACK_BILLING_HISTORY: CompanyBillingRecord[] = [
+  {
+    id: 'pending-3-months-2026-05-19',
+    date: '19 May 2026',
+    time: '11:13:45 PM',
+    planDetails: '3 Months Plan',
+    appliesUntil: 'Ordered on: May 19, 2026',
+    amount: 4306,
+    status: 'Pending',
+    statusType: 'pending',
+    actionLabel: 'Retry payment',
+    actionType: 'retry'
+  },
+  {
+    id: 'success-2-job-credit-2026-04-30',
+    date: '30 Apr 2026',
+    time: '3:52:33 PM',
+    planDetails: '2 Job Credit Package',
+    appliesUntil: 'Paid on: Apr 30, 2026',
+    amount: 1651,
+    status: 'Success',
+    statusType: 'success',
+    actionLabel: 'Invoice',
+    actionType: 'invoice'
+  },
+  {
+    id: 'failed-2-job-credit-2026-05-06',
+    date: '06 May 2026',
+    time: '3:03:54 AM',
+    planDetails: '2 Job Credit Package',
+    appliesUntil: 'Ordered on: May 6, 2026',
+    amount: 1651,
+    status: 'Cancelled',
+    statusType: 'failed',
+    actionLabel: 'Contact us',
+    actionType: 'contact'
+  }
+]
 
 const formatDateTime = (value: string) =>
   new Date(value).toLocaleString('en-IN', {
@@ -126,6 +180,31 @@ const labelFromStatus = (value: string) =>
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
 
+const formatBillingAmount = (value: number) => `₹ ${Number(value || 0).toLocaleString('en-IN')}`
+
+const billingStatusTone = (statusType: CompanyBillingRecord['statusType']) => {
+  if (statusType === 'success') {
+    return { background: '#ecfdf5', color: '#047857', border: '1px solid #bbf7d0' }
+  }
+
+  if (statusType === 'pending') {
+    return { background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }
+  }
+
+  return { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }
+}
+
+const resolveBillingHistory = (dashboard: CompanyDashboard | null): CompanyBillingRecord[] => {
+  const dashboardWithBilling = dashboard as (CompanyDashboard & { billingHistory?: CompanyBillingRecord[] | null }) | null
+  const records = dashboardWithBilling?.billingHistory
+
+  if (Array.isArray(records) && records.length > 0) {
+    return records
+  }
+
+  return FALLBACK_BILLING_HISTORY
+}
+
 export function CompanyPanelClient({ signinMode = false, jobId, content }: Props) {
   const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
@@ -133,6 +212,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
   const [email, setEmail] = useState('')
   const [identity, setIdentity] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [selectedBillingTab, setSelectedBillingTab] = useState<BillingHistoryTab>('all')
   const [openJobMenuId, setOpenJobMenuId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState('')
   const [sortBy, setSortBy] = useState<'recent' | 'wage-high' | 'experience-high'>('recent')
@@ -321,6 +401,16 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
     if (!dashboard) return []
     return dashboard.recentApplications.filter(applicant => applicant.status === 'submitted')
   }, [dashboard])
+
+  const billingHistoryRecords = useMemo(() => resolveBillingHistory(dashboard), [dashboard])
+
+  const filteredBillingHistory = useMemo(() => {
+    if (selectedBillingTab === 'all') {
+      return billingHistoryRecords
+    }
+
+    return billingHistoryRecords.filter(record => record.statusType === selectedBillingTab)
+  }, [billingHistoryRecords, selectedBillingTab])
 
   const companyInitials = useMemo(() => {
     if (!dashboard?.profile.companyName) return 'SV'
@@ -524,6 +614,22 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
   const expireJobNotice = (job: CompanyJob) => {
     setOpenJobMenuId(null)
     setActionMessage(`${job.title} expiry changes should be handled in worker admin right now.`)
+  }
+
+  const handleBillingAction = (record: CompanyBillingRecord) => {
+    if (record.actionType === 'retry') {
+      // TODO: connect this action to the existing retry payment flow when billing actions are available.
+      router.push('/labour/company/pricing')
+      return
+    }
+
+    if (record.actionType === 'invoice') {
+      // TODO: connect this action to the existing invoice download flow when billing documents are available.
+      setActionMessage(`Invoice access for "${record.planDetails}" will be connected soon.`)
+      return
+    }
+
+    router.push('/labour/company/contact')
   }
 
   const openJobDetailWindow = (job: CompanyJob) => {
@@ -1422,6 +1528,87 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
             <a href="/labour/company/pricing" className={styles.companyDashboardPlanButton}>
               {content.planSummary.upgradeButtonLabel}
             </a>
+          </section>
+
+          <section id="billing-history" className={styles.companyDashboardSectionCard}>
+            <div className={styles.companyDashboardSectionHeader}>
+              <div>
+                <h3 className={styles.companyDashboardSectionTitle}>Billing History</h3>
+                <p className={styles.companyDashboardSectionText}>Review your latest plan and payment activity from one place.</p>
+              </div>
+            </div>
+
+            <div className={styles.companyBillingTabs}>
+              {[
+                { label: 'All', value: 'all' },
+                { label: 'Success', value: 'success' },
+                { label: 'Pending', value: 'pending' },
+                { label: 'Failed', value: 'failed' }
+              ].map(tab => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  className={selectedBillingTab === tab.value ? styles.companyBillingTabActive : styles.companyBillingTab}
+                  onClick={() => setSelectedBillingTab(tab.value as BillingHistoryTab)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.companyBillingTableWrap}>
+              <table className={styles.companyBillingTable}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Plan details</th>
+                    <th>Applies until</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredBillingHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className={styles.companyBillingEmptyState}>No billing records found.</td>
+                    </tr>
+                  ) : (
+                    filteredBillingHistory.map(record => (
+                      <tr key={record.id}>
+                        <td>
+                          <div className={styles.companyBillingDateCell}>
+                            <strong>{record.date}</strong>
+                            <span>{record.time}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <a href="/labour/company/pricing" className={styles.companyBillingPlanLink}>
+                            {record.planDetails}
+                          </a>
+                        </td>
+                        <td className={styles.companyBillingMetaCell}>{record.appliesUntil}</td>
+                        <td className={styles.companyBillingAmountCell}>{formatBillingAmount(record.amount)}</td>
+                        <td>
+                          <span className={styles.companyBillingStatusBadge} style={billingStatusTone(record.statusType)}>
+                            {record.status}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className={styles.companyBillingActionButton}
+                            onClick={() => handleBillingAction(record)}
+                          >
+                            {record.actionLabel}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
       </section>

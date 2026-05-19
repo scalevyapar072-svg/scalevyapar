@@ -1860,9 +1860,7 @@ const refreshReferenceHomepageTheme = (content: LabourCompanyWebsiteContent): La
     next.contactPage.title === LEGACY_REFERENCE_CONTACT.title ||
     next.contactPage.subtitle === LEGACY_REFERENCE_CONTACT.subtitle ||
     next.contactPage.supportEmail === LEGACY_REFERENCE_CONTACT.supportEmail ||
-    next.contactPage.phone === LEGACY_REFERENCE_CONTACT.phone ||
-    /^Talk to sales$/i.test(next.contactPage.cards[0]?.title || '') ||
-    /^Need support$/i.test(next.contactPage.cards[1]?.title || '')
+    next.contactPage.phone === LEGACY_REFERENCE_CONTACT.phone
 
   if (hasLegacyContactCopy) {
     next.contactPage = {

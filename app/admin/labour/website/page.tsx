@@ -508,6 +508,8 @@ export default function LabourWebsiteEditorPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
                   <Field label="Logo Image Path" value={content.header.logoSrc} onChange={value => setContent(current => current ? { ...current, header: { ...current.header, logoSrc: value } } : current)} placeholder="/images/rozgar/rozgar-logo-main.png" />
                   <Field label="Logo Width (px)" value={content.header.logoWidth} onChange={value => setContent(current => current ? { ...current, header: { ...current.header, logoWidth: value } } : current)} placeholder="260" />
+                  <Field label="Logo Title" value={content.header.logoTitle} onChange={value => setContent(current => current ? { ...current, header: { ...current.header, logoTitle: value } } : current)} placeholder="ScaleVyapar Rozgar" />
+                  <Field label="Logo Slogan" value={content.header.logoSlogan} onChange={value => setContent(current => current ? { ...current, header: { ...current.header, logoSlogan: value } } : current)} placeholder="Find skilled workers and hire faster across India" />
                   <Field label="Main Button Label" value={content.header.primaryCtaLabel} onChange={value => setContent(current => current ? { ...current, header: { ...current.header, primaryCtaLabel: value } } : current)} />
                   <Field label="Main Button Link" value={content.header.primaryCtaHref} onChange={value => setContent(current => current ? { ...current, header: { ...current.header, primaryCtaHref: value } } : current)} />
                 </div>

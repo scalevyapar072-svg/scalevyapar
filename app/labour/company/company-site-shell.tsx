@@ -42,6 +42,8 @@ export function CompanySiteShell({
   const logoSrc = normalizeWebsiteAssetPath(content.header.logoSrc, DEFAULT_ROZGAR_LOGO_SRC)
   const parsedLogoWidth = Number(content.header.logoWidth)
   const logoWidth = Number.isFinite(parsedLogoWidth) && parsedLogoWidth > 0 ? Math.round(parsedLogoWidth) : 220
+  const brandTitle = content.header.logoTitle?.trim() || content.theme.brandName || 'ScaleVyapar Rozgar'
+  const brandSlogan = content.header.logoSlogan?.trim() || content.theme.brandTagline || 'Find skilled workers and hire faster across India'
   const fallbackNavItems = [
     { label: 'Home', href: '/labour/company' },
     { label: 'About Us', href: '/labour/company/about' },
@@ -123,13 +125,16 @@ export function CompanySiteShell({
                   <PublicAssetImage
                     src={logoSrc}
                     fallbackSrc={DEFAULT_ROZGAR_LOGO_SRC}
-                    alt={content.theme.brandName || 'ScaleVyapar Rozgar'}
+                    alt={brandTitle}
                     className={styles.homeLandingBrandLogo}
                     widthPx={logoWidth}
-                    maxWidthCss="min(240px, calc(100vw - 32px))"
+                    maxWidthCss="calc(100vw - 32px)"
                   />
                 </span>
-                <span className={styles.screenReaderOnly}>{content.theme.brandName || 'ScaleVyapar Rozgar'}</span>
+                <span className={styles.homeLandingBrandText}>
+                  <strong className={styles.homeLandingBrandName}>{brandTitle}</strong>
+                  <span className={styles.homeLandingBrandTagline}>{brandSlogan}</span>
+                </span>
               </Link>
 
               <nav className={styles.homeLandingDesktopNav}>
@@ -201,11 +206,15 @@ export function CompanySiteShell({
                     <PublicAssetImage
                       src={logoSrc}
                       fallbackSrc={DEFAULT_ROZGAR_LOGO_SRC}
-                      alt={content.theme.brandName || 'ScaleVyapar Rozgar'}
+                      alt={brandTitle}
                       className={styles.homeFooterLogo}
+                      widthPx={logoWidth}
+                      maxWidthCss="100%"
                     />
                   </span>
-                  <div>
+                  <div className={styles.homeFooterBrandText}>
+                    <strong className={styles.homeFooterBrandName}>{brandTitle}</strong>
+                    <span className={styles.homeFooterBrandTagline}>{brandSlogan}</span>
                     <p>{content.footer.description}</p>
                   </div>
                 </div>

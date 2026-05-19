@@ -8,9 +8,10 @@
 }
 
 .container {
-  max-width: 1320px;
-  margin: 0 auto;
-  padding: 22px 24px 64px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 64px;
 }
 
 .topBar {
@@ -12084,6 +12085,14 @@
   font-size: 14px;
 }
 
+.signinForgotLink {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #2563eb;
+  cursor: pointer;
+}
+
 .signinSubmitButton,
 .signinSecondaryButton {
   font-size: 14px;
@@ -12124,6 +12133,99 @@
   line-height: 1.72;
 }
 
+.signinForgotOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(6px);
+}
+
+.signinForgotModal {
+  width: min(100%, 430px);
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 22px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+}
+
+.signinForgotHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.signinForgotTitle {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.signinForgotText {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.signinForgotClose {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #64748b;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.signinForgotError,
+.signinForgotSuccess {
+  padding: 14px 16px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.signinForgotError {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.signinForgotSuccess {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.signinForgotPreviewLink {
+  color: #2563eb;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.signinForgotActions {
+  display: flex;
+  gap: 12px;
+}
+
+.signinForgotActions .signinSecondaryButton,
+.signinForgotActions .signinSubmitButton {
+  flex: 1 1 0;
+}
+
 @media (max-width: 720px) {
   .homeLandingDesktopNav .homeLandingNavLink,
   .homeLandingNav .homeLandingNavLink {
@@ -12137,6 +12239,19 @@
   .signinFormTitle,
   .signinSideTitle {
     font-size: 21px;
+  }
+
+  .signinForgotOverlay {
+    padding: 16px;
+  }
+
+  .signinForgotModal {
+    padding: 22px 18px;
+    border-radius: 20px;
+  }
+
+  .signinForgotActions {
+    flex-direction: column;
   }
 }
 
@@ -12316,6 +12431,31 @@
   object-fit: contain;
 }
 
+.homeFooterBrandText {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.homeFooterBrandName {
+  display: block;
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.homeFooterBrandTagline {
+  display: block;
+  margin: 0;
+  color: #ea580c;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
 .homeStatsCard {
   display: flex;
   flex-direction: column;
@@ -12437,5 +12577,137 @@
   .homeFooterGrid,
   .homeFooterBottom {
     width: min(100%, calc(100% - 20px));
+  }
+}
+
+/* Final Rozgar shared shell overrides */
+.homeLandingBrand {
+  gap: 12px;
+  align-items: center;
+}
+
+.homeLandingBrandLogoWrap,
+.homeFooterLogoWrap {
+  max-width: 100%;
+}
+
+.homeLandingBrandLogo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 56px;
+  object-fit: contain;
+}
+
+.homeLandingBrandText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.homeLandingBrandName {
+  display: block;
+  margin: 0;
+  color: #0f172a;
+  font-size: 17px;
+  line-height: 1.1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.homeLandingBrandTagline {
+  display: block;
+  margin: 0;
+  color: #ea580c;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.homeFooterBrandRow {
+  align-items: flex-start;
+}
+
+.homeFooterLogo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 52px;
+  object-fit: contain;
+}
+
+.homeFooterBrandText p {
+  margin-top: 8px;
+}
+
+.homeFooterBrandName {
+  display: block;
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.homeFooterBrandTagline {
+  display: block;
+  margin: 0;
+  color: #fb923c;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .homeLandingBrand {
+    gap: 10px;
+  }
+
+  .homeLandingBrandName {
+    font-size: 15px;
+  }
+
+  .homeLandingBrandTagline {
+    font-size: 10px;
+  }
+
+  .homeHowTimeline {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+    padding-top: 8px;
+  }
+
+  .homeHowTimeline::before,
+  .homeHowTimelineLine {
+    display: none !important;
+  }
+
+  .homeHowTimelineCard {
+    width: 100%;
+    max-width: none;
+    gap: 12px;
+    padding: 0;
+  }
+
+  .homeHowTimelineCard h3,
+  .homeHowTimelineCard p {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    text-align: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .homeLandingBrandTagline {
+    display: none;
+  }
+
+  .homeLandingBrandLogo {
+    max-height: 42px;
   }
 }

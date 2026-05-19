@@ -43,6 +43,8 @@ export interface LabourCompanyWebsiteContent {
     announcement: string
     logoSrc: string
     logoWidth: string
+    logoTitle: string
+    logoSlogan: string
     primaryCtaLabel: string
     primaryCtaHref: string
     navItems: Array<{
@@ -522,6 +524,8 @@ const defaultContent: LabourCompanyWebsiteContent = {
     announcement: 'Daily worker hiring for factories, workshops, contractors and growing businesses',
     logoSrc: DEFAULT_ROZGAR_LOGO_SRC,
     logoWidth: '260',
+    logoTitle: 'ScaleVyapar Rozgar',
+    logoSlogan: 'Find skilled workers and hire faster across India',
     primaryCtaLabel: 'Post Requirement',
     primaryCtaHref: '/labour/company/job-post',
     navItems: [
@@ -1920,6 +1924,12 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
       announcement: merged.header?.announcement || defaultContent.header.announcement,
       logoSrc: sanitizedLogoSrc,
       logoWidth: sanitizedLogoWidth,
+      logoTitle: typeof merged.header?.logoTitle === 'string' && merged.header.logoTitle.trim()
+        ? merged.header.logoTitle.trim()
+        : defaultContent.header.logoTitle,
+      logoSlogan: typeof merged.header?.logoSlogan === 'string' && merged.header.logoSlogan.trim()
+        ? merged.header.logoSlogan.trim()
+        : defaultContent.header.logoSlogan,
       primaryCtaLabel: merged.header?.primaryCtaLabel || defaultContent.header.primaryCtaLabel,
       primaryCtaHref: normalizeJobPostHref(
         merged.header?.primaryCtaHref,

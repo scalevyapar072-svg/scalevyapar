@@ -34,6 +34,66 @@ export function CompanySigninFormClient({ content }: Props) {
   const [rememberMe, setRememberMe] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [forgotIdentity, setForgotIdentity] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotError, setForgotError] = useState('')
+  const [forgotMessage, setForgotMessage] = useState('')
+  const [previewResetUrl, setPreviewResetUrl] = useState('')
+
+  const openForgotPassword = () => {
+    setForgotIdentity(email.trim())
+    setForgotError('')
+    setForgotMessage('')
+    setPreviewResetUrl('')
+    setForgotOpen(true)
+  }
+
+  const closeForgotPassword = () => {
+    if (!forgotLoading) {
+      setForgotOpen(false)
+    }
+  }
+
+  const handleForgotPassword = async () => {
+    if (!forgotIdentity.trim()) {
+      setForgotError('Enter your registered email or mobile number to reset your password.')
+      setForgotMessage('')
+      setPreviewResetUrl('')
+      return
+    }
+
+    setForgotLoading(true)
+    setForgotError('')
+    setForgotMessage('')
+    setPreviewResetUrl('')
+
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: forgotIdentity.trim()
+        })
+      })
+
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+
+      if (!response.ok) {
+        setForgotError(data.error || 'Failed to start password reset.')
+        return
+      }
+
+      setForgotMessage(data.message || 'If your account exists, a password reset email has been sent.')
+      setPreviewResetUrl(data.resetUrl || '')
+    } catch {
+      setForgotError('Something went wrong. Please try again.')
+    } finally {
+      setForgotLoading(false)
+    }
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -118,9 +178,9 @@ export function CompanySigninFormClient({ content }: Props) {
           />
           <span>{content.rememberMeLabel}</span>
         </label>
-        <Link href="/reset-password" className={styles.signinForgotLink}>
+        <button type="button" className={styles.signinForgotLink} onClick={openForgotPassword}>
           {content.forgotPasswordLabel}
-        </Link>
+        </button>
       </div>
 
       {error ? (
@@ -141,6 +201,64 @@ export function CompanySigninFormClient({ content }: Props) {
           {content.registerCompanyButtonLabel}
         </Link>
       </div>
+
+      {forgotOpen ? (
+        <div className={styles.signinForgotOverlay} onClick={closeForgotPassword}>
+          <div className={styles.signinForgotModal} onClick={event => event.stopPropagation()}>
+            <div className={styles.signinForgotHead}>
+              <div>
+                <h3 className={styles.signinForgotTitle}>Forgot Password</h3>
+                <p className={styles.signinForgotText}>
+                  Enter your registered email or mobile number to reset your password.
+                </p>
+              </div>
+              <button
+                type="button"
+                className={styles.signinForgotClose}
+                onClick={closeForgotPassword}
+                disabled={forgotLoading}
+                aria-label="Close forgot password popup"
+              >
+                x
+              </button>
+            </div>
+
+            {forgotError ? (
+              <div className={styles.signinForgotError}>{forgotError}</div>
+            ) : null}
+
+            {forgotMessage ? (
+              <div className={styles.signinForgotSuccess}>
+                <div>{forgotMessage}</div>
+                {previewResetUrl ? (
+                  <a href={previewResetUrl} className={styles.signinForgotPreviewLink}>
+                    {previewResetUrl}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+
+            <label className={styles.signinField}>
+              <span className={styles.signinFieldLabel}>Email or Mobile</span>
+              <input
+                value={forgotIdentity}
+                onChange={event => setForgotIdentity(event.target.value)}
+                placeholder="Enter your registered email or mobile"
+                className={styles.signinInput}
+              />
+            </label>
+
+            <div className={styles.signinForgotActions}>
+              <button type="button" className={styles.signinSecondaryButton} onClick={closeForgotPassword} disabled={forgotLoading}>
+                Cancel
+              </button>
+              <button type="button" className={styles.signinSubmitButton} onClick={handleForgotPassword} disabled={forgotLoading}>
+                {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </form>
   )
 }

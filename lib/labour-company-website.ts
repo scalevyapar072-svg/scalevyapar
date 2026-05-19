@@ -1,6 +1,11 @@
 import { promises as fs } from 'fs'
 import path from 'path'
 import { supabaseAdmin } from './supabase-admin'
+import {
+  DEFAULT_CONTACT_SUPPORT_SRC,
+  DEFAULT_ROZGAR_LOGO_SRC,
+  normalizeWebsiteAssetPath
+} from './labour-company-public-assets'
 
 export type LabourCompanyWebsiteSection =
   | 'hero'
@@ -510,7 +515,7 @@ const defaultContent: LabourCompanyWebsiteContent = {
   },
   header: {
     announcement: 'Daily worker hiring for factories, workshops, contractors and growing businesses',
-    logoSrc: '/rozgar-logo-source.png',
+    logoSrc: DEFAULT_ROZGAR_LOGO_SRC,
     logoWidth: '260',
     primaryCtaLabel: 'Post Requirement',
     primaryCtaHref: '/labour/company/job-post',
@@ -1194,7 +1199,7 @@ const defaultContent: LabourCompanyWebsiteContent = {
     title: "We're Here to Help You Hire Better.",
     highlightedText: 'Hire Better.',
     subtitle: 'Have questions or need assistance? Our team is here to help you with everything you need.',
-    imageSrc: '/contact-support-photo.png',
+    imageSrc: DEFAULT_CONTACT_SUPPORT_SRC,
     featurePoints: [
       {
         title: 'Quick Support',
@@ -1866,12 +1871,7 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
   } as LabourCompanyWebsiteContent
 
   const sanitizedLogoSrc = (() => {
-    if (typeof merged.header?.logoSrc !== 'string' || !merged.header.logoSrc.trim()) {
-      return defaultContent.header.logoSrc
-    }
-
-    const normalized = merged.header.logoSrc.trim().replace(/\.pwg$/i, '.png')
-    return normalized.startsWith('/') ? normalized : `/${normalized}`
+    return normalizeWebsiteAssetPath(merged.header?.logoSrc, defaultContent.header.logoSrc)
   })()
 
   const sanitizedLogoWidth = (() => {
@@ -2258,6 +2258,7 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
     contactPage: {
       ...defaultContent.contactPage,
       ...merged.contactPage,
+      imageSrc: normalizeWebsiteAssetPath(merged.contactPage?.imageSrc, defaultContent.contactPage.imageSrc),
       featurePoints: Array.isArray(merged.contactPage?.featurePoints) && merged.contactPage.featurePoints.length
         ? merged.contactPage.featurePoints.map((item, index) => {
             const fallback = defaultContent.contactPage.featurePoints[index] || defaultContent.contactPage.featurePoints[0]

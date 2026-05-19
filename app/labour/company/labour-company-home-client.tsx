@@ -23,6 +23,8 @@ import {
 } from 'lucide-react'
 import styles from './company-site.module.css'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { DEFAULT_ROZGAR_LOGO_SRC, normalizeWebsiteAssetPath } from '@/lib/labour-company-public-assets'
+import { PublicAssetImage } from './public-asset-image'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
 
@@ -285,19 +287,26 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
     { label: 'Client Dashboard', href: panelHref, isLink: true },
     { label: 'Contact Us', href: '/labour/company/contact', isLink: true }
   ]
+  const logoSrc = normalizeWebsiteAssetPath(content.header.logoSrc, DEFAULT_ROZGAR_LOGO_SRC)
+  const parsedLogoWidth = Number(content.header.logoWidth)
+  const logoWidth = Number.isFinite(parsedLogoWidth) && parsedLogoWidth > 0 ? Math.round(parsedLogoWidth) : 220
 
   return (
     <div className={styles.homeLandingPage}>
       <header className={styles.homeLandingHeader}>
         <div className={styles.homeLandingHeaderRow}>
           <Link href="/labour/company" className={styles.homeLandingBrand}>
-            <span className={styles.homeLandingBrandMark}>SV</span>
-            <span className={styles.homeLandingBrandText}>
-              <span className={styles.homeLandingBrandName}>{content.theme.brandName || 'ScaleVyapar'}</span>
-              <span className={styles.homeLandingBrandTagline}>
-                {content.theme.brandTagline || 'Find skilled workers and hire faster across India'}
-              </span>
+            <span className={styles.homeLandingBrandLogoWrap} aria-hidden="true">
+              <PublicAssetImage
+                src={logoSrc}
+                fallbackSrc={DEFAULT_ROZGAR_LOGO_SRC}
+                alt={content.theme.brandName || 'ScaleVyapar Rozgar'}
+                className={styles.homeLandingBrandLogo}
+                widthPx={logoWidth}
+                maxWidthCss="min(240px, calc(100vw - 32px))"
+              />
             </span>
+            <span className={styles.screenReaderOnly}>{content.theme.brandName || 'ScaleVyapar Rozgar'}</span>
           </Link>
 
           <nav className={styles.homeLandingDesktopNav}>
@@ -657,9 +666,15 @@ export function LabourCompanyHomeClient({ content, industryCategories, companyPl
         <div className={styles.homeFooterGrid}>
           <div className={styles.homeFooterBrandCol}>
             <div className={styles.homeFooterBrandRow}>
-              <span className={styles.homeLandingBrandMark}>SV</span>
+              <span className={styles.homeFooterLogoWrap} aria-hidden="true">
+                <PublicAssetImage
+                  src={logoSrc}
+                  fallbackSrc={DEFAULT_ROZGAR_LOGO_SRC}
+                  alt={content.theme.brandName || 'ScaleVyapar Rozgar'}
+                  className={styles.homeFooterLogo}
+                />
+              </span>
               <div>
-                <h3>{content.theme.brandName || 'ScaleVyapar'}</h3>
                 <p>{content.footer.description}</p>
               </div>
             </div>

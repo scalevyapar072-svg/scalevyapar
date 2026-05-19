@@ -17,6 +17,8 @@ import {
 import { CompanySiteShell } from '../company-site-shell'
 import styles from '../company-site.module.css'
 import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { DEFAULT_CONTACT_SUPPORT_SRC, normalizeWebsiteAssetPath } from '@/lib/labour-company-public-assets'
+import { PublicAssetImage } from '../public-asset-image'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -49,16 +51,17 @@ function renderHighlightedText(title: string, highlightedText: string, className
 }
 
 function ContactHeroImage({ src }: { src: string }) {
-  const isRemote = /^https?:\/\//i.test(src)
+  const resolvedSrc = normalizeWebsiteAssetPath(src, DEFAULT_CONTACT_SUPPORT_SRC)
 
   return (
-    <Image
-      src={src}
+    <PublicAssetImage
+      src={resolvedSrc}
+      fallbackSrc={DEFAULT_CONTACT_SUPPORT_SRC}
       alt="Friendly customer support executive"
-      width={880}
-      height={720}
       className={styles.contactHeroImage}
-      unoptimized={isRemote}
+      widthPx={520}
+      maxWidthCss="100%"
+      style={{ aspectRatio: '11 / 9' }}
     />
   )
 }

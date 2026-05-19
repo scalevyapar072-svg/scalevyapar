@@ -12257,3 +12257,102 @@
     width: 100%;
   }
 }
+
+.screenReaderOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.homeLandingBrand {
+  position: relative;
+}
+
+.homeLandingBrandLogoWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.homeLandingBrandLogo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(240px, calc(100vw - 32px));
+  max-height: 54px;
+  object-fit: contain;
+}
+
+.homeFooterBrandRow {
+  align-items: center;
+}
+
+.homeFooterLogoWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 0 0 auto;
+}
+
+.homeFooterLogo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 220px;
+  max-height: 48px;
+  object-fit: contain;
+}
+
+.homeStatsCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.homeStatsIconWrap {
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eef4ff;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+.homeStatsIcon,
+.homeStatsIconWrap svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  flex-shrink: 0;
+  color: #2563eb;
+}
+
+.contactHeroImage {
+  object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .homeLandingBrandLogo {
+    max-width: min(220px, calc(100vw - 36px));
+    max-height: 46px;
+  }
+
+  .homeFooterLogo {
+    max-width: 190px;
+    max-height: 42px;
+  }
+}

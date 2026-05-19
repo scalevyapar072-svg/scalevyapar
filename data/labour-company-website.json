@@ -8,7 +8,7 @@
   },
   "header": {
     "announcement": "Daily worker hiring for factories, workshops, contractors and growing businesses",
-    "logoSrc": "/rozgar-logo-source.png",
+    "logoSrc": "/images/rozgar/rozgar-logo-3d.png",
     "logoWidth": "150",
     "primaryCtaLabel": "Post Requirement",
     "primaryCtaHref": "/labour/company/job-post",
@@ -467,6 +467,7 @@
     "eyebrow": "Get in touch",
     "title": "Contact the ScaleVyapar worker hiring team",
     "subtitle": "Use this page for support, sales follow-up, activation help and pricing discussions.",
+    "imageSrc": "/images/rozgar/contact-support.png",
     "supportEmail": "support@scalevyapar.com",
     "escalationEmail": "escalations@scalevyapar.com",
     "phone": "+91 98765 43210",

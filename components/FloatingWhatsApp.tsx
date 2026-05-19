@@ -1,6 +1,11 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
+
 export default function FloatingWhatsApp() {
+  const pathname = usePathname()
+  const isRozgarRoute = pathname === '/labour/company' || pathname.startsWith('/labour/company/')
+
   return (
     <>
       <style>{`
@@ -9,8 +14,12 @@ export default function FloatingWhatsApp() {
         .wa-btn:hover { transform: scale(1.1); }
         .wa-pulse { position: absolute; top: 0; right: 0; width: 100%; height: 100%; border-radius: 50%; background: rgba(37,211,102,0.4); animation: waPulse 2s ease-in-out infinite; pointer-events: none; }
         @keyframes waPulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.6); opacity: 0; } }
+        @media (max-width: 768px) {
+          .wa-wrap { right: 16px; bottom: 20px; }
+          .wa-wrap.wa-rozgar-route { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+        }
       `}</style>
-      <div className="wa-wrap">
+      <div className={`wa-wrap ${isRozgarRoute ? 'wa-rozgar-route' : ''}`}>
         <a href="https://wa.me/919314023719" className="wa-btn" target="_blank">
           <div className="wa-pulse" />
           <svg width="32" height="32" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">

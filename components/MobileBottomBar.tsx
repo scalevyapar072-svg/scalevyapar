@@ -5,6 +5,11 @@ import { usePathname } from 'next/navigation'
 
 export default function MobileBottomBar() {
   const pathname = usePathname()
+  const hideOnRozgarPages = pathname === '/labour/company' || pathname.startsWith('/labour/company/')
+
+  if (hideOnRozgarPages) {
+    return null
+  }
 
   return (
     <>

@@ -527,6 +527,8 @@ const LEGACY_ROZGAR_LOGO_SRCS = new Set([
   '/rozgar-logo-source.png'
 ])
 
+const CLIENT_DASHBOARD_NAV_ITEM = { label: 'Client Dashboard', href: '/labour/company/panel' } as const
+
 const defaultContent: LabourCompanyWebsiteContent = {
   theme: {
     brandName: 'ScaleVyapar Rozgar',
@@ -548,6 +550,7 @@ const defaultContent: LabourCompanyWebsiteContent = {
       { label: 'About Us', href: '/labour/company/about' },
       { label: 'Pricing', href: '/labour/company/pricing' },
       { label: 'Search Worker', href: '/labour/company/search' },
+      { label: 'Client Dashboard', href: '/labour/company/panel' },
       { label: 'Contact', href: '/labour/company/contact' }
     ]
   },
@@ -1774,6 +1777,51 @@ const rewriteCompanyFacingLabourCopy = (value: string) =>
     .replace(/\bLabour\b/g, 'Worker')
     .replace(/\blabour\b/g, 'worker')
 
+const ensureClientDashboardNavItem = (
+  navItems: Array<{ label: string; href: string }>
+) => {
+  const normalizedItems = navItems
+    .filter(item => item?.label?.trim() && item?.href?.trim())
+    .map(item => ({
+      label: item.label.trim(),
+      href: item.href.trim()
+    }))
+
+  const hasClientDashboard = normalizedItems.some(item =>
+    item.href === CLIENT_DASHBOARD_NAV_ITEM.href || item.label.toLowerCase() === CLIENT_DASHBOARD_NAV_ITEM.label.toLowerCase()
+  )
+
+  if (hasClientDashboard) {
+    return normalizedItems
+  }
+
+  const signInIndex = normalizedItems.findIndex(item =>
+    item.href === '/labour/company/signin' || item.label.toLowerCase() === 'sign in'
+  )
+
+  if (signInIndex >= 0) {
+    return [
+      ...normalizedItems.slice(0, signInIndex),
+      CLIENT_DASHBOARD_NAV_ITEM,
+      ...normalizedItems.slice(signInIndex)
+    ]
+  }
+
+  const searchWorkerIndex = normalizedItems.findIndex(item =>
+    item.href === '/labour/company/search' || item.label.toLowerCase() === 'search worker'
+  )
+
+  if (searchWorkerIndex >= 0) {
+    return [
+      ...normalizedItems.slice(0, searchWorkerIndex + 1),
+      CLIENT_DASHBOARD_NAV_ITEM,
+      ...normalizedItems.slice(searchWorkerIndex + 1)
+    ]
+  }
+
+  return [...normalizedItems, CLIENT_DASHBOARD_NAV_ITEM]
+}
+
 const applyCompanyFacingCopy = (input: unknown, parentKey?: string): unknown => {
   if (typeof input === 'string') {
     return COMPANY_COPY_SKIP_KEYS.has(parentKey || '') ? input : rewriteCompanyFacingLabourCopy(input)
@@ -1966,12 +2014,12 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
         merged.header?.primaryCtaHref,
         defaultContent.header.primaryCtaHref
       ),
-      navItems: Array.isArray(merged.header?.navItems) && merged.header.navItems.length
+      navItems: ensureClientDashboardNavItem(Array.isArray(merged.header?.navItems) && merged.header.navItems.length
         ? merged.header.navItems.map(item => ({
             label: item.label || 'Link',
             href: item.href || '/labour/company'
           }))
-        : defaultContent.header.navItems
+        : defaultContent.header.navItems)
     },
     footer: {
       description: merged.footer?.description || defaultContent.footer.description,

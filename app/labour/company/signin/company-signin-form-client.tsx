@@ -7,6 +7,7 @@ import styles from '../company-site.module.css'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
 const COMPANY_PROFILE_KEY = 'labour_company_profile'
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type SigninCardContent = {
   title: string
@@ -56,8 +57,17 @@ export function CompanySigninFormClient({ content }: Props) {
   }
 
   const handleForgotPassword = async () => {
-    if (!forgotIdentity.trim()) {
-      setForgotError('Enter your registered email or mobile number to reset your password.')
+    const normalizedForgotEmail = forgotIdentity.trim().toLowerCase()
+
+    if (!normalizedForgotEmail) {
+      setForgotError('Enter your registered email address to reset your password.')
+      setForgotMessage('')
+      setPreviewResetUrl('')
+      return
+    }
+
+    if (!EMAIL_PATTERN.test(normalizedForgotEmail)) {
+      setForgotError('Enter a valid registered email address to reset your password.')
       setForgotMessage('')
       setPreviewResetUrl('')
       return
@@ -75,7 +85,7 @@ export function CompanySigninFormClient({ content }: Props) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          email: forgotIdentity.trim()
+          email: normalizedForgotEmail
         })
       })
 
@@ -209,7 +219,7 @@ export function CompanySigninFormClient({ content }: Props) {
               <div>
                 <h3 className={styles.signinForgotTitle}>Forgot Password</h3>
                 <p className={styles.signinForgotText}>
-                  Enter your registered email or mobile number to reset your password.
+                  Enter your registered email address and we will create a reset link for your account.
                 </p>
               </div>
               <button
@@ -239,11 +249,12 @@ export function CompanySigninFormClient({ content }: Props) {
             ) : null}
 
             <label className={styles.signinField}>
-              <span className={styles.signinFieldLabel}>Email or Mobile</span>
+              <span className={styles.signinFieldLabel}>Email Address</span>
               <input
+                type="email"
                 value={forgotIdentity}
                 onChange={event => setForgotIdentity(event.target.value)}
-                placeholder="Enter your registered email or mobile"
+                placeholder="Enter your registered email"
                 className={styles.signinInput}
               />
             </label>
@@ -253,7 +264,7 @@ export function CompanySigninFormClient({ content }: Props) {
                 Cancel
               </button>
               <button type="button" className={styles.signinSubmitButton} onClick={handleForgotPassword} disabled={forgotLoading}>
-                {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+                {forgotLoading ? 'Generating reset link...' : 'Send Reset Link'}
               </button>
             </div>
           </div>

@@ -1,9 +1,23 @@
 ﻿'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-export default function ResetPasswordForm({ token }: { token: string }) {
+type ResetPasswordFormProps = {
+  token: string
+  backHref?: string
+  backLabel?: string
+  successRedirectHref?: string
+}
+
+export default function ResetPasswordForm({
+  token,
+  backHref = '/login',
+  backLabel = 'Back to login',
+  successRedirectHref
+}: ResetPasswordFormProps) {
+  const router = useRouter()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -49,6 +63,12 @@ export default function ResetPasswordForm({ token }: { token: string }) {
       setSuccess('Password updated successfully. You can now sign in with your new password.')
       setPassword('')
       setConfirmPassword('')
+
+      if (successRedirectHref) {
+        window.setTimeout(() => {
+          router.push(successRedirectHref)
+        }, 1500)
+      }
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -94,7 +114,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         </form>
 
         <p style={{ margin: '20px 0 0', fontSize: '13px', color: '#64748b' }}>
-          Remembered it? <Link href='/login' style={{ color: '#4f46e5', fontWeight: '700', textDecoration: 'none' }}>Back to login</Link>
+          Remembered it? <Link href={backHref} style={{ color: '#4f46e5', fontWeight: '700', textDecoration: 'none' }}>{backLabel}</Link>
         </p>
       </div>
     </div>

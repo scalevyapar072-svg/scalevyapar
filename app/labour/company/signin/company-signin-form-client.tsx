@@ -85,7 +85,8 @@ export function CompanySigninFormClient({ content }: Props) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          email: normalizedForgotEmail
+          email: normalizedForgotEmail,
+          redirectPath: '/labour/company/reset-password'
         })
       })
 

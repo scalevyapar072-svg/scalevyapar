@@ -47,7 +47,7 @@ async function sendResetEmail(email: string, resetUrl: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json()
+    const { email, redirectPath } = await request.json()
 
     if (!email || typeof email !== 'string') {
       return NextResponse.json(
@@ -55,6 +55,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const safeRedirectPath =
+      typeof redirectPath === 'string' && redirectPath.trim() === '/labour/company/reset-password'
+        ? '/labour/company/reset-password'
+        : '/reset-password'
 
     const genericMessage = 'If an account exists for that email, a password reset link has been generated.'
     const user = await getUserByEmail(email)
@@ -69,7 +74,7 @@ export async function POST(request: NextRequest) {
     })
 
     const origin = new URL(request.url).origin
-    const resetUrl = `${origin}/reset-password?token=${encodeURIComponent(token)}`
+    const resetUrl = `${origin}${safeRedirectPath}?token=${encodeURIComponent(token)}`
     const allowPreview = process.env.NODE_ENV !== 'production' || process.env.ENABLE_FORGOT_PASSWORD_PREVIEW === 'true'
     const emailConfigured = Boolean(process.env.RESEND_API_KEY && process.env.RESET_EMAIL_FROM)
 

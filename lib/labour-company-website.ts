@@ -1141,11 +1141,11 @@ const defaultContent: LabourCompanyWebsiteContent = {
     checkout: {
       gstPercentage: '18',
       defaultDiscountPercentage: '13',
-      defaultDiscountAmount: '545',
+      defaultDiscountAmount: '0',
       enableAutoDiscount: true,
       discountLabel: 'Plan discount (~13%)',
       discountCode: '',
-      savingsMessage: 'Yay! You’re saving ₹545 on this purchase',
+      savingsMessage: 'Yay! You’re saving {amount} on this purchase',
       gstin: '08AJOPM0347B1ZE',
       paymentButtonLabel: 'Proceed to Pay',
       policyText: 'We ensure fair use and privacy. Policy violations or fraud may result in suspension and loss of fees. KYC verification is mandatory for unregistered users to activate subscriptions.',
@@ -1922,6 +1922,7 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
     ...legacyPatch,
     ...source
   } as LabourCompanyWebsiteContent
+  const mergedPricingCheckout = (merged.pricingPage?.checkout || {}) as Record<string, unknown>
 
   const sanitizedLogoSrc = (() => {
     const normalized = normalizeWebsiteAssetPath(merged.header?.logoSrc, defaultContent.header.logoSrc)
@@ -2269,42 +2270,57 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
       checkout: {
         ...defaultContent.pricingPage.checkout,
         ...merged.pricingPage?.checkout,
-        gstPercentage: typeof merged.pricingPage?.checkout?.gstPercentage === 'string' && merged.pricingPage.checkout.gstPercentage.trim()
-          ? merged.pricingPage.checkout.gstPercentage.trim()
+        gstPercentage: typeof mergedPricingCheckout.gstPercentage === 'string' && mergedPricingCheckout.gstPercentage.trim()
+          ? mergedPricingCheckout.gstPercentage.trim()
           : defaultContent.pricingPage.checkout.gstPercentage,
-        defaultDiscountPercentage: typeof merged.pricingPage?.checkout?.defaultDiscountPercentage === 'string' && merged.pricingPage.checkout.defaultDiscountPercentage.trim()
-          ? merged.pricingPage.checkout.defaultDiscountPercentage.trim()
-          : defaultContent.pricingPage.checkout.defaultDiscountPercentage,
-        defaultDiscountAmount: typeof merged.pricingPage?.checkout?.defaultDiscountAmount === 'string' && merged.pricingPage.checkout.defaultDiscountAmount.trim()
-          ? merged.pricingPage.checkout.defaultDiscountAmount.trim()
-          : defaultContent.pricingPage.checkout.defaultDiscountAmount,
-        enableAutoDiscount: Boolean(merged.pricingPage?.checkout?.enableAutoDiscount),
-        discountLabel: typeof merged.pricingPage?.checkout?.discountLabel === 'string' && merged.pricingPage.checkout.discountLabel.trim()
-          ? merged.pricingPage.checkout.discountLabel.trim()
+        defaultDiscountPercentage:
+          (typeof mergedPricingCheckout.defaultDiscountPercentage === 'string' && mergedPricingCheckout.defaultDiscountPercentage.trim()
+            ? mergedPricingCheckout.defaultDiscountPercentage.trim()
+            : typeof mergedPricingCheckout.discountPercentage === 'string' && mergedPricingCheckout.discountPercentage.trim()
+              ? mergedPricingCheckout.discountPercentage.trim()
+              : typeof mergedPricingCheckout.discountPercent === 'string' && mergedPricingCheckout.discountPercent.trim()
+                ? mergedPricingCheckout.discountPercent.trim()
+                : defaultContent.pricingPage.checkout.defaultDiscountPercentage),
+        defaultDiscountAmount:
+          (typeof mergedPricingCheckout.defaultDiscountAmount === 'string' && mergedPricingCheckout.defaultDiscountAmount.trim()
+            ? mergedPricingCheckout.defaultDiscountAmount.trim()
+            : typeof mergedPricingCheckout.discountAmount === 'string' && mergedPricingCheckout.discountAmount.trim()
+              ? mergedPricingCheckout.discountAmount.trim()
+              : defaultContent.pricingPage.checkout.defaultDiscountAmount),
+        enableAutoDiscount: typeof mergedPricingCheckout.enableAutoDiscount === 'boolean'
+          ? mergedPricingCheckout.enableAutoDiscount
+          : typeof mergedPricingCheckout.autoDiscountEnabled === 'boolean'
+            ? mergedPricingCheckout.autoDiscountEnabled
+            : defaultContent.pricingPage.checkout.enableAutoDiscount,
+        discountLabel: typeof mergedPricingCheckout.discountLabel === 'string' && mergedPricingCheckout.discountLabel.trim()
+          ? mergedPricingCheckout.discountLabel.trim()
           : defaultContent.pricingPage.checkout.discountLabel,
-        discountCode: typeof merged.pricingPage?.checkout?.discountCode === 'string'
-          ? merged.pricingPage.checkout.discountCode.trim()
+        discountCode: typeof mergedPricingCheckout.discountCode === 'string'
+          ? mergedPricingCheckout.discountCode.trim()
           : defaultContent.pricingPage.checkout.discountCode,
-        savingsMessage: typeof merged.pricingPage?.checkout?.savingsMessage === 'string' && merged.pricingPage.checkout.savingsMessage.trim()
-          ? merged.pricingPage.checkout.savingsMessage.trim()
+        savingsMessage: typeof mergedPricingCheckout.savingsMessage === 'string' && mergedPricingCheckout.savingsMessage.trim()
+          ? mergedPricingCheckout.savingsMessage.trim()
           : defaultContent.pricingPage.checkout.savingsMessage,
-        gstin: typeof merged.pricingPage?.checkout?.gstin === 'string' && merged.pricingPage.checkout.gstin.trim()
-          ? merged.pricingPage.checkout.gstin.trim()
-          : defaultContent.pricingPage.checkout.gstin,
-        paymentButtonLabel: typeof merged.pricingPage?.checkout?.paymentButtonLabel === 'string' && merged.pricingPage.checkout.paymentButtonLabel.trim()
-          ? merged.pricingPage.checkout.paymentButtonLabel.trim()
+        gstin:
+          (typeof mergedPricingCheckout.gstin === 'string' && mergedPricingCheckout.gstin.trim()
+            ? mergedPricingCheckout.gstin.trim()
+            : typeof mergedPricingCheckout.fallbackGstin === 'string' && mergedPricingCheckout.fallbackGstin.trim()
+              ? mergedPricingCheckout.fallbackGstin.trim()
+              : defaultContent.pricingPage.checkout.gstin),
+        paymentButtonLabel: typeof mergedPricingCheckout.paymentButtonLabel === 'string' && mergedPricingCheckout.paymentButtonLabel.trim()
+          ? mergedPricingCheckout.paymentButtonLabel.trim()
           : defaultContent.pricingPage.checkout.paymentButtonLabel,
-        policyText: typeof merged.pricingPage?.checkout?.policyText === 'string' && merged.pricingPage.checkout.policyText.trim()
-          ? merged.pricingPage.checkout.policyText.trim()
+        policyText: typeof mergedPricingCheckout.policyText === 'string' && mergedPricingCheckout.policyText.trim()
+          ? mergedPricingCheckout.policyText.trim()
           : defaultContent.pricingPage.checkout.policyText,
-        securityText: typeof merged.pricingPage?.checkout?.securityText === 'string' && merged.pricingPage.checkout.securityText.trim()
-          ? merged.pricingPage.checkout.securityText.trim()
+        securityText: typeof mergedPricingCheckout.securityText === 'string' && mergedPricingCheckout.securityText.trim()
+          ? mergedPricingCheckout.securityText.trim()
           : defaultContent.pricingPage.checkout.securityText,
-        paymentProviderMode: typeof merged.pricingPage?.checkout?.paymentProviderMode === 'string' && merged.pricingPage.checkout.paymentProviderMode.trim()
-          ? merged.pricingPage.checkout.paymentProviderMode.trim()
+        paymentProviderMode: typeof mergedPricingCheckout.paymentProviderMode === 'string' && mergedPricingCheckout.paymentProviderMode.trim()
+          ? mergedPricingCheckout.paymentProviderMode.trim()
           : defaultContent.pricingPage.checkout.paymentProviderMode,
-        gatewayComingSoonMessage: typeof merged.pricingPage?.checkout?.gatewayComingSoonMessage === 'string' && merged.pricingPage.checkout.gatewayComingSoonMessage.trim()
-          ? merged.pricingPage.checkout.gatewayComingSoonMessage.trim()
+        gatewayComingSoonMessage: typeof mergedPricingCheckout.gatewayComingSoonMessage === 'string' && mergedPricingCheckout.gatewayComingSoonMessage.trim()
+          ? mergedPricingCheckout.gatewayComingSoonMessage.trim()
           : defaultContent.pricingPage.checkout.gatewayComingSoonMessage
       }
     },

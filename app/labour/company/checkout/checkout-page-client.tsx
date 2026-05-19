@@ -2,21 +2,30 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, CircleCheckBig, LockKeyhole, Pencil } from 'lucide-react'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import { createCheckoutSummary, formatRupees } from '@/lib/labour-company-checkout'
 import styles from '../company-site.module.css'
 
+const COMPANY_TOKEN_KEY = 'labour_company_token'
 const COMPANY_PROFILE_KEY = 'labour_company_profile'
 
-export function CheckoutPageClient({ pricingContent }: { pricingContent: LabourCompanyWebsiteContent['pricingPage'] }) {
+export function CheckoutPageClient({
+  pricingContent,
+  initialPlan,
+  initialBilling
+}: {
+  pricingContent: LabourCompanyWebsiteContent['pricingPage']
+  initialPlan: string
+  initialBilling: string
+}) {
   const searchParams = useSearchParams()
   const [discountCodeInput, setDiscountCodeInput] = useState('')
   const [appliedDiscountCode, setAppliedDiscountCode] = useState('')
   const [discountCodeMessage, setDiscountCodeMessage] = useState('')
   const [paymentNotice, setPaymentNotice] = useState('')
-  const [gstinOverride] = useState(() => {
+  const [gstinOverride, setGstinOverride] = useState(() => {
     if (typeof window === 'undefined') return ''
 
     try {
@@ -30,13 +39,52 @@ export function CheckoutPageClient({ pricingContent }: { pricingContent: LabourC
     }
   })
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const authToken = window.localStorage.getItem(COMPANY_TOKEN_KEY) || window.sessionStorage.getItem(COMPANY_TOKEN_KEY) || ''
+    if (!authToken) return
+
+    let cancelled = false
+
+    const syncCompanyGstin = async () => {
+      try {
+        const response = await fetch('/api/labour/company/dashboard', {
+          headers: {
+            Authorization: `Bearer ${authToken}`
+          },
+          cache: 'no-store'
+        })
+
+        if (!response.ok) return
+        const data = await response.json()
+        const profile = data?.dashboard?.profile as Record<string, unknown> | undefined
+        if (!profile) return
+
+        window.localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(profile))
+        const gstValue = [profile.gstNumber, profile.gst_number, profile.gstin].find(value => typeof value === 'string' && value.trim()) as string | undefined
+        if (!cancelled && gstValue?.trim()) {
+          setGstinOverride(gstValue.trim())
+        }
+      } catch {
+        // Ignore checkout GST sync issues and keep fallback GSTIN.
+      }
+    }
+
+    void syncCompanyGstin()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const summary = useMemo(() => createCheckoutSummary({
     pricingPage: pricingContent,
-    planSlug: searchParams.get('plan'),
-    billingMode: searchParams.get('billing'),
+    planSlug: searchParams.get('plan') || initialPlan,
+    billingMode: searchParams.get('billing') || initialBilling,
     discountCode: appliedDiscountCode,
     gstinOverride
-  }), [appliedDiscountCode, gstinOverride, pricingContent, searchParams])
+  }), [appliedDiscountCode, gstinOverride, initialBilling, initialPlan, pricingContent, searchParams])
 
   const showDiscountCodeField = !summary.autoDiscountEnabled && Boolean(summary.discountCode)
 

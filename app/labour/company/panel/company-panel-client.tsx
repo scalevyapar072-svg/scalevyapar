@@ -52,6 +52,7 @@ type CompanyDashboard = {
     contactPerson: string
     email: string
     mobile: string
+    gstNumber?: string
     city: string
     state?: string
     status: string

@@ -28,6 +28,7 @@ export type CompanyAppProfile = {
   contactMobile: string
   businessType: string
   industryCategory: string
+  gstNumber: string
   companyAddress: string
   state: string
   pincode: string
@@ -153,6 +154,7 @@ const toCompanyProfile = (
   contactMobile: company.contactMobile || company.mobile,
   businessType: company.businessType,
   industryCategory: company.industryCategory,
+  gstNumber: company.gstNumber,
   companyAddress: company.companyAddress,
   state: company.state,
   pincode: company.pincode,

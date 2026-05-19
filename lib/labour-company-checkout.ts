@@ -145,9 +145,10 @@ export const createCheckoutSummary = ({
   const configuredCode = pricingPage.checkout.discountCode.trim().toLowerCase()
   const canApplyCode = Boolean(configuredCode) && normalizedCode === configuredCode
   const shouldApplyDiscount = pricingPage.checkout.enableAutoDiscount || canApplyCode
-  const discountAmount = shouldApplyDiscount
+  const rawDiscountAmount = shouldApplyDiscount
     ? roundCurrency(configuredDiscountAmount > 0 ? configuredDiscountAmount : (baseAmount * configuredDiscountPercent) / 100)
     : 0
+  const discountAmount = Math.min(baseAmount, Math.max(0, rawDiscountAmount))
   const subtotal = roundCurrency(baseAmount - discountAmount)
   const gstPercent = sanitizeNumber(pricingPage.checkout.gstPercentage) || DEFAULT_GST_PERCENT
   const gstAmount = roundCurrency((subtotal * gstPercent) / 100)

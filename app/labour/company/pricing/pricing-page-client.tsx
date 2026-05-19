@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { createPricingPlanSlug } from '@/lib/labour-company-checkout'
 import styles from '../company-site.module.css'
 
 const iconMap = {
@@ -105,6 +106,8 @@ export function PricingPageClient({ content }: { content: LabourCompanyWebsiteCo
           const displayedPrice = showYearly ? plan.yearlyPrice : plan.monthlyPrice
           const displayedSuffix = showYearly ? plan.yearlySuffix : plan.monthlySuffix
           const isFeatured = Boolean(plan.badge)
+          const checkoutBaseHref = plan.buttonHref.startsWith('/labour/company/checkout') ? plan.buttonHref : '/labour/company/checkout'
+          const checkoutHref = `${checkoutBaseHref}${checkoutBaseHref.includes('?') ? '&' : '?'}plan=${encodeURIComponent(createPricingPlanSlug(plan.name, index))}&billing=${billingMode}`
 
           return (
             <article
@@ -120,7 +123,7 @@ export function PricingPageClient({ content }: { content: LabourCompanyWebsiteCo
                 <strong>{displayedPrice}</strong>
                 <span>{displayedSuffix}</span>
               </div>
-              <Link href={plan.buttonHref} className={styles.pricingPlanButton}>
+              <Link href={checkoutHref} className={styles.pricingPlanButton}>
                 {plan.buttonLabel}
               </Link>
               <div className={styles.pricingPlanFeatures}>

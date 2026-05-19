@@ -7,6 +7,7 @@ const COMPANY_WEBSITE_PATHS = [
   '/labour/company',
   '/labour/company/about',
   '/labour/company/pricing',
+  '/labour/company/checkout',
   '/labour/company/search',
   '/labour/company/contact',
   '/labour/company/job-post',

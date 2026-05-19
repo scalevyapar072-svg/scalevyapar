@@ -294,6 +294,21 @@ export interface LabourCompanyWebsiteContent {
       secondaryCtaLabel: string
       secondaryCtaHref: string
     }
+    checkout: {
+      gstPercentage: string
+      defaultDiscountPercentage: string
+      defaultDiscountAmount: string
+      enableAutoDiscount: boolean
+      discountLabel: string
+      discountCode: string
+      savingsMessage: string
+      gstin: string
+      paymentButtonLabel: string
+      policyText: string
+      securityText: string
+      paymentProviderMode: string
+      gatewayComingSoonMessage: string
+    }
   }
   signinPage: {
     eyebrow: string
@@ -1122,6 +1137,21 @@ const defaultContent: LabourCompanyWebsiteContent = {
       primaryCtaHref: '/labour/company/job-post',
       secondaryCtaLabel: 'Register Company',
       secondaryCtaHref: '/labour/company/company-registration'
+    },
+    checkout: {
+      gstPercentage: '18',
+      defaultDiscountPercentage: '13',
+      defaultDiscountAmount: '545',
+      enableAutoDiscount: true,
+      discountLabel: 'Plan discount (~13%)',
+      discountCode: '',
+      savingsMessage: 'Yay! You’re saving ₹545 on this purchase',
+      gstin: '08AJOPM0347B1ZE',
+      paymentButtonLabel: 'Proceed to Pay',
+      policyText: 'We ensure fair use and privacy. Policy violations or fraud may result in suspension and loss of fees. KYC verification is mandatory for unregistered users to activate subscriptions.',
+      securityText: '100% safe and secure checkout',
+      paymentProviderMode: 'dummy',
+      gatewayComingSoonMessage: 'Payment gateway will be connected soon.'
     }
   },
   signinPage: {
@@ -2235,6 +2265,47 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
           merged.pricingPage?.finalCta?.secondaryCtaHref,
           defaultContent.pricingPage.finalCta.secondaryCtaHref
         )
+      },
+      checkout: {
+        ...defaultContent.pricingPage.checkout,
+        ...merged.pricingPage?.checkout,
+        gstPercentage: typeof merged.pricingPage?.checkout?.gstPercentage === 'string' && merged.pricingPage.checkout.gstPercentage.trim()
+          ? merged.pricingPage.checkout.gstPercentage.trim()
+          : defaultContent.pricingPage.checkout.gstPercentage,
+        defaultDiscountPercentage: typeof merged.pricingPage?.checkout?.defaultDiscountPercentage === 'string' && merged.pricingPage.checkout.defaultDiscountPercentage.trim()
+          ? merged.pricingPage.checkout.defaultDiscountPercentage.trim()
+          : defaultContent.pricingPage.checkout.defaultDiscountPercentage,
+        defaultDiscountAmount: typeof merged.pricingPage?.checkout?.defaultDiscountAmount === 'string' && merged.pricingPage.checkout.defaultDiscountAmount.trim()
+          ? merged.pricingPage.checkout.defaultDiscountAmount.trim()
+          : defaultContent.pricingPage.checkout.defaultDiscountAmount,
+        enableAutoDiscount: Boolean(merged.pricingPage?.checkout?.enableAutoDiscount),
+        discountLabel: typeof merged.pricingPage?.checkout?.discountLabel === 'string' && merged.pricingPage.checkout.discountLabel.trim()
+          ? merged.pricingPage.checkout.discountLabel.trim()
+          : defaultContent.pricingPage.checkout.discountLabel,
+        discountCode: typeof merged.pricingPage?.checkout?.discountCode === 'string'
+          ? merged.pricingPage.checkout.discountCode.trim()
+          : defaultContent.pricingPage.checkout.discountCode,
+        savingsMessage: typeof merged.pricingPage?.checkout?.savingsMessage === 'string' && merged.pricingPage.checkout.savingsMessage.trim()
+          ? merged.pricingPage.checkout.savingsMessage.trim()
+          : defaultContent.pricingPage.checkout.savingsMessage,
+        gstin: typeof merged.pricingPage?.checkout?.gstin === 'string' && merged.pricingPage.checkout.gstin.trim()
+          ? merged.pricingPage.checkout.gstin.trim()
+          : defaultContent.pricingPage.checkout.gstin,
+        paymentButtonLabel: typeof merged.pricingPage?.checkout?.paymentButtonLabel === 'string' && merged.pricingPage.checkout.paymentButtonLabel.trim()
+          ? merged.pricingPage.checkout.paymentButtonLabel.trim()
+          : defaultContent.pricingPage.checkout.paymentButtonLabel,
+        policyText: typeof merged.pricingPage?.checkout?.policyText === 'string' && merged.pricingPage.checkout.policyText.trim()
+          ? merged.pricingPage.checkout.policyText.trim()
+          : defaultContent.pricingPage.checkout.policyText,
+        securityText: typeof merged.pricingPage?.checkout?.securityText === 'string' && merged.pricingPage.checkout.securityText.trim()
+          ? merged.pricingPage.checkout.securityText.trim()
+          : defaultContent.pricingPage.checkout.securityText,
+        paymentProviderMode: typeof merged.pricingPage?.checkout?.paymentProviderMode === 'string' && merged.pricingPage.checkout.paymentProviderMode.trim()
+          ? merged.pricingPage.checkout.paymentProviderMode.trim()
+          : defaultContent.pricingPage.checkout.paymentProviderMode,
+        gatewayComingSoonMessage: typeof merged.pricingPage?.checkout?.gatewayComingSoonMessage === 'string' && merged.pricingPage.checkout.gatewayComingSoonMessage.trim()
+          ? merged.pricingPage.checkout.gatewayComingSoonMessage.trim()
+          : defaultContent.pricingPage.checkout.gatewayComingSoonMessage
       }
     },
     signinPage: {

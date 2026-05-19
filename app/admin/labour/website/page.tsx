@@ -1684,6 +1684,42 @@ export default function LabourWebsiteEditorPage() {
               </div>
             </SectionCard>
 
+            <SectionCard title="Checkout Settings" description="Manage GST, discounts, GSTIN and the Razorpay-ready payment copy used on the Rozgar checkout page.">
+              <div style={{ display: 'grid', gap: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                  <Field label="GST Percentage" value={content.pricingPage.checkout.gstPercentage} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, gstPercentage: value } } } : current)} />
+                  <Field label="Default Discount Percentage" value={content.pricingPage.checkout.defaultDiscountPercentage} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, defaultDiscountPercentage: value } } } : current)} />
+                  <Field label="Default Discount Amount" value={content.pricingPage.checkout.defaultDiscountAmount} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, defaultDiscountAmount: value } } } : current)} />
+                  <Field label="Discount Label" value={content.pricingPage.checkout.discountLabel} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, discountLabel: value } } } : current)} />
+                  <Field label="Discount Code" value={content.pricingPage.checkout.discountCode} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, discountCode: value } } } : current)} />
+                  <Field label="GSTIN" value={content.pricingPage.checkout.gstin} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, gstin: value } } } : current)} />
+                  <Field label="Payment Button Label" value={content.pricingPage.checkout.paymentButtonLabel} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, paymentButtonLabel: value } } } : current)} />
+                  <Field label="Payment Provider Mode" value={content.pricingPage.checkout.paymentProviderMode} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, paymentProviderMode: value } } } : current)} placeholder="dummy or razorpay-ready" />
+                </div>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', color: '#0f172a', fontSize: '13px', fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={content.pricingPage.checkout.enableAutoDiscount}
+                    onChange={event => setContent(current => current ? {
+                      ...current,
+                      pricingPage: {
+                        ...current.pricingPage,
+                        checkout: {
+                          ...current.pricingPage.checkout,
+                          enableAutoDiscount: event.target.checked
+                        }
+                      }
+                    } : current)}
+                  />
+                  Enable auto discount
+                </label>
+                <TextAreaField label="Savings Message" value={content.pricingPage.checkout.savingsMessage} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, savingsMessage: value } } } : current)} rows={2} />
+                <TextAreaField label="Purchase Policy Text" value={content.pricingPage.checkout.policyText} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, policyText: value } } } : current)} rows={4} />
+                <TextAreaField label="Checkout Security Text" value={content.pricingPage.checkout.securityText} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, securityText: value } } } : current)} rows={2} />
+                <TextAreaField label="Gateway Placeholder Message" value={content.pricingPage.checkout.gatewayComingSoonMessage} onChange={value => setContent(current => current ? { ...current, pricingPage: { ...current.pricingPage, checkout: { ...current.pricingPage.checkout, gatewayComingSoonMessage: value } } } : current)} rows={2} />
+              </div>
+            </SectionCard>
+
             <SectionCard title="Pricing Plans" description="Edit each pricing card, badge, prices, buttons, and feature list.">
               <div style={{ display: 'grid', gap: '16px' }}>
                 {content.pricingPage.plans.map((plan, index) => (

@@ -504,6 +504,10 @@ export interface LabourCompanyWebsiteContent {
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'labour-company-website.json')
 const TABLE_NAME = 'labour_website_content'
 const RECORD_ID = 'company-website'
+const LEGACY_ROZGAR_LOGO_SRCS = new Set([
+  '/images/rozgar/rozgar-logo-3d.png',
+  '/rozgar-logo-source.png'
+])
 
 const defaultContent: LabourCompanyWebsiteContent = {
   theme: {
@@ -1871,7 +1875,8 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
   } as LabourCompanyWebsiteContent
 
   const sanitizedLogoSrc = (() => {
-    return normalizeWebsiteAssetPath(merged.header?.logoSrc, defaultContent.header.logoSrc)
+    const normalized = normalizeWebsiteAssetPath(merged.header?.logoSrc, defaultContent.header.logoSrc)
+    return LEGACY_ROZGAR_LOGO_SRCS.has(normalized) ? defaultContent.header.logoSrc : normalized
   })()
 
   const sanitizedLogoWidth = (() => {

@@ -1,4 +1,4 @@
-export const DEFAULT_ROZGAR_LOGO_SRC = '/images/rozgar/rozgar-logo-3d.png'
+export const DEFAULT_ROZGAR_LOGO_SRC = '/images/rozgar/rozgar-logo-main.png'
 export const DEFAULT_CONTACT_SUPPORT_SRC = '/images/rozgar/contact-support.png'
 
 export function normalizeWebsiteAssetPath(src: string | null | undefined, fallback: string) {

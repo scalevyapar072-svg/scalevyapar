@@ -4,15 +4,15 @@ import { CompanySiteShell } from './company-site-shell'
 import styles from './company-site.module.css'
 import { getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
 import { getLabourCompanyWebsiteContent, type LabourCompanyWebsiteSection } from '@/lib/labour-company-website'
-import { getSessionFromCookies } from '@/lib/auth-token'
+import { verifyToken, AUTH_COOKIE_NAME, LEGACY_AUTH_COOKIE_NAME } from "@/lib/auth-token"
 import { cookies } from 'next/headers'
 
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
 
 export default async function LabourCompanyHomePage() {
   const cookieStore = await cookies()
-  const token = cookieStore.get('auth-token')?.value
-  const session = token ? await getSessionFromCookies(token) : null
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value ?? cookieStore.get(LEGACY_AUTH_COOKIE_NAME)?.value
+  const session = token ? await verifyToken(token) : null
   const isAdmin = session?.role === 'ADMIN'
 
   const [website, snapshot] = await Promise.all([

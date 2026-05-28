@@ -66,9 +66,20 @@ export function CompanySiteShell({ content, currentPath, children, isAdmin }: Pr
   const closeMobileMenu = () => setIsMobileMenuOpen(false)
 
   return (
-    <div className={styles.page}>
-      <div className={styles.pageGlow} />
-      <div className={styles.container}>
+    <>
+      <style jsx global>{`
+        @media (max-width: 768px) {
+          .headerActions {
+            display: none !important;
+          }
+          .desktopNav {
+            display: none !important;
+          }
+        }
+      `}</style>
+      <div className={styles.page}>
+        <div className={styles.pageGlow} />
+        <div className={styles.container}>
         <div className={styles.announcementBar}>
           <span>Daily worker hiring for factories, workshops, contractors and growing businesses</span>
         </div>

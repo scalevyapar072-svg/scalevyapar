@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 
 const testimonials = [
   { name: 'Rajesh Sharma', business: 'Sharma Textiles, Jaipur', review: 'Got 500 leads in 2 weeks using LeadRadar. Our sales team is 3x more productive!', avatar: 'R' },
@@ -15,6 +16,7 @@ export default function TestimonialsSlider() {
   const [current, setCurrent] = useState(0)
   const [visible, setVisible] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const pathname = usePathname()
 
   useEffect(() => {
     const cycle = () => {
@@ -43,6 +45,8 @@ export default function TestimonialsSlider() {
   }, [])
 
   const t = testimonials[current]
+
+  if (pathname?.startsWith('/labour/company')) return null
 
   return (
     <>

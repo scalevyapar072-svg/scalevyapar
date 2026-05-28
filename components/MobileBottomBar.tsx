@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation'
 export default function MobileBottomBar() {
   const pathname = usePathname()
 
+  if (pathname?.startsWith('/labour/company')) return null
+
   return (
     <>
       <style>{`

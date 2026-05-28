@@ -2,11 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export default function AnnouncementBar() {
   const [visible, setVisible] = useState(true)
+  const pathname = usePathname()
 
   if (!visible) return null
+  if (pathname?.startsWith('/labour/company')) return null
 
   return (
     <>

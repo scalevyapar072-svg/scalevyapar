@@ -31,9 +31,9 @@ const tabs: Tab[] = [
   },
   {
     label: 'Register Company',
-    href: '/labour/company#company-intake',
+    href: '/labour/company/company-registration',
     icon: '🏢',
-    match: () => false
+    match: (p) => p.startsWith('/labour/company/company-registration')
   },
   {
     label: 'Contact',

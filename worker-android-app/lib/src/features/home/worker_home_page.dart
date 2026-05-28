@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app.dart';
 import '../../localization/worker_localizations.dart';
@@ -340,10 +341,15 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   void _openJobDetails(WorkerFeedItemModel item) {
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _JobDetailsPage(
           item: item,
+          profile: dashboard.profile,
           onApply: _applyToJob,
           onToggleSaved: _toggleSavedJob,
         ),
@@ -359,6 +365,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _SavedJobsPage(
+          profile: dashboard.profile,
           items: dashboard.feed.where((item) => item.isSaved).toList(),
           onApply: _applyToJob,
           onToggleSaved: _toggleSavedJob,
@@ -1331,11 +1338,13 @@ class _FeedTab extends StatelessWidget {
 
 class _JobDetailsPage extends StatefulWidget {
   final WorkerFeedItemModel item;
+  final WorkerProfileModel profile;
   final Future<void> Function(String jobPostId) onApply;
   final Future<void> Function(String jobPostId) onToggleSaved;
 
   const _JobDetailsPage({
     required this.item,
+    required this.profile,
     required this.onApply,
     required this.onToggleSaved,
   });
@@ -1384,6 +1393,44 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
       if (mounted) {
         setState(() => _actionLoading = false);
       }
+    }
+  }
+
+  Future<void> _openWhatsApp() async {
+    final l10n = WorkerLocalizations.of(context);
+    final companyMobile = widget.item.companyMobile?.trim() ?? '';
+    final normalizedPhone = _normalizeWhatsappPhone(companyMobile);
+    if (normalizedPhone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.isHindi
+                ? 'कंपनी का व्हाट्सएप नंबर उपलब्ध नहीं है।'
+                : 'Company WhatsApp number is not available.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final message = _buildWhatsAppMessage(
+      item: widget.item,
+      profile: widget.profile,
+      isHindi: l10n.isHindi,
+    );
+    final uri = Uri.parse(
+      'https://wa.me/$normalizedPhone?text=${Uri.encodeComponent(message)}',
+    );
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.isHindi ? 'व्हाट्सएप खोला नहीं जा सका।' : 'Could not open WhatsApp.',
+          ),
+        ),
+      );
     }
   }
 
@@ -1566,6 +1613,22 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                           label: l10n.isHindi ? 'कंपनी शहर' : 'Company city',
                           value: item.companyCity,
                         ),
+                        if ((item.companyMobile ?? '').trim().isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: _openWhatsApp,
+                              icon: const Icon(Icons.chat_rounded),
+                              label: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                child: Text(
+                                  l10n.isHindi ? 'व्हाट्सएप पर बात करें' : 'Chat on WhatsApp',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                 ],
@@ -1657,11 +1720,13 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
 }
 
 class _SavedJobsPage extends StatefulWidget {
+  final WorkerProfileModel profile;
   final List<WorkerFeedItemModel> items;
   final Future<void> Function(String jobPostId) onApply;
   final Future<void> Function(String jobPostId) onToggleSaved;
 
   const _SavedJobsPage({
+    required this.profile,
     required this.items,
     required this.onApply,
     required this.onToggleSaved,
@@ -1742,6 +1807,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
       MaterialPageRoute(
         builder: (_) => _JobDetailsPage(
           item: item,
+          profile: widget.profile,
           onApply: _handleApply,
           onToggleSaved: _handleToggleSaved,
         ),
@@ -2828,6 +2894,64 @@ class _ProfileInfoTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String _normalizeWhatsappPhone(String value) {
+  final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+  if (digits.isEmpty) {
+    return '';
+  }
+  if (digits.length == 10) {
+    return '91$digits';
+  }
+  if (digits.length == 12 && digits.startsWith('91')) {
+    return digits;
+  }
+  return digits;
+}
+
+String _buildWhatsAppMessage({
+  required WorkerFeedItemModel item,
+  required WorkerProfileModel profile,
+  required bool isHindi,
+}) {
+  final contactName = (item.contactPerson ?? '').trim().isNotEmpty
+      ? item.contactPerson!.trim()
+      : item.companyName;
+  final categories = profile.categoryLabels.where((value) => value.trim().isNotEmpty).join(', ');
+  final skills = profile.skills.where((value) => value.trim().isNotEmpty).join(', ');
+  final experience = profile.experienceYears % 1 == 0
+      ? profile.experienceYears.toStringAsFixed(0)
+      : profile.experienceYears.toStringAsFixed(1);
+  final wage = profile.expectedDailyWage % 1 == 0
+      ? profile.expectedDailyWage.toStringAsFixed(0)
+      : profile.expectedDailyWage.toStringAsFixed(1);
+
+  if (isHindi) {
+    return 'नमस्ते $contactName,\n\n'
+        'मेरा नाम ${profile.fullName} है। मुझे आपकी जॉब "${item.title}" में रुचि है।\n\n'
+        'मेरी प्रोफाइल:\n'
+        'नाम: ${profile.fullName}\n'
+        'मोबाइल: ${profile.mobile}\n'
+        'शहर: ${profile.city}\n'
+        'कैटेगरी: ${categories.isEmpty ? '-' : categories}\n'
+        'स्किल्स: ${skills.isEmpty ? '-' : skills}\n'
+        'अनुभव: $experience वर्ष\n'
+        'अपेक्षित दिहाड़ी: Rs $wage\n\n'
+        'कृपया बताइए अगर यह जॉब अभी उपलब्ध है।';
+  }
+
+  return 'Hello $contactName,\n\n'
+      'My name is ${profile.fullName}. I am interested in your job "${item.title}".\n\n'
+      'My profile:\n'
+      'Name: ${profile.fullName}\n'
+      'Mobile: ${profile.mobile}\n'
+      'City: ${profile.city}\n'
+      'Categories: ${categories.isEmpty ? '-' : categories}\n'
+      'Skills: ${skills.isEmpty ? '-' : skills}\n'
+      'Experience: $experience years\n'
+      'Expected daily wage: Rs $wage\n\n'
+      'Please let me know if this job is still available.';
 }
 
 String _prettyText(BuildContext context, String value) {

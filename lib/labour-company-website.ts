@@ -13,6 +13,18 @@ export type LabourCompanyWebsiteSection =
   | 'cta'
   | 'intake'
 
+export interface LabourCompanyLegalPageSection {
+  title: string
+  body: string
+}
+
+export interface LabourCompanyLegalPageContent {
+  eyebrow: string
+  title: string
+  subtitle: string
+  sections: LabourCompanyLegalPageSection[]
+}
+
 export interface LabourCompanyWebsiteContent {
   theme: {
     brandName: string
@@ -36,6 +48,10 @@ export interface LabourCompanyWebsiteContent {
     phone: string
     address: string
     copyrightText: string
+    legalLinks: Array<{
+      label: string
+      href: string
+    }>
     linkGroups: Array<{
       title: string
       links: Array<{
@@ -157,6 +173,11 @@ export interface LabourCompanyWebsiteContent {
     emptyTitle: string
     emptyDescription: string
   }
+  legalPages: {
+    privacyPolicy: LabourCompanyLegalPageContent
+    termsOfService: LabourCompanyLegalPageContent
+    userDataDeletion: LabourCompanyLegalPageContent
+  }
 }
 
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'labour-company-website.json')
@@ -188,6 +209,11 @@ const defaultContent: LabourCompanyWebsiteContent = {
     phone: '+91 98765 43210',
     address: 'Surat, Gujarat, India',
     copyrightText: '© 2026 ScaleVyapar Labour Exchange. All rights reserved.',
+    legalLinks: [
+      { label: 'Privacy Policy', href: '/labour/company/privacy-policy' },
+      { label: 'Terms of Service', href: '/labour/company/terms-of-service' },
+      { label: 'User Data Deletion', href: '/labour/company/user-data-deletion' }
+    ],
     linkGroups: [
       {
         title: 'Company',
@@ -397,6 +423,77 @@ const defaultContent: LabourCompanyWebsiteContent = {
     helperText: 'Use the search filters below to find workers who match your hiring needs.',
     emptyTitle: 'No workers match these filters yet',
     emptyDescription: 'Try another city or category, or post a requirement so the admin team can help connect you faster.'
+  },
+  legalPages: {
+    privacyPolicy: {
+      eyebrow: 'Legal',
+      title: 'Privacy Policy',
+      subtitle: 'ScaleVyapar Rozgar collects only the business and contact information needed to help companies discover labour, manage enquiries, and communicate about hiring activity.',
+      sections: [
+        {
+          title: 'Information we collect',
+          body: 'We may collect company name, contact person name, phone numbers, email addresses, city, hiring preferences, and communication history submitted through the company website or labour administration tools.'
+        },
+        {
+          title: 'How we use information',
+          body: 'We use submitted information to respond to enquiries, match companies with available labour, manage job post activity, send service updates, and improve marketplace operations and support quality.'
+        },
+        {
+          title: 'Sharing and retention',
+          body: 'Information is shared only with authorised ScaleVyapar systems, support workflows, and service providers needed to operate the platform. We retain data only as long as necessary for hiring support, legal compliance, and operational recordkeeping.'
+        },
+        {
+          title: 'Contact',
+          body: 'For privacy questions, contact support@scalevyapar.com or use the support number +91 98765 43210.'
+        }
+      ]
+    },
+    termsOfService: {
+      eyebrow: 'Legal',
+      title: 'Terms of Service',
+      subtitle: 'By using the ScaleVyapar Rozgar company site, you agree to use the service only for genuine hiring, labour search, and related business communication.',
+      sections: [
+        {
+          title: 'Permitted use',
+          body: 'You may use this site to enquire about labour, create hiring requests, review plans, and communicate with ScaleVyapar support regarding company-side recruitment activity.'
+        },
+        {
+          title: 'Accurate information',
+          body: 'You agree to provide accurate company, contact, and hiring information. False, misleading, abusive, or unlawful usage may lead to account restriction or removal from the platform.'
+        },
+        {
+          title: 'Service availability',
+          body: 'ScaleVyapar may update, improve, suspend, or limit parts of the service to maintain quality, compliance, and operational stability. We do not guarantee uninterrupted availability at all times.'
+        },
+        {
+          title: 'Support and disputes',
+          body: 'For support, billing, or service questions, contact support@scalevyapar.com. Continued use of the service after updates to these terms constitutes acceptance of the revised terms.'
+        }
+      ]
+    },
+    userDataDeletion: {
+      eyebrow: 'Legal',
+      title: 'User Data Deletion',
+      subtitle: 'If you want ScaleVyapar Rozgar to delete company-side enquiry or contact data associated with your business, please send a request using the steps below.',
+      sections: [
+        {
+          title: 'How to request deletion',
+          body: 'Email support@scalevyapar.com with the subject line User Data Deletion Request and include your company name, contact number, and the email address used on the platform.'
+        },
+        {
+          title: 'Verification',
+          body: 'We may contact you to verify ownership of the company record before deleting any data, so we can protect against accidental or fraudulent deletion requests.'
+        },
+        {
+          title: 'What gets removed',
+          body: 'After verification, we will delete or anonymise eligible company enquiry data, support messages, and related records unless retention is required for billing, security, fraud prevention, or legal compliance.'
+        },
+        {
+          title: 'Response time',
+          body: 'We aim to review deletion requests promptly and respond through support@scalevyapar.com or +91 98765 43210.'
+        }
+      ]
+    }
   }
 }
 
@@ -453,6 +550,40 @@ const mergeLinkGroups = (input: unknown, fallback: LabourCompanyWebsiteContent['
         : fallbackGroup.links
     }
   })
+}
+
+const mergeFooterLinks = (input: unknown, fallback: LabourCompanyWebsiteContent['footer']['legalLinks']) => {
+  if (!Array.isArray(input) || !input.length) return fallback
+  return input.map((link, index) => {
+    const nextLink = typeof link === 'object' && link ? link as Record<string, unknown> : {}
+    const fallbackLink = fallback[index] || fallback[0]
+    return {
+      label: typeof nextLink.label === 'string' && nextLink.label.trim() ? nextLink.label : fallbackLink.label,
+      href: typeof nextLink.href === 'string' && nextLink.href.trim() ? nextLink.href : fallbackLink.href
+    }
+  })
+}
+
+const mergeLegalSections = (input: unknown, fallback: LabourCompanyLegalPageSection[]) => {
+  if (!Array.isArray(input) || !input.length) return fallback
+  return input.map((section, index) => {
+    const nextSection = typeof section === 'object' && section ? section as Record<string, unknown> : {}
+    const fallbackSection = fallback[index] || fallback[Math.max(fallback.length - 1, 0)]
+    return {
+      title: typeof nextSection.title === 'string' && nextSection.title.trim() ? nextSection.title : fallbackSection.title,
+      body: typeof nextSection.body === 'string' && nextSection.body.trim() ? nextSection.body : fallbackSection.body
+    }
+  })
+}
+
+const mergeLegalPage = (input: unknown, fallback: LabourCompanyLegalPageContent): LabourCompanyLegalPageContent => {
+  const nextPage = typeof input === 'object' && input ? input as Record<string, unknown> : {}
+  return {
+    eyebrow: typeof nextPage.eyebrow === 'string' && nextPage.eyebrow.trim() ? nextPage.eyebrow : fallback.eyebrow,
+    title: typeof nextPage.title === 'string' && nextPage.title.trim() ? nextPage.title : fallback.title,
+    subtitle: typeof nextPage.subtitle === 'string' && nextPage.subtitle.trim() ? nextPage.subtitle : fallback.subtitle,
+    sections: mergeLegalSections(nextPage.sections, fallback.sections)
+  }
 }
 
 const mapLegacyContent = (legacy: Record<string, unknown>): Partial<LabourCompanyWebsiteContent> => ({
@@ -549,6 +680,7 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
       phone: merged.footer?.phone || defaultContent.footer.phone,
       address: merged.footer?.address || defaultContent.footer.address,
       copyrightText: merged.footer?.copyrightText || defaultContent.footer.copyrightText,
+      legalLinks: mergeFooterLinks(merged.footer?.legalLinks, defaultContent.footer.legalLinks),
       linkGroups: mergeLinkGroups(merged.footer?.linkGroups, defaultContent.footer.linkGroups)
     },
     home: {
@@ -597,6 +729,11 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
     searchPage: {
       ...defaultContent.searchPage,
       ...merged.searchPage
+    },
+    legalPages: {
+      privacyPolicy: mergeLegalPage(merged.legalPages?.privacyPolicy, defaultContent.legalPages.privacyPolicy),
+      termsOfService: mergeLegalPage(merged.legalPages?.termsOfService, defaultContent.legalPages.termsOfService),
+      userDataDeletion: mergeLegalPage(merged.legalPages?.userDataDeletion, defaultContent.legalPages.userDataDeletion)
     }
   }
 }

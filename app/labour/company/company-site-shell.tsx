@@ -8,6 +8,7 @@ type Props = {
   content: LabourCompanyWebsiteContent
   currentPath: string
   children: ReactNode
+  isAdmin?: boolean
 }
 
 const siteNavigation = [
@@ -37,7 +38,7 @@ const isNavActive = (currentPath: string, href: string) => {
   return currentPath === pathname
 }
 
-export function CompanySiteShell({ content, currentPath, children }: Props) {
+export function CompanySiteShell({ content, currentPath, children, isAdmin }: Props) {
   return (
     <div className={styles.page}>
       <div className={styles.pageGlow} />
@@ -83,6 +84,11 @@ export function CompanySiteShell({ content, currentPath, children }: Props) {
             </nav>
 
             <div className={styles.headerActions}>
+              {isAdmin && (
+                <Link href="/admin/labour/website" className={styles.secondaryButton}>
+                  Website Editor
+                </Link>
+              )}
               {topActions.map(action => (
                 <Link
                   key={action.href}

@@ -1,5 +1,7 @@
+'use client'
+
 import Link from 'next/link'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import styles from './company-site.module.css'
 import { RozgarMobileTabBar } from './rozgar-mobile-tabbar'
@@ -39,6 +41,30 @@ const isNavActive = (currentPath: string, href: string) => {
 }
 
 export function CompanySiteShell({ content, currentPath, children, isAdmin }: Props) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false)
+  }, [currentPath])
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onResize = () => {
+      if (window.matchMedia('(min-width: 769px)').matches) {
+        setIsMobileMenuOpen(false)
+      }
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener('resize', onResize)
+    }
+  }, [isMobileMenuOpen])
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false)
+
   return (
     <div className={styles.page}>
       <div className={styles.pageGlow} />
@@ -115,48 +141,20 @@ export function CompanySiteShell({ content, currentPath, children, isAdmin }: Pr
               ))}
             </div>
 
-            <details className={styles.mobileMenu}>
-              <summary className={styles.mobileMenuButton} aria-label="Open navigation">
+            <div className={styles.mobileMenu}>
+              <button
+                type="button"
+                className={styles.mobileMenuButton}
+                aria-label="Open navigation"
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="rozgar-mobile-drawer"
+                onClick={() => setIsMobileMenuOpen(true)}
+              >
                 <span />
                 <span />
                 <span />
-              </summary>
-              <div className={styles.mobileMenuPanel}>
-                <div className={styles.stack}>
-                  {siteNavigation.map(item => (
-                    <Link key={item.href} href={item.href} className={styles.mobileNavLink}>
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-                <div className={styles.mobileActionStack}>
-                  {topActions.map(action => (
-                    <Link
-                      key={action.href}
-                      href={action.href}
-                      className={
-                        action.tone === 'primary'
-                          ? styles.primaryButton
-                          : action.tone === 'secondary'
-                            ? styles.secondaryButton
-                            : styles.ghostButton
-                      }
-                      style={
-                        action.tone === 'primary'
-                          ? {
-                              background: `linear-gradient(135deg, ${content.theme.highlightColor}, ${content.theme.accentColor})`,
-                              color: '#ffffff',
-                              border: '1px solid transparent'
-                            }
-                          : undefined
-                      }
-                    >
-                      {action.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </details>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -228,6 +226,58 @@ export function CompanySiteShell({ content, currentPath, children, isAdmin }: Pr
           <p className={styles.textMuted}>{content.footer.copyrightText}</p>
         </footer>
       </div>
+      {isMobileMenuOpen && (
+        <>
+          <div
+            className={styles.mobileDrawerBackdrop}
+            onClick={closeMobileMenu}
+            aria-hidden="true"
+          />
+          <aside
+            id="rozgar-mobile-drawer"
+            className={styles.mobileDrawer}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+          >
+            <div className={styles.mobileDrawerHeader}>
+              <span className={styles.mobileDrawerTitle}>Menu</span>
+              <button
+                type="button"
+                className={styles.mobileDrawerClose}
+                aria-label="Close navigation"
+                onClick={closeMobileMenu}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <nav className={styles.mobileDrawerNav} aria-label="Site navigation">
+              {siteNavigation.map(item => {
+                const active = isNavActive(currentPath, item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`${styles.mobileDrawerLink} ${active ? styles.mobileDrawerLinkActive : ''}`}
+                    onClick={closeMobileMenu}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+              {isAdmin && (
+                <Link
+                  href="/admin/labour/website"
+                  className={styles.mobileDrawerLink}
+                  onClick={closeMobileMenu}
+                >
+                  Website Editor
+                </Link>
+              )}
+            </nav>
+          </aside>
+        </>
+      )}
       <RozgarMobileTabBar />
     </div>
   )

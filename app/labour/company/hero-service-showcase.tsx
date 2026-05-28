@@ -17,8 +17,7 @@ const SHOWCASE_ITEMS: ShowcaseItem[] = [
   {
     id: 'textile-factory',
     title: 'Textile & factory workforce',
-    description:
-      'Skilled helpers, machine operators, packaging staff, and floor workers for textile units and factories.',
+    description: 'Skilled helpers, machine operators, packaging staff, and floor workers for textile units and factories.',
     industries: ['Textile', 'Factory', 'Manufacturing', 'Quality Check'],
     metricLabel: 'Textile & factory',
     metricValue: '24/7',
@@ -27,8 +26,7 @@ const SHOWCASE_ITEMS: ShowcaseItem[] = [
   {
     id: 'warehouse-logistics',
     title: 'Warehouse & logistics teams',
-    description:
-      'Pickers, loaders, scanning staff, dispatch workers, and logistics support for fast-moving warehouse operations.',
+    description: 'Pickers, loaders, scanning staff, dispatch workers, and logistics support for fast-moving warehouse operations.',
     industries: ['Warehouse', 'Logistics', 'Inventory', 'Dispatch'],
     metricLabel: 'Warehouse response',
     metricValue: 'Fast',
@@ -37,8 +35,7 @@ const SHOWCASE_ITEMS: ShowcaseItem[] = [
   {
     id: 'delivery-manufacturing',
     title: 'Delivery & manufacturing crews',
-    description:
-      'Reliable daily-basis workers for manufacturing shifts, local delivery support, movement, and fulfillment tasks.',
+    description: 'Reliable daily-basis workers for manufacturing shifts, local delivery support, movement, and fulfillment tasks.',
     industries: ['Delivery', 'Manufacturing', 'Fulfillment', 'Movement'],
     metricLabel: 'Shift-ready teams',
     metricValue: 'Same Day',
@@ -47,8 +44,7 @@ const SHOWCASE_ITEMS: ShowcaseItem[] = [
   {
     id: 'hospitality-multi',
     title: 'Hospitality & multi-service staff',
-    description:
-      'Housekeeping, service, support, and utility workers for hospitality businesses and fast-growing service operations.',
+    description: 'Housekeeping, service, support, and utility workers for hospitality businesses and fast-growing service operations.',
     industries: ['Hospitality', 'Service', 'Support Staff', 'Utility Crew'],
     metricLabel: 'Multi-industry',
     metricValue: 'Flexible',

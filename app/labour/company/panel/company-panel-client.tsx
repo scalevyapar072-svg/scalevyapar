@@ -104,7 +104,7 @@ const statusTone = (value: string) => {
   if (value === 'rejected' || value === 'blocked' || value === 'expired') {
     return { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }
   }
-  if (value === 'reviewed' || value === 'paused') {
+  if (value === 'reviewed') {
     return { background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74' }
   }
   return { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }
@@ -252,63 +252,46 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
         applicants: job.applicants.filter(applicant => (selectedStatus === 'all' ? true : applicant.status === selectedStatus))
       }))
       .filter(job => (selectedJobId === 'all' ? true : job.id === selectedJobId))
+      .filter(job => job.applicants.length > 0 || selectedStatus === 'all')
   }, [dashboard, selectedJobId, selectedStatus])
 
   const selectedJob = useMemo(() => {
-    if (!dashboard || !openedJobId) return null
-    return dashboard.jobs.find(job => job.id === openedJobId) || null
-  }, [dashboard, openedJobId])
+    if (!dashboard) return null
+    if (selectedJobId === 'all') return dashboard.jobs[0] || null
+    return dashboard.jobs.find(job => job.id === selectedJobId) || null
+  }, [dashboard, selectedJobId])
 
-  const selectedJobApplicants = useMemo(() => {
-    if (!selectedJob) return []
-
-    return selectedJob.applicants.filter(applicant => {
-      if (showMatchedOnly && applicant.categoryLabels.length === 0) return false
-      if (showWithResumeOnly && !applicant.profilePhotoPath) return false
-      if (showTriedContactOnly && !applicant.canContactDirectly) return false
-      if (selectedStatus !== 'all' && applicant.status !== selectedStatus) return false
-      return true
-    })
-  }, [selectedJob, showMatchedOnly, showWithResumeOnly, showTriedContactOnly, selectedStatus])
-
-  const usageSummary = useMemo(() => {
-    if (!dashboard) {
-      return {
-        jobCredits: 0,
-        databaseCredits: 0,
-        aiCallingCredits: 0
-      }
-    }
-
-    return {
-      jobCredits: Math.max(0, dashboard.stats.liveJobPosts * 2 - dashboard.stats.totalApplications),
-      databaseCredits: Math.max(0, dashboard.stats.totalApplications * 3 + 30),
-      aiCallingCredits: Math.max(0, dashboard.stats.shortlistedApplications * 2)
-    }
+  const activityRows = useMemo(() => {
+    if (!dashboard) return []
+    return dashboard.recentApplications.slice(0, 6).map(applicant => ({
+      id: applicant.applicationId,
+      title: `${applicant.fullName} applied`,
+      detail: `${applicant.city} • ${availabilityLabel(applicant.availability)} • ${formatDateTime(applicant.appliedAt)}`,
+      status: applicant.status
+    }))
   }, [dashboard])
 
   if (loading) {
     return (
-      <section className={styles.panelLoadingShell}>
-        <div className={styles.panelLoadingCard}>
-          <p className={styles.sectionTitle}>Loading company dashboard...</p>
-          <p className={styles.textMuted}>Fetching jobs, plan usage, billing, and support details.</p>
-        </div>
+      <section className={styles.card}>
+        <p className={styles.sectionTitle}>Loading company panel...</p>
+        <p className={styles.textMuted}>Fetching job posts, applications, and hiring activity.</p>
       </section>
     )
   }
 
   if (!dashboard) {
     return (
-      <section className={styles.panelAuthShell}>
-        <div className={styles.panelAuthCard}>
-          <p className={styles.eyebrow} style={{ color: '#2563eb' }}>Company dashboard</p>
-          <h1 className={styles.pageTitle}>Sign in to manage jobs, plans, billing, and support</h1>
-          <p className={styles.textMuted} style={{ marginBottom: '20px' }}>
-            Use your registered company email and your company name or contact person to access the employer dashboard.
+      <section className={styles.heroGrid}>
+        <div className={styles.card}>
+          <p className={styles.eyebrow} style={{ color: '#2563eb' }}>Company panel</p>
+          <h1 className={styles.pageTitle}>Secure employer workspace</h1>
+          <p className={styles.textMuted} style={{ marginBottom: '22px' }}>
+            Sign in with your registered company email and your company name or contact person. This keeps the current ScaleVyapar labour company authentication flow intact without introducing a disconnected login system.
           </p>
+
           <form className={styles.stack} onSubmit={submitLogin}>
-            <label className={styles.stack}>
+            <label style={{ display: 'grid', gap: '8px' }}>
               <span className={styles.fieldLabel}>Company email</span>
               <input
                 value={email}
@@ -317,7 +300,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                 className={styles.inputField}
               />
             </label>
-            <label className={styles.stack}>
+            <label style={{ display: 'grid', gap: '8px' }}>
               <span className={styles.fieldLabel}>Company name or contact person</span>
               <input
                 value={identity}
@@ -326,7 +309,15 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                 className={styles.inputField}
               />
             </label>
-            {error ? <div className={styles.errorBanner}>{error}</div> : null}
+            <div className={styles.softCard} style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+              <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>Use company email + company/contact name.</p>
+              <p style={{ margin: '4px 0 0', color: '#475569', fontSize: '13px', lineHeight: 1.6 }}>
+                Example: <strong>neelufercreation@gmail.com</strong> with <strong>Neelufer Creations</strong> or <strong>Neelu</strong>.
+              </p>
+            </div>
+            {error ? (
+              <div className={styles.errorBanner}>{error}</div>
+            ) : null}
             <button
               type="submit"
               className={styles.primaryButton}
@@ -337,209 +328,279 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
             </button>
           </form>
         </div>
+
+        <div className={styles.darkCard} style={{ background: 'linear-gradient(135deg, #1d4ed8, #111827)' }}>
+          <p className={styles.eyebrow} style={{ color: 'rgba(255,255,255,0.72)' }}>What this portal gives you</p>
+          <h2 className={styles.sectionTitle} style={{ color: '#ffffff', fontSize: '30px' }}>Professional hiring operations in one view</h2>
+          <div className={styles.stack} style={{ marginTop: '18px' }}>
+            {[
+              'Track every worker application against the right job post.',
+              'Shortlist, review, reject, or hire without leaving the company dashboard.',
+              'Surface direct worker contact only when the worker account is active, preserving the current business rules.',
+              'Stay fully connected to the labour admin module and live marketplace data.'
+            ].map(item => (
+              <div key={item} className={styles.bullet} style={{ color: '#ffffff' }}>
+                <span className={styles.bulletDot} style={{ background: '#ffffff' }} />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
     )
   }
 
   return (
-    <section className={styles.companyDashboardShell}>
-      <aside className={styles.companyDashboardSidebar}>
-        <div className={styles.companyDashboardBrand}>
-          <div className={styles.companyDashboardLogo}>{dashboard.profile.companyName.slice(0, 2).toUpperCase()}</div>
-          <div>
-            <p className={styles.companyDashboardName}>{dashboard.profile.companyName}</p>
-            <p className={styles.companyDashboardMeta}>{dashboard.profile.city} | {dashboard.profile.contactPerson}</p>
-          </div>
-        </div>
+    <section className={styles.stack}>
+      <div className={styles.heroGrid}>
+        <div className={styles.darkCard} style={{ background: 'linear-gradient(135deg, #0f172a, #1d4ed8)' }}>
+          <p className={styles.eyebrow} style={{ color: 'rgba(255,255,255,0.72)' }}>Company command center</p>
+          <h1 className={styles.pageTitle} style={{ color: '#ffffff', marginBottom: '12px' }}>{dashboard.profile.companyName}</h1>
+          <p className={styles.textMutedDark}>
+            Managed by {dashboard.profile.contactPerson}. Operate live jobs, worker applications, and hiring status from one integrated workspace.
+          </p>
 
-        <nav className={styles.companyDashboardNav}>
-          {[
-            { id: 'jobs' as const, label: `All Jobs (${dashboard.jobs.length})` },
-            { id: 'usage' as const, label: 'Plan & Usage' },
-            { id: 'billing' as const, label: 'Billing' },
-            { id: 'support' as const, label: 'Help & Support' }
-          ].map(item => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setActiveTab(item.id)
-                if (item.id !== 'jobs') {
-                  setOpenedJobId(null)
-                }
-              }}
-              className={`${styles.companyDashboardNavItem} ${activeTab === item.id ? styles.companyDashboardNavItemActive : ''}`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-
-        <div className={styles.companyDashboardSupportCard}>
-          <p className={styles.companyDashboardSupportTitle}>Contact us</p>
-          <p className={styles.companyDashboardSupportText}>( Mon to Sun | 9:00 AM - 7:00 PM )</p>
-          <div className={styles.stack}>
-            <a href="/labour/company/contact" className={styles.secondaryButton}>Chat with us</a>
-            <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className={styles.primaryButton} style={{ background: '#16a34a', color: '#ffffff', border: '1px solid transparent' }}>
-              Chat on Whatsapp
-            </a>
-            <span className={styles.companyDashboardRecommended}>Recommended</span>
-            <a href="/labour/company/contact" className={styles.secondaryButton}>Schedule Training</a>
-            <a href="/labour/company/contact" className={styles.secondaryButton}>HR Best practices</a>
-          </div>
-        </div>
-
-        <button type="button" className={styles.ghostButton} onClick={handleLogout}>
-          Log out
-        </button>
-      </aside>
-
-      <div className={styles.companyDashboardContent}>
-        {activeTab === 'jobs' && !selectedJob ? (
-          <section className={styles.companyDashboardSection}>
-            <div className={styles.companyDashboardHeaderRow}>
-              <div>
-                <h1 className={styles.companyDashboardHeading}>All Jobs ({dashboard.jobs.length})</h1>
-                <p className={styles.textMuted}>Manage live jobs, monitor applicants, and take action quickly.</p>
+          <div className={styles.fourColGrid} style={{ marginTop: '24px' }}>
+            {[
+              { label: 'Live jobs', value: String(dashboard.stats.liveJobPosts) },
+              { label: 'Applications', value: String(dashboard.stats.totalApplications) },
+              { label: 'Shortlisted', value: String(dashboard.stats.shortlistedApplications) },
+              { label: 'Hired', value: String(dashboard.stats.hiredApplications) }
+            ].map(item => (
+              <div key={item.label} className={styles.metricCard}>
+                <p className={styles.metricLabel}>{item.label}</p>
+                <p className={styles.metricValue}>{item.value}</p>
               </div>
-              <a href="/labour/company#company-intake" className={styles.primaryButton} style={{ background: '#0f766e', color: '#ffffff', border: '1px solid transparent' }}>
-                Post a new job
+            ))}
+          </div>
+
+          <div className={styles.chipRow} style={{ marginTop: '18px' }}>
+            {dashboard.profile.categoryLabels.map(label => (
+              <span key={label} className={styles.chip}>{label}</span>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.card}>
+          <div className={styles.sectionFooter}>
+            <div>
+              <p className={styles.eyebrow} style={{ color: '#2563eb' }}>Company profile</p>
+              <h2 className={styles.sectionTitle}>Account snapshot</h2>
+              <p className={styles.textMuted}>Current company status, plan, and hiring ownership details.</p>
+            </div>
+            <div className={styles.buttonRow}>
+              <a
+                href="/labour/company/search"
+                className={styles.primaryButton}
+                style={{ background: '#2563eb', color: '#ffffff', border: '1px solid transparent' }}
+              >
+                Browse Labour Search
               </a>
+              <button type="button" className={styles.secondaryButton} onClick={handleLogout}>
+                Log out
+              </button>
             </div>
+          </div>
 
-            <div className={styles.companyDashboardFilters}>
-              <button type="button" className={styles.companyDashboardFilterPill}>All Filters</button>
-              <button type="button" className={styles.companyDashboardFilterPill}>Active ({countJobsByStatus(dashboard.jobs, 'live')})</button>
-              <button type="button" className={styles.companyDashboardFilterPill}>Under Review ({dashboard.stats.shortlistedApplications})</button>
-              <button type="button" className={styles.companyDashboardFilterPill}>Expired ({countJobsByStatus(dashboard.jobs, 'expired')})</button>
-              <button type="button" className={styles.companyDashboardFilterPill}>Select Plan ({dashboard.profile.activePlan ? 1 : 0})</button>
+          <div className={styles.stack}>
+            {[
+              ['Contact person', dashboard.profile.contactPerson],
+              ['Email', dashboard.profile.email || 'Not added'],
+              ['Primary mobile', dashboard.profile.mobile || 'Not added'],
+              ['City', dashboard.profile.city || 'Not added'],
+              ['Status', dashboard.profile.status],
+              ['Active plan', dashboard.profile.activePlan || 'Not assigned']
+            ].map(([label, value]) => (
+              <div key={label} className={styles.softCard} style={{ padding: '16px 18px' }}>
+                <p style={{ margin: '0 0 4px', color: '#64748b', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</p>
+                <p style={{ margin: 0, color: '#0f172a', fontSize: '16px', fontWeight: '800' }}>{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.twoColGrid}>
+        <div className={styles.card}>
+          <div className={styles.sectionFooter}>
+            <div>
+              <h2 className={styles.sectionTitle}>Hiring pipeline</h2>
+              <p className={styles.textMuted}>A simple enterprise-style snapshot of live hiring performance.</p>
             </div>
+          </div>
 
-            <div className={styles.companyDashboardJobList}>
-              {filteredJobs.map(job => (
-                <article
-                  key={job.id}
-                  className={styles.companyDashboardJobCard}
-                  onClick={() => setOpenedJobId(job.id)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className={styles.companyDashboardJobTop}>
+          <div className={styles.fourColGrid}>
+            {[
+              { label: 'Open jobs', value: dashboard.jobs.filter(job => job.status === 'live').length },
+              { label: 'Reviewed', value: dashboard.jobs.reduce((sum, job) => sum + job.applicants.filter(applicant => applicant.status === 'reviewed').length, 0) },
+              { label: 'Shortlisted', value: dashboard.stats.shortlistedApplications },
+              { label: 'Hired', value: dashboard.stats.hiredApplications }
+            ].map(item => (
+              <div key={item.label} className={styles.softCard}>
+                <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{item.label}</p>
+                <p style={{ margin: 0, color: '#0f172a', fontSize: '28px', fontWeight: '900' }}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.card}>
+          <div className={styles.sectionFooter}>
+            <div>
+              <h2 className={styles.sectionTitle}>Recent activity</h2>
+              <p className={styles.textMuted}>Latest applicant movement across your jobs.</p>
+            </div>
+          </div>
+
+          <div className={styles.stack}>
+            {activityRows.length === 0 ? (
+              <div className={styles.softCard}>
+                <p style={{ margin: 0, color: '#475569', fontWeight: '700' }}>No recent activity yet.</p>
+                <div className={styles.buttonRow} style={{ marginTop: '12px' }}>
+                  <a href="/labour/company/search" className={styles.secondaryButton}>
+                    Explore workers
+                  </a>
+                </div>
+              </div>
+            ) : (
+              activityRows.map(activity => (
+                <div key={activity.id} className={styles.softCard} style={{ padding: '16px 18px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                     <div>
-                      <div className={styles.companyDashboardJobTitleRow}>
-                        <h2 className={styles.companyDashboardJobTitle}>{job.title}</h2>
-                        <span className={styles.chip} style={statusTone(job.status)}>{job.status}</span>
-                      </div>
-                      <p className={styles.textMuted}>
-                        {job.city} | Posted on: {formatDateTime(job.publishedAt)} | {dashboard.profile.contactPerson}
-                      </p>
+                      <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '15px', fontWeight: '800' }}>{activity.title}</p>
+                      <p className={styles.textMuted} style={{ fontSize: '13px' }}>{activity.detail}</p>
                     </div>
-                    <div className={styles.companyDashboardJobActions}>
-                      <span className={styles.companyDashboardMetricBox}>
-                        <strong>{job.totalApplications}</strong>
-                        <span>Applied to job</span>
-                      </span>
-                      <span className={styles.companyDashboardMetricBox}>
-                        <strong>{job.applicants.length * 61}</strong>
-                        <span>Database Matches</span>
-                      </span>
-                    </div>
+                    <span className={styles.chip} style={statusTone(activity.status)}>{activity.status}</span>
                   </div>
-                </article>
-              ))}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.card}>
+          <div className={styles.sectionFooter}>
+            <div>
+              <h2 className={styles.sectionTitle}>Worker applications</h2>
+              <p className={styles.textMuted}>Filter by job and application stage, then update worker status without breaking the existing admin-linked application flow.</p>
             </div>
-          </section>
+            <div className={styles.buttonRow}>
+              <a href="/labour/company/search" className={styles.secondaryButton}>
+                Search more workers
+              </a>
+              <select
+                value={selectedJobId}
+                onChange={event => setSelectedJobId(event.target.value)}
+              className={styles.selectField}
+            >
+              <option value="all">All job posts</option>
+              {dashboard.jobs.map(job => (
+                <option key={job.id} value={job.id}>{job.title}</option>
+              ))}
+            </select>
+            <select
+              value={selectedStatus}
+              onChange={event => setSelectedStatus(event.target.value)}
+              className={styles.selectField}
+            >
+              <option value="all">All statuses</option>
+              <option value="submitted">Submitted</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="shortlisted">Shortlisted</option>
+              <option value="rejected">Rejected</option>
+              <option value="hired">Hired</option>
+            </select>
+          </div>
+        </div>
+
+        {error ? (
+          <div className={styles.errorBanner} style={{ marginBottom: '18px' }}>{error}</div>
         ) : null}
 
-        {activeTab === 'jobs' && selectedJob ? (
-          <section className={styles.companyDashboardSection}>
-            <div className={styles.companyDashboardDetailTopbar}>
-              <button
-                type="button"
-                className={styles.companyDashboardBackButton}
-                onClick={() => setOpenedJobId(null)}
-              >
-                Back
-              </button>
-              <div className={styles.companyDashboardDetailMeta}>
-                <h1 className={styles.companyDashboardDetailTitle}>{selectedJob.title}</h1>
-                <span className={styles.chip} style={statusTone(selectedJob.status)}>{selectedJob.status}</span>
-                <span className={styles.companyDashboardDetailCity}>{selectedJob.city}</span>
+        <div className={styles.heroGrid}>
+          <div className={styles.stack}>
+            {filteredJobs.length === 0 ? (
+              <div className={styles.softCard}>
+                <p style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '16px', fontWeight: '800' }}>No applications match the current filters</p>
+                <p className={styles.textMuted}>Try a different job or status filter to see active candidates.</p>
               </div>
-              <a href="/labour/company/search" className={styles.companyDashboardMatchesLink}>
-                See Database Matches ({selectedJob.applicants.length * 61})
-              </a>
-            </div>
-
-            <div className={styles.companyDashboardDetailStats}>
-              <div className={styles.companyDashboardDetailStatCard}>
-                <strong>{selectedJob.applicants.length}</strong>
-                <span>All candidates</span>
-              </div>
-              <div className={styles.companyDashboardDetailStatCard}>
-                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'submitted').length}</strong>
-                <span>Action Pending</span>
-              </div>
-              <div className={styles.companyDashboardDetailStatCard}>
-                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'reviewed').length}</strong>
-                <span>Viewed Number</span>
-              </div>
-              <div className={styles.companyDashboardDetailStatCard}>
-                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'shortlisted').length}</strong>
-                <span>Shortlisted</span>
-              </div>
-              <div className={styles.companyDashboardDetailStatCard}>
-                <strong>{selectedJob.applicants.filter(applicant => applicant.status === 'rejected').length}</strong>
-                <span>Rejected</span>
-              </div>
-            </div>
-
-            <div className={styles.companyDashboardCandidateLayout}>
-              <aside className={styles.companyDashboardCandidateFilters}>
-                <div className={styles.companyDashboardCandidateFilterCard}>
-                  <p className={styles.companyDashboardFilterHeading}>Filters</p>
-
-                  <div className={styles.companyDashboardCheckboxRow}>
-                    <input
-                      id="matchedOnly"
-                      type="checkbox"
-                      checked={showMatchedOnly}
-                      onChange={event => setShowMatchedOnly(event.target.checked)}
-                    />
-                    <label htmlFor="matchedOnly">Matched to job requirements ({selectedJob.applicants.length})</label>
-                  </div>
-
-                  <div className={styles.companyDashboardCheckboxRow}>
-                    <input
-                      id="resumeOnly"
-                      type="checkbox"
-                      checked={showWithResumeOnly}
-                      onChange={event => setShowWithResumeOnly(event.target.checked)}
-                    />
-                    <label htmlFor="resumeOnly">Have profile attached ({selectedJob.applicants.filter(applicant => applicant.profilePhotoPath).length})</label>
-                  </div>
-
-                  <div className={styles.companyDashboardCheckboxRow}>
-                    <input
-                      id="contactOnly"
-                      type="checkbox"
-                      checked={showTriedContactOnly}
-                      onChange={event => setShowTriedContactOnly(event.target.checked)}
-                    />
-                    <label htmlFor="contactOnly">Direct contact unlocked ({selectedJob.applicants.filter(applicant => applicant.canContactDirectly).length})</label>
-                  </div>
-                </div>
-              </aside>
-
-              <div className={styles.companyDashboardCandidateColumn}>
-                <div className={styles.companyDashboardCandidateHeader}>
-                  <p className={styles.companyDashboardFilterHeading}>Showing {selectedJobApplicants.length} candidates</p>
-                </div>
-
-                {selectedJobApplicants.map(applicant => (
-                  <article key={applicant.applicationId} className={styles.companyDashboardCandidateCard}>
-                    <div className={styles.companyDashboardCandidateTop}>
+            ) : (
+              filteredJobs.map(job => {
+                const selected = selectedJob?.id === job.id
+                return (
+                  <button
+                    key={job.id}
+                    type="button"
+                    onClick={() => setSelectedJobId(job.id)}
+                    className={styles.softCard}
+                    style={{
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      borderColor: selected ? '#93c5fd' : '#e2e8f0',
+                      background: selected ? '#f8fbff' : '#fbfdff'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                       <div>
-                        <p className={styles.companyDashboardCandidateName}>{applicant.fullName}</p>
+                        <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '18px', fontWeight: '900' }}>{job.title}</p>
+                        <p className={styles.textMuted}>{job.city} • {formatCurrency(job.wageAmount)} • Need {job.workersNeeded} workers</p>
+                      </div>
+                      <div className={styles.chipRow}>
+                        <span className={styles.chip} style={statusTone(job.status)}>{job.status}</span>
+                        <span className={styles.chip} style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+                          {job.totalApplications} applicants
+                        </span>
+                      </div>
+                    </div>
+                    <div className={styles.fourColGrid} style={{ marginTop: '14px' }}>
+                      {[
+                        ['Published', formatDateTime(job.publishedAt)],
+                        ['Expiry', formatDateTime(job.expiresAt)],
+                        ['Shortlisted', String(job.shortlistedCount)],
+                        ['Hired', String(job.hiredCount)]
+                      ].map(([label, value]) => (
+                        <div key={label} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px' }}>
+                          <p style={{ margin: '0 0 4px', color: '#64748b', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</p>
+                          <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '800' }}>{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </button>
+                )
+              })
+            )}
+          </div>
+
+          <div className={styles.card} style={{ padding: '24px' }}>
+            <div className={styles.sectionFooter}>
+              <div>
+                <h3 className={styles.sectionTitle} style={{ fontSize: '26px' }}>{selectedJob?.title || 'Job detail'}</h3>
+                <p className={styles.textMuted}>Applicants and worker details for the selected job post.</p>
+              </div>
+              {selectedJob ? (
+                <span className={styles.chip} style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+                  {selectedJob.applicants.length} visible applicants
+                </span>
+              ) : null}
+            </div>
+
+            {!selectedJob ? (
+              <div className={styles.softCard}>
+                <p style={{ margin: 0, color: '#475569', fontWeight: '700' }}>Select a job post to review applicants.</p>
+              </div>
+            ) : selectedJob.applicants.length === 0 ? (
+              <div className={styles.softCard}>
+                <p style={{ margin: '0 0 6px', color: '#0f172a', fontWeight: '800' }}>No applicants in this filtered view</p>
+                <p className={styles.textMuted}>This job exists, but no applicant matches the selected filter right now.</p>
+              </div>
+            ) : (
+              <div className={styles.stack}>
+                {selectedJob.applicants.map(applicant => (
+                  <div key={applicant.applicationId} className={styles.listCard}>
+                    <div className={styles.sectionFooter}>
+                      <div>
+                        <p style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: '900' }}>{applicant.fullName}</p>
                         <p className={styles.textMuted}>
                           {applicant.city} | {availabilityLabel(applicant.availability)} | {formatCurrency(applicant.expectedDailyWage)}
                         </p>
@@ -571,11 +632,23 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                       </div>
                     </div>
 
-                    <div className={styles.companyDashboardCandidateFacts}>
-                      <span><strong>Experience:</strong> {applicant.experienceYears} years</span>
-                      <span><strong>Skills:</strong> {applicant.skills.join(', ') || 'Not added'}</span>
-                      <span><strong>Categories:</strong> {applicant.categoryLabels.join(', ') || 'Not mapped'}</span>
-                      <span><strong>Note:</strong> {applicant.note || 'No note added by worker'}</span>
+                    <div className={styles.buttonRow} style={{ marginTop: '16px' }}>
+                      {(['reviewed', 'shortlisted', 'rejected', 'hired'] as const).map(nextStatus => (
+                        <button
+                          key={nextStatus}
+                          type="button"
+                          className={nextStatus === 'hired' || nextStatus === 'shortlisted' ? styles.primaryButton : styles.secondaryButton}
+                          style={
+                            nextStatus === 'hired' || nextStatus === 'shortlisted'
+                              ? { background: '#2563eb', color: '#ffffff', border: '1px solid transparent' }
+                              : undefined
+                          }
+                          disabled={submitting || applicant.status === nextStatus}
+                          onClick={() => updateStatus(applicant.applicationId, nextStatus)}
+                        >
+                          Mark {nextStatus}
+                        </button>
+                      ))}
                     </div>
 
                     <div className={styles.buttonRow}>
@@ -633,105 +706,9 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
                   </article>
                 ))}
               </div>
-            </div>
-          </section>
-        ) : null}
-
-        {activeTab === 'usage' ? (
-          <section className={styles.companyDashboardSection}>
-            <div className={styles.companyDashboardHeaderRow}>
-              <div>
-                <h1 className={styles.companyDashboardHeading}>Plan & Usage</h1>
-                <p className={styles.textMuted}>Track plan status, credits, and recent usage signals.</p>
-              </div>
-              <a href="/labour/company/pricing" className={styles.primaryButton} style={{ background: '#0f766e', color: '#ffffff', border: '1px solid transparent' }}>
-                Buy more credits
-              </a>
-            </div>
-
-            <div className={styles.companyDashboardWarning}>
-              <strong>{dashboard.profile.contactPerson}, plan usage update</strong>
-              <span>
-                Active plan: {dashboard.profile.activePlan || 'Not assigned'} | Upgrade or renew to continue premium worker access and job visibility.
-              </span>
-            </div>
-
-            <div className={styles.companyDashboardUsageGrid}>
-              {[
-                ['Job Credits', String(usageSummary.jobCredits), 'credits'],
-                ['AI Calling Credits', String(usageSummary.aiCallingCredits), 'credits'],
-                ['Database Credits', String(usageSummary.databaseCredits), 'credits']
-              ].map(([label, value, unit]) => (
-                <div key={label} className={styles.companyDashboardUsageCard}>
-                  <p className={styles.companyDashboardUsageLabel}>{label}</p>
-                  <p className={styles.companyDashboardUsageValue}>{value}</p>
-                  <p className={styles.textMuted}>{unit}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {activeTab === 'billing' ? (
-          <section className={styles.companyDashboardSection}>
-            <div className={styles.companyDashboardHeaderRow}>
-              <div>
-                <h1 className={styles.companyDashboardHeading}>Billing</h1>
-                <p className={styles.textMuted}>Billing profile, active plan snapshot, and payment history.</p>
-              </div>
-              <a href="/labour/company/contact" className={styles.secondaryButton}>Update GST / Billing</a>
-            </div>
-
-            <div className={styles.companyDashboardInfoCard}>
-              <h2 className={styles.sectionTitle}>Billing profile</h2>
-              <div className={styles.stack}>
-                <p className={styles.textMuted}><strong>Company name:</strong> {dashboard.profile.companyName}</p>
-                <p className={styles.textMuted}><strong>Contact person:</strong> {dashboard.profile.contactPerson}</p>
-                <p className={styles.textMuted}><strong>City:</strong> {dashboard.profile.city}</p>
-                <p className={styles.textMuted}><strong>Active plan:</strong> {dashboard.profile.activePlan || 'Not assigned'}</p>
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        {activeTab === 'support' ? (
-          <section className={styles.companyDashboardSection}>
-            <div className={styles.companyDashboardHeaderRow}>
-              <div>
-                <h1 className={styles.companyDashboardHeading}>Help & Support FAQ</h1>
-                <p className={styles.textMuted}>Training, chat support, and HR best-practice guidance for your team.</p>
-              </div>
-            </div>
-
-            <div className={styles.companyDashboardSupportGrid}>
-              <div className={styles.companyDashboardInfoCard}>
-                <h2 className={styles.sectionTitle}>Contact us</h2>
-                <p className={styles.textMuted}>( Mon to Sun | 9:00 AM - 7:00 PM )</p>
-                <div className={styles.stack}>
-                  <a href="/labour/company/contact" className={styles.secondaryButton}>Chat with us</a>
-                  <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className={styles.primaryButton} style={{ background: '#16a34a', color: '#ffffff', border: '1px solid transparent' }}>
-                    Chat on Whatsapp
-                  </a>
-                  <span className={styles.companyDashboardRecommended}>Recommended</span>
-                  <a href="/labour/company/contact" className={styles.secondaryButton}>Schedule Training</a>
-                  <a href="/labour/company/contact" className={styles.secondaryButton}>HR Best practices</a>
-                </div>
-              </div>
-
-              <div className={styles.companyDashboardInfoCard}>
-                <h2 className={styles.sectionTitle}>FAQ</h2>
-                <div className={styles.stack}>
-                  {supportFaqs.map(item => (
-                    <div key={item.question} className={styles.softCard}>
-                      <p className={styles.companyDashboardFaqQuestion}>{item.question}</p>
-                      <p className={styles.textMuted}>{item.answer}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-        ) : null}
+            )}
+          </div>
+        </div>
       </div>
     </section>
   )

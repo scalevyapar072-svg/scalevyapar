@@ -1,13 +1,22 @@
+import { cookies } from 'next/headers'
 import { CompanyIntakeForm } from './company-intake-form'
 import { CompanySiteShell } from './company-site-shell'
 import { HeroServiceShowcase } from './hero-service-showcase'
 import styles from './company-site.module.css'
+import { AUTH_COOKIE_NAME, LEGACY_AUTH_COOKIE_NAME, verifyToken } from '@/lib/auth-token'
 import { getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
 import { getLabourCompanyWebsiteContent, type LabourCompanyWebsiteSection } from '@/lib/labour-company-website'
 
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
 
 export default async function LabourCompanyHomePage() {
+  const cookieStore = await cookies()
+  const token =
+    cookieStore.get(AUTH_COOKIE_NAME)?.value ||
+    cookieStore.get(LEGACY_AUTH_COOKIE_NAME)?.value
+  const user = token ? await verifyToken(token) : null
+  const isAdmin = user?.role === 'ADMIN'
+
   const [website, snapshot] = await Promise.all([
     getLabourCompanyWebsiteContent(),
     getLabourMarketplaceSnapshot()
@@ -52,7 +61,13 @@ export default async function LabourCompanyHomePage() {
                 </div>
               ))}
             </div>
+
+            <div className={styles.chipRow}>
+              {categories.map(category => (
+                <span key={category.id} className={styles.chip}>{category.name}</span>
+              ))}
             </div>
+          </div>
 
           <HeroServiceShowcase />
         </section>
@@ -249,6 +264,8 @@ export default async function LabourCompanyHomePage() {
                 <span className={styles.textMuted}>Active companies: {snapshot.stats.activeCompanies}</span>
                 <span className={styles.textMuted}>Live job posts: {liveJobs}</span>
                 <span className={styles.textMuted}>Available categories: {categories.length}</span>
+                <span className={styles.textMuted}>Expired job posts: {expiredJobs}</span>
+                <span className={styles.textMuted}>Wallet balance tracked: {formatCurrency(snapshot.stats.totalWalletBalance)}</span>
               </div>
             </div>
           </div>
@@ -282,7 +299,7 @@ export default async function LabourCompanyHomePage() {
   }
 
   return (
-    <CompanySiteShell content={content} currentPath="/labour/company">
+    <CompanySiteShell content={content} currentPath="/labour/company" isAdmin={isAdmin}>
       {content.home.sectionOrder.map(renderSection)}
     </CompanySiteShell>
   )

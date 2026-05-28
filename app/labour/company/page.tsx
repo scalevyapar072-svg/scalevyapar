@@ -1,10 +1,27 @@
+import { AnimatedStats } from './animated-stats'
 import { CompanyIntakeForm } from './company-intake-form'
 import { CompanySiteShell } from './company-site-shell'
+import { HeroServiceShowcase } from './hero-service-showcase'
+import { LandingSlider } from './landing-slider'
+import { ScrollReveal } from './scroll-reveal'
 import styles from './company-site.module.css'
 import { getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
-import { getLabourCompanyWebsiteContent, type LabourCompanyWebsiteSection } from '@/lib/labour-company-website'
+import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
+
+const industryIcons: Record<string, string> = {
+  Construction: '🏗',
+  Textile: '🧵',
+  Factory: '🏭',
+  Warehouse: '📦',
+  Manufacturing: '⚙',
+  Delivery: '🚚',
+  Hospitality: '🏨',
+  Logistics: '🧭'
+}
+
+const industryLabels = Object.keys(industryIcons)
 
 export default async function LabourCompanyHomePage() {
   const [website, snapshot] = await Promise.all([
@@ -16,306 +33,405 @@ export default async function LabourCompanyHomePage() {
   const categories = snapshot.categories.filter(category => category.isActive)
   const companyPlans = snapshot.plans.filter(plan => plan.audience === 'company' && plan.isActive)
   const liveJobs = snapshot.jobPosts.filter(job => job.status === 'live').length
-  const expiredJobs = snapshot.jobPosts.filter(job => job.status === 'expired').length
+  const activeCompanies = snapshot.stats.activeCompanies
 
-  const stats = [
-    { label: 'Active categories', value: String(categories.length) },
-    { label: 'Active workers', value: String(snapshot.stats.activeWorkers) },
-    { label: 'Live job posts', value: String(liveJobs) },
-    { label: 'Active companies', value: String(snapshot.stats.activeCompanies) }
+  const sliderSlides = [
+    {
+      title: 'Fast Labour Hiring for Businesses',
+      text: 'Connect with skilled and unskilled workers instantly across multiple industries.',
+      ctaLabel: 'Start Hiring',
+      ctaHref: '/labour/company#company-intake'
+    },
+    {
+      title: 'Verified Workforce Marketplace',
+      text: 'Access trusted workers and manage hiring professionally through ScaleVyapar Rozgar.',
+      ctaLabel: 'Explore Workforce',
+      ctaHref: '/labour/company/search'
+    },
+    {
+      title: 'Industry-Wise Labour Solutions',
+      text: 'Construction, factory, textile, warehouse, delivery, and manufacturing labour hiring made easy.',
+      ctaLabel: 'View Industries',
+      ctaHref: '/labour/company#industries'
+    },
+    {
+      title: 'Smart Hiring Dashboard',
+      text: 'Track job posts, worker responses, hiring status, and workforce management in one place.',
+      ctaLabel: 'Open Dashboard',
+      ctaHref: '/labour/company/panel'
+    }
   ]
 
-  const renderSection = (section: LabourCompanyWebsiteSection) => {
-    if (section === 'hero') {
-      return (
-        <section key={section} className={styles.heroGrid}>
-          <div className={styles.darkCard} style={{ background: `linear-gradient(135deg, ${content.theme.accentColor} 0%, #111827 100%)` }}>
-            <p className={styles.eyebrow} style={{ color: 'rgba(255,255,255,0.72)' }}>{content.home.hero.eyebrow}</p>
-            <h1 className={styles.heroTitle}>{content.home.hero.title}</h1>
-            <p className={styles.textMutedDark} style={{ maxWidth: '650px', marginBottom: '24px' }}>{content.home.hero.subtitle}</p>
-
-            <div className={styles.buttonRow} style={{ marginBottom: '24px' }}>
-              <a href={content.home.hero.primaryCtaHref} className={styles.primaryButton} style={{ background: content.theme.highlightColor, color: '#ffffff', border: '1px solid transparent' }}>
-                {content.home.hero.primaryCtaLabel}
-              </a>
-              <a href={content.home.hero.secondaryCtaHref} className={styles.secondaryButton}>
-                {content.home.hero.secondaryCtaLabel}
-              </a>
-            </div>
-
-            <div className={styles.fourColGrid} style={{ marginBottom: '24px' }}>
-              {stats.map(stat => (
-                <div key={stat.label} className={styles.metricCard}>
-                  <p className={styles.metricLabel}>{stat.label}</p>
-                  <p className={styles.metricValue}>{stat.value}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className={styles.chipRow}>
-              {categories.map(category => (
-                <span key={category.id} className={styles.chip}>{category.name}</span>
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.card}>
-            <p className={styles.sectionTitle} style={{ fontSize: '26px' }}>Executive hiring snapshot</p>
-            <p className={styles.textMuted} style={{ marginBottom: '16px' }}>
-              This version is designed to feel more premium and business-ready while still staying editable from labour admin in simple fields.
-            </p>
-
-            <div className={styles.stack} style={{ marginBottom: '18px' }}>
-              {[
-                `Website storage: ${website.storage}`,
-                `Live company plans: ${companyPlans.length}`,
-                `Expired job posts tracked: ${expiredJobs}`,
-                `Wallet balance tracked: ${formatCurrency(snapshot.stats.totalWalletBalance)}`
-              ].map(item => (
-                <div key={item} className={styles.softCard} style={{ padding: '16px', borderRadius: '18px' }}>
-                  <p style={{ margin: 0, color: '#334155', fontSize: '13px', fontWeight: '700' }}>{item}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className={styles.softCard}>
-              <p style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '16px', fontWeight: '900' }}>Company actions</p>
-              <div className={styles.stack}>
-                <a href="/labour/company/search" className={styles.secondaryButton}>Search labour</a>
-                <a href="/labour/company/pricing" className={styles.secondaryButton}>View pricing</a>
-                <a href="/labour/company/contact" className={styles.secondaryButton}>Talk to ScaleVyapar</a>
-              </div>
-            </div>
-          </div>
-        </section>
-      )
-    }
-
-    if (section === 'trust') {
-      return (
-        <section key={section} className={styles.card}>
-          <div className={styles.splitGrid}>
-            <div>
-              <h2 className={styles.sectionTitle}>{content.home.trustStrip.title}</h2>
-              <p className={styles.textMuted}>Use this block to highlight your strongest employer value in simple language.</p>
-            </div>
-            <div className={styles.twoColGrid}>
-              {content.home.trustStrip.items.map(item => (
-                <div key={item} className={styles.softCard}>
-                  <p style={{ margin: 0, color: '#0f172a', fontSize: '14px', fontWeight: '800' }}>{item}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )
-    }
-
-    if (section === 'features') {
-      return (
-        <section key={section} className={styles.card}>
-          <div className={styles.sectionFooter}>
-            <div>
-              <h2 className={styles.sectionTitle}>{content.home.features.title}</h2>
-              <p className={styles.textMuted}>{content.home.features.subtitle}</p>
-            </div>
-            <a href="/labour/company/search" className={styles.primaryButton} style={{ background: content.theme.accentColor, color: '#ffffff', border: '1px solid transparent' }}>
-              Search Workers
-            </a>
-          </div>
-
-          <div className={styles.threeColGrid}>
-            {content.home.features.cards.map(card => (
-              <div key={card.title} className={styles.listCard}>
-                <p style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '19px', fontWeight: '900' }}>{card.title}</p>
-                <p className={styles.textMuted} style={{ marginBottom: '16px' }}>{card.description}</p>
-                <div className={styles.stack}>
-                  {card.bullets.map(bullet => (
-                    <div key={bullet} className={styles.bullet}>
-                      <span className={styles.bulletDot} style={{ background: content.theme.highlightColor }} />
-                      <span>{bullet}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )
-    }
-
-    if (section === 'process') {
-      return (
-        <section key={section} className={styles.card}>
-          <h2 className={styles.sectionTitle}>{content.home.process.title}</h2>
-          <div className={styles.fourColGrid}>
-            {content.home.process.steps.map((step, index) => (
-              <div key={`${step.title}-${index}`} className={styles.softCard}>
-                <div style={{ width: '42px', height: '42px', borderRadius: '14px', background: content.theme.accentColor, color: '#ffffff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', marginBottom: '14px' }}>
-                  {index + 1}
-                </div>
-                <p style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '18px', fontWeight: '900' }}>{step.title}</p>
-                <p className={styles.textMuted}>{step.description}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )
-    }
-
-    if (section === 'pricing') {
-      return (
-        <section key={section} className={styles.card}>
-          <div className={styles.sectionFooter}>
-            <div>
-              <h2 className={styles.sectionTitle}>{content.home.pricing.title}</h2>
-              <p className={styles.textMuted}>{content.home.pricing.subtitle}</p>
-              <p className={styles.textMuted} style={{ fontSize: '12px', marginTop: '6px' }}>{content.home.pricing.footnote}</p>
-            </div>
-            <a href="/labour/company/pricing" className={styles.secondaryButton}>Open full pricing page</a>
-          </div>
-
-          <div className={styles.threeColGrid}>
-            {companyPlans.map(plan => (
-              <div key={plan.id} className={styles.listCard} style={{ background: plan.categoryId ? content.theme.accentSoft : '#ffffff' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'start', marginBottom: '14px' }}>
-                  <div>
-                    <p style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px', fontWeight: '900' }}>{plan.name}</p>
-                    <p className={styles.textMuted}>{plan.description}</p>
-                  </div>
-                  {plan.categoryId ? (
-                    <span className={styles.chip} style={{ background: '#ffffff', color: content.theme.accentColor, border: '1px solid rgba(37,99,235,0.2)' }}>
-                      Priority
-                    </span>
-                  ) : null}
-                </div>
-                <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '34px', fontWeight: '900' }}>{formatCurrency(plan.planAmount)}</p>
-                <p className={styles.textMuted} style={{ fontSize: '12px', marginBottom: '12px' }}>{plan.validityDays} days validity</p>
-                <div className={styles.stack}>
-                  <span className={styles.textMuted}>Registration fee: {formatCurrency(plan.registrationFee)}</span>
-                  <span className={styles.textMuted}>
-                    Category: {plan.categoryId ? (categories.find(category => category.id === plan.categoryId)?.name || plan.categoryId) : 'All categories'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )
-    }
-
-    if (section === 'testimonials') {
-      return (
-        <section key={section} className={styles.card}>
-          <h2 className={styles.sectionTitle}>{content.home.testimonials.title}</h2>
-          <div className={styles.twoColGrid}>
-            {content.home.testimonials.items.map(item => (
-              <div key={`${item.name}-${item.company}`} className={styles.listCard}>
-                <p style={{ margin: '0 0 18px', color: '#0f172a', fontSize: '19px', lineHeight: 1.7, fontWeight: '700' }}>
-                  "{item.quote}"
-                </p>
-                <p style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '14px', fontWeight: '900' }}>{item.name}</p>
-                <p className={styles.textMuted}>{item.role} | {item.company}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )
-    }
-
-    if (section === 'faq') {
-      return (
-        <section key={section} className={styles.card}>
-          <h2 className={styles.sectionTitle}>{content.home.faq.title}</h2>
-          <div className={styles.twoColGrid}>
-            {content.home.faq.items.map(item => (
-              <div key={item.question} className={styles.softCard}>
-                <p style={{ margin: '0 0 10px', color: '#0f172a', fontSize: '18px', fontWeight: '900' }}>{item.question}</p>
-                <p className={styles.textMuted}>{item.answer}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )
-    }
-
-    if (section === 'cta') {
-      return (
-        <section key={section} className={styles.darkCard} style={{ background: `linear-gradient(135deg, ${content.theme.accentColor}, ${content.theme.highlightColor})` }}>
-          <div className={styles.sectionFooter} style={{ marginBottom: 0 }}>
-            <div>
-              <h2 className={styles.sectionTitle} style={{ color: '#ffffff' }}>{content.home.finalCta.title}</h2>
-              <p className={styles.textMutedDark}>{content.home.finalCta.subtitle}</p>
-            </div>
-            <a href={content.home.finalCta.buttonHref} className={styles.secondaryButton}>
-              {content.home.finalCta.buttonLabel}
-            </a>
-          </div>
-        </section>
-      )
-    }
-
-    if (section === 'intake') {
-      return (
-        <section key={section} id="company-intake" className={styles.splitGrid}>
-          <div className={styles.card}>
-            <h2 className={styles.sectionTitle}>{content.home.intake.title}</h2>
-            <p className={styles.textMuted} style={{ marginBottom: '18px' }}>{content.home.intake.description}</p>
-            <div className={styles.stack} style={{ marginBottom: '18px' }}>
-              {[
-                'Collect company details and first job requirement in one flow',
-                'Keep all job posts and pricing plans connected to admin',
-                'Make it easy for employers to act from mobile as well'
-              ].map(item => (
-                <div key={item} className={styles.bullet}>
-                  <span className={styles.bulletDot} style={{ background: content.theme.highlightColor }} />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className={styles.softCard}>
-              <p style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '16px', fontWeight: '900' }}>Current market snapshot</p>
-              <div className={styles.stack}>
-                <span className={styles.textMuted}>Total active workers: {snapshot.stats.activeWorkers}</span>
-                <span className={styles.textMuted}>Active companies: {snapshot.stats.activeCompanies}</span>
-                <span className={styles.textMuted}>Live job posts: {liveJobs}</span>
-                <span className={styles.textMuted}>Available categories: {categories.length}</span>
-              </div>
-            </div>
-          </div>
-
-          <CompanyIntakeForm
-            categories={categories.map(category => ({
-              id: category.id,
-              name: category.name,
-              description: category.description,
-              demandLevel: category.demandLevel
-            }))}
-            plans={companyPlans.map(plan => ({
-              id: plan.id,
-              name: plan.name,
-              planAmount: plan.planAmount,
-              registrationFee: plan.registrationFee,
-              validityDays: plan.validityDays,
-              description: plan.description,
-              categoryId: plan.categoryId
-            }))}
-            heading={content.home.intake.title}
-            description={content.home.intake.description}
-            submitLabel={content.home.intake.submitLabel}
-            accentColor={content.theme.accentColor}
-          />
-        </section>
-      )
-    }
-
-    return null
-  }
+  const homepageStats = [
+    { label: 'Companies Registered', value: activeCompanies },
+    { label: 'Active Workers', value: snapshot.stats.activeWorkers },
+    { label: 'Jobs Posted', value: liveJobs },
+    { label: 'Industries Covered', value: industryLabels.length }
+  ]
 
   return (
     <CompanySiteShell content={content} currentPath="/labour/company">
-      {content.home.sectionOrder.map(renderSection)}
+      <ScrollReveal delayMs={40} variant="scale">
+        <section className={styles.heroSection}>
+        <div className={styles.heroGrid}>
+          <div className={styles.heroContentCard}>
+            <p className={styles.eyebrow} style={{ color: '#2563eb' }}>ScaleVyapar Rozgar</p>
+            <h1 className={styles.heroTitle}>
+              Hire Daily-Basis Labour Faster <span className={styles.heroAccentText}>Across Industries</span>
+            </h1>
+            <p className={styles.textMuted} style={{ maxWidth: '720px', marginBottom: '24px', fontSize: '16px' }}>
+              ScaleVyapar Rozgar connects businesses with verified and skilled workers instantly. Post your
+              requirement and hire the right workforce for your business anytime, anywhere.
+            </p>
+
+            <div className={styles.heroFeatureRow}>
+              {[
+                'Verified Workers',
+                'Instant Responses',
+                'Trusted by Businesses'
+              ].map(item => (
+                <span key={item} className={styles.heroFeatureBadge}>
+                  <span className={styles.heroFeatureIcon}>●</span>
+                  {item}
+                </span>
+              ))}
+            </div>
+
+            <div className={styles.buttonRow} style={{ marginTop: '26px', marginBottom: '24px' }}>
+              <a href="/labour/company/search" className={styles.primaryButton} style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#ffffff', border: '1px solid transparent' }}>
+                Hire Workers Now
+              </a>
+              <a href="/labour/company#company-intake" className={styles.secondaryButton}>
+                Post a Requirement
+              </a>
+              <a href="/labour/company#company-intake" className={styles.ghostButton}>
+                Join as Company
+              </a>
+            </div>
+
+            <div className={styles.heroMetaGrid}>
+              {[
+                { label: 'Live categories', value: String(categories.length) },
+                { label: 'Active workers', value: String(snapshot.stats.activeWorkers) },
+                { label: 'Open jobs', value: String(liveJobs) }
+              ].map(item => (
+                <div key={item.label} className={styles.heroMetaCard}>
+                  <p className={styles.heroMetaLabel}>{item.label}</p>
+                  <p className={styles.heroMetaValue}>{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <HeroServiceShowcase />
+
+          <div className={styles.heroVisualCard}>
+            <div className={styles.heroVisualBackdrop} />
+            <div className={styles.heroVisualStage}>
+              <div className={styles.heroVisualMainCard}>
+                <p className={styles.heroVisualTitle}>Professional labour workforce</p>
+                <p className={styles.textMuted} style={{ fontSize: '13px' }}>
+                  Construction, warehouse, delivery, textile, and manufacturing talent coordinated through one platform.
+                </p>
+                <div className={styles.heroAvatarRow}>
+                  {['🏗', '📦', '🚚', '🏭', '🧵'].map(icon => (
+                    <span key={icon} className={styles.heroAvatarBadge}>{icon}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.heroFloatCard} style={{ top: '10%', right: '-4%' }}>
+                <p className={styles.heroFloatValue}>50,000+</p>
+                <p className={styles.heroFloatLabel}>Active Workers</p>
+              </div>
+              <div className={styles.heroFloatCard} style={{ bottom: '16%', left: '-2%' }}>
+                <p className={styles.heroFloatValue}>10,000+</p>
+                <p className={styles.heroFloatLabel}>Companies</p>
+              </div>
+              <div className={styles.heroFloatCard} style={{ bottom: '-2%', right: '12%' }}>
+                <p className={styles.heroFloatValue}>1,00,000+</p>
+                <p className={styles.heroFloatLabel}>Jobs Completed</p>
+              </div>
+              <div className={styles.heroFloatCard} style={{ top: '52%', right: '6%' }}>
+                <p className={styles.heroFloatValue}>30+</p>
+                <p className={styles.heroFloatLabel}>Industries</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.heroIndustryStrip}>
+          {['Construction', 'Manufacturing', 'Warehouse', 'Logistics', 'Hospitality', 'More'].map(label => (
+            <span key={label} className={styles.heroIndustryPill}>
+              <span className={styles.heroIndustryIcon}>{industryIcons[label] || '✦'}</span>
+              {label}
+            </span>
+          ))}
+        </div>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delayMs={80} variant="left">
+        <section className={styles.heroGrid}>
+        <LandingSlider slides={sliderSlides} />
+        <div className={styles.card}>
+          <p className={styles.eyebrow} style={{ color: '#2563eb' }}>Executive overview</p>
+          <h2 className={styles.sectionTitle}>Built for employers that need speed, clarity, and control</h2>
+          <div className={styles.stack} style={{ marginTop: '16px' }}>
+            {[
+              'Modern employer onboarding connected directly to labour admin and live marketplace data.',
+              'Short-validity company plans designed for practical hiring cycles and urgent demand.',
+              'One portal for searching labour, submitting requirements, and managing worker responses.'
+            ].map(item => (
+              <div key={item} className={styles.bullet}>
+                <span className={styles.bulletDot} style={{ background: '#2563eb' }} />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delayMs={100} variant="right">
+        <section id="about" className={styles.card}>
+        <div className={styles.sectionFooter}>
+          <div>
+            <p className={styles.eyebrow} style={{ color: '#2563eb' }}>About the platform</p>
+            <h2 className={styles.sectionTitle}>Premium labour hiring portal for modern businesses</h2>
+            <p className={styles.textMuted}>
+              ScaleVyapar Rozgar brings enterprise-grade structure to daily-basis labour discovery, demand posting,
+              and hiring coordination while staying fully connected to your existing admin workflows.
+            </p>
+          </div>
+          <span className={styles.chip}>Admin-connected workflow</span>
+        </div>
+
+        <div className={styles.threeColGrid}>
+          {content.home.features.cards.map(card => (
+            <div key={card.title} className={styles.listCard}>
+              <p style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '20px', fontWeight: 800 }}>{card.title}</p>
+              <p className={styles.textMuted} style={{ marginBottom: '16px' }}>{card.description}</p>
+              <div className={styles.stack}>
+                {card.bullets.map(item => (
+                  <div key={item} className={styles.bullet}>
+                    <span className={styles.bulletDot} style={{ background: '#14b8a6' }} />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delayMs={120} variant="scale">
+        <section className={styles.card}>
+        <div className={styles.sectionFooter}>
+          <div>
+            <p className={styles.eyebrow} style={{ color: '#2563eb' }}>Trust & stats</p>
+            <h2 className={styles.sectionTitle}>Trusted operational metrics from the live labour ecosystem</h2>
+          </div>
+          <span className={styles.chip}>Animated counters</span>
+        </div>
+        <AnimatedStats stats={homepageStats} />
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delayMs={140} variant="left">
+        <section id="industries" className={styles.card}>
+        <div className={styles.sectionFooter}>
+          <div>
+            <p className={styles.eyebrow} style={{ color: '#2563eb' }}>Industries</p>
+            <h2 className={styles.sectionTitle}>Industry-wise labour solutions</h2>
+            <p className={styles.textMuted}>
+              Construction, factory, textile, warehouse, delivery, hospitality, logistics, and manufacturing labour hiring made easy.
+            </p>
+          </div>
+          <a href="/labour/company/search" className={styles.secondaryButton}>Explore workforce</a>
+        </div>
+
+        <div className={styles.fourColGrid}>
+          {industryLabels.map(label => (
+            <div key={label} className={styles.listCard}>
+              <p style={{ margin: '0 0 12px', fontSize: '30px' }}>{industryIcons[label]}</p>
+              <p style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '18px', fontWeight: 800 }}>{label}</p>
+              <p className={styles.textMuted}>
+                Scalable labour sourcing and workforce coordination for {label.toLowerCase()} employers.
+              </p>
+            </div>
+          ))}
+        </div>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delayMs={160} variant="right">
+        <section id="process" className={styles.card}>
+        <div className={styles.sectionFooter}>
+          <div>
+            <p className={styles.eyebrow} style={{ color: '#2563eb' }}>How it works</p>
+            <h2 className={styles.sectionTitle}>From registration to workforce activation</h2>
+            <p className={styles.textMuted}>A clean four-step employer process built on the current labour admin architecture.</p>
+          </div>
+        </div>
+
+        <div className={styles.fourColGrid}>
+          {[
+            'Register Company',
+            'Post Labour Requirement',
+            'Get Worker Responses',
+            'Hire & Manage Workforce'
+          ].map((title, index) => (
+            <div key={title} className={styles.softCard}>
+              <div
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 16,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'linear-gradient(135deg, #2563eb, #1e3a8a)',
+                  color: '#ffffff',
+                  fontWeight: 900,
+                  marginBottom: '14px'
+                }}
+              >
+                {index + 1}
+              </div>
+              <p style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '18px', fontWeight: 800 }}>{title}</p>
+              <p className={styles.textMuted}>{content.home.process.steps[index]?.description || 'Seamless employer workflow powered by the existing ScaleVyapar labour system.'}</p>
+            </div>
+          ))}
+        </div>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delayMs={180} variant="left">
+        <section id="features" className={styles.twoColGrid}>
+        <div className={styles.card}>
+          <p className={styles.eyebrow} style={{ color: '#2563eb' }}>Employers</p>
+          <h2 className={styles.sectionTitle}>Business-side hiring control</h2>
+          <p className={styles.textMuted} style={{ marginBottom: '18px' }}>
+            Register your company, choose a plan, post the first requirement, and manage workers through one polished workspace.
+          </p>
+          <div className={styles.stack}>
+            {[
+              'Company onboarding with labour categories and plan mapping',
+              'Admin-reviewed requirement activation for controlled operations',
+              'Dashboard visibility into shortlisted, hired, and reviewed workers'
+            ].map(item => (
+              <div key={item} className={styles.bullet}>
+                <span className={styles.bulletDot} style={{ background: '#2563eb' }} />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.card}>
+          <p className={styles.eyebrow} style={{ color: '#14b8a6' }}>Workers</p>
+          <h2 className={styles.sectionTitle}>Worker-side response quality</h2>
+          <p className={styles.textMuted} style={{ marginBottom: '18px' }}>
+            Employers get access to live worker categories, availability, city filters, and application tracking without a disconnected hiring process.
+          </p>
+          <div className={styles.stack}>
+            {[
+              'Worker discovery by city, category, and availability',
+              'Application status updates powered by existing labour company APIs',
+              'Consistent admin visibility into every employer action'
+            ].map(item => (
+              <div key={item} className={styles.bullet}>
+                <span className={styles.bulletDot} style={{ background: '#14b8a6' }} />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delayMs={200} variant="scale">
+        <section className={styles.card}>
+        <div className={styles.sectionFooter}>
+          <div>
+            <p className={styles.eyebrow} style={{ color: '#2563eb' }}>Commercial plans</p>
+            <h2 className={styles.sectionTitle}>Enterprise-ready pricing presentation</h2>
+            <p className={styles.textMuted}>Active company plans stay fully connected to the same live labour plan data used in admin.</p>
+          </div>
+          <a href="/labour/company/pricing" className={styles.secondaryButton}>View full pricing</a>
+        </div>
+
+        <div className={styles.threeColGrid}>
+          {companyPlans.slice(0, 3).map(plan => (
+            <div key={plan.id} className={styles.listCard}>
+              <div className={styles.buttonRow} style={{ justifyContent: 'space-between', marginBottom: '14px' }}>
+                <span className={styles.chip}>{plan.categoryId ? 'Priority plan' : 'Standard plan'}</span>
+                <span className={styles.chip} style={{ background: '#eff6ff', color: '#1d4ed8' }}>{plan.validityDays} days</span>
+              </div>
+              <p style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '22px', fontWeight: 800 }}>{plan.name}</p>
+              <p className={styles.textMuted} style={{ marginBottom: '16px' }}>{plan.description}</p>
+              <p style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '38px', fontWeight: 900 }}>{formatCurrency(plan.planAmount)}</p>
+              <div className={styles.stack}>
+                <span className={styles.textMuted}>Registration fee: {formatCurrency(plan.registrationFee)}</span>
+                <span className={styles.textMuted}>
+                  Category: {plan.categoryId ? (categories.find(category => category.id === plan.categoryId)?.name || plan.categoryId) : 'All categories'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delayMs={220} variant="right">
+        <section className={styles.darkCard} style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%)' }}>
+        <div className={styles.sectionFooter} style={{ marginBottom: '18px' }}>
+          <div>
+            <p className={styles.eyebrow} style={{ color: 'rgba(255,255,255,0.72)' }}>Call to action</p>
+            <h2 className={styles.sectionTitle} style={{ color: '#ffffff' }}>Ready to hire faster with ScaleVyapar Rozgar?</h2>
+            <p className={styles.textMutedDark}>
+              Launch your company profile, publish a labour requirement, and move into a premium dashboard experience backed by the existing ScaleVyapar ecosystem.
+            </p>
+          </div>
+          <div className={styles.buttonRow}>
+            <a href="/labour/company#company-intake" className={styles.primaryButton} style={{ background: '#14b8a6', color: '#ffffff', border: '1px solid transparent' }}>
+              Register Company
+            </a>
+            <a href="/labour/company/signin" className={styles.secondaryButton}>
+              Login
+            </a>
+          </div>
+        </div>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delayMs={240} variant="up">
+        <section id="company-intake" className={styles.main}>
+        <CompanyIntakeForm
+          categories={categories.map(category => ({
+            id: category.id,
+            name: category.name,
+            description: category.description,
+            demandLevel: category.demandLevel
+          }))}
+          plans={companyPlans.map(plan => ({
+            id: plan.id,
+            name: plan.name,
+            planAmount: plan.planAmount,
+            registrationFee: plan.registrationFee,
+            validityDays: plan.validityDays,
+            description: plan.description,
+            categoryId: plan.categoryId
+          }))}
+          heading="Register Company & Post Requirement"
+          description="Start with a polished employer intake flow and send your first labour requirement into the existing ScaleVyapar admin review system."
+          submitLabel={content.home.intake.submitLabel}
+          accentColor={content.theme.accentColor}
+        />
+        </section>
+      </ScrollReveal>
     </CompanySiteShell>
   )
 }

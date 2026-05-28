@@ -7,9 +7,10 @@ type Props = {
   content: LabourCompanyWebsiteContent
   currentPath: string
   children: ReactNode
+  isAdmin?: boolean
 }
 
-export function CompanySiteShell({ content, currentPath, children }: Props) {
+export function CompanySiteShell({ content, currentPath, children, isAdmin }: Props) {
   return (
     <div className={styles.page} style={{ background: `linear-gradient(180deg, #f8fafc 0%, ${content.theme.accentSoft} 100%)` }}>
       <div className={styles.container}>
@@ -29,9 +30,11 @@ export function CompanySiteShell({ content, currentPath, children }: Props) {
               </Link>
 
               <div className={styles.headerActions}>
-                <Link href="/admin/labour/website" className={styles.secondaryButton}>
-                  Website Editor
-                </Link>
+                {isAdmin && (
+                  <Link href="/admin/labour/website" className={styles.secondaryButton}>
+                    Website Editor
+                  </Link>
+                )}
                 <Link href={content.header.primaryCtaHref} className={styles.primaryButton} style={{ background: `linear-gradient(135deg, ${content.theme.accentColor}, ${content.theme.highlightColor})`, color: '#ffffff', border: '1px solid transparent', boxShadow: '0 14px 28px rgba(15, 23, 42, 0.14)' }}>
                   {content.header.primaryCtaLabel}
                 </Link>

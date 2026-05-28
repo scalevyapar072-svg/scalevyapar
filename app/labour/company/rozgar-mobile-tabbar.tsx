@@ -30,7 +30,7 @@ const tabs: Tab[] = [
     match: (p) => p.startsWith('/labour/company/panel')
   },
   {
-    label: 'Register',
+    label: 'Register Company',
     href: '/labour/company#company-intake',
     icon: '🏢',
     match: () => false
@@ -104,8 +104,11 @@ export function RozgarMobileTabBar() {
             line-height: 1;
           }
           .rozgar-tab-label {
-            font-size: 10.5px;
-            line-height: 1.15;
+            font-size: 10px;
+            line-height: 1.18;
+            max-width: 100%;
+            word-break: break-word;
+            hyphens: auto;
           }
           .rozgar-tab-active {
             color: #1d4ed8;

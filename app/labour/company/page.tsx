@@ -4,10 +4,17 @@ import { CompanySiteShell } from './company-site-shell'
 import styles from './company-site.module.css'
 import { getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
 import { getLabourCompanyWebsiteContent, type LabourCompanyWebsiteSection } from '@/lib/labour-company-website'
+import { getSessionFromCookies } from '@/lib/auth-token'
+import { cookies } from 'next/headers'
 
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
 
 export default async function LabourCompanyHomePage() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')?.value
+  const session = token ? await getSessionFromCookies(token) : null
+  const isAdmin = session?.role === 'ADMIN'
+
   const [website, snapshot] = await Promise.all([
     getLabourCompanyWebsiteContent(),
     getLabourMarketplaceSnapshot()
@@ -288,7 +295,7 @@ export default async function LabourCompanyHomePage() {
   }
 
   return (
-    <CompanySiteShell content={content} currentPath="/labour/company">
+    <CompanySiteShell content={content} currentPath="/labour/company" isAdmin={isAdmin}>
       {content.home.sectionOrder.map(renderSection)}
     </CompanySiteShell>
   )

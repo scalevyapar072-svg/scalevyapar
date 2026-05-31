@@ -1,13 +1,27 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 
+const POSE_MAP: Record<string, string> = {
+  front: 'front-standing',
+  onearm: 'one-arm-up',
+  neckline: 'neckline-close-up',
+  'sitting-stool': 'sitting-stool',
+  'sitting-portrait': 'sitting-portrait',
+  reclining: 'reclining-sofa',
+  shoulder: 'over-shoulder',
+  hand: 'hand-editorial',
+  fabric: 'fabric-macro',
+  stitch: 'stitch-detail',
+  walking: 'walking-natural',
+  back: 'back-pose',
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { image } = await req.json()
+    const { image, shootType = 'front', extra = '' } = await req.json()
 
     if (!process.env.FASHN_API_KEY) {
       return NextResponse.json({ error: 'FASHN_API_KEY not set' }, { status: 500 })
     }
-
     if (!image) {
       return NextResponse.json({ error: 'Please upload a product photo first' }, { status: 400 })
     }
@@ -19,15 +33,31 @@ export async function POST(req: NextRequest) {
       'Authorization': `Bearer ${API_KEY}`,
     }
 
+    const poseValue = POSE_MAP[shootType] || 'front-standing'
+
+    // Build prompt with background and extra details
+    const promptParts = []
+    if (extra && extra.trim()) {
+      promptParts.push(extra.trim())
+    }
+    const prompt = promptParts.join(', ')
+
+    const requestBody: Record<string, unknown> = {
+      model_name: 'product-to-model',
+      inputs: {
+        product_image: image,
+        pose: poseValue,
+      },
+    }
+
+    if (prompt) {
+      (requestBody.inputs as Record<string, unknown>).prompt = prompt
+    }
+
     const runRes = await fetch(`${BASE_URL}/run`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        model_name: 'product-to-model',
-        inputs: {
-          product_image: image,
-        },
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     const runData = await runRes.json()
@@ -43,14 +73,12 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < 30; i++) {
       await new Promise(r => setTimeout(r, 2000))
-
       const statusRes = await fetch(`${BASE_URL}/status/${predictionId}`, { headers })
       const statusData = await statusRes.json()
 
       if (statusData.status === 'completed' && statusData.output?.length > 0) {
         return NextResponse.json({ images: [statusData.output[0]] })
       }
-
       if (statusData.status === 'failed') {
         return NextResponse.json({
           error: `Failed: ${statusData.error?.message || JSON.stringify(statusData.error)}`
@@ -59,8 +87,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Timed out — try again' }, { status: 500 })
-
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

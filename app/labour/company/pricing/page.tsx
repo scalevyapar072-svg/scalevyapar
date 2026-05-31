@@ -1,4 +1,4 @@
-import { CompanySiteShell } from '../company-site-shell'
+﻿import { CompanySiteShell } from '../company-site-shell'
 import styles from '../company-site.module.css'
 import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import { getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
@@ -77,7 +77,7 @@ export default async function LabourCompanyPricingPage() {
                   Category: {plan.categoryId ? (categories.find(category => category.id === plan.categoryId)?.name || plan.categoryId) : 'All categories'}
                 </span>
               </div>
-              <a href="/labour/company#company-intake" className={styles.primaryButton} style={{ background: content.theme.accentColor, color: '#ffffff', border: '1px solid transparent', width: '100%' }}>
+              <a href={`/labour/company/checkout?planId=${plan.id}&planName=${encodeURIComponent(plan.name)}&amount=${plan.planAmount}`} className={styles.primaryButton} style={{ background: content.theme.accentColor, color: '#ffffff', border: '1px solid transparent', width: '100%' }}>
                 Choose plan
               </a>
             </div>
@@ -99,3 +99,4 @@ export default async function LabourCompanyPricingPage() {
     </CompanySiteShell>
   )
 }
+

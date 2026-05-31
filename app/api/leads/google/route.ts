@@ -745,7 +745,7 @@ export async function POST(request: NextRequest) {
 
     const deduped = Array.from(
       new Map(combined.map(item => [`${item.source}-${item.businessName}-${item.website}-${item.mobile}`, item])).values()
-    )).filter(item => item.mobile && item.mobile.trim() !== '')
+    ).filter(item => item.mobile && item.mobile.trim() !== '')
 
     return NextResponse.json({
       success: true,

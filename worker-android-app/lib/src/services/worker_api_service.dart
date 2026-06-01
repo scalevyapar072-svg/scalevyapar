@@ -7,6 +7,15 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/worker_models.dart';
 
+class _WorkerApiTransportException implements Exception {
+  final String message;
+
+  const _WorkerApiTransportException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class WorkerApiService {
   final http.Client _client;
   static const _networkErrorMessage =
@@ -34,11 +43,11 @@ class WorkerApiService {
           )
           .timeout(const Duration(seconds: 25));
     } on TimeoutException {
-      throw Exception(_networkErrorMessage);
+      throw const _WorkerApiTransportException(_networkErrorMessage);
     } on SocketException {
-      throw Exception(_networkErrorMessage);
+      throw const _WorkerApiTransportException(_networkErrorMessage);
     } on http.ClientException {
-      throw Exception(_networkErrorMessage);
+      throw const _WorkerApiTransportException(_networkErrorMessage);
     }
   }
 
@@ -54,11 +63,42 @@ class WorkerApiService {
           )
           .timeout(const Duration(seconds: 25));
     } on TimeoutException {
-      throw Exception(_networkErrorMessage);
+      throw const _WorkerApiTransportException(_networkErrorMessage);
     } on SocketException {
-      throw Exception(_networkErrorMessage);
+      throw const _WorkerApiTransportException(_networkErrorMessage);
     } on http.ClientException {
-      throw Exception(_networkErrorMessage);
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    }
+  }
+
+  bool _isJsonResponse(http.Response response) {
+    final contentType = response.headers['content-type'] ?? '';
+    final body = response.body.trim();
+
+    return contentType.contains('application/json') || body.startsWith('{');
+  }
+
+  bool _shouldFallbackAuthResponse(http.Response response) {
+    if (response.statusCode == 404) {
+      return true;
+    }
+
+    return !_isJsonResponse(response);
+  }
+
+  Future<http.Response> _postAuthJsonWithFallback(
+    String primaryPath,
+    String fallbackPath, {
+    Object? body,
+  }) async {
+    try {
+      final primaryResponse = await _postJson(primaryPath, body: body);
+      if (_shouldFallbackAuthResponse(primaryResponse)) {
+        return _postJson(fallbackPath, body: body);
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _postJson(fallbackPath, body: body);
     }
   }
 
@@ -91,7 +131,8 @@ class WorkerApiService {
   }
 
   Future<String> requestOtp(String mobile) async {
-    final response = await _postJson(
+    final response = await _postAuthJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/auth/request-otp', preferRozgarV1: true),
       _workerPath('/auth/request-otp'),
       body: jsonEncode({'mobile': mobile}),
     );
@@ -107,7 +148,8 @@ class WorkerApiService {
 
   Future<(String, WorkerDashboardModel)> verifyOtp(
       String mobile, String otpCode) async {
-    final response = await _postJson(
+    final response = await _postAuthJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/auth/verify-otp', preferRozgarV1: true),
       _workerPath('/auth/verify-otp'),
       body: jsonEncode({'mobile': mobile, 'otpCode': otpCode}),
     );

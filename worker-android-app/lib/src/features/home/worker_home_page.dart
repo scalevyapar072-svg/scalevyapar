@@ -877,6 +877,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                         _ProfileTab(
                           dashboard: dashboard,
                           onSave: _saveProfile,
+                          onLogout: _logout,
                           onRefresh: _loadDashboard,
                           loading: _loading,
                         ),
@@ -2626,12 +2627,14 @@ class _ProfileTab extends StatefulWidget {
     required double expectedDailyWage,
     required String availability,
   }) onSave;
+  final Future<void> Function() onLogout;
   final Future<void> Function() onRefresh;
   final bool loading;
 
   const _ProfileTab({
     required this.dashboard,
     required this.onSave,
+    required this.onLogout,
     required this.onRefresh,
     required this.loading,
   });
@@ -2886,6 +2889,43 @@ class _ProfileTabState extends State<_ProfileTab> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(widget.loading ? l10n.saving : l10n.saveProfile),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Card(
+                  color: const Color(0xFFFFFBEB),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.isHindi ? 'अकाउंट' : 'Account',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.isHindi
+                              ? 'यदि आप इस डिवाइस से बाहर निकलना चाहते हैं, तो नीचे लॉगआउट करें।'
+                              : 'Use logout below if you want to sign out from this device.',
+                          style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: widget.onLogout,
+                            icon: const Icon(Icons.logout_rounded),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFB42318),
+                              side: const BorderSide(color: Color(0xFFFDA29B)),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            label: Text(l10n.isHindi ? 'लॉगआउट' : 'Logout'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

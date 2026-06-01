@@ -15,6 +15,7 @@ class WorkerApiService {
   WorkerApiService({http.Client? client}) : _client = client ?? http.Client();
 
   Uri _uri(String path) => Uri.parse('${ApiConfig.baseUrl}$path');
+  String _workerPath(String path) => ApiConfig.resolveWorkerPath(path);
 
   Future<http.Response> _postJson(
     String path, {
@@ -61,7 +62,8 @@ class WorkerApiService {
     }
   }
 
-  Map<String, dynamic> _decodeResponse(http.Response response, {required String fallbackError}) {
+  Map<String, dynamic> _decodeResponse(http.Response response,
+      {required String fallbackError}) {
     final contentType = response.headers['content-type'] ?? '';
     final body = response.body.trim();
 
@@ -90,11 +92,12 @@ class WorkerApiService {
 
   Future<String> requestOtp(String mobile) async {
     final response = await _postJson(
-      '/api/labour/worker/auth/request-otp',
+      _workerPath('/auth/request-otp'),
       body: jsonEncode({'mobile': mobile}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to request OTP');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to request OTP');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to request OTP');
     }
@@ -102,13 +105,15 @@ class WorkerApiService {
     return data['otpCode'] as String? ?? '';
   }
 
-  Future<(String, WorkerDashboardModel)> verifyOtp(String mobile, String otpCode) async {
+  Future<(String, WorkerDashboardModel)> verifyOtp(
+      String mobile, String otpCode) async {
     final response = await _postJson(
-      '/api/labour/worker/auth/verify-otp',
+      _workerPath('/auth/verify-otp'),
       body: jsonEncode({'mobile': mobile, 'otpCode': otpCode}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to verify OTP');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to verify OTP');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to verify OTP');
     }
@@ -121,16 +126,18 @@ class WorkerApiService {
 
   Future<WorkerDashboardModel> getDashboard(String token) async {
     final response = await _get(
-      '/api/labour/worker/dashboard',
+      _workerPath('/dashboard'),
       headers: {'Authorization': 'Bearer $token'},
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to load dashboard');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to load dashboard');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to load dashboard');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<WorkerDashboardModel> updateProfile(
@@ -144,7 +151,7 @@ class WorkerApiService {
     required String availability,
   }) async {
     final response = await _client.put(
-      _uri('/api/labour/worker/profile'),
+      _uri(_workerPath('/profile')),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -160,12 +167,14 @@ class WorkerApiService {
       }),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to update profile');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to update profile');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to update profile');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<String> uploadWorkerDocument(
@@ -176,15 +185,17 @@ class WorkerApiService {
   }) async {
     final request = http.MultipartRequest(
       'POST',
-      _uri('/api/labour/worker/upload'),
+      _uri(_workerPath('/upload')),
     );
     request.headers['Authorization'] = 'Bearer $token';
     request.fields['documentKind'] = documentKind;
-    request.files.add(await http.MultipartFile.fromPath('file', filePath, filename: fileName));
+    request.files.add(await http.MultipartFile.fromPath('file', filePath,
+        filename: fileName));
 
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
-    final data = _decodeResponse(response, fallbackError: 'Failed to upload document');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to upload document');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to upload document');
     }
@@ -207,7 +218,7 @@ class WorkerApiService {
     required String identityProofPath,
   }) async {
     final response = await _client.post(
-      _uri('/api/labour/worker/register'),
+      _uri(_workerPath('/register')),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -227,17 +238,20 @@ class WorkerApiService {
       }),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to complete registration');
+    final data = _decodeResponse(response,
+        fallbackError: 'Failed to complete registration');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to complete registration');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
-  Future<WorkerDashboardModel> createRechargeRequest(String token, {String? note}) async {
+  Future<WorkerDashboardModel> createRechargeRequest(String token,
+      {String? note}) async {
     final response = await _client.post(
-      _uri('/api/labour/worker/recharge-request'),
+      _uri(_workerPath('/recharge-request')),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -245,12 +259,14 @@ class WorkerApiService {
       body: jsonEncode({'note': note}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to create recharge request');
+    final data = _decodeResponse(response,
+        fallbackError: 'Failed to create recharge request');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to create recharge request');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<WorkerRazorpayOrderModel> createWalletRechargeOrder(
@@ -263,7 +279,8 @@ class WorkerApiService {
       body: jsonEncode({'amount': amount}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to create payment order');
+    final data = _decodeResponse(response,
+        fallbackError: 'Failed to create payment order');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to create payment order');
     }
@@ -287,12 +304,14 @@ class WorkerApiService {
       }),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Payment verification failed');
+    final data =
+        _decodeResponse(response, fallbackError: 'Payment verification failed');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Payment verification failed');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<WorkerDashboardModel> applyToJob(
@@ -301,7 +320,7 @@ class WorkerApiService {
     String? note,
   }) async {
     final response = await _client.post(
-      _uri('/api/labour/worker/applications'),
+      _uri(_workerPath('/applications')),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -312,12 +331,14 @@ class WorkerApiService {
       }),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to apply to job');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to apply to job');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to apply to job');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<WorkerDashboardModel> toggleSavedJob(
@@ -325,7 +346,7 @@ class WorkerApiService {
     required String jobPostId,
   }) async {
     final response = await _client.post(
-      _uri('/api/labour/worker/saved-jobs'),
+      _uri(_workerPath('/saved-jobs')),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -333,12 +354,14 @@ class WorkerApiService {
       body: jsonEncode({'jobPostId': jobPostId}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to update saved jobs');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to update saved jobs');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to update saved jobs');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<WorkerDashboardModel> markNotificationsRead(
@@ -346,7 +369,7 @@ class WorkerApiService {
     List<String>? notificationIds,
   }) async {
     final response = await _client.post(
-      _uri('/api/labour/worker/notifications'),
+      _uri(_workerPath('/notifications')),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -354,12 +377,14 @@ class WorkerApiService {
       body: jsonEncode({'notificationIds': notificationIds}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to update notifications');
+    final data = _decodeResponse(response,
+        fallbackError: 'Failed to update notifications');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to update notifications');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<void> registerPushToken(
@@ -370,7 +395,7 @@ class WorkerApiService {
     String? deviceLabel,
   }) async {
     final response = await _client.post(
-      _uri('/api/labour/worker/push-token'),
+      _uri(_workerPath('/push-token')),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -394,7 +419,7 @@ class WorkerApiService {
     String? fcmToken,
   }) async {
     final response = await _client.delete(
-      _uri('/api/labour/worker/push-token'),
+      _uri(_workerPath('/push-token')),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',

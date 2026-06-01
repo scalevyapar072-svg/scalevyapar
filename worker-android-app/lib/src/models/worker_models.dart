@@ -35,6 +35,8 @@ class WorkerProfileModel {
   final String identityProofPath;
   final bool isRegistrationComplete;
   final String registrationCompletedAt;
+  final double? latitude;
+  final double? longitude;
 
   WorkerProfileModel({
     required this.id,
@@ -56,6 +58,8 @@ class WorkerProfileModel {
     required this.identityProofPath,
     required this.isRegistrationComplete,
     required this.registrationCompletedAt,
+    required this.latitude,
+    required this.longitude,
   });
 
   factory WorkerProfileModel.fromJson(Map<String, dynamic> json) {
@@ -79,6 +83,20 @@ class WorkerProfileModel {
       identityProofPath: json['identityProofPath'] as String? ?? '',
       isRegistrationComplete: json['isRegistrationComplete'] as bool? ?? false,
       registrationCompletedAt: json['registrationCompletedAt'] as String? ?? '',
+      latitude: _readCoordinate(json, const [
+        'latitude',
+        'lat',
+        'workerLatitude',
+        'currentLatitude',
+        'locationLatitude',
+      ]),
+      longitude: _readCoordinate(json, const [
+        'longitude',
+        'lng',
+        'workerLongitude',
+        'currentLongitude',
+        'locationLongitude',
+      ]),
     );
   }
 }
@@ -155,6 +173,38 @@ class WorkerWalletSummaryModel {
   }
 }
 
+class WorkerRazorpayOrderModel {
+  final String keyId;
+  final String orderId;
+  final int amount;
+  final String currency;
+  final double rechargeAmount;
+  final String workerName;
+  final String mobile;
+
+  WorkerRazorpayOrderModel({
+    required this.keyId,
+    required this.orderId,
+    required this.amount,
+    required this.currency,
+    required this.rechargeAmount,
+    required this.workerName,
+    required this.mobile,
+  });
+
+  factory WorkerRazorpayOrderModel.fromJson(Map<String, dynamic> json) {
+    return WorkerRazorpayOrderModel(
+      keyId: json['keyId'] as String? ?? '',
+      orderId: json['orderId'] as String? ?? '',
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+      currency: json['currency'] as String? ?? 'INR',
+      rechargeAmount: (json['rechargeAmount'] as num?)?.toDouble() ?? 0,
+      workerName: json['workerName'] as String? ?? '',
+      mobile: json['mobile'] as String? ?? '',
+    );
+  }
+}
+
 class WorkerActivationSummaryModel {
   final bool isActive;
   final bool canViewCompanyDetails;
@@ -204,6 +254,10 @@ class WorkerFeedItemModel {
   final String? applicationStatus;
   final bool isSaved;
   final String? appliedAt;
+  final String coordinateSource;
+  final double? latitude;
+  final double? longitude;
+  final String? shiftType;
 
   WorkerFeedItemModel({
     required this.id,
@@ -225,6 +279,10 @@ class WorkerFeedItemModel {
     required this.applicationStatus,
     required this.isSaved,
     required this.appliedAt,
+    required this.coordinateSource,
+    required this.latitude,
+    required this.longitude,
+    required this.shiftType,
   });
 
   factory WorkerFeedItemModel.fromJson(Map<String, dynamic> json) {
@@ -248,8 +306,39 @@ class WorkerFeedItemModel {
       applicationStatus: json['applicationStatus'] as String?,
       isSaved: json['isSaved'] as bool? ?? false,
       appliedAt: json['appliedAt'] as String?,
+      coordinateSource: json['coordinateSource'] as String? ?? '',
+      latitude: _readCoordinate(json, const [
+        'latitude',
+        'lat',
+        'workLocationLatitude',
+        'locationLatitude',
+        'companyLatitude',
+      ]),
+      longitude: _readCoordinate(json, const [
+        'longitude',
+        'lng',
+        'workLocationLongitude',
+        'locationLongitude',
+        'companyLongitude',
+      ]),
+      shiftType: (json['shiftType'] ?? json['shift'] ?? json['workShift']) as String?,
     );
   }
+}
+
+double? _readCoordinate(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is num) {
+      final coordinate = value.toDouble();
+      if (coordinate != 0) return coordinate;
+    }
+    if (value is String) {
+      final coordinate = double.tryParse(value.trim());
+      if (coordinate != null && coordinate != 0) return coordinate;
+    }
+  }
+  return null;
 }
 
 class WorkerNotificationModel {

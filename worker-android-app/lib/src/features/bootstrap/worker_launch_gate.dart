@@ -88,9 +88,7 @@ class _WorkerLaunchGateState extends State<WorkerLaunchGate> {
     }
 
     return Material(
-          color: _step == _LaunchGateStep.splash
-              ? const Color(0xFF1F314C)
-              : Colors.white,
+          color: Colors.white,
           child: SafeArea(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
@@ -117,76 +115,128 @@ class _LaunchSplashView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 30,
-                    offset: const Offset(0, 18),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(14),
-              child: Image.asset(
-                'assets/images/rozgar-logo-round.png',
-                fit: BoxFit.contain,
+    return Stack(
+      children: [
+        Positioned(
+          top: -88,
+          right: -64,
+          child: Container(
+            width: 220,
+            height: 220,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0x14173C77), Color(0x0D2F6FDF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
-            const SizedBox(height: 28),
-            const Text(
-              'ScaleVyapar',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Rozgar',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 38,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Find work. Trusted hiring.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFFD9E5FF),
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 34),
-            const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        Positioned(
+          left: -34,
+          bottom: -58,
+          child: Container(
+            width: 170,
+            height: 170,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0x12FF8A00),
+            ),
+          ),
+        ),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 184,
+                  height: 184,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14173C77),
+                        blurRadius: 28,
+                        offset: Offset(0, 16),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  child: Image.asset(
+                    'assets/images/rozgar-logo-round.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F7FB),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Text(
+                    'ScaleVyapar business automation',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF173C77),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Rozgar by ScaleVyapar',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF102A43),
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                    height: 1.08,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Find work faster. Connect with verified companies.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF52606D),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    height: 1.55,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  width: 72,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF173C77), Color(0xFFFF8A00)],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 34),
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF173C77)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -246,7 +296,7 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -254,16 +304,17 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
                   child: Column(
                     children: [
                       Container(
-                        width: 132,
-                        height: 132,
+                        width: 128,
+                        height: 128,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFFF3F6FB),
+                          color: Colors.white,
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                           boxShadow: const [
                             BoxShadow(
-                              color: Color(0x14000000),
-                              blurRadius: 20,
-                              offset: Offset(0, 10),
+                              color: Color(0x14173C77),
+                              blurRadius: 24,
+                              offset: Offset(0, 12),
                             ),
                           ],
                         ),
@@ -273,15 +324,25 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
                           fit: BoxFit.contain,
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Rozgar by ScaleVyapar',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF102A43),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       const Text(
                         'Hello!\nनमस्ते!',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 38,
+                          fontSize: 34,
                           fontWeight: FontWeight.w300,
-                          height: 1.25,
-                          color: Color(0xFF4B5563),
+                          height: 1.2,
+                          color: Color(0xFF425466),
                         ),
                       ),
                     ],
@@ -291,9 +352,9 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
                 Text(
                   widget.selectedCode == 'hi' ? 'भाषा चुनें' : 'Select Language',
                   style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF1F2937),
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF102A43),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -312,8 +373,16 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(26),
+                    borderRadius: BorderRadius.circular(28),
+                    color: Colors.white,
                     border: Border.all(color: const Color(0xFFE5E7EB)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0F173C77),
+                        blurRadius: 24,
+                        offset: Offset(0, 14),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: options.map((option) {

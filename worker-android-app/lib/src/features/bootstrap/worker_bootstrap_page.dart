@@ -56,67 +56,110 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1F314C),
+      backgroundColor: Colors.white,
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 180,
-                  height: 180,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.18),
-                        blurRadius: 26,
-                        offset: const Offset(0, 14),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(14),
-                  child: Image.asset(
-                    'assets/images/rozgar-logo-round.png',
-                    fit: BoxFit.contain,
+        child: Stack(
+          children: [
+            Positioned(
+              top: -88,
+              right: -64,
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0x14173C77), Color(0x0D2F6FDF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
-                const SizedBox(height: 34),
-                const Text(
-                  'Rozgar',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 38,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Loading your worker dashboard...',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFD9E5FF),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 34),
-                const SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            Positioned(
+              left: -34,
+              bottom: -58,
+              child: Container(
+                width: 170,
+                height: 170,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0x12FF8A00),
+                ),
+              ),
+            ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 180,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x14173C77),
+                            blurRadius: 28,
+                            offset: Offset(0, 16),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Image.asset(
+                        'assets/images/rozgar-logo-round.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Rozgar by ScaleVyapar',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF102A43),
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Loading your worker dashboard...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF52606D),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      width: 72,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF173C77), Color(0xFFFF8A00)],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 34),
+                    const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF173C77)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

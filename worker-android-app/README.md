@@ -31,7 +31,7 @@ flutter run
 If you want to run against production backend, the app already points to:
 
 ```text
-https://scalevyapar.vercel.app
+https://rozgar.scalevyapar.in
 ```
 
 That base URL is set in:

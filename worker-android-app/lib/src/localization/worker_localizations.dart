@@ -97,9 +97,7 @@ class WorkerLocalizations {
   String get applyToJob => isHindi ? 'जॉब के लिए आवेदन करें' : 'Apply to job';
   String get removeFromShortlist => isHindi ? 'शॉर्टलिस्ट से हटाएं' : 'Remove from shortlist';
   String get saveJob => isHindi ? 'जॉब सेव करें' : 'Save job';
-  String get companyLockedMessage => isHindi
-      ? 'कंपनी डिटेल्स लॉक हैं। सीधे संपर्क खोलने के लिए रिचार्ज करें और वर्कर अकाउंट सक्रिय रखें।'
-      : 'Company details are locked. Recharge and keep the worker account active to unlock direct company contact.';
+  String get companyLockedMessage => isHindi ? 'Category Locked' : 'Category Locked';
   String contactPerson(String name) => isHindi ? 'संपर्क व्यक्ति: $name' : 'Contact person: $name';
   String companyMobile(String mobile) => isHindi ? 'मोबाइल: $mobile' : 'Mobile: $mobile';
   String companyCity(String city) => isHindi ? 'कंपनी शहर: $city' : 'Company city: $city';

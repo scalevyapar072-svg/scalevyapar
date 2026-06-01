@@ -1,23 +1,8 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 
-const POSE_MAP: Record<string, string> = {
-  front: 'front-standing',
-  onearm: 'one-arm-up',
-  neckline: 'neckline-close-up',
-  'sitting-stool': 'sitting-stool',
-  'sitting-portrait': 'sitting-portrait',
-  reclining: 'reclining-sofa',
-  shoulder: 'over-shoulder',
-  hand: 'hand-editorial',
-  fabric: 'fabric-macro',
-  stitch: 'stitch-detail',
-  walking: 'walking-natural',
-  back: 'back-pose',
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const { image, shootType = 'front', extra = '' } = await req.json()
+    const { image, shootType = 'front', extra = '', backgroundImage = '' } = await req.json()
 
     if (!process.env.FASHN_API_KEY) {
       return NextResponse.json({ error: 'FASHN_API_KEY not set' }, { status: 500 })
@@ -33,25 +18,42 @@ export async function POST(req: NextRequest) {
       'Authorization': `Bearer ${API_KEY}`,
     }
 
-    const poseValue = POSE_MAP[shootType] || 'front-standing'
+    // Build prompt from pose + extra details
+    const POSE_PROMPTS: Record<string, string> = {
+      front: 'front standing pose, full body, studio lighting',
+      onearm: 'one arm raised up pose, dynamic stance, studio lighting',
+      neckline: 'close up portrait showing neckline and upper body detail',
+      'sitting-stool': 'sitting on stool pose, elegant posture, studio setting',
+      'sitting-portrait': 'sitting portrait pose, relaxed, natural expression',
+      reclining: 'reclining on sofa pose, lifestyle setting, comfortable',
+      shoulder: 'over the shoulder pose, looking back, elegant',
+      hand: 'hand and sleeve detail editorial close up',
+      fabric: 'fabric texture close up detail, macro photography',
+      stitch: 'stitching and embroidery detail close up',
+      walking: 'walking naturally, candid movement, lifestyle',
+      back: 'back pose, showing rear of garment, full body',
+    }
 
-    // Build prompt with background and extra details
-    const promptParts = []
+    const posePrompt = POSE_PROMPTS[shootType] || POSE_PROMPTS.front
+    const promptParts = [posePrompt]
     if (extra && extra.trim()) {
       promptParts.push(extra.trim())
     }
     const prompt = promptParts.join(', ')
 
-    const requestBody: Record<string, unknown> = {
-      model_name: 'product-to-model',
-      inputs: {
-        product_image: image,
-        pose: poseValue,
-      },
+    const inputs: Record<string, unknown> = {
+      product_image: image,
+      prompt,
     }
 
-    if (prompt) {
-      (requestBody.inputs as Record<string, unknown>).prompt = prompt
+    // Add background reference image if provided
+    if (backgroundImage && backgroundImage.trim()) {
+      inputs.background_reference = backgroundImage
+    }
+
+    const requestBody = {
+      model_name: 'product-to-model',
+      inputs,
     }
 
     const runRes = await fetch(`${BASE_URL}/run`, {

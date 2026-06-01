@@ -58,72 +58,40 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0E254A), Color(0xFF173C77), Color(0xFFF4F7FB)],
-            stops: [0, 0.38, 0.38],
-          ),
-        ),
+      backgroundColor: Colors.white,
+      body: SafeArea(
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2F6FDF), Color(0xFF4F8EFF)],
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x33173C77),
-                      blurRadius: 22,
-                      offset: Offset(0, 12),
-                    ),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: const Text(
-                  'LX',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 28,
-                    letterSpacing: 1.2,
-                  ),
-                ),
+              Image.asset(
+                'assets/images/rozgar-logo-horizontal.png',
+                height: 72,
+                fit: BoxFit.contain,
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
               Text(
                 l10n.appTitle,
-                style: TextStyle(
-                  color: Colors.white,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF111827),
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 28),
-                child: Text(
-                  l10n.bootstrapSubtitle,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFD7E4FF),
-                    fontSize: 15,
-                    height: 1.5,
-                  ),
                 ),
               ),
               const SizedBox(height: 24),
               const CircularProgressIndicator(
                 strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2F6FDF)),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                l10n.loadingDashboard,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF6B7280),
+                  fontSize: 14,
+                ),
               ),
             ],
           ),

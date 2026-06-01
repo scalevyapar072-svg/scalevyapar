@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -7,10 +9,57 @@ import '../models/worker_models.dart';
 
 class WorkerApiService {
   final http.Client _client;
+  static const _networkErrorMessage =
+      'Could not connect to Rozgar servers. Please check your internet connection and try again.';
 
   WorkerApiService({http.Client? client}) : _client = client ?? http.Client();
 
   Uri _uri(String path) => Uri.parse('${ApiConfig.baseUrl}$path');
+
+  Future<http.Response> _postJson(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      return await _client
+          .post(
+            _uri(path),
+            headers: {
+              'Content-Type': 'application/json',
+              ...?headers,
+            },
+            body: body,
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      throw Exception(_networkErrorMessage);
+    } on SocketException {
+      throw Exception(_networkErrorMessage);
+    } on http.ClientException {
+      throw Exception(_networkErrorMessage);
+    }
+  }
+
+  Future<http.Response> _get(
+    String path, {
+    Map<String, String>? headers,
+  }) async {
+    try {
+      return await _client
+          .get(
+            _uri(path),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      throw Exception(_networkErrorMessage);
+    } on SocketException {
+      throw Exception(_networkErrorMessage);
+    } on http.ClientException {
+      throw Exception(_networkErrorMessage);
+    }
+  }
 
   Map<String, dynamic> _decodeResponse(http.Response response, {required String fallbackError}) {
     final contentType = response.headers['content-type'] ?? '';
@@ -40,9 +89,8 @@ class WorkerApiService {
   }
 
   Future<String> requestOtp(String mobile) async {
-    final response = await _client.post(
-      _uri('/api/labour/worker/auth/request-otp'),
-      headers: {'Content-Type': 'application/json'},
+    final response = await _postJson(
+      '/api/labour/worker/auth/request-otp',
       body: jsonEncode({'mobile': mobile}),
     );
 
@@ -55,9 +103,8 @@ class WorkerApiService {
   }
 
   Future<(String, WorkerDashboardModel)> verifyOtp(String mobile, String otpCode) async {
-    final response = await _client.post(
-      _uri('/api/labour/worker/auth/verify-otp'),
-      headers: {'Content-Type': 'application/json'},
+    final response = await _postJson(
+      '/api/labour/worker/auth/verify-otp',
       body: jsonEncode({'mobile': mobile, 'otpCode': otpCode}),
     );
 
@@ -73,8 +120,8 @@ class WorkerApiService {
   }
 
   Future<WorkerDashboardModel> getDashboard(String token) async {
-    final response = await _client.get(
-      _uri('/api/labour/worker/dashboard'),
+    final response = await _get(
+      '/api/labour/worker/dashboard',
       headers: {'Authorization': 'Bearer $token'},
     );
 
@@ -201,6 +248,48 @@ class WorkerApiService {
     final data = _decodeResponse(response, fallbackError: 'Failed to create recharge request');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to create recharge request');
+    }
+
+    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+  }
+
+  Future<WorkerRazorpayOrderModel> createWalletRechargeOrder(
+    String token, {
+    required double amount,
+  }) async {
+    final response = await _postJson(
+      '/api/labour/worker/payments/razorpay/order',
+      headers: {'Authorization': 'Bearer $token'},
+      body: jsonEncode({'amount': amount}),
+    );
+
+    final data = _decodeResponse(response, fallbackError: 'Failed to create payment order');
+    if (response.statusCode >= 400) {
+      throw Exception(data['error'] ?? 'Failed to create payment order');
+    }
+
+    return WorkerRazorpayOrderModel.fromJson(data);
+  }
+
+  Future<WorkerDashboardModel> verifyWalletRechargePayment(
+    String token, {
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    final response = await _postJson(
+      '/api/labour/worker/payments/razorpay/verify',
+      headers: {'Authorization': 'Bearer $token'},
+      body: jsonEncode({
+        'razorpay_order_id': razorpayOrderId,
+        'razorpay_payment_id': razorpayPaymentId,
+        'razorpay_signature': razorpaySignature,
+      }),
+    );
+
+    final data = _decodeResponse(response, fallbackError: 'Payment verification failed');
+    if (response.statusCode >= 400) {
+      throw Exception(data['error'] ?? 'Payment verification failed');
     }
 
     return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);

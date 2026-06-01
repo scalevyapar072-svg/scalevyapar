@@ -1,3 +1,3 @@
 class ApiConfig {
-  static const String baseUrl = 'https://scalevyapar.vercel.app';
+  static const String baseUrl = 'https://rozgar.scalevyapar.in';
 }

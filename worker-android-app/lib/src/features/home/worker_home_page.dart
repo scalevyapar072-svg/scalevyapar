@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app.dart';
@@ -29,11 +32,11 @@ class WorkerHomePage extends StatefulWidget {
 class _WorkerHomePageState extends State<WorkerHomePage> {
   final _apiService = WorkerApiService();
   final _sessionStore = SessionStore();
-  final _rechargeNoteController = TextEditingController();
+  final _rechargeAmountController = TextEditingController(text: '50');
+  late final Razorpay _razorpay;
 
   late String _token;
   StreamSubscription<RemoteMessage>? _pushMessagesSubscription;
-  StreamSubscription<RemoteMessage>? _pushOpenedSubscription;
   WorkerDashboardModel? _dashboard;
   bool _loading = false;
   String _error = '';
@@ -48,10 +51,15 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   String _jobActionId = '';
   bool _notificationsLoading = false;
   bool _redirectingToLogin = false;
+  bool _walletPaymentLoading = false;
 
   @override
   void initState() {
     super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleWalletPaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleWalletPaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _token = widget.initialToken;
     _dashboard = widget.initialDashboard;
     _attachPushNotifications();
@@ -63,24 +71,19 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   @override
   void dispose() {
     _pushMessagesSubscription?.cancel();
-    _pushOpenedSubscription?.cancel();
-    _rechargeNoteController.dispose();
+    _razorpay.clear();
+    _rechargeAmountController.dispose();
     super.dispose();
   }
 
   Future<void> _attachPushNotifications() async {
     await WorkerPushService.instance.attachWorkerSession(_token);
-    _pushOpenedSubscription = WorkerPushService.instance.openedMessages.listen(_handleOpenedPushMessage);
     _pushMessagesSubscription = WorkerPushService.instance.messages.listen((_) {
       if (!mounted) {
         return;
       }
       _loadDashboard();
     });
-    final initialOpenMessage = await WorkerPushService.instance.consumeInitialOpenMessage();
-    if (initialOpenMessage != null && mounted) {
-      unawaited(_handleOpenedPushMessage(initialOpenMessage));
-    }
   }
 
   Future<void> _loadDashboard() async {
@@ -149,7 +152,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       return;
     }
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => OtpLoginPage(initialMessage: message)),
+      MaterialPageRoute(builder: (_) => const OtpLoginPage()),
       (route) => false,
     );
   }
@@ -158,25 +161,24 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     if (!_isSessionError(message)) {
       return false;
     }
-    await _resetSessionAndGoToLogin(WorkerLocalizations.of(context).sessionExpiredMessage);
+    await _resetSessionAndGoToLogin('Session expired. Please login again.');
     return true;
   }
 
   Future<void> _logout() async {
-    final l10n = WorkerLocalizations.of(context);
     final shouldLogout = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text(l10n.logoutConfirmTitle),
-            content: Text(l10n.logoutConfirmMessage),
+            title: const Text('Logout?'),
+            content: const Text('Are you sure you want to logout?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: Text(l10n.cancelAction),
+                child: const Text('Cancel'),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: Text(l10n.logoutAction),
+                child: const Text('Logout'),
               ),
             ],
           ),
@@ -231,19 +233,75 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     }
   }
 
-  Future<void> _requestRecharge() async {
-    final l10n = WorkerLocalizations.of(context);
-    setState(() => _loading = true);
+  Future<void> _startWalletRecharge() async {
+    final amount = double.tryParse(_rechargeAmountController.text.trim());
+    if (amount == null || amount < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Minimum recharge amount is Rs 10.')),
+      );
+      return;
+    }
+
+    setState(() => _walletPaymentLoading = true);
     try {
-      final dashboard = await _apiService.createRechargeRequest(
+      final order = await _apiService.createWalletRechargeOrder(
         _token,
-        note: _rechargeNoteController.text.trim().isEmpty ? null : _rechargeNoteController.text.trim(),
+        amount: amount,
+      );
+      if (!mounted) return;
+      _razorpay.open({
+        'key': order.keyId,
+        'amount': order.amount,
+        'currency': order.currency,
+        'name': 'ScaleVyapar Rozgar',
+        'description': 'Worker wallet recharge',
+        'order_id': order.orderId,
+        'prefill': {
+          'name': order.workerName,
+          'contact': order.mobile,
+        },
+        'theme': {'color': '#173C77'},
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final message = _cleanError(error);
+      if (await _handleSessionExpiryIfNeeded(message)) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _walletPaymentLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleWalletPaymentSuccess(PaymentSuccessResponse response) async {
+    if (!mounted) return;
+    final orderId = response.orderId ?? '';
+    final paymentId = response.paymentId ?? '';
+    final signature = response.signature ?? '';
+    if (orderId.isEmpty || paymentId.isEmpty || signature.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment details are incomplete. Please contact support.')),
+      );
+      return;
+    }
+
+    setState(() => _walletPaymentLoading = true);
+    try {
+      final dashboard = await _apiService.verifyWalletRechargePayment(
+        _token,
+        razorpayOrderId: orderId,
+        razorpayPaymentId: paymentId,
+        razorpaySignature: signature,
       );
       if (!mounted) return;
       setState(() => _dashboard = dashboard);
-      _rechargeNoteController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.rechargeRequestSent)),
+        const SnackBar(content: Text('Wallet recharged successfully.')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -256,9 +314,26 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       );
     } finally {
       if (mounted) {
-        setState(() => _loading = false);
+        setState(() => _walletPaymentLoading = false);
       }
     }
+  }
+
+  void _handleWalletPaymentError(PaymentFailureResponse response) {
+    if (!mounted) return;
+    final message = response.message?.trim().isNotEmpty == true
+        ? response.message!.trim()
+        : 'Payment was cancelled or failed. Wallet was not credited.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('External wallet selected. Complete payment to recharge.')),
+    );
   }
 
   Future<void> _applyToJob(String jobPostId) async {
@@ -372,35 +447,6 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         ),
       ),
     );
-  }
-
-  Future<void> _handleOpenedPushMessage(RemoteMessage message) async {
-    final relatedJobPostId = message.data['relatedJobPostId']?.trim();
-
-    await _loadDashboard();
-    if (!mounted) {
-      return;
-    }
-
-    if (relatedJobPostId != null && relatedJobPostId.isNotEmpty) {
-      final dashboard = _dashboard;
-      WorkerFeedItemModel? matchedItem;
-      if (dashboard != null) {
-        for (final item in dashboard.feed) {
-          if (item.id == relatedJobPostId) {
-            matchedItem = item;
-            break;
-          }
-        }
-      }
-      if (matchedItem != null) {
-        setState(() => _selectedIndex = 0);
-        _openJobDetails(matchedItem);
-        return;
-      }
-    }
-
-    setState(() => _selectedIndex = 3);
   }
 
   List<WorkerFeedItemModel> get _filteredFeed {
@@ -653,10 +699,10 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                         ),
                         _WalletTab(
                           dashboard: dashboard,
-                          rechargeNoteController: _rechargeNoteController,
-                          onRequestRecharge: _requestRecharge,
+                          rechargeAmountController: _rechargeAmountController,
+                          onStartWalletRecharge: _startWalletRecharge,
                           onRefresh: _loadDashboard,
-                          loading: _loading,
+                          loading: _walletPaymentLoading || _loading,
                         ),
                         _ProfileTab(
                           dashboard: dashboard,
@@ -936,7 +982,7 @@ class _FeedTab extends StatelessWidget {
                   l10n.matchingJobFeedSubtitle,
                   style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 4),
                 TextFormField(
                   initialValue: query,
                   onChanged: onQueryChanged,
@@ -946,7 +992,7 @@ class _FeedTab extends StatelessWidget {
                     prefixIcon: const Icon(Icons.search_rounded),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Expanded(
@@ -1075,10 +1121,10 @@ class _FeedTab extends StatelessWidget {
                   ),
                 ),
                 if (activeFilters.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 4),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(18),
@@ -1131,7 +1177,7 @@ class _FeedTab extends StatelessWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -1143,7 +1189,7 @@ class _FeedTab extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         if (feed.isEmpty)
           Card(
             child: Padding(
@@ -1158,10 +1204,19 @@ class _FeedTab extends StatelessWidget {
           ...feed.map(
             (item) {
               final actionLoading = activeJobActionId == item.id;
+              final distanceLabel = _distanceLabel(dashboard.profile, item);
+              final metaParts = [
+                if (item.city.trim().isNotEmpty) item.city.trim(),
+                if (distanceLabel != null) distanceLabel,
+                if (item.publishedAt.trim().isNotEmpty) 'Published: ${_shortDate(context, item.publishedAt)}',
+                if ((item.shiftType ?? '').trim().isNotEmpty) item.shiftType!.trim(),
+              ];
+              final hasCompanyMobile = (item.companyMobile ?? '').trim().isNotEmpty;
+              final canContactCompany = !item.companyLocked && hasCompanyMobile;
               return Card(
-                margin: const EdgeInsets.only(bottom: 14),
+                margin: const EdgeInsets.only(bottom: 10),
                 child: Padding(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1174,11 +1229,13 @@ class _FeedTab extends StatelessWidget {
                               children: [
                                 Text(
                                   item.title,
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  '${item.city} | ${l10n.isHindi ? 'समाप्ति' : 'Expires'} ${_shortDate(context, item.expiresAt)}',
+                                  '${item.city}  •  Published: ${_shortDate(context, item.publishedAt)}',
                                   style: const TextStyle(color: Color(0xFF64748B)),
                                 ),
                               ],
@@ -1195,9 +1252,9 @@ class _FeedTab extends StatelessWidget {
                                 ),
                                 tooltip: item.isSaved ? l10n.removeFromShortlist : l10n.saveJob,
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF0F6FF),
                                   borderRadius: BorderRadius.circular(14),
@@ -1207,6 +1264,7 @@ class _FeedTab extends StatelessWidget {
                                   'Rs ${item.wageAmount.toStringAsFixed(0)}',
                                   style: const TextStyle(
                                     color: Color(0xFF173C77),
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
@@ -1215,17 +1273,35 @@ class _FeedTab extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Text(
                         item.description,
-                        style: const TextStyle(color: Color(0xFF475569), height: 1.6),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Color(0xFF475569), height: 1.45),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
-                        runSpacing: 8,
+                        runSpacing: 6,
                         children: [
-                          _chip(item.categoryName),
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 900),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, value, child) {
+                              final shake = math.sin(value * math.pi * 4) * 2.2 * (1 - value);
+                              final scale = 0.96 + (0.04 * value) + (0.035 * math.sin(value * math.pi));
+                              return Transform.scale(
+                                scale: scale,
+                                child: Transform.translate(
+                                  offset: Offset(shake, 0),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: _chip(item.categoryName, fill: const Color(0xFFE6F7EF)),
+                          ),
                           _chip(l10n.workersNeeded(item.workersNeeded)),
                           _chip(l10n.localizeMatchReason(item.matchReason)),
                           if (item.isSaved) _chip(l10n.saved, fill: const Color(0xFFF0FDF4)),
@@ -1238,7 +1314,90 @@ class _FeedTab extends StatelessWidget {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  metaParts.join(' • '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (!item.companyLocked && (item.contactPerson ?? '').trim().isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    'Contact: ${item.contactPerson!.trim()}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF475569),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (item.companyLocked)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF7E6),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(color: const Color(0xFFF7D8A5)),
+                              ),
+                              child: const Text(
+                                'Category Locked',
+                                style: TextStyle(
+                                  color: Color(0xFF92400E),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            )
+                          else
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: IconButton.filledTonal(
+                                    onPressed: canContactCompany
+                                        ? () => _openJobWhatsApp(context, item, dashboard.profile)
+                                        : null,
+                                    icon: const Icon(Icons.chat_rounded, size: 24),
+                                    tooltip: 'WhatsApp',
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: IconButton.outlined(
+                                    onPressed: canContactCompany
+                                        ? () => _callJobCompany(context, item)
+                                        : null,
+                                    icon: const Icon(Icons.call_rounded, size: 24),
+                                    tooltip: 'Call',
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
@@ -1268,46 +1427,6 @@ class _FeedTab extends StatelessWidget {
                             ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 14),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          color: item.companyLocked ? const Color(0xFFFFF7E6) : const Color(0xFFF8FAFC),
-                          border: Border.all(
-                            color: item.companyLocked ? const Color(0xFFF7D8A5) : const Color(0xFFE2E8F0),
-                          ),
-                        ),
-                        child: item.companyLocked
-                            ? Text(
-                                l10n.companyLockedMessage,
-                                style: const TextStyle(
-                                  color: Color(0xFF92400E),
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.6,
-                                ),
-                              )
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(item.companyName, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    l10n.contactPerson(item.contactPerson ?? '-'),
-                                    style: const TextStyle(color: Color(0xFF475569)),
-                                  ),
-                                  Text(
-                                    l10n.companyMobile(item.companyMobile ?? '-'),
-                                    style: const TextStyle(color: Color(0xFF475569)),
-                                  ),
-                                  Text(
-                                    l10n.companyCity(item.companyCity),
-                                    style: const TextStyle(color: Color(0xFF475569)),
-                                  ),
-                                ],
-                              ),
                       ),
                     ],
                   ),
@@ -1775,6 +1894,10 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                       applicationStatus: item.applicationStatus ?? 'submitted',
                       isSaved: item.isSaved,
                       appliedAt: item.appliedAt,
+                      coordinateSource: item.coordinateSource,
+                      latitude: item.latitude,
+                      longitude: item.longitude,
+                      shiftType: item.shiftType,
                     )
                   : item,
             )
@@ -2144,15 +2267,15 @@ class _NotificationsTab extends StatelessWidget {
 
 class _WalletTab extends StatelessWidget {
   final WorkerDashboardModel dashboard;
-  final TextEditingController rechargeNoteController;
-  final Future<void> Function() onRequestRecharge;
+  final TextEditingController rechargeAmountController;
+  final Future<void> Function() onStartWalletRecharge;
   final Future<void> Function() onRefresh;
   final bool loading;
 
   const _WalletTab({
     required this.dashboard,
-    required this.rechargeNoteController,
-    required this.onRequestRecharge,
+    required this.rechargeAmountController,
+    required this.onStartWalletRecharge,
     required this.onRefresh,
     required this.loading,
   });
@@ -2255,22 +2378,22 @@ class _WalletTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 TextField(
-                  controller: rechargeNoteController,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: l10n.rechargeNoteForAdmin,
-                    hintText: l10n.rechargeNoteHint,
-                    prefixIcon: const Icon(Icons.note_alt_outlined),
+                  controller: rechargeAmountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Recharge amount',
+                    hintText: 'Enter amount',
+                    prefixIcon: Icon(Icons.currency_rupee_rounded),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 4),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: loading ? null : onRequestRecharge,
+                    onPressed: loading ? null : onStartWalletRecharge,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(loading ? l10n.sendingRequest : l10n.requestRecharge),
+                      child: Text(loading ? 'Opening payment...' : 'Recharge Wallet'),
                     ),
                   ),
                 ),
@@ -2492,7 +2615,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
                 TextField(
                   controller: _nameController,
                   decoration: InputDecoration(
@@ -2500,7 +2623,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                     prefixIcon: const Icon(Icons.person_outline_rounded),
                   ),
                 ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 4),
                 TextField(
                   controller: _cityController,
                   decoration: InputDecoration(
@@ -2546,7 +2669,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                 ),
                 const SizedBox(height: 16),
                 Text(l10n.categories, style: const TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -2567,7 +2690,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 16),
+        const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _availability,
                   items: [
@@ -2953,6 +3076,87 @@ String _buildWhatsAppMessage({
       'Expected daily wage: Rs $wage\n\n'
       'Please let me know if this job is still available.';
 }
+
+Future<void> _openJobWhatsApp(
+  BuildContext context,
+  WorkerFeedItemModel item,
+  WorkerProfileModel profile,
+) async {
+  final phone = _normalizeWhatsappPhone(item.companyMobile?.trim() ?? '');
+  if (phone.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Company WhatsApp number is not available.')),
+    );
+    return;
+  }
+  final message = _buildWhatsAppMessage(
+    item: item,
+    profile: profile,
+    isHindi: WorkerLocalizations.of(context).isHindi,
+  );
+  final uri = Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
+  final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!launched && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open WhatsApp.')),
+    );
+  }
+}
+
+Future<void> _callJobCompany(BuildContext context, WorkerFeedItemModel item) async {
+  final phone = (item.companyMobile ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
+  if (phone.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Company phone number is not available.')),
+    );
+    return;
+  }
+  final launched = await launchUrl(Uri.parse('tel:$phone'), mode: LaunchMode.externalApplication);
+  if (!launched && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open phone dialer.')),
+    );
+  }
+}
+
+String? _distanceLabel(WorkerProfileModel profile, WorkerFeedItemModel item) {
+  final workerLat = profile.latitude;
+  final workerLng = profile.longitude;
+  final jobLat = item.latitude;
+  final jobLng = item.longitude;
+  if (workerLat == null || workerLng == null || jobLat == null || jobLng == null) {
+    if (kDebugMode || kProfileMode) {
+      debugPrint(
+        'KM hidden: ${item.title} source=${item.coordinateSource} '
+        'jobLat=$jobLat jobLng=$jobLng workerLat=$workerLat workerLng=$workerLng',
+      );
+    }
+    return null;
+  }
+  final km = _haversineKm(workerLat, workerLng, jobLat, jobLng);
+  final label = km < 1 ? '${(km * 1000).round()} m away' : '${km.toStringAsFixed(1)} km away';
+  if (kDebugMode || kProfileMode) {
+    debugPrint(
+      'KM shown: ${item.title} source=${item.coordinateSource} '
+      'jobLat=$jobLat jobLng=$jobLng workerLat=$workerLat workerLng=$workerLng distance=$label',
+    );
+  }
+  return label;
+}
+
+double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
+  const earthRadiusKm = 6371.0;
+  final dLat = _degreesToRadians(lat2 - lat1);
+  final dLon = _degreesToRadians(lon2 - lon1);
+  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+      math.cos(_degreesToRadians(lat1)) *
+          math.cos(_degreesToRadians(lat2)) *
+          math.sin(dLon / 2) *
+          math.sin(dLon / 2);
+  return earthRadiusKm * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+}
+
+double _degreesToRadians(double value) => value * math.pi / 180;
 
 String _prettyText(BuildContext context, String value) {
   return WorkerLocalizations.of(context).prettyValue(value);

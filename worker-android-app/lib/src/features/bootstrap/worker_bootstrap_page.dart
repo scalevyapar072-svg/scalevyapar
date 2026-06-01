@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../localization/worker_localizations.dart';
 import '../../services/session_store.dart';
 import '../../services/worker_api_service.dart';
 import '../auth/otp_login_page.dart';
@@ -56,76 +55,67 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = WorkerLocalizations.of(context);
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0E254A), Color(0xFF173C77), Color(0xFFF4F7FB)],
-            stops: [0, 0.38, 0.38],
-          ),
-        ),
+      backgroundColor: const Color(0xFF1F314C),
+      body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2F6FDF), Color(0xFF4F8EFF)],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 164,
+                  height: 164,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 26,
+                        offset: const Offset(0, 14),
+                      ),
+                    ],
                   ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x33173C77),
-                      blurRadius: 22,
-                      offset: Offset(0, 12),
-                    ),
-                  ],
+                  padding: const EdgeInsets.all(14),
+                  child: Image.asset(
+                    'assets/images/rozgar-logo-round.png',
+                    fit: BoxFit.contain,
+                  ),
                 ),
-                alignment: Alignment.center,
-                child: const Text(
-                  'LX',
+                const SizedBox(height: 34),
+                const Text(
+                  'Rozgar',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
+                    fontSize: 38,
                     fontWeight: FontWeight.w900,
-                    fontSize: 28,
                     letterSpacing: 1.2,
                   ),
                 ),
-              ),
-              const SizedBox(height: 22),
-              Text(
-                l10n.appTitle,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 28),
-                child: Text(
-                  l10n.bootstrapSubtitle,
+                const SizedBox(height: 18),
+                const Text(
+                  'Loading your worker dashboard...',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Color(0xFFD7E4FF),
+                    color: Color(0xFFD9E5FF),
                     fontSize: 15,
-                    height: 1.5,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              const CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2F6FDF)),
-              ),
-            ],
+                const SizedBox(height: 34),
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

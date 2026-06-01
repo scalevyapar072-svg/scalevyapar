@@ -1,18 +1,309 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/worker_models.dart';
 
+class _WorkerApiTransportException implements Exception {
+  final String message;
+
+  const _WorkerApiTransportException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class WorkerApiService {
   final http.Client _client;
+  static const _networkErrorMessage =
+      'Could not connect to Rozgar servers. Please check your internet connection and try again.';
 
   WorkerApiService({http.Client? client}) : _client = client ?? http.Client();
 
   Uri _uri(String path) => Uri.parse('${ApiConfig.baseUrl}$path');
+  String _workerPath(String path) => ApiConfig.resolveWorkerPath(path);
 
-  Map<String, dynamic> _decodeResponse(http.Response response, {required String fallbackError}) {
+  Future<http.Response> _postJson(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      return await _client
+          .post(
+            _uri(path),
+            headers: {
+              'Content-Type': 'application/json',
+              ...?headers,
+            },
+            body: body,
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on SocketException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on http.ClientException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    }
+  }
+
+  Future<http.Response> _get(
+    String path, {
+    Map<String, String>? headers,
+  }) async {
+    try {
+      return await _client
+          .get(
+            _uri(path),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on SocketException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on http.ClientException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    }
+  }
+
+  Future<http.Response> _putJson(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      return await _client
+          .put(
+            _uri(path),
+            headers: {
+              'Content-Type': 'application/json',
+              ...?headers,
+            },
+            body: body,
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on SocketException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on http.ClientException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    }
+  }
+
+  Future<http.Response> _deleteJson(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      return await _client
+          .delete(
+            _uri(path),
+            headers: {
+              'Content-Type': 'application/json',
+              ...?headers,
+            },
+            body: body,
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on SocketException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on http.ClientException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    }
+  }
+
+  bool _isJsonResponse(http.Response response) {
+    final contentType = response.headers['content-type'] ?? '';
+    final body = response.body.trim();
+
+    return contentType.contains('application/json') || body.startsWith('{');
+  }
+
+  bool _shouldFallbackAuthResponse(http.Response response) {
+    if (response.statusCode == 404) {
+      return true;
+    }
+
+    return !_isJsonResponse(response);
+  }
+
+  bool _shouldFallbackDashboardResponse(http.Response response) {
+    if (response.statusCode == 404) {
+      return true;
+    }
+
+    return !_isJsonResponse(response);
+  }
+
+  bool _shouldFallbackWorkerResponse(http.Response response) {
+    if (response.statusCode == 404) {
+      return true;
+    }
+
+    return !_isJsonResponse(response);
+  }
+
+  Future<http.Response> _postAuthJsonWithFallback(
+    String primaryPath,
+    String fallbackPath, {
+    Object? body,
+  }) async {
+    try {
+      final primaryResponse = await _postJson(primaryPath, body: body);
+      if (_shouldFallbackAuthResponse(primaryResponse)) {
+        return _postJson(fallbackPath, body: body);
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _postJson(fallbackPath, body: body);
+    }
+  }
+
+  Future<http.Response> _getDashboardWithFallback(
+    String primaryPath,
+    String fallbackPath, {
+    Map<String, String>? headers,
+  }) async {
+    try {
+      final primaryResponse = await _get(primaryPath, headers: headers);
+      if (_shouldFallbackDashboardResponse(primaryResponse)) {
+        return _get(fallbackPath, headers: headers);
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _get(fallbackPath, headers: headers);
+    }
+  }
+
+  Future<http.Response> _putWorkerJsonWithFallback(
+    String primaryPath,
+    String fallbackPath, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      final primaryResponse =
+          await _putJson(primaryPath, headers: headers, body: body);
+      if (_shouldFallbackWorkerResponse(primaryResponse)) {
+        return _putJson(fallbackPath, headers: headers, body: body);
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _putJson(fallbackPath, headers: headers, body: body);
+    }
+  }
+
+  Future<http.Response> _postWorkerJsonWithFallback(
+    String primaryPath,
+    String fallbackPath, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      final primaryResponse =
+          await _postJson(primaryPath, headers: headers, body: body);
+      if (_shouldFallbackWorkerResponse(primaryResponse)) {
+        return _postJson(fallbackPath, headers: headers, body: body);
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _postJson(fallbackPath, headers: headers, body: body);
+    }
+  }
+
+  Future<http.Response> _deleteWorkerJsonWithFallback(
+    String primaryPath,
+    String fallbackPath, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      final primaryResponse =
+          await _deleteJson(primaryPath, headers: headers, body: body);
+      if (_shouldFallbackWorkerResponse(primaryResponse)) {
+        return _deleteJson(fallbackPath, headers: headers, body: body);
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _deleteJson(fallbackPath, headers: headers, body: body);
+    }
+  }
+
+  Future<http.Response> _sendMultipartUpload(
+    String path, {
+    required String token,
+    required String documentKind,
+    required String filePath,
+    required String fileName,
+  }) async {
+    try {
+      final request = http.MultipartRequest('POST', _uri(path));
+      request.headers['Authorization'] = 'Bearer $token';
+      request.fields['documentKind'] = documentKind;
+      request.files.add(
+        await http.MultipartFile.fromPath('file', filePath, filename: fileName),
+      );
+
+      final streamed =
+          await request.send().timeout(const Duration(seconds: 25));
+      return http.Response.fromStream(streamed);
+    } on TimeoutException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on SocketException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on http.ClientException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    }
+  }
+
+  Future<http.Response> _uploadWorkerDocumentWithFallback({
+    required String primaryPath,
+    required String fallbackPath,
+    required String token,
+    required String documentKind,
+    required String filePath,
+    required String fileName,
+  }) async {
+    try {
+      final primaryResponse = await _sendMultipartUpload(
+        primaryPath,
+        token: token,
+        documentKind: documentKind,
+        filePath: filePath,
+        fileName: fileName,
+      );
+      if (_shouldFallbackWorkerResponse(primaryResponse)) {
+        return _sendMultipartUpload(
+          fallbackPath,
+          token: token,
+          documentKind: documentKind,
+          filePath: filePath,
+          fileName: fileName,
+        );
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _sendMultipartUpload(
+        fallbackPath,
+        token: token,
+        documentKind: documentKind,
+        filePath: filePath,
+        fileName: fileName,
+      );
+    }
+  }
+
+  Map<String, dynamic> _decodeResponse(http.Response response,
+      {required String fallbackError}) {
     final contentType = response.headers['content-type'] ?? '';
     final body = response.body.trim();
 
@@ -40,13 +331,14 @@ class WorkerApiService {
   }
 
   Future<String> requestOtp(String mobile) async {
-    final response = await _client.post(
-      _uri('/api/labour/worker/auth/request-otp'),
-      headers: {'Content-Type': 'application/json'},
+    final response = await _postAuthJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/auth/request-otp', preferRozgarV1: true),
+      _workerPath('/auth/request-otp'),
       body: jsonEncode({'mobile': mobile}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to request OTP');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to request OTP');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to request OTP');
     }
@@ -54,14 +346,16 @@ class WorkerApiService {
     return data['otpCode'] as String? ?? '';
   }
 
-  Future<(String, WorkerDashboardModel)> verifyOtp(String mobile, String otpCode) async {
-    final response = await _client.post(
-      _uri('/api/labour/worker/auth/verify-otp'),
-      headers: {'Content-Type': 'application/json'},
+  Future<(String, WorkerDashboardModel)> verifyOtp(
+      String mobile, String otpCode) async {
+    final response = await _postAuthJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/auth/verify-otp', preferRozgarV1: true),
+      _workerPath('/auth/verify-otp'),
       body: jsonEncode({'mobile': mobile, 'otpCode': otpCode}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to verify OTP');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to verify OTP');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to verify OTP');
     }
@@ -73,17 +367,20 @@ class WorkerApiService {
   }
 
   Future<WorkerDashboardModel> getDashboard(String token) async {
-    final response = await _client.get(
-      _uri('/api/labour/worker/dashboard'),
+    final response = await _getDashboardWithFallback(
+      ApiConfig.resolveWorkerPath('/dashboard', preferRozgarV1: true),
+      _workerPath('/dashboard'),
       headers: {'Authorization': 'Bearer $token'},
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to load dashboard');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to load dashboard');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to load dashboard');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<WorkerDashboardModel> updateProfile(
@@ -96,10 +393,10 @@ class WorkerApiService {
     required double expectedDailyWage,
     required String availability,
   }) async {
-    final response = await _client.put(
-      _uri('/api/labour/worker/profile'),
+    final response = await _putWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/profile', preferRozgarV1: true),
+      _workerPath('/profile'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
@@ -113,12 +410,14 @@ class WorkerApiService {
       }),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to update profile');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to update profile');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to update profile');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<String> uploadWorkerDocument(
@@ -127,17 +426,16 @@ class WorkerApiService {
     required String filePath,
     required String fileName,
   }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      _uri('/api/labour/worker/upload'),
+    final response = await _uploadWorkerDocumentWithFallback(
+      primaryPath: ApiConfig.resolveWorkerPath('/upload', preferRozgarV1: true),
+      fallbackPath: _workerPath('/upload'),
+      token: token,
+      documentKind: documentKind,
+      filePath: filePath,
+      fileName: fileName,
     );
-    request.headers['Authorization'] = 'Bearer $token';
-    request.fields['documentKind'] = documentKind;
-    request.files.add(await http.MultipartFile.fromPath('file', filePath, filename: fileName));
-
-    final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
-    final data = _decodeResponse(response, fallbackError: 'Failed to upload document');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to upload document');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to upload document');
     }
@@ -159,10 +457,10 @@ class WorkerApiService {
     required String identityProofNumber,
     required String identityProofPath,
   }) async {
-    final response = await _client.post(
-      _uri('/api/labour/worker/register'),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/register', preferRozgarV1: true),
+      _workerPath('/register'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
@@ -180,30 +478,80 @@ class WorkerApiService {
       }),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to complete registration');
+    final data = _decodeResponse(response,
+        fallbackError: 'Failed to complete registration');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to complete registration');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
-  Future<WorkerDashboardModel> createRechargeRequest(String token, {String? note}) async {
-    final response = await _client.post(
-      _uri('/api/labour/worker/recharge-request'),
+  Future<WorkerDashboardModel> createRechargeRequest(String token,
+      {String? note}) async {
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/recharge-request', preferRozgarV1: true),
+      _workerPath('/recharge-request'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'note': note}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to create recharge request');
+    final data = _decodeResponse(response,
+        fallbackError: 'Failed to create recharge request');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to create recharge request');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
+  }
+
+  Future<WorkerRazorpayOrderModel> createWalletRechargeOrder(
+    String token, {
+    required double amount,
+  }) async {
+    final response = await _postJson(
+      '/api/labour/worker/payments/razorpay/order',
+      headers: {'Authorization': 'Bearer $token'},
+      body: jsonEncode({'amount': amount}),
+    );
+
+    final data = _decodeResponse(response,
+        fallbackError: 'Failed to create payment order');
+    if (response.statusCode >= 400) {
+      throw Exception(data['error'] ?? 'Failed to create payment order');
+    }
+
+    return WorkerRazorpayOrderModel.fromJson(data);
+  }
+
+  Future<WorkerDashboardModel> verifyWalletRechargePayment(
+    String token, {
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    final response = await _postJson(
+      '/api/labour/worker/payments/razorpay/verify',
+      headers: {'Authorization': 'Bearer $token'},
+      body: jsonEncode({
+        'razorpay_order_id': razorpayOrderId,
+        'razorpay_payment_id': razorpayPaymentId,
+        'razorpay_signature': razorpaySignature,
+      }),
+    );
+
+    final data =
+        _decodeResponse(response, fallbackError: 'Payment verification failed');
+    if (response.statusCode >= 400) {
+      throw Exception(data['error'] ?? 'Payment verification failed');
+    }
+
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<WorkerDashboardModel> applyToJob(
@@ -211,10 +559,10 @@ class WorkerApiService {
     required String jobPostId,
     String? note,
   }) async {
-    final response = await _client.post(
-      _uri('/api/labour/worker/applications'),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/applications', preferRozgarV1: true),
+      _workerPath('/applications'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
@@ -223,54 +571,60 @@ class WorkerApiService {
       }),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to apply to job');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to apply to job');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to apply to job');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<WorkerDashboardModel> toggleSavedJob(
     String token, {
     required String jobPostId,
   }) async {
-    final response = await _client.post(
-      _uri('/api/labour/worker/saved-jobs'),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/saved-jobs', preferRozgarV1: true),
+      _workerPath('/saved-jobs'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'jobPostId': jobPostId}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to update saved jobs');
+    final data =
+        _decodeResponse(response, fallbackError: 'Failed to update saved jobs');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to update saved jobs');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<WorkerDashboardModel> markNotificationsRead(
     String token, {
     List<String>? notificationIds,
   }) async {
-    final response = await _client.post(
-      _uri('/api/labour/worker/notifications'),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/notifications', preferRozgarV1: true),
+      _workerPath('/notifications'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'notificationIds': notificationIds}),
     );
 
-    final data = _decodeResponse(response, fallbackError: 'Failed to update notifications');
+    final data = _decodeResponse(response,
+        fallbackError: 'Failed to update notifications');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to update notifications');
     }
 
-    return WorkerDashboardModel.fromJson(data['dashboard'] as Map<String, dynamic>);
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
   }
 
   Future<void> registerPushToken(
@@ -280,10 +634,10 @@ class WorkerApiService {
     required String platform,
     String? deviceLabel,
   }) async {
-    final response = await _client.post(
-      _uri('/api/labour/worker/push-token'),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/push-token', preferRozgarV1: true),
+      _workerPath('/push-token'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
@@ -304,10 +658,10 @@ class WorkerApiService {
     String token, {
     String? fcmToken,
   }) async {
-    final response = await _client.delete(
-      _uri('/api/labour/worker/push-token'),
+    final response = await _deleteWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/push-token', preferRozgarV1: true),
+      _workerPath('/push-token'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'fcmToken': fcmToken}),

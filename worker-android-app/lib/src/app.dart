@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'features/bootstrap/worker_bootstrap_page.dart';
+import 'features/bootstrap/worker_launch_gate.dart';
 import 'localization/worker_localizations.dart';
 import 'services/session_store.dart';
 
@@ -125,7 +126,9 @@ class _WorkerAppState extends State<WorkerApp> {
         setLocale: _setLocale,
         child: child ?? const SizedBox.shrink(),
       ),
-      home: const WorkerBootstrapPage(),
+      home: const WorkerLaunchGate(
+        child: WorkerBootstrapPage(),
+      ),
     );
   }
 }

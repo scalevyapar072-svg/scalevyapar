@@ -514,14 +514,22 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         titleSpacing: 0,
         title: Align(
           alignment: Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 190),
-            child: SizedBox(
-              height: 36,
-              child: Image.asset(
-                'assets/images/rozgar-logo-horizontal.png',
-                fit: BoxFit.contain,
-                alignment: Alignment.centerLeft,
+          child: InkWell(
+            onTap: () {
+              if (_selectedIndex != 0) {
+                setState(() => _selectedIndex = 0);
+              }
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 190),
+              child: SizedBox(
+                height: 36,
+                child: Image.asset(
+                  'assets/images/rozgar-logo-horizontal.png',
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
+                ),
               ),
             ),
           ),
@@ -728,7 +736,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           NavigationDestination(
             icon: Icon(Icons.work_outline_rounded),
             selectedIcon: Icon(Icons.work_rounded),
-            label: l10n.feed,
+            label: l10n.isHindi ? 'होम' : 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),

@@ -65,8 +65,8 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 164,
-                  height: 164,
+                  width: 180,
+                  height: 180,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white,

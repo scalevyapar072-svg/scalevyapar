@@ -509,27 +509,23 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
 
     return Scaffold(
       appBar: AppBar(
+        centerTitle: false,
         toolbarHeight: 76,
-        title: dashboard == null
-            ? Text(l10n.appTitle)
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.appTitle,
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.welcomeUser(dashboard.profile.fullName),
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+        titleSpacing: 0,
+        title: Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 190),
+            child: SizedBox(
+              height: 36,
+              child: Image.asset(
+                'assets/images/rozgar-logo-horizontal.png',
+                fit: BoxFit.contain,
+                alignment: Alignment.centerLeft,
               ),
+            ),
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: languageScope.toggleLocale,

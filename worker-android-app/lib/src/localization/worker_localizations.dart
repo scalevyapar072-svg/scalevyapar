@@ -142,6 +142,11 @@ class WorkerLocalizations {
   String get feed => isHindi ? 'फीड' : 'Feed';
   String get profile => isHindi ? 'प्रोफाइल' : 'Profile';
   String get alerts => isHindi ? 'अलर्ट्स' : 'Alerts';
+  String kmAway(String distance) => isHindi ? '$distance किमी दूर' : '$distance km away';
+  String mAway(String distance) => isHindi ? '$distance मीटर दूर' : '$distance m away';
+  String get distanceUnavailable => isHindi ? 'दूरी उपलब्ध नहीं' : 'Distance unavailable';
+  String get enableLocationToSeeDistance =>
+      isHindi ? 'दूरी देखने के लिए लोकेशन चालू करें' : 'Enable location to see distance';
   String get notificationsTitle => isHindi ? 'वर्कर नोटिफिकेशन' : 'Worker notifications';
   String unreadNotifications(int count) => isHindi
       ? '$count अनरीड अपडेट आपकी प्रतीक्षा में हैं।'

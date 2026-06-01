@@ -1208,10 +1208,10 @@ class _FeedTab extends StatelessWidget {
           ...feed.map(
             (item) {
               final actionLoading = activeJobActionId == item.id;
-              final distanceLabel = _distanceLabel(dashboard.profile, item);
+              final distanceLabel = _distanceLabel(context, dashboard.profile, item);
               final metaParts = [
                 if (item.city.trim().isNotEmpty) item.city.trim(),
-                if (distanceLabel != null) distanceLabel,
+                distanceLabel,
                 if (item.publishedAt.trim().isNotEmpty) 'Published: ${_shortDate(context, item.publishedAt)}',
                 if ((item.shiftType ?? '').trim().isNotEmpty) item.shiftType!.trim(),
               ];
@@ -3123,22 +3123,40 @@ Future<void> _callJobCompany(BuildContext context, WorkerFeedItemModel item) asy
   }
 }
 
-String? _distanceLabel(WorkerProfileModel profile, WorkerFeedItemModel item) {
+String _distanceLabel(
+  BuildContext context,
+  WorkerProfileModel profile,
+  WorkerFeedItemModel item,
+) {
+  final l10n = WorkerLocalizations.of(context);
   final workerLat = profile.latitude;
   final workerLng = profile.longitude;
   final jobLat = item.latitude;
   final jobLng = item.longitude;
-  if (workerLat == null || workerLng == null || jobLat == null || jobLng == null) {
+  if (workerLat == null || workerLng == null) {
     if (kDebugMode || kProfileMode) {
       debugPrint(
         'KM hidden: ${item.title} source=${item.coordinateSource} '
         'jobLat=$jobLat jobLng=$jobLng workerLat=$workerLat workerLng=$workerLng',
       );
     }
-    return null;
+    return l10n.enableLocationToSeeDistance;
+  }
+  if (jobLat == null || jobLng == null) {
+    if (kDebugMode || kProfileMode) {
+      debugPrint(
+        'KM unavailable: ${item.title} source=${item.coordinateSource} '
+        'jobLat=$jobLat jobLng=$jobLng workerLat=$workerLat workerLng=$workerLng',
+      );
+    }
+    return l10n.distanceUnavailable;
   }
   final km = _haversineKm(workerLat, workerLng, jobLat, jobLng);
-  final label = km < 1 ? '${(km * 1000).round()} m away' : '${km.toStringAsFixed(1)} km away';
+  final wholeKm = km.roundToDouble() == km;
+  final kmText = wholeKm ? km.toStringAsFixed(0) : km.toStringAsFixed(1);
+  final label = km < 1
+      ? l10n.mAway((km * 1000).round().toString())
+      : l10n.kmAway(kmText);
   if (kDebugMode || kProfileMode) {
     debugPrint(
       'KM shown: ${item.title} source=${item.coordinateSource} '

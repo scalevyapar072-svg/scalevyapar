@@ -412,6 +412,7 @@ class WorkerDashboardModel {
   final WorkerProfileModel profile;
   final WorkerWalletSummaryModel wallet;
   final WorkerActivationSummaryModel activation;
+  final WorkerSupportModel support;
   final List<WorkerFeedItemModel> feed;
   final List<WorkerNotificationModel> notifications;
   final int unreadNotificationCount;
@@ -422,6 +423,7 @@ class WorkerDashboardModel {
     required this.profile,
     required this.wallet,
     required this.activation,
+    required this.support,
     required this.feed,
     required this.notifications,
     required this.unreadNotificationCount,
@@ -434,6 +436,7 @@ class WorkerDashboardModel {
       profile: WorkerProfileModel.fromJson(json['profile'] as Map<String, dynamic>),
       wallet: WorkerWalletSummaryModel.fromJson(json['wallet'] as Map<String, dynamic>),
       activation: WorkerActivationSummaryModel.fromJson(json['activation'] as Map<String, dynamic>),
+      support: WorkerSupportModel.fromJson((json['support'] as Map<String, dynamic>?) ?? const {}),
       feed: ((json['feed'] as List?) ?? [])
           .map((item) => WorkerFeedItemModel.fromJson(item as Map<String, dynamic>))
           .toList(),
@@ -447,6 +450,41 @@ class WorkerDashboardModel {
       workerPlan: json['workerPlan'] == null
           ? null
           : WorkerPlanModel.fromJson(json['workerPlan'] as Map<String, dynamic>),
+    );
+  }
+}
+
+class WorkerSupportModel {
+  final bool showHeaderHelpButton;
+  final String title;
+  final String subtitle;
+  final String whatsappNumber;
+  final String chatbotUrl;
+  final String extraLabel;
+  final String extraUrl;
+  final String prefilledMessage;
+
+  WorkerSupportModel({
+    required this.showHeaderHelpButton,
+    required this.title,
+    required this.subtitle,
+    required this.whatsappNumber,
+    required this.chatbotUrl,
+    required this.extraLabel,
+    required this.extraUrl,
+    required this.prefilledMessage,
+  });
+
+  factory WorkerSupportModel.fromJson(Map<String, dynamic> json) {
+    return WorkerSupportModel(
+      showHeaderHelpButton: json['showHeaderHelpButton'] as bool? ?? false,
+      title: json['title'] as String? ?? '',
+      subtitle: json['subtitle'] as String? ?? '',
+      whatsappNumber: json['whatsappNumber'] as String? ?? '',
+      chatbotUrl: json['chatbotUrl'] as String? ?? '',
+      extraLabel: json['extraLabel'] as String? ?? '',
+      extraUrl: json['extraUrl'] as String? ?? '',
+      prefilledMessage: json['prefilledMessage'] as String? ?? '',
     );
   }
 }

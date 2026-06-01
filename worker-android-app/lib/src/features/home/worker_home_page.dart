@@ -190,6 +190,174 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     await _resetSessionAndGoToLogin('');
   }
 
+  Future<void> _openSupport() async {
+    final dashboard = _dashboard;
+    if (dashboard == null || !mounted) return;
+
+    final l10n = WorkerLocalizations.of(context);
+    final support = dashboard.support;
+    final whatsappNumber = _normalizeWhatsappPhone(support.whatsappNumber);
+    final chatbotUrl = support.chatbotUrl.trim();
+    final extraLabel = support.extraLabel.trim();
+    final extraUrl = support.extraUrl.trim();
+    final hasWhatsapp = whatsappNumber.isNotEmpty;
+    final hasChatbot = chatbotUrl.isNotEmpty;
+    final hasExtra = extraLabel.isNotEmpty && extraUrl.isNotEmpty;
+
+    if (!hasWhatsapp && !hasChatbot && !hasExtra) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.isHindi ? 'सपोर्ट विकल्प अभी उपलब्ध नहीं हैं।' : 'Support options are not available right now.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final title = support.title.trim().isNotEmpty
+            ? support.title.trim()
+            : (l10n.isHindi ? 'सपोर्ट' : 'Support');
+        final subtitle = support.subtitle.trim();
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                if (hasWhatsapp)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.chat_rounded, color: Color(0xFF16A34A)),
+                    title: Text(l10n.isHindi ? 'व्हाट्सएप सपोर्ट' : 'WhatsApp support'),
+                    subtitle: Text(support.whatsappNumber.trim()),
+                    onTap: () async {
+                      Navigator.of(sheetContext).pop();
+                      await _openSupportWhatsApp(support);
+                    },
+                  ),
+                if (hasChatbot)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.support_agent_rounded, color: Color(0xFF173C77)),
+                    title: Text(l10n.isHindi ? 'सपोर्ट लिंक' : 'Support link'),
+                    subtitle: Text(chatbotUrl),
+                    onTap: () async {
+                      Navigator.of(sheetContext).pop();
+                      await _openSupportUrl(chatbotUrl);
+                    },
+                  ),
+                if (hasExtra)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.open_in_new_rounded, color: Color(0xFF173C77)),
+                    title: Text(extraLabel),
+                    subtitle: Text(extraUrl),
+                    onTap: () async {
+                      Navigator.of(sheetContext).pop();
+                      await _openSupportUrl(extraUrl);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openSupportWhatsApp(WorkerSupportModel support) async {
+    final l10n = WorkerLocalizations.of(context);
+    final phone = _normalizeWhatsappPhone(support.whatsappNumber);
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.isHindi ? 'व्हाट्सएप सपोर्ट उपलब्ध नहीं है।' : 'WhatsApp support is not available.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final message = support.prefilledMessage.trim().isNotEmpty
+        ? support.prefilledMessage.trim()
+        : (l10n.isHindi
+            ? 'नमस्ते टीम, मुझे Rozgar worker app में मदद चाहिए।'
+            : 'Hello Team, I need help with the Rozgar worker app.');
+
+    final uri = Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.isHindi ? 'व्हाट्सएप खोला नहीं जा सका।' : 'Could not open WhatsApp.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _openSupportUrl(String rawUrl) async {
+    final l10n = WorkerLocalizations.of(context);
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.isHindi ? 'सपोर्ट लिंक उपलब्ध नहीं है।' : 'Support link is not available.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final candidate = trimmed.startsWith('http://') || trimmed.startsWith('https://')
+        ? trimmed
+        : 'https://$trimmed';
+    final uri = Uri.tryParse(candidate);
+    if (uri == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.isHindi ? 'सपोर्ट लिंक अमान्य है।' : 'Support link is invalid.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.isHindi ? 'सपोर्ट लिंक खोला नहीं जा सका।' : 'Could not open the support link.',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _saveProfile({
     required String fullName,
     required String city,
@@ -602,14 +770,12 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                 ],
               ),
             ),
-          IconButton(
-            onPressed: _loading ? null : _loadDashboard,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-          IconButton(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout_rounded),
-          ),
+          if (dashboard != null)
+            IconButton(
+              onPressed: _openSupport,
+              icon: const Icon(Icons.support_agent_rounded),
+              tooltip: l10n.isHindi ? 'सपोर्ट' : 'Support',
+            ),
         ],
       ),
       body: dashboard == null

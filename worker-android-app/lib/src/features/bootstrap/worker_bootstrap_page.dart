@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../localization/worker_localizations.dart';
 import '../../services/session_store.dart';
 import '../../services/worker_api_service.dart';
 import '../auth/otp_login_page.dart';
@@ -56,44 +55,67 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = WorkerLocalizations.of(context);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF1F314C),
       body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-                'assets/images/rozgar-logo-horizontal.png',
-                height: 72,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 18),
-              Text(
-                l10n.appTitle,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF111827),
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 164,
+                  height: 164,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 26,
+                        offset: const Offset(0, 14),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(14),
+                  child: Image.asset(
+                    'assets/images/rozgar-logo-round.png',
+                    fit: BoxFit.contain,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              const CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                l10n.loadingDashboard,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF6B7280),
-                  fontSize: 14,
+                const SizedBox(height: 34),
+                const Text(
+                  'Rozgar',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 38,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 18),
+                const Text(
+                  'Loading your worker dashboard...',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFD9E5FF),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 34),
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

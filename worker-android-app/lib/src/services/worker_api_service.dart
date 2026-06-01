@@ -96,6 +96,31 @@ class WorkerApiService {
     }
   }
 
+  Future<http.Response> _deleteJson(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      return await _client
+          .delete(
+            _uri(path),
+            headers: {
+              'Content-Type': 'application/json',
+              ...?headers,
+            },
+            body: body,
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on SocketException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on http.ClientException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    }
+  }
+
   bool _isJsonResponse(http.Response response) {
     final contentType = response.headers['content-type'] ?? '';
     final body = response.body.trim();
@@ -192,6 +217,24 @@ class WorkerApiService {
       return primaryResponse;
     } on _WorkerApiTransportException {
       return _postJson(fallbackPath, headers: headers, body: body);
+    }
+  }
+
+  Future<http.Response> _deleteWorkerJsonWithFallback(
+    String primaryPath,
+    String fallbackPath, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      final primaryResponse =
+          await _deleteJson(primaryPath, headers: headers, body: body);
+      if (_shouldFallbackWorkerResponse(primaryResponse)) {
+        return _deleteJson(fallbackPath, headers: headers, body: body);
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _deleteJson(fallbackPath, headers: headers, body: body);
     }
   }
 
@@ -516,10 +559,10 @@ class WorkerApiService {
     required String jobPostId,
     String? note,
   }) async {
-    final response = await _client.post(
-      _uri(_workerPath('/applications')),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/applications', preferRozgarV1: true),
+      _workerPath('/applications'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
@@ -542,10 +585,10 @@ class WorkerApiService {
     String token, {
     required String jobPostId,
   }) async {
-    final response = await _client.post(
-      _uri(_workerPath('/saved-jobs')),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/saved-jobs', preferRozgarV1: true),
+      _workerPath('/saved-jobs'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'jobPostId': jobPostId}),
@@ -565,10 +608,10 @@ class WorkerApiService {
     String token, {
     List<String>? notificationIds,
   }) async {
-    final response = await _client.post(
-      _uri(_workerPath('/notifications')),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/notifications', preferRozgarV1: true),
+      _workerPath('/notifications'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'notificationIds': notificationIds}),
@@ -591,10 +634,10 @@ class WorkerApiService {
     required String platform,
     String? deviceLabel,
   }) async {
-    final response = await _client.post(
-      _uri(_workerPath('/push-token')),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/push-token', preferRozgarV1: true),
+      _workerPath('/push-token'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
@@ -615,10 +658,10 @@ class WorkerApiService {
     String token, {
     String? fcmToken,
   }) async {
-    final response = await _client.delete(
-      _uri(_workerPath('/push-token')),
+    final response = await _deleteWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/push-token', preferRozgarV1: true),
+      _workerPath('/push-token'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'fcmToken': fcmToken}),

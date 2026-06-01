@@ -86,6 +86,14 @@ class WorkerApiService {
     return !_isJsonResponse(response);
   }
 
+  bool _shouldFallbackDashboardResponse(http.Response response) {
+    if (response.statusCode == 404) {
+      return true;
+    }
+
+    return !_isJsonResponse(response);
+  }
+
   Future<http.Response> _postAuthJsonWithFallback(
     String primaryPath,
     String fallbackPath, {
@@ -99,6 +107,22 @@ class WorkerApiService {
       return primaryResponse;
     } on _WorkerApiTransportException {
       return _postJson(fallbackPath, body: body);
+    }
+  }
+
+  Future<http.Response> _getDashboardWithFallback(
+    String primaryPath,
+    String fallbackPath, {
+    Map<String, String>? headers,
+  }) async {
+    try {
+      final primaryResponse = await _get(primaryPath, headers: headers);
+      if (_shouldFallbackDashboardResponse(primaryResponse)) {
+        return _get(fallbackPath, headers: headers);
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _get(fallbackPath, headers: headers);
     }
   }
 
@@ -167,7 +191,8 @@ class WorkerApiService {
   }
 
   Future<WorkerDashboardModel> getDashboard(String token) async {
-    final response = await _get(
+    final response = await _getDashboardWithFallback(
+      ApiConfig.resolveWorkerPath('/dashboard', preferRozgarV1: true),
       _workerPath('/dashboard'),
       headers: {'Authorization': 'Bearer $token'},
     );

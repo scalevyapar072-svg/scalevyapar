@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'config/api_config.dart';
 import 'features/bootstrap/worker_bootstrap_page.dart';
 import 'features/bootstrap/worker_launch_gate.dart';
 import 'localization/worker_localizations.dart';
@@ -20,6 +21,7 @@ class _WorkerAppState extends State<WorkerApp> {
   @override
   void initState() {
     super.initState();
+    ApiConfig.bootstrap();
     _loadLocale();
   }
 
@@ -93,7 +95,8 @@ class _WorkerAppState extends State<WorkerApp> {
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: Color(0xFF173C77), width: 1.4),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: Colors.white,
@@ -145,13 +148,15 @@ class WorkerLanguageScope extends InheritedWidget {
   });
 
   static WorkerLanguageScope of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<WorkerLanguageScope>();
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<WorkerLanguageScope>();
     assert(scope != null, 'WorkerLanguageScope not found in widget tree.');
     return scope!;
   }
 
   Future<void> toggleLocale() {
-    return setLocale(locale.languageCode == 'hi' ? const Locale('en') : const Locale('hi'));
+    return setLocale(
+        locale.languageCode == 'hi' ? const Locale('en') : const Locale('hi'));
   }
 
   @override

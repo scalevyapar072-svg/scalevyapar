@@ -1,16 +1,25 @@
 class WorkerCategoryOption {
   final String id;
   final String name;
+  final String description;
+  final String imageUrl;
+  final bool isActive;
 
   WorkerCategoryOption({
     required this.id,
     required this.name,
+    required this.description,
+    required this.imageUrl,
+    required this.isActive,
   });
 
   factory WorkerCategoryOption.fromJson(Map<String, dynamic> json) {
     return WorkerCategoryOption(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String? ?? '',
+      isActive: json['isActive'] as bool? ?? true,
     );
   }
 }
@@ -69,9 +78,15 @@ class WorkerProfileModel {
       mobile: json['mobile'] as String? ?? '',
       city: json['city'] as String? ?? '',
       profilePhotoPath: json['profilePhotoPath'] as String? ?? '',
-      categoryIds: ((json['categoryIds'] as List?) ?? []).map((item) => item.toString()).toList(),
-      categoryLabels: ((json['categoryLabels'] as List?) ?? []).map((item) => item.toString()).toList(),
-      skills: ((json['skills'] as List?) ?? []).map((item) => item.toString()).toList(),
+      categoryIds: ((json['categoryIds'] as List?) ?? [])
+          .map((item) => item.toString())
+          .toList(),
+      categoryLabels: ((json['categoryLabels'] as List?) ?? [])
+          .map((item) => item.toString())
+          .toList(),
+      skills: ((json['skills'] as List?) ?? [])
+          .map((item) => item.toString())
+          .toList(),
       experienceYears: (json['experienceYears'] as num?)?.toDouble() ?? 0,
       expectedDailyWage: (json['expectedDailyWage'] as num?)?.toDouble() ?? 0,
       availability: json['availability'] as String? ?? 'available_today',
@@ -167,7 +182,8 @@ class WorkerWalletSummaryModel {
       visibilityRule: json['visibilityRule'] as String? ?? '',
       lastDeductionAt: json['lastDeductionAt'] as String?,
       transactions: ((json['transactions'] as List?) ?? [])
-          .map((item) => WorkerWalletTransactionModel.fromJson(item as Map<String, dynamic>))
+          .map((item) => WorkerWalletTransactionModel.fromJson(
+              item as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -321,7 +337,8 @@ class WorkerFeedItemModel {
         'locationLongitude',
         'companyLongitude',
       ]),
-      shiftType: (json['shiftType'] ?? json['shift'] ?? json['workShift']) as String?,
+      shiftType:
+          (json['shiftType'] ?? json['shift'] ?? json['workShift']) as String?,
     );
   }
 }
@@ -433,23 +450,31 @@ class WorkerDashboardModel {
 
   factory WorkerDashboardModel.fromJson(Map<String, dynamic> json) {
     return WorkerDashboardModel(
-      profile: WorkerProfileModel.fromJson(json['profile'] as Map<String, dynamic>),
-      wallet: WorkerWalletSummaryModel.fromJson(json['wallet'] as Map<String, dynamic>),
-      activation: WorkerActivationSummaryModel.fromJson(json['activation'] as Map<String, dynamic>),
-      support: WorkerSupportModel.fromJson((json['support'] as Map<String, dynamic>?) ?? const {}),
+      profile:
+          WorkerProfileModel.fromJson(json['profile'] as Map<String, dynamic>),
+      wallet: WorkerWalletSummaryModel.fromJson(
+          json['wallet'] as Map<String, dynamic>),
+      activation: WorkerActivationSummaryModel.fromJson(
+          json['activation'] as Map<String, dynamic>),
+      support: WorkerSupportModel.fromJson(
+          (json['support'] as Map<String, dynamic>?) ?? const {}),
       feed: ((json['feed'] as List?) ?? [])
-          .map((item) => WorkerFeedItemModel.fromJson(item as Map<String, dynamic>))
+          .map((item) =>
+              WorkerFeedItemModel.fromJson(item as Map<String, dynamic>))
           .toList(),
       notifications: ((json['notifications'] as List?) ?? [])
-          .map((item) => WorkerNotificationModel.fromJson(item as Map<String, dynamic>))
+          .map((item) =>
+              WorkerNotificationModel.fromJson(item as Map<String, dynamic>))
           .toList(),
       unreadNotificationCount: json['unreadNotificationCount'] as int? ?? 0,
       availableCategories: ((json['availableCategories'] as List?) ?? [])
-          .map((item) => WorkerCategoryOption.fromJson(item as Map<String, dynamic>))
+          .map((item) =>
+              WorkerCategoryOption.fromJson(item as Map<String, dynamic>))
           .toList(),
       workerPlan: json['workerPlan'] == null
           ? null
-          : WorkerPlanModel.fromJson(json['workerPlan'] as Map<String, dynamic>),
+          : WorkerPlanModel.fromJson(
+              json['workerPlan'] as Map<String, dynamic>),
     );
   }
 }

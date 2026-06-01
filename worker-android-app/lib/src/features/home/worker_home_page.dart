@@ -45,7 +45,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   bool _showUnlockedOnly = false;
   bool _showSavedOnly = false;
   bool _showAppliedOnly = false;
-  String _selectedCategoryFilter = 'all';
+  List<String> _selectedCategoryFilters = const [];
   String _selectedCityFilter = 'all';
   String _selectedWageBand = 'all';
   String _jobActionId = '';
@@ -115,7 +115,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     }
   }
 
-  String _cleanError(Object error) => error.toString().replaceFirst('Exception: ', '');
+  String _cleanError(Object error) =>
+      error.toString().replaceFirst('Exception: ', '');
 
   bool _isConnectivityError(String message) {
     final normalized = message.toLowerCase();
@@ -130,7 +131,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         normalized.contains('network') && normalized.contains('error');
   }
 
-  bool get _showSyncIssueBanner => _dashboard != null && _error.trim().isNotEmpty;
+  bool get _showSyncIssueBanner =>
+      _dashboard != null && _error.trim().isNotEmpty;
 
   bool _isSessionError(String message) {
     final normalized = message.toLowerCase();
@@ -208,7 +210,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l10n.isHindi ? 'सपोर्ट विकल्प अभी उपलब्ध नहीं हैं।' : 'Support options are not available right now.',
+            l10n.isHindi
+                ? 'सपोर्ट विकल्प अभी उपलब्ध नहीं हैं।'
+                : 'Support options are not available right now.',
           ),
         ),
       );
@@ -233,21 +237,25 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w900),
                 ),
                 if (subtitle.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                    style:
+                        const TextStyle(color: Color(0xFF64748B), height: 1.5),
                   ),
                 ],
                 const SizedBox(height: 16),
                 if (hasWhatsapp)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.chat_rounded, color: Color(0xFF16A34A)),
-                    title: Text(l10n.isHindi ? 'व्हाट्सएप सपोर्ट' : 'WhatsApp support'),
+                    leading: const Icon(Icons.chat_rounded,
+                        color: Color(0xFF16A34A)),
+                    title: Text(
+                        l10n.isHindi ? 'व्हाट्सएप सपोर्ट' : 'WhatsApp support'),
                     subtitle: Text(support.whatsappNumber.trim()),
                     onTap: () async {
                       Navigator.of(sheetContext).pop();
@@ -257,7 +265,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                 if (hasChatbot)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.support_agent_rounded, color: Color(0xFF173C77)),
+                    leading: const Icon(Icons.support_agent_rounded,
+                        color: Color(0xFF173C77)),
                     title: Text(l10n.isHindi ? 'सपोर्ट लिंक' : 'Support link'),
                     subtitle: Text(chatbotUrl),
                     onTap: () async {
@@ -268,7 +277,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                 if (hasExtra)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.open_in_new_rounded, color: Color(0xFF173C77)),
+                    leading: const Icon(Icons.open_in_new_rounded,
+                        color: Color(0xFF173C77)),
                     title: Text(extraLabel),
                     subtitle: Text(extraUrl),
                     onTap: () async {
@@ -291,7 +301,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l10n.isHindi ? 'व्हाट्सएप सपोर्ट उपलब्ध नहीं है।' : 'WhatsApp support is not available.',
+            l10n.isHindi
+                ? 'व्हाट्सएप सपोर्ट उपलब्ध नहीं है।'
+                : 'WhatsApp support is not available.',
           ),
         ),
       );
@@ -304,13 +316,16 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
             ? 'नमस्ते टीम, मुझे Rozgar worker app में मदद चाहिए।'
             : 'Hello Team, I need help with the Rozgar worker app.');
 
-    final uri = Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
+    final uri =
+        Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l10n.isHindi ? 'व्हाट्सएप खोला नहीं जा सका।' : 'Could not open WhatsApp.',
+            l10n.isHindi
+                ? 'व्हाट्सएप खोला नहीं जा सका।'
+                : 'Could not open WhatsApp.',
           ),
         ),
       );
@@ -324,22 +339,27 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l10n.isHindi ? 'सपोर्ट लिंक उपलब्ध नहीं है।' : 'Support link is not available.',
+            l10n.isHindi
+                ? 'सपोर्ट लिंक उपलब्ध नहीं है।'
+                : 'Support link is not available.',
           ),
         ),
       );
       return;
     }
 
-    final candidate = trimmed.startsWith('http://') || trimmed.startsWith('https://')
-        ? trimmed
-        : 'https://$trimmed';
+    final candidate =
+        trimmed.startsWith('http://') || trimmed.startsWith('https://')
+            ? trimmed
+            : 'https://$trimmed';
     final uri = Uri.tryParse(candidate);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l10n.isHindi ? 'सपोर्ट लिंक अमान्य है।' : 'Support link is invalid.',
+            l10n.isHindi
+                ? 'सपोर्ट लिंक अमान्य है।'
+                : 'Support link is invalid.',
           ),
         ),
       );
@@ -351,7 +371,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l10n.isHindi ? 'सपोर्ट लिंक खोला नहीं जा सका।' : 'Could not open the support link.',
+            l10n.isHindi
+                ? 'सपोर्ट लिंक खोला नहीं जा सका।'
+                : 'Could not open the support link.',
           ),
         ),
       );
@@ -446,14 +468,17 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     }
   }
 
-  Future<void> _handleWalletPaymentSuccess(PaymentSuccessResponse response) async {
+  Future<void> _handleWalletPaymentSuccess(
+      PaymentSuccessResponse response) async {
     if (!mounted) return;
     final orderId = response.orderId ?? '';
     final paymentId = response.paymentId ?? '';
     final signature = response.signature ?? '';
     if (orderId.isEmpty || paymentId.isEmpty || signature.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Payment details are incomplete. Please contact support.')),
+        const SnackBar(
+            content: Text(
+                'Payment details are incomplete. Please contact support.')),
       );
       return;
     }
@@ -500,7 +525,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   void _handleExternalWallet(ExternalWalletResponse response) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('External wallet selected. Complete payment to recharge.')),
+      const SnackBar(
+          content:
+              Text('External wallet selected. Complete payment to recharge.')),
     );
   }
 
@@ -629,8 +656,10 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       final matchesLock = !_showUnlockedOnly || !item.companyLocked;
       final matchesSaved = !_showSavedOnly || item.isSaved;
       final matchesApplied = !_showAppliedOnly || item.hasApplied;
-      final matchesCategory = _selectedCategoryFilter == 'all' || item.categoryName == _selectedCategoryFilter;
-      final matchesCity = _selectedCityFilter == 'all' || item.city == _selectedCityFilter;
+      final matchesCategory = _selectedCategoryFilters.isEmpty ||
+          _selectedCategoryFilters.contains(item.categoryName);
+      final matchesCity =
+          _selectedCityFilter == 'all' || item.city == _selectedCityFilter;
       final matchesWage = _matchesWageBand(item.wageAmount, _selectedWageBand);
       return matchesQuery &&
           matchesLock &&
@@ -719,7 +748,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                       right: -4,
                       top: -4,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
                           color: const Color(0xFF173C77),
                           borderRadius: BorderRadius.circular(999),
@@ -750,7 +780,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                       right: -4,
                       top: -4,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
                           color: const Color(0xFFDC2626),
                           borderRadius: BorderRadius.circular(999),
@@ -836,30 +867,40 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                       children: [
                         _FeedTab(
                           dashboard: dashboard,
-                          visibleJobsCount: _filteredFeed.where((item) => !item.companyLocked).length,
+                          visibleJobsCount: _filteredFeed
+                              .where((item) => !item.companyLocked)
+                              .length,
                           feed: _filteredFeed,
                           query: _feedQuery,
                           showUnlockedOnly: _showUnlockedOnly,
                           showSavedOnly: _showSavedOnly,
                           showAppliedOnly: _showAppliedOnly,
-                          selectedCategoryFilter: _selectedCategoryFilter,
+                          selectedCategoryFilters: _selectedCategoryFilters,
                           selectedCityFilter: _selectedCityFilter,
                           selectedWageBand: _selectedWageBand,
                           activeJobActionId: _jobActionId,
                           onRefresh: _loadDashboard,
-                          onQueryChanged: (value) => setState(() => _feedQuery = value),
-                          onToggleUnlockedOnly: (value) => setState(() => _showUnlockedOnly = value),
-                          onToggleSavedOnly: (value) => setState(() => _showSavedOnly = value),
-                          onToggleAppliedOnly: (value) => setState(() => _showAppliedOnly = value),
-                          onCategoryFilterChanged: (value) => setState(() => _selectedCategoryFilter = value),
-                          onCityFilterChanged: (value) => setState(() => _selectedCityFilter = value),
-                          onWageBandChanged: (value) => setState(() => _selectedWageBand = value),
+                          onQueryChanged: (value) =>
+                              setState(() => _feedQuery = value),
+                          onToggleUnlockedOnly: (value) =>
+                              setState(() => _showUnlockedOnly = value),
+                          onToggleSavedOnly: (value) =>
+                              setState(() => _showSavedOnly = value),
+                          onToggleAppliedOnly: (value) =>
+                              setState(() => _showAppliedOnly = value),
+                          onCategoryFiltersChanged: (value) => setState(() =>
+                              _selectedCategoryFilters =
+                                  List.unmodifiable(value)),
+                          onCityFilterChanged: (value) =>
+                              setState(() => _selectedCityFilter = value),
+                          onWageBandChanged: (value) =>
+                              setState(() => _selectedWageBand = value),
                           onClearFilters: () => setState(() {
                             _feedQuery = '';
                             _showUnlockedOnly = false;
                             _showSavedOnly = false;
                             _showAppliedOnly = false;
-                            _selectedCategoryFilter = 'all';
+                            _selectedCategoryFilters = const [];
                             _selectedCityFilter = 'all';
                             _selectedWageBand = 'all';
                           }),
@@ -886,7 +927,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                           loading: _notificationsLoading,
                           onRefresh: _loadDashboard,
                           onMarkAllRead: () => _markNotificationsRead(),
-                          onMarkRead: (notificationId) => _markNotificationsRead(
+                          onMarkRead: (notificationId) =>
+                              _markNotificationsRead(
                             notificationIds: [notificationId],
                           ),
                         ),
@@ -898,7 +940,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
             ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+        onDestinationSelected: (index) =>
+            setState(() => _selectedIndex = index),
         destinations: [
           NavigationDestination(
             icon: Icon(Icons.work_outline_rounded),
@@ -954,7 +997,11 @@ class _TopSummarySection extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF173C77), Color(0xFF2859B3), Color(0xFF2F6FDF)],
+                colors: [
+                  Color(0xFF173C77),
+                  Color(0xFF2859B3),
+                  Color(0xFF2F6FDF)
+                ],
               ),
               boxShadow: const [
                 BoxShadow(
@@ -976,7 +1023,9 @@ class _TopSummarySection extends StatelessWidget {
                         children: [
                           Text(
                             profile.city.isEmpty
-                                ? (l10n.isHindi ? 'अपना शहर जोड़ें' : 'Set your city')
+                                ? (l10n.isHindi
+                                    ? 'अपना शहर जोड़ें'
+                                    : 'Set your city')
                                 : profile.city,
                             style: const TextStyle(
                               color: Color(0xFFD7E4FF),
@@ -1015,7 +1064,8 @@ class _TopSummarySection extends StatelessWidget {
                   children: [
                     _SummaryChip(
                       label: l10n.wallet,
-                      value: 'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}',
+                      value:
+                          'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}',
                     ),
                     _SummaryChip(
                       label: l10n.jobs,
@@ -1023,7 +1073,8 @@ class _TopSummarySection extends StatelessWidget {
                     ),
                     _SummaryChip(
                       label: l10n.wage,
-                      value: 'Rs ${profile.expectedDailyWage.toStringAsFixed(0)}',
+                      value:
+                          'Rs ${profile.expectedDailyWage.toStringAsFixed(0)}',
                     ),
                   ],
                 ),
@@ -1036,7 +1087,8 @@ class _TopSummarySection extends StatelessWidget {
               Expanded(
                 child: _MiniStatCard(
                   label: l10n.dailyDeduction,
-                  value: 'Rs ${dashboard.wallet.dailyCharge.toStringAsFixed(0)}',
+                  value:
+                      'Rs ${dashboard.wallet.dailyCharge.toStringAsFixed(0)}',
                 ),
               ),
               const SizedBox(width: 12),
@@ -1062,7 +1114,7 @@ class _FeedTab extends StatelessWidget {
   final bool showUnlockedOnly;
   final bool showSavedOnly;
   final bool showAppliedOnly;
-  final String selectedCategoryFilter;
+  final List<String> selectedCategoryFilters;
   final String selectedCityFilter;
   final String selectedWageBand;
   final String activeJobActionId;
@@ -1071,7 +1123,7 @@ class _FeedTab extends StatelessWidget {
   final ValueChanged<bool> onToggleUnlockedOnly;
   final ValueChanged<bool> onToggleSavedOnly;
   final ValueChanged<bool> onToggleAppliedOnly;
-  final ValueChanged<String> onCategoryFilterChanged;
+  final ValueChanged<List<String>> onCategoryFiltersChanged;
   final ValueChanged<String> onCityFilterChanged;
   final ValueChanged<String> onWageBandChanged;
   final VoidCallback onClearFilters;
@@ -1087,7 +1139,7 @@ class _FeedTab extends StatelessWidget {
     required this.showUnlockedOnly,
     required this.showSavedOnly,
     required this.showAppliedOnly,
-    required this.selectedCategoryFilter,
+    required this.selectedCategoryFilters,
     required this.selectedCityFilter,
     required this.selectedWageBand,
     required this.activeJobActionId,
@@ -1096,7 +1148,7 @@ class _FeedTab extends StatelessWidget {
     required this.onToggleUnlockedOnly,
     required this.onToggleSavedOnly,
     required this.onToggleAppliedOnly,
-    required this.onCategoryFilterChanged,
+    required this.onCategoryFiltersChanged,
     required this.onCityFilterChanged,
     required this.onWageBandChanged,
     required this.onClearFilters,
@@ -1108,17 +1160,35 @@ class _FeedTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
-    final categoryOptions = <String>{
-      ...dashboard.feed.map((item) => item.categoryName).where((item) => item.trim().isNotEmpty),
-    }.toList()
-      ..sort();
+    final availableCategoryOptions = dashboard.availableCategories
+        .where((item) => item.name.trim().isNotEmpty)
+        .toList();
+    final categoryOptions = availableCategoryOptions.isNotEmpty
+        ? (availableCategoryOptions
+          ..sort(
+              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())))
+        : ({
+            for (final name in dashboard.feed
+                .map((item) => item.categoryName.trim())
+                .where((item) => item.isNotEmpty))
+              name: WorkerCategoryOption(
+                id: name,
+                name: name,
+                description: '',
+                imageUrl: '',
+                isActive: true,
+              ),
+          }).values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     final cityOptions = <String>{
-      ...dashboard.feed.map((item) => item.city).where((item) => item.trim().isNotEmpty),
+      ...dashboard.feed
+          .map((item) => item.city)
+          .where((item) => item.trim().isNotEmpty),
     }.toList()
       ..sort();
     final activeFilters = <String>[
-      if (query.trim().isNotEmpty) 'Search: $query',
-      if (selectedCategoryFilter != 'all') 'Category: $selectedCategoryFilter',
+      if (selectedCategoryFilters.isNotEmpty)
+        'Categories: ${selectedCategoryFilters.join(', ')}',
       if (selectedCityFilter != 'all') 'City: $selectedCityFilter',
       if (selectedWageBand == 'lt700') 'Wage: Below Rs 700',
       if (selectedWageBand == '700to999') 'Wage: Rs 700 - 999',
@@ -1127,6 +1197,9 @@ class _FeedTab extends StatelessWidget {
       if (showSavedOnly) 'Saved only',
       if (showAppliedOnly) 'Applied only',
     ];
+    final selectedCategorySummary = selectedCategoryFilters.isEmpty
+        ? l10n.searchForSkills
+        : selectedCategoryFilters.join(', ');
 
     return RefreshIndicator.adaptive(
       onRefresh: onRefresh,
@@ -1134,477 +1207,562 @@ class _FeedTab extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
-        _TopSummarySection(
-          dashboard: dashboard,
-          visibleJobsCount: visibleJobsCount,
-        ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.matchingJobFeedTitle,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.matchingJobFeedSubtitle,
-                  style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
-                ),
-                const SizedBox(height: 4),
-                TextFormField(
-                  initialValue: query,
-                  onChanged: onQueryChanged,
-                  decoration: InputDecoration(
-                    labelText: l10n.searchJobs,
-                    hintText: l10n.searchJobsHint,
-                    prefixIcon: const Icon(Icons.search_rounded),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l10n.isHindi ? 'एडवांस फ़िल्टर' : 'Advanced filters',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: onClearFilters,
-                      child: Text(l10n.isHindi ? 'साफ़ करें' : 'Clear'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: selectedCategoryFilter,
-                  items: [
-                    DropdownMenuItem(
-                      value: 'all',
-                      child: Text(l10n.isHindi ? 'सभी कैटेगरी' : 'All categories'),
-                    ),
-                    ...categoryOptions.map(
-                      (category) => DropdownMenuItem(
-                        value: category,
-                        child: Text(category),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      onCategoryFilterChanged(value);
-                    }
-                  },
-                  decoration: InputDecoration(
-                    labelText: l10n.isHindi ? 'कैटेगरी फ़िल्टर' : 'Category filter',
-                    prefixIcon: const Icon(Icons.category_outlined),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedCityFilter,
-                  items: [
-                    DropdownMenuItem(
-                      value: 'all',
-                      child: Text(l10n.isHindi ? 'सभी शहर' : 'All cities'),
-                    ),
-                    ...cityOptions.map(
-                      (city) => DropdownMenuItem(
-                        value: city,
-                        child: Text(city),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      onCityFilterChanged(value);
-                    }
-                  },
-                  decoration: InputDecoration(
-                    labelText: l10n.isHindi ? 'शहर फ़िल्टर' : 'City filter',
-                    prefixIcon: const Icon(Icons.location_on_outlined),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedWageBand,
-                  items: [
-                    DropdownMenuItem(
-                      value: 'all',
-                      child: Text(l10n.isHindi ? 'सभी वेतन' : 'All wages'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'lt700',
-                      child: Text(l10n.isHindi ? 'Rs 700 से कम' : 'Below Rs 700'),
-                    ),
-                    DropdownMenuItem(
-                      value: '700to999',
-                      child: Text(l10n.isHindi ? 'Rs 700 - 999' : 'Rs 700 - 999'),
-                    ),
-                    DropdownMenuItem(
-                      value: '1000plus',
-                      child: Text(l10n.isHindi ? 'Rs 1000+' : 'Rs 1000+'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      onWageBandChanged(value);
-                    }
-                  },
-                  decoration: InputDecoration(
-                    labelText: l10n.isHindi ? 'वेतन फ़िल्टर' : 'Wage filter',
-                    prefixIcon: const Icon(Icons.currency_rupee_rounded),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    FilterChip(
-                      selected: showUnlockedOnly,
-                      onSelected: onToggleUnlockedOnly,
-                      label: Text(l10n.isHindi ? 'सिर्फ़ अनलॉक' : 'Unlocked only'),
-                    ),
-                    FilterChip(
-                      selected: showSavedOnly,
-                      onSelected: onToggleSavedOnly,
-                      label: Text(l10n.isHindi ? 'सिर्फ़ सेव्ड' : 'Saved only'),
-                    ),
-                    FilterChip(
-                      selected: showAppliedOnly,
-                      onSelected: onToggleAppliedOnly,
-                      label: Text(l10n.isHindi ? 'सिर्फ़ अप्लाइड' : 'Applied only'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  l10n.isHindi
-                      ? 'फ़िल्टर रिज़ल्ट: ${feed.length} जॉब'
-                      : 'Filtered results: ${feed.length} jobs',
-                  style: const TextStyle(
-                    color: Color(0xFF173C77),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (activeFilters.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Active filters',
-                                style: const TextStyle(
-                                  color: Color(0xFF173C77),
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: onClearFilters,
-                              child: const Text('Clear all'),
-                            ),
-                          ],
-                        ),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: activeFilters
-                              .map(
-                                (filter) => Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFDCEAFE),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    filter,
-                                    style: const TextStyle(
-                                      color: Color(0xFF173C77),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: dashboard.profile.categoryLabels
-                      .map((label) => _chip(label, fill: const Color(0xFFF0F6FF)))
-                      .toList(),
-                ),
-              ],
-            ),
+          _TopSummarySection(
+            dashboard: dashboard,
+            visibleJobsCount: visibleJobsCount,
           ),
-        ),
-        const SizedBox(height: 8),
-        if (feed.isEmpty)
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Text(
-                l10n.noJobsMatchMessage,
-                style: const TextStyle(color: Color(0xFF475569), height: 1.6),
-              ),
-            ),
-          )
-        else
-          ...feed.map(
-            (item) {
-              final actionLoading = activeJobActionId == item.id;
-              final distanceLabel = _distanceLabel(context, dashboard.profile, item);
-              final metaParts = [
-                if (item.city.trim().isNotEmpty) item.city.trim(),
-                distanceLabel,
-                if (item.publishedAt.trim().isNotEmpty) 'Published: ${_shortDate(context, item.publishedAt)}',
-                if ((item.shiftType ?? '').trim().isNotEmpty) item.shiftType!.trim(),
-              ];
-              final hasCompanyMobile = (item.companyMobile ?? '').trim().isNotEmpty;
-              final canContactCompany = !item.companyLocked && hasCompanyMobile;
-              return Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.matchingJobFeedTitle,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.matchingJobFeedSubtitle,
+                    style:
+                        const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                  ),
+                  const SizedBox(height: 4),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () async {
+                      final selected = await showModalBottomSheet<List<String>>(
+                        context: context,
+                        isScrollControlled: true,
+                        showDragHandle: true,
+                        backgroundColor: Colors.white,
+                        builder: (sheetContext) => _CategorySelectorSheet(
+                          options: categoryOptions,
+                          initiallySelected: selectedCategoryFilters,
+                        ),
+                      );
+                      if (selected != null) {
+                        onCategoryFiltersChanged(selected);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: l10n.searchForSkills,
+                        hintText: l10n.searchForSkills,
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon:
+                            const Icon(Icons.keyboard_arrow_down_rounded),
+                      ),
+                      child: Text(
+                        selectedCategorySummary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: selectedCategoryFilters.isEmpty
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF0F172A),
+                          fontWeight: selectedCategoryFilters.isEmpty
+                              ? FontWeight.w500
+                              : FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
                     children: [
-                      Row(
+                      Expanded(
+                        child: Text(
+                          l10n.isHindi ? 'एडवांस फ़िल्टर' : 'Advanced filters',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 15),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: onClearFilters,
+                        child: Text(l10n.isHindi ? 'साफ़ करें' : 'Clear'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (selectedCategoryFilters.isNotEmpty) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        l10n.selectedJobTypes,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: selectedCategoryFilters
+                          .map(
+                            (category) => Chip(
+                              avatar: const Icon(Icons.check_circle_rounded,
+                                  size: 18),
+                              label: Text(category),
+                              onDeleted: () {
+                                onCategoryFiltersChanged(
+                                  selectedCategoryFilters
+                                      .where((item) => item != category)
+                                      .toList(),
+                                );
+                              },
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  DropdownButtonFormField<String>(
+                    value: selectedCityFilter,
+                    items: [
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text(l10n.isHindi ? 'सभी शहर' : 'All cities'),
+                      ),
+                      ...cityOptions.map(
+                        (city) => DropdownMenuItem(
+                          value: city,
+                          child: Text(city),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        onCityFilterChanged(value);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: l10n.isHindi ? 'शहर फ़िल्टर' : 'City filter',
+                      prefixIcon: const Icon(Icons.location_on_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedWageBand,
+                    items: [
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text(l10n.isHindi ? 'सभी वेतन' : 'All wages'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'lt700',
+                        child: Text(
+                            l10n.isHindi ? 'Rs 700 से कम' : 'Below Rs 700'),
+                      ),
+                      DropdownMenuItem(
+                        value: '700to999',
+                        child: Text(
+                            l10n.isHindi ? 'Rs 700 - 999' : 'Rs 700 - 999'),
+                      ),
+                      DropdownMenuItem(
+                        value: '1000plus',
+                        child: Text(l10n.isHindi ? 'Rs 1000+' : 'Rs 1000+'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        onWageBandChanged(value);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: l10n.isHindi ? 'वेतन फ़िल्टर' : 'Wage filter',
+                      prefixIcon: const Icon(Icons.currency_rupee_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilterChip(
+                        selected: showUnlockedOnly,
+                        onSelected: onToggleUnlockedOnly,
+                        label: Text(
+                            l10n.isHindi ? 'सिर्फ़ अनलॉक' : 'Unlocked only'),
+                      ),
+                      FilterChip(
+                        selected: showSavedOnly,
+                        onSelected: onToggleSavedOnly,
+                        label:
+                            Text(l10n.isHindi ? 'सिर्फ़ सेव्ड' : 'Saved only'),
+                      ),
+                      FilterChip(
+                        selected: showAppliedOnly,
+                        onSelected: onToggleAppliedOnly,
+                        label: Text(
+                            l10n.isHindi ? 'सिर्फ़ अप्लाइड' : 'Applied only'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.isHindi
+                        ? 'फ़िल्टर रिज़ल्ट: ${feed.length} जॉब'
+                        : 'Filtered results: ${feed.length} jobs',
+                    style: const TextStyle(
+                      color: Color(0xFF173C77),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (activeFilters.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  '${item.city}  •  Published: ${_shortDate(context, item.publishedAt)}',
-                                  style: const TextStyle(color: Color(0xFF64748B)),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                          Row(
                             children: [
-                              IconButton.outlined(
-                                onPressed: actionLoading ? null : () => onToggleSaved(item.id),
-                                icon: Icon(
-                                  item.isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
-                                ),
-                                tooltip: item.isSaved ? l10n.removeFromShortlist : l10n.saveJob,
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF0F6FF),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: const Color(0xFFD3E4FF)),
-                                ),
+                              Expanded(
                                 child: Text(
-                                  'Rs ${item.wageAmount.toStringAsFixed(0)}',
+                                  'Active filters',
                                   style: const TextStyle(
                                     color: Color(0xFF173C77),
-                                    fontSize: 14,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ),
+                              TextButton(
+                                onPressed: onClearFilters,
+                                child: const Text('Clear all'),
+                              ),
                             ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        item.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Color(0xFF475569), height: 1.45),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0.0, end: 1.0),
-                            duration: const Duration(milliseconds: 900),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, value, child) {
-                              final shake = math.sin(value * math.pi * 4) * 2.2 * (1 - value);
-                              final scale = 0.96 + (0.04 * value) + (0.035 * math.sin(value * math.pi));
-                              return Transform.scale(
-                                scale: scale,
-                                child: Transform.translate(
-                                  offset: Offset(shake, 0),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: _chip(item.categoryName, fill: const Color(0xFFE6F7EF)),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: activeFilters
+                                .map(
+                                  (filter) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDCEAFE),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      filter,
+                                      style: const TextStyle(
+                                        color: Color(0xFF173C77),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
                           ),
-                          _chip(l10n.workersNeeded(item.workersNeeded)),
-                          _chip(l10n.localizeMatchReason(item.matchReason)),
-                          if (item.isSaved) _chip(l10n.saved, fill: const Color(0xFFF0FDF4)),
-                          if (item.hasApplied)
-                            _chip(
-                              item.applicationStatus == null
-                                  ? l10n.appliedWithoutStatus
-                                  : l10n.appliedStatusLabel(item.applicationStatus!),
-                              fill: const Color(0xFFEFF6FF),
-                            ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: dashboard.profile.categoryLabels
+                        .map((label) =>
+                            _chip(label, fill: const Color(0xFFF0F6FF)))
+                        .toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (feed.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(22),
+                child: Text(
+                  l10n.noJobsMatchMessage,
+                  style: const TextStyle(color: Color(0xFF475569), height: 1.6),
+                ),
+              ),
+            )
+          else
+            ...feed.map(
+              (item) {
+                final actionLoading = activeJobActionId == item.id;
+                final distanceLabel =
+                    _distanceLabel(context, dashboard.profile, item);
+                final metaParts = [
+                  if (item.city.trim().isNotEmpty) item.city.trim(),
+                  distanceLabel,
+                  if (item.publishedAt.trim().isNotEmpty)
+                    'Published: ${_shortDate(context, item.publishedAt)}',
+                  if ((item.shiftType ?? '').trim().isNotEmpty)
+                    item.shiftType!.trim(),
+                ];
+                final hasCompanyMobile =
+                    (item.companyMobile ?? '').trim().isNotEmpty;
+                final canContactCompany =
+                    !item.companyLocked && hasCompanyMobile;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    '${item.city}  •  Published: ${_shortDate(context, item.publishedAt)}',
+                                    style: const TextStyle(
+                                        color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text(
-                                  metaParts.join(' • '),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
+                                IconButton.outlined(
+                                  onPressed: actionLoading
+                                      ? null
+                                      : () => onToggleSaved(item.id),
+                                  icon: Icon(
+                                    item.isSaved
+                                        ? Icons.bookmark_rounded
+                                        : Icons.bookmark_outline_rounded,
+                                  ),
+                                  tooltip: item.isSaved
+                                      ? l10n.removeFromShortlist
+                                      : l10n.saveJob,
+                                ),
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 11, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF0F6FF),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                        color: const Color(0xFFD3E4FF)),
+                                  ),
+                                  child: Text(
+                                    'Rs ${item.wageAmount.toStringAsFixed(0)}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF173C77),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
-                                if (!item.companyLocked && (item.contactPerson ?? '').trim().isNotEmpty) ...[
-                                  const SizedBox(height: 3),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          item.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Color(0xFF475569), height: 1.45),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              duration: const Duration(milliseconds: 900),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, child) {
+                                final shake = math.sin(value * math.pi * 4) *
+                                    2.2 *
+                                    (1 - value);
+                                final scale = 0.96 +
+                                    (0.04 * value) +
+                                    (0.035 * math.sin(value * math.pi));
+                                return Transform.scale(
+                                  scale: scale,
+                                  child: Transform.translate(
+                                    offset: Offset(shake, 0),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: _chip(item.categoryName,
+                                  fill: const Color(0xFFE6F7EF)),
+                            ),
+                            _chip(l10n.workersNeeded(item.workersNeeded)),
+                            _chip(l10n.localizeMatchReason(item.matchReason)),
+                            if (item.isSaved)
+                              _chip(l10n.saved, fill: const Color(0xFFF0FDF4)),
+                            if (item.hasApplied)
+                              _chip(
+                                item.applicationStatus == null
+                                    ? l10n.appliedWithoutStatus
+                                    : l10n.appliedStatusLabel(
+                                        item.applicationStatus!),
+                                fill: const Color(0xFFEFF6FF),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Text(
-                                    'Contact: ${item.contactPerson!.trim()}',
+                                    metaParts.join(' • '),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      color: Color(0xFF475569),
-                                      fontSize: 12,
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12.5,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
+                                  if (!item.companyLocked &&
+                                      (item.contactPerson ?? '')
+                                          .trim()
+                                          .isNotEmpty) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      'Contact: ${item.contactPerson!.trim()}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFF475569),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          if (item.companyLocked)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF7E6),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(color: const Color(0xFFF7D8A5)),
-                              ),
-                              child: const Text(
-                                'Category Locked',
-                                style: TextStyle(
-                                  color: Color(0xFF92400E),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
+                            const SizedBox(width: 8),
+                            if (item.companyLocked)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF7E6),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                      color: const Color(0xFFF7D8A5)),
                                 ),
-                              ),
-                            )
-                          else
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 44,
-                                  height: 44,
-                                  child: IconButton.filledTonal(
-                                    onPressed: canContactCompany
-                                        ? () => _openJobWhatsApp(context, item, dashboard.profile)
-                                        : null,
-                                    icon: const Icon(Icons.chat_rounded, size: 24),
-                                    tooltip: 'WhatsApp',
+                                child: const Text(
+                                  'Category Locked',
+                                  style: TextStyle(
+                                    color: Color(0xFF92400E),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                SizedBox(
-                                  width: 44,
-                                  height: 44,
-                                  child: IconButton.outlined(
-                                    onPressed: canContactCompany
-                                        ? () => _callJobCompany(context, item)
-                                        : null,
-                                    icon: const Icon(Icons.call_rounded, size: 24),
-                                    tooltip: 'Call',
+                              )
+                            else
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: IconButton.filledTonal(
+                                      onPressed: canContactCompany
+                                          ? () => _openJobWhatsApp(
+                                              context, item, dashboard.profile)
+                                          : null,
+                                      icon: const Icon(Icons.chat_rounded,
+                                          size: 24),
+                                      tooltip: 'WhatsApp',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: IconButton.outlined(
+                                      onPressed: canContactCompany
+                                          ? () => _callJobCompany(context, item)
+                                          : null,
+                                      icon: const Icon(Icons.call_rounded,
+                                          size: 24),
+                                      tooltip: 'Call',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => onOpenDetails(item),
+                                icon: const Icon(Icons.open_in_new_rounded),
+                                label: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  child: Text(l10n.isHindi
+                                      ? 'पूरा विवरण'
+                                      : 'View details'),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton.tonal(
+                                onPressed: item.hasApplied || actionLoading
+                                    ? null
+                                    : () => onApply(item.id),
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  child: Text(
+                                    actionLoading
+                                        ? l10n.working
+                                        : item.hasApplied
+                                            ? l10n.applicationSent
+                                            : l10n.applyToJob,
                                   ),
                                 ),
-                              ],
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => onOpenDetails(item),
-                              icon: const Icon(Icons.open_in_new_rounded),
-                              label: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                child: Text(l10n.isHindi ? 'पूरा विवरण' : 'View details'),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: FilledButton.tonal(
-                              onPressed: item.hasApplied || actionLoading ? null : () => onApply(item.id),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                child: Text(
-                                  actionLoading
-                                      ? l10n.working
-                                      : item.hasApplied
-                                          ? l10n.applicationSent
-                                          : l10n.applyToJob,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -1621,6 +1779,247 @@ class _FeedTab extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+class _CategorySelectorSheet extends StatefulWidget {
+  final List<WorkerCategoryOption> options;
+  final List<String> initiallySelected;
+
+  const _CategorySelectorSheet({
+    required this.options,
+    required this.initiallySelected,
+  });
+
+  @override
+  State<_CategorySelectorSheet> createState() => _CategorySelectorSheetState();
+}
+
+class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
+  final _searchController = TextEditingController();
+  late final Set<String> _selectedNames;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedNames = {...widget.initiallySelected};
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = WorkerLocalizations.of(context);
+    final query = _searchController.text.trim().toLowerCase();
+    final filteredOptions = widget.options.where((option) {
+      final name = option.name.trim().toLowerCase();
+      final description = option.description.trim().toLowerCase();
+      return query.isEmpty ||
+          name.contains(query) ||
+          description.contains(query);
+    }).toList();
+
+    return SafeArea(
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: FractionallySizedBox(
+          heightFactor: 0.9,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.selectJobTypeYouWant,
+                  style: const TextStyle(
+                      fontSize: 24, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _searchController,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: l10n.searchJobType,
+                    prefixIcon: const Icon(Icons.search_rounded),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: filteredOptions.isEmpty
+                      ? Center(
+                          child: Text(
+                            l10n.noJobTypesFound,
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w700,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: filteredOptions.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final option = filteredOptions[index];
+                            final selected =
+                                _selectedNames.contains(option.name);
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: () {
+                                setState(() {
+                                  if (selected) {
+                                    _selectedNames.remove(option.name);
+                                  } else {
+                                    _selectedNames.add(option.name);
+                                  }
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: selected
+                                        ? const Color(0xFF173C77)
+                                        : const Color(0xFFE2E8F0),
+                                    width: selected ? 1.4 : 1,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x0F0F172A),
+                                      blurRadius: 16,
+                                      offset: Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    _CategoryImage(option: option),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            option.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          if (option.description
+                                              .trim()
+                                              .isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              option.description.trim(),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Color(0xFF64748B),
+                                                fontSize: 12.5,
+                                                height: 1.35,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Checkbox(
+                                      value: selected,
+                                      activeColor: const Color(0xFF173C77),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          if (value ?? false) {
+                                            _selectedNames.add(option.name);
+                                          } else {
+                                            _selectedNames.remove(option.name);
+                                          }
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(l10n.backAction),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context)
+                            .pop(_selectedNames.toList()..sort()),
+                        child: Text(l10n.applyFilters),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryImage extends StatelessWidget {
+  final WorkerCategoryOption option;
+
+  const _CategoryImage({required this.option});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = option.imageUrl.trim();
+    final fallback = Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F6FF),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Icon(Icons.category_rounded, color: Color(0xFF173C77)),
+    );
+
+    if (imageUrl.isEmpty) {
+      return fallback;
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Image.network(
+        imageUrl,
+        width: 52,
+        height: 52,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback,
       ),
     );
   }
@@ -1717,7 +2116,9 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l10n.isHindi ? 'व्हाट्सएप खोला नहीं जा सका।' : 'Could not open WhatsApp.',
+            l10n.isHindi
+                ? 'व्हाट्सएप खोला नहीं जा सका।'
+                : 'Could not open WhatsApp.',
           ),
         ),
       );
@@ -1743,7 +2144,11 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF173C77), Color(0xFF2859B3), Color(0xFF2F6FDF)],
+                colors: [
+                  Color(0xFF173C77),
+                  Color(0xFF2859B3),
+                  Color(0xFF2F6FDF)
+                ],
               ),
               boxShadow: const [
                 BoxShadow(
@@ -1814,7 +2219,8 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                 children: [
                   Text(
                     l10n.isHindi ? 'जॉब ओवरव्यू' : 'Job overview',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -1823,8 +2229,11 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                     children: [
                       _FeedTab._chip(item.categoryName),
                       _FeedTab._chip(l10n.workersNeeded(item.workersNeeded)),
-                      _FeedTab._chip(l10n.localizeMatchReason(item.matchReason)),
-                      if (_isSaved) _FeedTab._chip(l10n.saved, fill: const Color(0xFFF0FDF4)),
+                      _FeedTab._chip(
+                          l10n.localizeMatchReason(item.matchReason)),
+                      if (_isSaved)
+                        _FeedTab._chip(l10n.saved,
+                            fill: const Color(0xFFF0FDF4)),
                       if (_hasApplied)
                         _FeedTab._chip(
                           _applicationStatus == null
@@ -1837,7 +2246,8 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                   const SizedBox(height: 16),
                   Text(
                     item.description,
-                    style: const TextStyle(color: Color(0xFF475569), height: 1.7),
+                    style:
+                        const TextStyle(color: Color(0xFF475569), height: 1.7),
                   ),
                 ],
               ),
@@ -1852,7 +2262,8 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                 children: [
                   Text(
                     l10n.isHindi ? 'कंपनी डिटेल्स' : 'Company details',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 14),
                   if (item.companyLocked)
@@ -1885,7 +2296,9 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                           children: [
                             Expanded(
                               child: _ProfileInfoTile(
-                                label: l10n.isHindi ? 'संपर्क व्यक्ति' : 'Contact person',
+                                label: l10n.isHindi
+                                    ? 'संपर्क व्यक्ति'
+                                    : 'Contact person',
                                 value: item.contactPerson ?? '-',
                               ),
                             ),
@@ -1911,9 +2324,12 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                               onPressed: _openWhatsApp,
                               icon: const Icon(Icons.chat_rounded),
                               label: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                                 child: Text(
-                                  l10n.isHindi ? 'व्हाट्सएप पर बात करें' : 'Chat on WhatsApp',
+                                  l10n.isHindi
+                                      ? 'व्हाट्सएप पर बात करें'
+                                      : 'Chat on WhatsApp',
                                 ),
                               ),
                             ),
@@ -1934,7 +2350,8 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                 children: [
                   Text(
                     l10n.isHindi ? 'जॉब एक्टिविटी' : 'Job activity',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 14),
                   Row(
@@ -1977,18 +2394,22 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                 child: OutlinedButton.icon(
                   onPressed: _actionLoading ? null : _handleSaveToggle,
                   icon: Icon(
-                    _isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                    _isSaved
+                        ? Icons.bookmark_rounded
+                        : Icons.bookmark_outline_rounded,
                   ),
                   label: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Text(_isSaved ? l10n.removeFromShortlist : l10n.saveJob),
+                    child: Text(
+                        _isSaved ? l10n.removeFromShortlist : l10n.saveJob),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: _hasApplied || _actionLoading ? null : _handleApply,
+                  onPressed:
+                      _hasApplied || _actionLoading ? null : _handleApply,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Text(
@@ -2128,7 +2549,11 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF173C77), Color(0xFF2859B3), Color(0xFF2F6FDF)],
+                colors: [
+                  Color(0xFF173C77),
+                  Color(0xFF2859B3),
+                  Color(0xFF2F6FDF)
+                ],
               ),
               boxShadow: const [
                 BoxShadow(
@@ -2174,7 +2599,8 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                     ),
                     _SummaryChip(
                       label: l10n.isHindi ? 'अप्लाइड' : 'Applied',
-                      value: '${_items.where((item) => item.hasApplied).length}',
+                      value:
+                          '${_items.where((item) => item.hasApplied).length}',
                     ),
                   ],
                 ),
@@ -2214,23 +2640,28 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                                 children: [
                                   Text(
                                     item.title,
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                                    style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
                                     '${item.city} | ${item.categoryName}',
-                                    style: const TextStyle(color: Color(0xFF64748B)),
+                                    style: const TextStyle(
+                                        color: Color(0xFF64748B)),
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(width: 10),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF0F6FF),
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFFD3E4FF)),
+                                border:
+                                    Border.all(color: const Color(0xFFD3E4FF)),
                               ),
                               child: Text(
                                 'Rs ${item.wageAmount.toStringAsFixed(0)}',
@@ -2247,24 +2678,31 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                           item.description,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFF475569), height: 1.6),
+                          style: const TextStyle(
+                              color: Color(0xFF475569), height: 1.6),
                         ),
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            _FeedTab._chip(l10n.localizeMatchReason(item.matchReason)),
+                            _FeedTab._chip(
+                                l10n.localizeMatchReason(item.matchReason)),
                             _FeedTab._chip(
                               item.companyLocked
-                                  ? (l10n.isHindi ? 'कंपनी लॉक' : 'Company locked')
-                                  : (l10n.isHindi ? 'कंपनी खुली' : 'Company unlocked'),
+                                  ? (l10n.isHindi
+                                      ? 'कंपनी लॉक'
+                                      : 'Company locked')
+                                  : (l10n.isHindi
+                                      ? 'कंपनी खुली'
+                                      : 'Company unlocked'),
                             ),
                             if (item.hasApplied)
                               _FeedTab._chip(
                                 item.applicationStatus == null
                                     ? l10n.appliedWithoutStatus
-                                    : l10n.appliedStatusLabel(item.applicationStatus!),
+                                    : l10n.appliedStatusLabel(
+                                        item.applicationStatus!),
                                 fill: const Color(0xFFEFF6FF),
                               ),
                           ],
@@ -2277,17 +2715,23 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                                 onPressed: () => _openDetails(item),
                                 icon: const Icon(Icons.open_in_new_rounded),
                                 label: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  child: Text(l10n.isHindi ? 'पूरा विवरण' : 'View details'),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  child: Text(l10n.isHindi
+                                      ? 'पूरा विवरण'
+                                      : 'View details'),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: FilledButton(
-                                onPressed: item.hasApplied || actionLoading ? null : () => _handleApply(item.id),
+                                onPressed: item.hasApplied || actionLoading
+                                    ? null
+                                    : () => _handleApply(item.id),
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
                                   child: Text(
                                     actionLoading
                                         ? l10n.working
@@ -2304,7 +2748,9 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: TextButton.icon(
-                            onPressed: actionLoading ? null : () => _handleToggleSaved(item.id),
+                            onPressed: actionLoading
+                                ? null
+                                : () => _handleToggleSaved(item.id),
                             icon: const Icon(Icons.bookmark_remove_outlined),
                             label: Text(l10n.removeFromShortlist),
                           ),
@@ -2347,89 +2793,102 @@ class _NotificationsTab extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.notificationsTitle,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  unreadCount == 0
-                      ? l10n.allCaughtUpMessage
-                      : l10n.unreadNotifications(unreadCount),
-                  style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: loading || unreadCount == 0 ? null : onMarkAllRead,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(loading ? l10n.updating : l10n.markAllAsRead),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (notifications.isEmpty)
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Text(
-                l10n.notificationsEmpty,
-                style: const TextStyle(color: Color(0xFF475569), height: 1.6),
-              ),
-            ),
-          )
-        else
-          ...notifications.map(
-            (notification) => Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: CircleAvatar(
-                  backgroundColor: notification.isRead ? const Color(0xFFF1F5F9) : const Color(0xFFE0EBFF),
-                  child: Icon(
-                    switch (notification.type) {
-                      'application_submitted' => Icons.send_rounded,
-                      'job_saved' => Icons.bookmark_rounded,
-                      'application_status' => Icons.fact_check_rounded,
-                      _ => Icons.notifications_active_rounded,
-                    },
-                    color: notification.isRead ? const Color(0xFF64748B) : const Color(0xFF173C77),
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.notificationsTitle,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                   ),
-                ),
-                title: Text(
-                  l10n.localizeNotificationTitle(notification.type, notification.title),
-                  style: TextStyle(
-                    fontWeight: notification.isRead ? FontWeight.w700 : FontWeight.w900,
+                  const SizedBox(height: 8),
+                  Text(
+                    unreadCount == 0
+                        ? l10n.allCaughtUpMessage
+                        : l10n.unreadNotifications(unreadCount),
+                    style:
+                        const TextStyle(color: Color(0xFF64748B), height: 1.5),
                   ),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    '${l10n.localizeNotificationMessage(type: notification.type, message: notification.message)}\n${_shortDate(context, notification.createdAt)} - ${_prettyText(context, notification.priority)} ${l10n.isHindi ? 'प्राथमिकता' : 'priority'}',
-                    style: const TextStyle(height: 1.5),
-                  ),
-                ),
-                trailing: notification.isRead
-                    ? null
-                    : TextButton(
-                        onPressed: loading ? null : () => onMarkRead(notification.id),
-                        child: Text(l10n.markRead),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed:
+                          loading || unreadCount == 0 ? null : onMarkAllRead,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child:
+                            Text(loading ? l10n.updating : l10n.markAllAsRead),
                       ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          if (notifications.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(22),
+                child: Text(
+                  l10n.notificationsEmpty,
+                  style: const TextStyle(color: Color(0xFF475569), height: 1.6),
+                ),
+              ),
+            )
+          else
+            ...notifications.map(
+              (notification) => Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: CircleAvatar(
+                    backgroundColor: notification.isRead
+                        ? const Color(0xFFF1F5F9)
+                        : const Color(0xFFE0EBFF),
+                    child: Icon(
+                      switch (notification.type) {
+                        'application_submitted' => Icons.send_rounded,
+                        'job_saved' => Icons.bookmark_rounded,
+                        'application_status' => Icons.fact_check_rounded,
+                        _ => Icons.notifications_active_rounded,
+                      },
+                      color: notification.isRead
+                          ? const Color(0xFF64748B)
+                          : const Color(0xFF173C77),
+                    ),
+                  ),
+                  title: Text(
+                    l10n.localizeNotificationTitle(
+                        notification.type, notification.title),
+                    style: TextStyle(
+                      fontWeight: notification.isRead
+                          ? FontWeight.w700
+                          : FontWeight.w900,
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '${l10n.localizeNotificationMessage(type: notification.type, message: notification.message)}\n${_shortDate(context, notification.createdAt)} - ${_prettyText(context, notification.priority)} ${l10n.isHindi ? 'प्राथमिकता' : 'priority'}',
+                      style: const TextStyle(height: 1.5),
+                    ),
+                  ),
+                  trailing: notification.isRead
+                      ? null
+                      : TextButton(
+                          onPressed: loading
+                              ? null
+                              : () => onMarkRead(notification.id),
+                          child: Text(l10n.markRead),
+                        ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -2460,156 +2919,167 @@ class _WalletTab extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.walletActivation,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.walletActivationSubtitle,
-                  style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0E254A), Color(0xFF173C77)],
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.walletActivation,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.walletActivationSubtitle,
+                    style:
+                        const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0E254A), Color(0xFF173C77)],
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.currentBalance,
+                          style: const TextStyle(color: Color(0xFFD7E4FF)),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          _walletVisibilityRule(l10n, dashboard),
+                          style: const TextStyle(
+                              color: Color(0xFFE6EEFF), height: 1.6),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 16),
+                  Row(
                     children: [
-                      Text(
-                        l10n.currentBalance,
-                        style: const TextStyle(color: Color(0xFFD7E4FF)),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 34,
-                          fontWeight: FontWeight.w900,
+                      Expanded(
+                        child: _MiniStatCard(
+                          label: l10n.dailyDeduction,
+                          value:
+                              'Rs ${dashboard.wallet.dailyCharge.toStringAsFixed(0)}',
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      Text(
-                        _walletVisibilityRule(l10n, dashboard),
-                        style: const TextStyle(color: Color(0xFFE6EEFF), height: 1.6),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _MiniStatCard(
+                          label: l10n.estimatedActiveDays,
+                          value: '${dashboard.wallet.estimatedDaysRemaining}',
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MiniStatCard(
-                        label: l10n.dailyDeduction,
-                        value: 'Rs ${dashboard.wallet.dailyCharge.toStringAsFixed(0)}',
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MiniStatCard(
+                          label: l10n.isHindi
+                              ? 'रजिस्ट्रेशन फीस (एक बार)'
+                              : 'Registration fee (one time)',
+                          value:
+                              'Rs ${dashboard.wallet.registrationFee.toStringAsFixed(0)}',
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _MiniStatCard(
-                        label: l10n.estimatedActiveDays,
-                        value: '${dashboard.wallet.estimatedDaysRemaining}',
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _MiniStatCard(
+                          label: l10n.isHindi ? 'फीस स्टेटस' : 'Fee status',
+                          value: dashboard.wallet.registrationFeePaid
+                              ? (l10n.isHindi ? 'Paid' : 'Paid')
+                              : (l10n.isHindi ? 'Pending' : 'Pending'),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MiniStatCard(
-                        label: l10n.isHindi ? 'रजिस्ट्रेशन फीस (एक बार)' : 'Registration fee (one time)',
-                        value: 'Rs ${dashboard.wallet.registrationFee.toStringAsFixed(0)}',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _MiniStatCard(
-                        label: l10n.isHindi ? 'फीस स्टेटस' : 'Fee status',
-                        value: dashboard.wallet.registrationFeePaid
-                            ? (l10n.isHindi ? 'Paid' : 'Paid')
-                            : (l10n.isHindi ? 'Pending' : 'Pending'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: rechargeAmountController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Recharge amount',
-                    hintText: 'Enter amount',
-                    prefixIcon: Icon(Icons.currency_rupee_rounded),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: loading ? null : onStartWalletRecharge,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(loading ? 'Opening payment...' : 'Recharge Wallet'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: rechargeAmountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Recharge amount',
+                      hintText: 'Enter amount',
+                      prefixIcon: Icon(Icons.currency_rupee_rounded),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          l10n.rechargeHistory,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 12),
-        ...dashboard.wallet.transactions.map(
-          (transaction) => Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              title: Text(_prettyText(context, transaction.transactionType)),
-              subtitle: Text(
-                transaction.note.isEmpty ? transaction.reference : transaction.note,
-              ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${transaction.direction == 'debit' ? '-' : '+'} Rs ${transaction.amount.toStringAsFixed(0)}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: transaction.direction == 'debit'
-                          ? const Color(0xFFB91C1C)
-                          : const Color(0xFF166534),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: loading ? null : onStartWalletRecharge,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                            loading ? 'Opening payment...' : 'Recharge Wallet'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${_prettyText(context, transaction.status)} | ${_shortDate(context, transaction.createdAt)}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                 ],
               ),
             ),
           ),
-        ),
+          const SizedBox(height: 16),
+          Text(
+            l10n.rechargeHistory,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          ...dashboard.wallet.transactions.map(
+            (transaction) => Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                title: Text(_prettyText(context, transaction.transactionType)),
+                subtitle: Text(
+                  transaction.note.isEmpty
+                      ? transaction.reference
+                      : transaction.note,
+                ),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${transaction.direction == 'debit' ? '-' : '+'} Rs ${transaction.amount.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: transaction.direction == 'debit'
+                            ? const Color(0xFFB91C1C)
+                            : const Color(0xFF166534),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${_prettyText(context, transaction.status)} | ${_shortDate(context, transaction.createdAt)}',
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -2661,14 +3131,18 @@ class _ProfileTabState extends State<_ProfileTab> {
   @override
   void didUpdateWidget(covariant _ProfileTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.dashboard.profile.fullName != widget.dashboard.profile.fullName ||
+    if (oldWidget.dashboard.profile.fullName !=
+            widget.dashboard.profile.fullName ||
         oldWidget.dashboard.profile.city != widget.dashboard.profile.city ||
         oldWidget.dashboard.profile.status != widget.dashboard.profile.status ||
-        oldWidget.dashboard.profile.walletBalance != widget.dashboard.profile.walletBalance ||
-        oldWidget.dashboard.profile.skills.join(',') != widget.dashboard.profile.skills.join(',') ||
+        oldWidget.dashboard.profile.walletBalance !=
+            widget.dashboard.profile.walletBalance ||
+        oldWidget.dashboard.profile.skills.join(',') !=
+            widget.dashboard.profile.skills.join(',') ||
         oldWidget.dashboard.profile.categoryIds.join(',') !=
             widget.dashboard.profile.categoryIds.join(',') ||
-        oldWidget.dashboard.profile.availability != widget.dashboard.profile.availability ||
+        oldWidget.dashboard.profile.availability !=
+            widget.dashboard.profile.availability ||
         oldWidget.dashboard.profile.expectedDailyWage !=
             widget.dashboard.profile.expectedDailyWage ||
         oldWidget.dashboard.profile.experienceYears !=
@@ -2678,15 +3152,18 @@ class _ProfileTabState extends State<_ProfileTab> {
   }
 
   void _hydrateFromDashboard() {
-    _nameController = TextEditingController(text: widget.dashboard.profile.fullName);
-    _cityController = TextEditingController(text: widget.dashboard.profile.city);
+    _nameController =
+        TextEditingController(text: widget.dashboard.profile.fullName);
+    _cityController =
+        TextEditingController(text: widget.dashboard.profile.city);
     _experienceController = TextEditingController(
       text: widget.dashboard.profile.experienceYears.toStringAsFixed(0),
     );
     _wageController = TextEditingController(
       text: widget.dashboard.profile.expectedDailyWage.toStringAsFixed(0),
     );
-    _skillsController = TextEditingController(text: widget.dashboard.profile.skills.join(', '));
+    _skillsController =
+        TextEditingController(text: widget.dashboard.profile.skills.join(', '));
     _selectedCategories = [...widget.dashboard.profile.categoryIds];
     _availability = widget.dashboard.profile.availability;
   }
@@ -2694,8 +3171,10 @@ class _ProfileTabState extends State<_ProfileTab> {
   void _syncControllersFromDashboard() {
     _nameController.text = widget.dashboard.profile.fullName;
     _cityController.text = widget.dashboard.profile.city;
-    _experienceController.text = widget.dashboard.profile.experienceYears.toStringAsFixed(0);
-    _wageController.text = widget.dashboard.profile.expectedDailyWage.toStringAsFixed(0);
+    _experienceController.text =
+        widget.dashboard.profile.experienceYears.toStringAsFixed(0);
+    _wageController.text =
+        widget.dashboard.profile.expectedDailyWage.toStringAsFixed(0);
     _skillsController.text = widget.dashboard.profile.skills.join(', ');
     _selectedCategories = [...widget.dashboard.profile.categoryIds];
     _availability = widget.dashboard.profile.availability;
@@ -2755,184 +3234,201 @@ class _ProfileTabState extends State<_ProfileTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.workerProfile,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.workerProfileSubtitle,
-                  style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ProfileInfoTile(
-                        label: l10n.mobile,
-                        value: profile.mobile,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ProfileInfoTile(
-                        label: l10n.isHindi ? 'स्थिति' : 'Status',
-                        value: _prettyText(context, profile.status),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: l10n.fullName,
-                    prefixIcon: const Icon(Icons.person_outline_rounded),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.workerProfile,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.workerProfileSubtitle,
+                    style:
+                        const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ProfileInfoTile(
+                          label: l10n.mobile,
+                          value: profile.mobile,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _ProfileInfoTile(
+                          label: l10n.isHindi ? 'स्थिति' : 'Status',
+                          value: _prettyText(context, profile.status),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
-                TextField(
-                  controller: _cityController,
-                  decoration: InputDecoration(
-                    labelText: l10n.city,
-                    prefixIcon: const Icon(Icons.location_city_outlined),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _experienceController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: l10n.experienceYears,
-                          prefixIcon: const Icon(Icons.workspace_premium_outlined),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _wageController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: l10n.expectedDailyWage,
-                          prefixIcon: const Icon(Icons.currency_rupee_rounded),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _skillsController,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: l10n.skills,
-                    hintText: l10n.skillsHint,
-                    prefixIcon: const Icon(Icons.build_circle_outlined),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(l10n.categories, style: const TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.dashboard.availableCategories.map((category) {
-                    final selected = _selectedCategories.contains(category.id);
-                    return FilterChip(
-                      selected: selected,
-                      label: Text(category.name),
-                      onSelected: (value) {
-                        setState(() {
-                          if (value) {
-                            _selectedCategories.add(category.id);
-                          } else {
-                            _selectedCategories.remove(category.id);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-        const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _availability,
-                  items: [
-                    DropdownMenuItem(value: 'available_today', child: Text(l10n.availableToday)),
-                    DropdownMenuItem(value: 'available_this_week', child: Text(l10n.availableThisWeek)),
-                    DropdownMenuItem(value: 'not_available', child: Text(l10n.notAvailable)),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _availability = value);
-                    }
-                  },
-                  decoration: InputDecoration(
-                    labelText: l10n.availability,
-                    prefixIcon: const Icon(Icons.event_available_rounded),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: widget.loading ? null : _submit,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(widget.loading ? l10n.saving : l10n.saveProfile),
+                  TextField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: l10n.fullName,
+                      prefixIcon: const Icon(Icons.person_outline_rounded),
                     ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                Card(
-                  color: const Color(0xFFFFFBEB),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.isHindi ? 'अकाउंट' : 'Account',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          l10n.isHindi
-                              ? 'यदि आप इस डिवाइस से बाहर निकलना चाहते हैं, तो नीचे लॉगआउट करें।'
-                              : 'Use logout below if you want to sign out from this device.',
-                          style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: widget.onLogout,
-                            icon: const Icon(Icons.logout_rounded),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFB42318),
-                              side: const BorderSide(color: Color(0xFFFDA29B)),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            label: Text(l10n.isHindi ? 'लॉगआउट' : 'Logout'),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _cityController,
+                    decoration: InputDecoration(
+                      labelText: l10n.city,
+                      prefixIcon: const Icon(Icons.location_city_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _experienceController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: l10n.experienceYears,
+                            prefixIcon:
+                                const Icon(Icons.workspace_premium_outlined),
                           ),
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _wageController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: l10n.expectedDailyWage,
+                            prefixIcon:
+                                const Icon(Icons.currency_rupee_rounded),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _skillsController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: l10n.skills,
+                      hintText: l10n.skillsHint,
+                      prefixIcon: const Icon(Icons.build_circle_outlined),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Text(l10n.categories,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children:
+                        widget.dashboard.availableCategories.map((category) {
+                      final selected =
+                          _selectedCategories.contains(category.id);
+                      return FilterChip(
+                        selected: selected,
+                        label: Text(category.name),
+                        onSelected: (value) {
+                          setState(() {
+                            if (value) {
+                              _selectedCategories.add(category.id);
+                            } else {
+                              _selectedCategories.remove(category.id);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: _availability,
+                    items: [
+                      DropdownMenuItem(
+                          value: 'available_today',
+                          child: Text(l10n.availableToday)),
+                      DropdownMenuItem(
+                          value: 'available_this_week',
+                          child: Text(l10n.availableThisWeek)),
+                      DropdownMenuItem(
+                          value: 'not_available',
+                          child: Text(l10n.notAvailable)),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _availability = value);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: l10n.availability,
+                      prefixIcon: const Icon(Icons.event_available_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: widget.loading ? null : _submit,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                            widget.loading ? l10n.saving : l10n.saveProfile),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Card(
+                    color: const Color(0xFFFFFBEB),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.isHindi ? 'अकाउंट' : 'Account',
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            l10n.isHindi
+                                ? 'यदि आप इस डिवाइस से बाहर निकलना चाहते हैं, तो नीचे लॉगआउट करें।'
+                                : 'Use logout below if you want to sign out from this device.',
+                            style: const TextStyle(
+                                color: Color(0xFF64748B), height: 1.5),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: widget.onLogout,
+                              icon: const Icon(Icons.logout_rounded),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFB42318),
+                                side:
+                                    const BorderSide(color: Color(0xFFFDA29B)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              label: Text(l10n.isHindi ? 'लॉगआउट' : 'Logout'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
         ],
       ),
     );
@@ -3153,7 +3649,8 @@ class _SummaryChip extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -3170,8 +3667,14 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = switch (status) {
       'active' => (const Color(0xFFE8F7EF), const Color(0xFF166534)),
-      'inactive_wallet_empty' => (const Color(0xFFFFF7E6), const Color(0xFF92400E)),
-      'blocked' || 'rejected' => (const Color(0xFFFEF2F2), const Color(0xFFB91C1C)),
+      'inactive_wallet_empty' => (
+          const Color(0xFFFFF7E6),
+          const Color(0xFF92400E)
+        ),
+      'blocked' || 'rejected' => (
+          const Color(0xFFFEF2F2),
+          const Color(0xFFB91C1C)
+        ),
       _ => (const Color(0xFFF1F5F9), const Color(0xFF475569)),
     };
 
@@ -3251,8 +3754,11 @@ String _buildWhatsAppMessage({
   final contactName = (item.contactPerson ?? '').trim().isNotEmpty
       ? item.contactPerson!.trim()
       : item.companyName;
-  final categories = profile.categoryLabels.where((value) => value.trim().isNotEmpty).join(', ');
-  final skills = profile.skills.where((value) => value.trim().isNotEmpty).join(', ');
+  final categories = profile.categoryLabels
+      .where((value) => value.trim().isNotEmpty)
+      .join(', ');
+  final skills =
+      profile.skills.where((value) => value.trim().isNotEmpty).join(', ');
   final experience = profile.experienceYears % 1 == 0
       ? profile.experienceYears.toStringAsFixed(0)
       : profile.experienceYears.toStringAsFixed(1);
@@ -3295,7 +3801,8 @@ Future<void> _openJobWhatsApp(
   final phone = _normalizeWhatsappPhone(item.companyMobile?.trim() ?? '');
   if (phone.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Company WhatsApp number is not available.')),
+      const SnackBar(
+          content: Text('Company WhatsApp number is not available.')),
     );
     return;
   }
@@ -3304,7 +3811,8 @@ Future<void> _openJobWhatsApp(
     profile: profile,
     isHindi: WorkerLocalizations.of(context).isHindi,
   );
-  final uri = Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
+  final uri =
+      Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
   final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
   if (!launched && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -3313,7 +3821,8 @@ Future<void> _openJobWhatsApp(
   }
 }
 
-Future<void> _callJobCompany(BuildContext context, WorkerFeedItemModel item) async {
+Future<void> _callJobCompany(
+    BuildContext context, WorkerFeedItemModel item) async {
   final phone = (item.companyMobile ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
   if (phone.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -3321,7 +3830,8 @@ Future<void> _callJobCompany(BuildContext context, WorkerFeedItemModel item) asy
     );
     return;
   }
-  final launched = await launchUrl(Uri.parse('tel:$phone'), mode: LaunchMode.externalApplication);
+  final launched = await launchUrl(Uri.parse('tel:$phone'),
+      mode: LaunchMode.externalApplication);
   if (!launched && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Could not open phone dialer.')),
@@ -3360,9 +3870,8 @@ String _distanceLabel(
   final km = _haversineKm(workerLat, workerLng, jobLat, jobLng);
   final wholeKm = km.roundToDouble() == km;
   final kmText = wholeKm ? km.toStringAsFixed(0) : km.toStringAsFixed(1);
-  final label = km < 1
-      ? l10n.mAway((km * 1000).round().toString())
-      : l10n.kmAway(kmText);
+  final label =
+      km < 1 ? l10n.mAway((km * 1000).round().toString()) : l10n.kmAway(kmText);
   if (kDebugMode || kProfileMode) {
     debugPrint(
       'KM shown: ${item.title} source=${item.coordinateSource} '
@@ -3427,7 +3936,8 @@ String _shortDate(BuildContext context, String value) {
   return '${parsed.day} $month';
 }
 
-String _activationHeadline(WorkerLocalizations l10n, WorkerActivationSummaryModel activation) {
+String _activationHeadline(
+    WorkerLocalizations l10n, WorkerActivationSummaryModel activation) {
   if (!l10n.isHindi) {
     return activation.headline;
   }
@@ -3442,22 +3952,29 @@ String _activationHeadline(WorkerLocalizations l10n, WorkerActivationSummaryMode
   };
 }
 
-String _activationDescription(WorkerLocalizations l10n, WorkerActivationSummaryModel activation) {
+String _activationDescription(
+    WorkerLocalizations l10n, WorkerActivationSummaryModel activation) {
   if (!l10n.isHindi) {
     return activation.description;
   }
 
   return switch (activation.status) {
-    'active' => 'आपका वॉलेट सक्रिय है। दैनिक कटौती के बाद भी कंपनी डिटेल्स खुली रहेंगी।',
-    'inactive_wallet_empty' => 'वॉलेट बैलेंस कम है। रिचार्ज करके कंपनी डिटेल्स और विजिबिलिटी फिर से चालू करें।',
-    'inactive_subscription_expired' => 'एक्सेस अवधि खत्म हो गई है। रिचार्ज करके दोबारा सक्रिय करें।',
-    'blocked' => 'एडमिन ने इस प्रोफ़ाइल को रोका है। सहायता के लिए एडमिन से संपर्क करें।',
-    'rejected' => 'प्रोफ़ाइल को समीक्षा के बाद स्वीकार नहीं किया गया। जानकारी अपडेट करें।',
+    'active' =>
+      'आपका वॉलेट सक्रिय है। दैनिक कटौती के बाद भी कंपनी डिटेल्स खुली रहेंगी।',
+    'inactive_wallet_empty' =>
+      'वॉलेट बैलेंस कम है। रिचार्ज करके कंपनी डिटेल्स और विजिबिलिटी फिर से चालू करें।',
+    'inactive_subscription_expired' =>
+      'एक्सेस अवधि खत्म हो गई है। रिचार्ज करके दोबारा सक्रिय करें।',
+    'blocked' =>
+      'एडमिन ने इस प्रोफ़ाइल को रोका है। सहायता के लिए एडमिन से संपर्क करें।',
+    'rejected' =>
+      'प्रोफ़ाइल को समीक्षा के बाद स्वीकार नहीं किया गया। जानकारी अपडेट करें।',
     _ => 'बेहतर मैच पाने के लिए अपनी जानकारी और वॉलेट स्थिति अपडेट रखें।',
   };
 }
 
-String _walletVisibilityRule(WorkerLocalizations l10n, WorkerDashboardModel dashboard) {
+String _walletVisibilityRule(
+    WorkerLocalizations l10n, WorkerDashboardModel dashboard) {
   if (!l10n.isHindi) {
     return dashboard.wallet.visibilityRule;
   }

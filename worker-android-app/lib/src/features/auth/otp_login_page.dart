@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app.dart';
 import '../../localization/worker_localizations.dart';
@@ -23,9 +24,20 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
 
   bool _requestingOtp = false;
   bool _verifyingOtp = false;
+  bool _acceptedTerms = true;
   String _error = '';
   String _hintOtp = '';
   bool _otpSent = false;
+
+  Future<void> _openCompanySite() async {
+    final uri = Uri.parse('https://www.scalevyapar.in/labour/company');
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open company website.')),
+      );
+    }
+  }
 
   Future<void> _requestOtp() async {
     final mobile = _mobileController.text.trim();
@@ -106,6 +118,16 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
     final languageScope = WorkerLanguageScope.of(context);
+    final heading = _otpSent ? 'Verify your OTP' : 'Enter Phone Number';
+    final introTitle = _otpSent ? 'Verify Your Phone with OTP' : 'Enter Phone Number';
+    final introSubtitle = _otpSent
+        ? 'We have sent a code to your mobile number.'
+        : 'Enter your mobile number to receive the login OTP.';
+    final termsText = l10n.isHindi
+        ? 'मैं T&C और Privacy Policy से सहमत हूँ, और कॉल, WhatsApp, SMS और Emails के माध्यम से employers द्वारा संपर्क किए जाने की सहमति देता/देती हूँ।'
+        : 'I agree to T&C and Privacy Policy, and provide consent to be contacted by employers via call, WhatsApp, SMS, and Emails.';
+    final referralText = l10n.isHindi ? 'क्या आपके पास referral code है?' : 'Have a referral code?';
+    final hireStaffText = l10n.isHindi ? 'स्टाफ hire करना है? यहाँ क्लिक करें' : 'Looking to hire staff? Click Here';
     return Scaffold(
       backgroundColor: Colors.white,
       body: DecoratedBox(
@@ -120,12 +142,12 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: constraints.maxHeight - 36),
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 460),
+                      constraints: const BoxConstraints(maxWidth: 440),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -136,38 +158,25 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
                               child: Text(l10n.switchLanguage),
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 12),
                           Center(
-                            child: Container(
-                              width: 130,
-                              height: 130,
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x14173C77),
-                                    blurRadius: 24,
-                                    offset: Offset(0, 12),
-                                  ),
-                                ],
-                              ),
+                            child: SizedBox(
+                              width: 152,
+                              height: 152,
                               child: Image.asset(
-                                'assets/images/rozgar-logo-round.png',
+                                'assets/images/rozgar-logo-square.png',
                                 fit: BoxFit.contain,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 16),
                           const Center(
                             child: Text(
-                              'Rozgar by ScaleVyapar',
+                              'Rozgar',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Color(0xFF102A43),
-                                fontSize: 28,
+                                fontSize: 30,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -175,25 +184,15 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
                           const SizedBox(height: 10),
                           Center(
                             child: Text(
-                              l10n.loginHeroSubtitle,
+                              heading,
                               textAlign: TextAlign.center,
                               style: const TextStyle(
-                                color: Color(0xFF52606D),
-                                fontSize: 15,
-                                height: 1.6,
+                                color: Color(0xFF425466),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
+                                height: 1.4,
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 18),
-                          Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              _InfoChip(label: l10n.otpMobileLogin),
-                              _InfoChip(label: l10n.dailyWalletTracking),
-                              _InfoChip(label: l10n.matchingJobFeed),
-                            ],
                           ),
                           const SizedBox(height: 24),
                           Card(
@@ -203,18 +202,16 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _otpSent ? l10n.verifyYourOtp : l10n.workerLogin,
+                                    introTitle,
                                     style: const TextStyle(
-                                      fontSize: 24,
+                                      fontSize: 20,
                                       fontWeight: FontWeight.w800,
                                       color: Color(0xFF102A43),
                                     ),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    _otpSent
-                                        ? l10n.otpSentDescription
-                                        : l10n.enterMobileDescription,
+                                    introSubtitle,
                                     style: const TextStyle(
                                       fontSize: 14,
                                       color: Color(0xFF64748B),
@@ -242,24 +239,6 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
                                         labelText: l10n.otpCode,
                                         hintText: l10n.enterOtp,
                                         prefixIcon: const Icon(Icons.password_rounded),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(14),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(16),
-                                        color: const Color(0xFFF0F6FF),
-                                        border: Border.all(color: const Color(0xFFD3E4FF)),
-                                      ),
-                                      child: Text(
-                                        l10n.demoOtpForTesting(_hintOtp),
-                                        style: const TextStyle(
-                                          color: Color(0xFF173C77),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                        ),
                                       ),
                                     ),
                                     const SizedBox(height: 14),
@@ -307,16 +286,49 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
                                     ),
                                   ],
                                   const SizedBox(height: 18),
-                                  const Divider(height: 1),
-                                  const SizedBox(height: 18),
-                                  Text(
-                                    l10n.demoSeededWorkers,
-                                    style: const TextStyle(fontWeight: FontWeight.w800),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      color: const Color(0xFFF8FAFC),
+                                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Checkbox(
+                                          value: _acceptedTerms,
+                                          onChanged: (value) {
+                                            setState(() => _acceptedTerms = value ?? true);
+                                          },
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            termsText,
+                                            style: const TextStyle(
+                                              color: Color(0xFF475569),
+                                              height: 1.55,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '${l10n.activeWorkerLine}\n${l10n.walletEmptyWorkerLine}',
-                                    style: const TextStyle(color: Color(0xFF475569), height: 1.7),
+                                  const SizedBox(height: 12),
+                                  Center(
+                                    child: TextButton(
+                                      onPressed: () {},
+                                      child: Text(referralText),
+                                    ),
+                                  ),
+                                  Center(
+                                    child: TextButton(
+                                      onPressed: _openCompanySite,
+                                      child: Text(hireStaffText),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -330,31 +342,6 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
               );
             },
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  final String label;
-
-  const _InfoChip({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: const Color(0xFFF0F6FF),
-        border: Border.all(color: const Color(0xFFD9E7FF)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFF173C77),
-          fontWeight: FontWeight.w700,
         ),
       ),
     );

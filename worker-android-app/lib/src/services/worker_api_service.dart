@@ -71,6 +71,31 @@ class WorkerApiService {
     }
   }
 
+  Future<http.Response> _putJson(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      return await _client
+          .put(
+            _uri(path),
+            headers: {
+              'Content-Type': 'application/json',
+              ...?headers,
+            },
+            body: body,
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on SocketException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on http.ClientException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    }
+  }
+
   bool _isJsonResponse(http.Response response) {
     final contentType = response.headers['content-type'] ?? '';
     final body = response.body.trim();
@@ -87,6 +112,14 @@ class WorkerApiService {
   }
 
   bool _shouldFallbackDashboardResponse(http.Response response) {
+    if (response.statusCode == 404) {
+      return true;
+    }
+
+    return !_isJsonResponse(response);
+  }
+
+  bool _shouldFallbackWorkerResponse(http.Response response) {
     if (response.statusCode == 404) {
       return true;
     }
@@ -123,6 +156,106 @@ class WorkerApiService {
       return primaryResponse;
     } on _WorkerApiTransportException {
       return _get(fallbackPath, headers: headers);
+    }
+  }
+
+  Future<http.Response> _putWorkerJsonWithFallback(
+    String primaryPath,
+    String fallbackPath, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      final primaryResponse =
+          await _putJson(primaryPath, headers: headers, body: body);
+      if (_shouldFallbackWorkerResponse(primaryResponse)) {
+        return _putJson(fallbackPath, headers: headers, body: body);
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _putJson(fallbackPath, headers: headers, body: body);
+    }
+  }
+
+  Future<http.Response> _postWorkerJsonWithFallback(
+    String primaryPath,
+    String fallbackPath, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      final primaryResponse =
+          await _postJson(primaryPath, headers: headers, body: body);
+      if (_shouldFallbackWorkerResponse(primaryResponse)) {
+        return _postJson(fallbackPath, headers: headers, body: body);
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _postJson(fallbackPath, headers: headers, body: body);
+    }
+  }
+
+  Future<http.Response> _sendMultipartUpload(
+    String path, {
+    required String token,
+    required String documentKind,
+    required String filePath,
+    required String fileName,
+  }) async {
+    try {
+      final request = http.MultipartRequest('POST', _uri(path));
+      request.headers['Authorization'] = 'Bearer $token';
+      request.fields['documentKind'] = documentKind;
+      request.files.add(
+        await http.MultipartFile.fromPath('file', filePath, filename: fileName),
+      );
+
+      final streamed =
+          await request.send().timeout(const Duration(seconds: 25));
+      return http.Response.fromStream(streamed);
+    } on TimeoutException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on SocketException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    } on http.ClientException {
+      throw const _WorkerApiTransportException(_networkErrorMessage);
+    }
+  }
+
+  Future<http.Response> _uploadWorkerDocumentWithFallback({
+    required String primaryPath,
+    required String fallbackPath,
+    required String token,
+    required String documentKind,
+    required String filePath,
+    required String fileName,
+  }) async {
+    try {
+      final primaryResponse = await _sendMultipartUpload(
+        primaryPath,
+        token: token,
+        documentKind: documentKind,
+        filePath: filePath,
+        fileName: fileName,
+      );
+      if (_shouldFallbackWorkerResponse(primaryResponse)) {
+        return _sendMultipartUpload(
+          fallbackPath,
+          token: token,
+          documentKind: documentKind,
+          filePath: filePath,
+          fileName: fileName,
+        );
+      }
+      return primaryResponse;
+    } on _WorkerApiTransportException {
+      return _sendMultipartUpload(
+        fallbackPath,
+        token: token,
+        documentKind: documentKind,
+        filePath: filePath,
+        fileName: fileName,
+      );
     }
   }
 
@@ -217,10 +350,10 @@ class WorkerApiService {
     required double expectedDailyWage,
     required String availability,
   }) async {
-    final response = await _client.put(
-      _uri(_workerPath('/profile')),
+    final response = await _putWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/profile', preferRozgarV1: true),
+      _workerPath('/profile'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
@@ -250,17 +383,14 @@ class WorkerApiService {
     required String filePath,
     required String fileName,
   }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      _uri(_workerPath('/upload')),
+    final response = await _uploadWorkerDocumentWithFallback(
+      primaryPath: ApiConfig.resolveWorkerPath('/upload', preferRozgarV1: true),
+      fallbackPath: _workerPath('/upload'),
+      token: token,
+      documentKind: documentKind,
+      filePath: filePath,
+      fileName: fileName,
     );
-    request.headers['Authorization'] = 'Bearer $token';
-    request.fields['documentKind'] = documentKind;
-    request.files.add(await http.MultipartFile.fromPath('file', filePath,
-        filename: fileName));
-
-    final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
     final data =
         _decodeResponse(response, fallbackError: 'Failed to upload document');
     if (response.statusCode >= 400) {
@@ -284,10 +414,10 @@ class WorkerApiService {
     required String identityProofNumber,
     required String identityProofPath,
   }) async {
-    final response = await _client.post(
-      _uri(_workerPath('/register')),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/register', preferRozgarV1: true),
+      _workerPath('/register'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
@@ -317,10 +447,10 @@ class WorkerApiService {
 
   Future<WorkerDashboardModel> createRechargeRequest(String token,
       {String? note}) async {
-    final response = await _client.post(
-      _uri(_workerPath('/recharge-request')),
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/recharge-request', preferRozgarV1: true),
+      _workerPath('/recharge-request'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'note': note}),

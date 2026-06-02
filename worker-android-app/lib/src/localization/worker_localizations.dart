@@ -158,15 +158,15 @@ class WorkerLocalizations {
       : '$count jobs available for selected filters';
   String get industryCategory => isHindi ? 'इंडस्ट्री कैटेगरी' : 'Industry Category';
   String get allIndustryCategories =>
-      isHindi ? 'सभी इंडस्ट्री कैटेगरी' : 'All Industry Categories';
+      isHindi ? 'सभी इंडस्ट्री' : 'All Industry';
   String get businessType => isHindi ? 'बिज़नेस टाइप' : 'Business Type';
   String get allBusinessTypes =>
-      isHindi ? 'सभी बिज़नेस टाइप' : 'All Business Types';
+      isHindi ? 'सभी बिज़नेस टाइप चुनें' : 'Select all business type';
   String get selectIndustryFirst =>
-      isHindi ? 'पहले इंडस्ट्री चुनें' : 'Select industry first';
+      isHindi ? 'सभी बिज़नेस टाइप चुनें' : 'Select all business type';
   String get category => isHindi ? 'कैटेगरी' : 'Category';
-  String get allCategories => isHindi ? 'सभी कैटेगरी' : 'All Categories';
-  String get cityFilter => isHindi ? 'शहर फ़िल्टर' : 'City filter';
+  String get allCategories => isHindi ? 'सभी कैटेगरी' : 'All Category';
+  String get cityFilter => isHindi ? 'शहर फ़िल्टर' : 'City Filter';
   String get allCities => isHindi ? 'सभी शहर' : 'All Cities';
   String get wageFilter => isHindi ? 'वेतन फ़िल्टर' : 'Wage filter';
   String get allWages => isHindi ? 'सभी वेतन' : 'All Wages';

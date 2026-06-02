@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -29,6 +31,24 @@ class WorkerHomePage extends StatefulWidget {
   State<WorkerHomePage> createState() => _WorkerHomePageState();
 }
 
+class _LiveLocationSnapshot {
+  final double? latitude;
+  final double? longitude;
+  final String city;
+  final String area;
+  final bool permissionDenied;
+  final bool unavailable;
+
+  const _LiveLocationSnapshot({
+    required this.latitude,
+    required this.longitude,
+    required this.city,
+    required this.area,
+    required this.permissionDenied,
+    required this.unavailable,
+  });
+}
+
 class _WorkerHomePageState extends State<WorkerHomePage> {
   final _apiService = WorkerApiService();
   final _sessionStore = SessionStore();
@@ -52,6 +72,11 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   bool _notificationsLoading = false;
   bool _redirectingToLogin = false;
   bool _walletPaymentLoading = false;
+  Position? _livePosition;
+  String _liveCity = '';
+  String _liveArea = '';
+  bool _locationPermissionDenied = false;
+  bool _locationUnavailable = false;
 
   @override
   void initState() {
@@ -63,6 +88,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     _token = widget.initialToken;
     _dashboard = widget.initialDashboard;
     _attachPushNotifications();
+    _refreshLiveLocation();
     if (_dashboard == null) {
       _loadDashboard();
     }
@@ -84,6 +110,95 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       }
       _loadDashboard();
     });
+  }
+
+  Future<void> _refreshLiveLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        setState(() {
+          _locationUnavailable = true;
+          _locationPermissionDenied = false;
+          _livePosition = null;
+          _liveCity = '';
+          _liveArea = '';
+        });
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      final denied = permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever;
+      if (denied) {
+        if (!mounted) return;
+        setState(() {
+          _locationPermissionDenied = true;
+          _locationUnavailable = false;
+          _livePosition = null;
+          _liveCity = '';
+          _liveArea = '';
+        });
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      var liveCity = '';
+      var liveArea = '';
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final placemark = placemarks.first;
+          liveArea = [
+            placemark.subLocality,
+            placemark.locality,
+            placemark.subAdministrativeArea,
+          ]
+              .map((value) => value?.trim() ?? '')
+              .firstWhere((value) => value.isNotEmpty, orElse: () => '');
+          liveCity = [
+            placemark.locality,
+            placemark.administrativeArea,
+            placemark.subAdministrativeArea,
+          ]
+              .map((value) => value?.trim() ?? '')
+              .firstWhere((value) => value.isNotEmpty, orElse: () => '');
+          if (liveArea.toLowerCase() == liveCity.toLowerCase()) {
+            liveArea = '';
+          }
+        }
+      } catch (_) {
+        // Keep the live coordinates even if reverse geocoding fails.
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _livePosition = position;
+        _liveCity = liveCity;
+        _liveArea = liveArea;
+        _locationPermissionDenied = false;
+        _locationUnavailable = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _locationUnavailable = true;
+        _locationPermissionDenied = false;
+        _livePosition = null;
+        _liveCity = '';
+        _liveArea = '';
+      });
+    }
   }
 
   Future<void> _loadDashboard() async {
@@ -133,6 +248,17 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
 
   bool get _showSyncIssueBanner =>
       _dashboard != null && _error.trim().isNotEmpty;
+
+  _LiveLocationSnapshot _liveLocationSnapshot(WorkerProfileModel profile) {
+    return _LiveLocationSnapshot(
+      latitude: _livePosition?.latitude,
+      longitude: _livePosition?.longitude,
+      city: _liveCity,
+      area: _liveArea,
+      permissionDenied: _locationPermissionDenied,
+      unavailable: _locationUnavailable,
+    );
+  }
 
   bool _isSessionError(String message) {
     final normalized = message.toLowerCase();
@@ -867,9 +993,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                       children: [
                         _FeedTab(
                           dashboard: dashboard,
-                          visibleJobsCount: _filteredFeed
-                              .where((item) => !item.companyLocked)
-                              .length,
+                          visibleJobsCount: _filteredFeed.length,
+                          liveLocation:
+                              _liveLocationSnapshot(dashboard.profile),
                           feed: _filteredFeed,
                           query: _feedQuery,
                           showUnlockedOnly: _showUnlockedOnly,
@@ -972,135 +1098,134 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
 class _TopSummarySection extends StatelessWidget {
   final WorkerDashboardModel dashboard;
   final int visibleJobsCount;
+  final _LiveLocationSnapshot liveLocation;
 
   const _TopSummarySection({
     required this.dashboard,
     required this.visibleJobsCount,
+    required this.liveLocation,
   });
 
   @override
   Widget build(BuildContext context) {
     final profile = dashboard.profile;
-    final activation = dashboard.activation;
     final l10n = WorkerLocalizations.of(context);
+    final primaryLocation =
+        _resolvePrimaryLiveLocation(liveLocation, profile, l10n);
+    final secondaryLocation =
+        _resolveSecondaryLiveLocation(liveLocation, profile);
+    final isActive = dashboard.activation.isActive ||
+        profile.status.trim().toLowerCase() == 'active';
+    final walletValue = 'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}';
+    final jobsValue = '$visibleJobsCount';
+    final wageValue = profile.expectedDailyWage > 0
+        ? 'Rs ${profile.expectedDailyWage.toStringAsFixed(profile.expectedDailyWage % 1 == 0 ? 0 : 1)}'
+        : '—';
 
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF173C77),
-                  Color(0xFF2859B3),
-                  Color(0xFF2F6FDF)
-                ],
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x22173C77),
-                  blurRadius: 24,
-                  offset: Offset(0, 14),
-                ),
-              ],
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF173C77), Color(0xFF214A9A), Color(0xFF2F6FDF)],
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x22173C77),
+              blurRadius: 24,
+              offset: Offset(0, 14),
             ),
-            child: Column(
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            profile.city.isEmpty
-                                ? (l10n.isHindi
-                                    ? 'अपना शहर जोड़ें'
-                                    : 'Set your city')
-                                : profile.city,
-                            style: const TextStyle(
-                              color: Color(0xFFD7E4FF),
-                              fontWeight: FontWeight.w700,
-                            ),
+                          const Icon(
+                            Icons.navigation_rounded,
+                            size: 18,
+                            color: Colors.white,
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _activationHeadline(l10n, activation),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            _activationDescription(l10n, activation),
-                            style: const TextStyle(
-                              color: Color(0xFFE6EEFF),
-                              height: 1.6,
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              primaryLocation,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    _StatusBadge(status: activation.status),
-                  ],
+                      if (secondaryLocation.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 26),
+                          child: Text(
+                            secondaryLocation,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFD7E4FF),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 18),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _SummaryChip(
-                      label: l10n.wallet,
-                      value:
-                          'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}',
-                    ),
-                    _SummaryChip(
-                      label: l10n.jobs,
-                      value: l10n.unlockedJobsCount(visibleJobsCount),
-                    ),
-                    _SummaryChip(
-                      label: l10n.wage,
-                      value:
-                          'Rs ${profile.expectedDailyWage.toStringAsFixed(0)}',
-                    ),
-                  ],
+                const SizedBox(width: 12),
+                _CompactStatusPill(isActive: isActive),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: _SummaryChip(
+                    label: l10n.wallet,
+                    value: walletValue,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _SummaryChip(
+                    label: l10n.jobs,
+                    value: jobsValue,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _SummaryChip(
+                    label: l10n.wage,
+                    value: wageValue,
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniStatCard(
-                  label: l10n.dailyDeduction,
-                  value:
-                      'Rs ${dashboard.wallet.dailyCharge.toStringAsFixed(0)}',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MiniStatCard(
-                  label: l10n.estimatedDaysLeft,
-                  value: '${dashboard.wallet.estimatedDaysRemaining}',
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1109,6 +1234,7 @@ class _TopSummarySection extends StatelessWidget {
 class _FeedTab extends StatelessWidget {
   final WorkerDashboardModel dashboard;
   final int visibleJobsCount;
+  final _LiveLocationSnapshot liveLocation;
   final List<WorkerFeedItemModel> feed;
   final String query;
   final bool showUnlockedOnly;
@@ -1134,6 +1260,7 @@ class _FeedTab extends StatelessWidget {
   const _FeedTab({
     required this.dashboard,
     required this.visibleJobsCount,
+    required this.liveLocation,
     required this.feed,
     required this.query,
     required this.showUnlockedOnly,
@@ -1210,6 +1337,7 @@ class _FeedTab extends StatelessWidget {
           _TopSummarySection(
             dashboard: dashboard,
             visibleJobsCount: visibleJobsCount,
+            liveLocation: liveLocation,
           ),
           Card(
             child: Padding(
@@ -1217,17 +1345,6 @@ class _FeedTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    l10n.matchingJobFeedTitle,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.matchingJobFeedSubtitle,
-                    style:
-                        const TextStyle(color: Color(0xFF64748B), height: 1.5),
-                  ),
-                  const SizedBox(height: 4),
                   InkWell(
                     borderRadius: BorderRadius.circular(18),
                     onTap: () async {
@@ -1402,8 +1519,8 @@ class _FeedTab extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     l10n.isHindi
-                        ? 'फ़िल्टर रिज़ल्ट: ${feed.length} जॉब'
-                        : 'Filtered results: ${feed.length} jobs',
+                        ? 'चुने हुए फ़िल्टर के लिए ${feed.length} जॉब उपलब्ध हैं'
+                        : '${feed.length} jobs available for selected filters',
                     style: const TextStyle(
                       color: Color(0xFF173C77),
                       fontWeight: FontWeight.w800,
@@ -1496,7 +1613,7 @@ class _FeedTab extends StatelessWidget {
               (item) {
                 final actionLoading = activeJobActionId == item.id;
                 final distanceLabel =
-                    _distanceLabel(context, dashboard.profile, item);
+                    _distanceLabel(context, liveLocation, item);
                 final metaParts = [
                   if (item.city.trim().isNotEmpty) item.city.trim(),
                   distanceLabel,
@@ -3658,6 +3775,39 @@ class _SummaryChip extends StatelessWidget {
   }
 }
 
+class _CompactStatusPill extends StatelessWidget {
+  final bool isActive;
+
+  const _CompactStatusPill({required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = WorkerLocalizations.of(context);
+    final background =
+        isActive ? const Color(0xFFE8F7EF) : const Color(0xFFF1F5F9);
+    final foreground =
+        isActive ? const Color(0xFF166534) : const Color(0xFF475569);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        isActive
+            ? (l10n.isHindi ? 'सक्रिय' : 'Active')
+            : (l10n.isHindi ? 'निष्क्रिय' : 'Inactive'),
+        style: TextStyle(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
 class _StatusBadge extends StatelessWidget {
   final String status;
 
@@ -3841,12 +3991,12 @@ Future<void> _callJobCompany(
 
 String _distanceLabel(
   BuildContext context,
-  WorkerProfileModel profile,
+  _LiveLocationSnapshot liveLocation,
   WorkerFeedItemModel item,
 ) {
   final l10n = WorkerLocalizations.of(context);
-  final workerLat = profile.latitude;
-  final workerLng = profile.longitude;
+  final workerLat = liveLocation.latitude;
+  final workerLng = liveLocation.longitude;
   final jobLat = item.latitude;
   final jobLng = item.longitude;
   if (workerLat == null || workerLng == null) {
@@ -3934,6 +4084,56 @@ String _shortDate(BuildContext context, String value) {
     _ => 'Dec',
   };
   return '${parsed.day} $month';
+}
+
+String _resolvePrimaryLiveLocation(
+  _LiveLocationSnapshot liveLocation,
+  WorkerProfileModel profile,
+  WorkerLocalizations l10n,
+) {
+  if (liveLocation.city.trim().isNotEmpty) {
+    return liveLocation.city.trim();
+  }
+  final city = profile.city.trim();
+  final homeCity = profile.homeCity.trim();
+
+  if (city.isNotEmpty) {
+    return city;
+  }
+  if (homeCity.isNotEmpty) {
+    return homeCity;
+  }
+  return l10n.isHindi ? 'अपना शहर जोड़ें' : 'Set your city';
+}
+
+String _resolveSecondaryLiveLocation(
+  _LiveLocationSnapshot liveLocation,
+  WorkerProfileModel profile,
+) {
+  if (liveLocation.area.trim().isNotEmpty) {
+    return liveLocation.area.trim();
+  }
+  final city = profile.city.trim().toLowerCase();
+  final address = profile.address.trim();
+  if (address.isNotEmpty) {
+    final firstPart = address
+        .split(',')
+        .map((part) => part.trim())
+        .firstWhere((part) => part.isNotEmpty, orElse: () => '');
+    if (firstPart.isNotEmpty) {
+      final normalized = firstPart.toLowerCase();
+      if (normalized != city) {
+        return firstPart;
+      }
+    }
+  }
+
+  final homeCity = profile.homeCity.trim();
+  if (homeCity.isNotEmpty && homeCity.toLowerCase() != city) {
+    return homeCity;
+  }
+
+  return '';
 }
 
 String _activationHeadline(

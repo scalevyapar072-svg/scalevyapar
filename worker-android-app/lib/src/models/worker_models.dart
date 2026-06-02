@@ -29,6 +29,8 @@ class WorkerProfileModel {
   final String fullName;
   final String mobile;
   final String city;
+  final String homeCity;
+  final String address;
   final String profilePhotoPath;
   final List<String> categoryIds;
   final List<String> categoryLabels;
@@ -52,6 +54,8 @@ class WorkerProfileModel {
     required this.fullName,
     required this.mobile,
     required this.city,
+    required this.homeCity,
+    required this.address,
     required this.profilePhotoPath,
     required this.categoryIds,
     required this.categoryLabels,
@@ -77,6 +81,8 @@ class WorkerProfileModel {
       fullName: json['fullName'] as String? ?? '',
       mobile: json['mobile'] as String? ?? '',
       city: json['city'] as String? ?? '',
+      homeCity: json['homeCity'] as String? ?? '',
+      address: json['address'] as String? ?? '',
       profilePhotoPath: json['profilePhotoPath'] as String? ?? '',
       categoryIds: ((json['categoryIds'] as List?) ?? [])
           .map((item) => item.toString())

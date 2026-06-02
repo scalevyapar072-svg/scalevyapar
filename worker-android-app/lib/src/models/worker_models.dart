@@ -261,12 +261,15 @@ class WorkerFeedItemModel {
   final String title;
   final String description;
   final String city;
+  final String locationLabel;
   final double wageAmount;
   final int workersNeeded;
   final String categoryName;
   final bool companyLocked;
   final String companyName;
+  final String companyArea;
   final String companyCity;
+  final String companyPincode;
   final String? contactPerson;
   final String? companyMobile;
   final String publishedAt;
@@ -286,12 +289,15 @@ class WorkerFeedItemModel {
     required this.title,
     required this.description,
     required this.city,
+    required this.locationLabel,
     required this.wageAmount,
     required this.workersNeeded,
     required this.categoryName,
     required this.companyLocked,
     required this.companyName,
+    required this.companyArea,
     required this.companyCity,
+    required this.companyPincode,
     required this.contactPerson,
     required this.companyMobile,
     required this.publishedAt,
@@ -313,12 +319,20 @@ class WorkerFeedItemModel {
       title: json['title'] as String? ?? '',
       description: json['description'] as String? ?? '',
       city: json['city'] as String? ?? '',
+      locationLabel: json['locationLabel'] as String? ?? '',
       wageAmount: (json['wageAmount'] as num?)?.toDouble() ?? 0,
       workersNeeded: json['workersNeeded'] as int? ?? 0,
       categoryName: json['categoryName'] as String? ?? '',
       companyLocked: json['companyLocked'] as bool? ?? true,
       companyName: json['companyName'] as String? ?? '',
+      companyArea: json['companyArea'] as String? ?? '',
       companyCity: json['companyCity'] as String? ?? '',
+      companyPincode: (json['companyPincode'] ??
+              json['pincode'] ??
+              json['postalCode'] ??
+              json['zip'])
+          as String? ??
+          '',
       contactPerson: json['contactPerson'] as String?,
       companyMobile: json['companyMobile'] as String?,
       publishedAt: json['publishedAt'] as String? ?? '',

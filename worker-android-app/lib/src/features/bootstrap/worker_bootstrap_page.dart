@@ -58,13 +58,57 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: const Center(
-          child: SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF173C77)),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                SizedBox(
+                  width: 144,
+                  height: 144,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x14173C77),
+                          blurRadius: 24,
+                          offset: Offset(0, 14),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(14),
+                      child: Image(
+                        image: AssetImage('assets/images/rozgar-logo-round.png'),
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 26),
+                Text(
+                  'Rozgar by ScaleVyapar',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF102A43),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 16),
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xFF173C77)),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

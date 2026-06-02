@@ -49,10 +49,24 @@ class _LiveLocationSnapshot {
   });
 }
 
+class _DerivedJobCoordinates {
+  final double latitude;
+  final double longitude;
+  final String source;
+
+  const _DerivedJobCoordinates({
+    required this.latitude,
+    required this.longitude,
+    required this.source,
+  });
+}
+
 class _WorkerHomePageState extends State<WorkerHomePage> {
   final _apiService = WorkerApiService();
   final _sessionStore = SessionStore();
   final _rechargeAmountController = TextEditingController(text: '50');
+  final Map<String, _DerivedJobCoordinates?> _geocodedJobCoordinateCache = {};
+  final Set<String> _geocodingJobCoordinateKeys = <String>{};
   late final Razorpay _razorpay;
 
   late String _token;
@@ -89,6 +103,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     _dashboard = widget.initialDashboard;
     _attachPushNotifications();
     _refreshLiveLocation();
+    if (_dashboard != null) {
+      _prefetchFeedCoordinateLookups(_dashboard!.feed);
+    }
     if (_dashboard == null) {
       _loadDashboard();
     }
@@ -159,13 +176,6 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         );
         if (placemarks.isNotEmpty) {
           final placemark = placemarks.first;
-          liveArea = [
-            placemark.subLocality,
-            placemark.locality,
-            placemark.subAdministrativeArea,
-          ]
-              .map((value) => value?.trim() ?? '')
-              .firstWhere((value) => value.isNotEmpty, orElse: () => '');
           liveCity = [
             placemark.locality,
             placemark.administrativeArea,
@@ -173,9 +183,19 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           ]
               .map((value) => value?.trim() ?? '')
               .firstWhere((value) => value.isNotEmpty, orElse: () => '');
-          if (liveArea.toLowerCase() == liveCity.toLowerCase()) {
-            liveArea = '';
-          }
+          final areaCandidates = [
+            placemark.subLocality,
+            placemark.subAdministrativeArea,
+            placemark.name,
+            placemark.street,
+            placemark.locality,
+          ].map((value) => value?.trim() ?? '');
+          liveArea = areaCandidates.firstWhere(
+            (value) =>
+                value.isNotEmpty &&
+                value.toLowerCase() != liveCity.toLowerCase(),
+            orElse: () => '',
+          );
         }
       } catch (_) {
         // Keep the live coordinates even if reverse geocoding fails.
@@ -216,6 +236,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         _dashboard = dashboard;
         _error = '';
       });
+      _prefetchFeedCoordinateLookups(dashboard.feed);
     } catch (error) {
       if (!mounted) return;
       final message = _cleanError(error);
@@ -258,6 +279,121 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       permissionDenied: _locationPermissionDenied,
       unavailable: _locationUnavailable,
     );
+  }
+
+  void _prefetchFeedCoordinateLookups(List<WorkerFeedItemModel> feed) {
+    for (final item in feed) {
+      if (item.latitude != null && item.longitude != null) {
+        continue;
+      }
+      unawaited(_ensureDerivedJobCoordinates(item));
+    }
+  }
+
+  String? _derivedCoordinateCacheKey(WorkerFeedItemModel item) {
+    final pincode = _normalizeGeocodePart(item.companyPincode);
+    if (pincode.isEmpty) {
+      return null;
+    }
+    final parts = [
+      item.locationLabel,
+      item.companyArea,
+      item.companyCity,
+      item.city,
+      pincode,
+    ]
+        .map(_normalizeGeocodePart)
+        .where((value) => value.isNotEmpty)
+        .toList();
+    if (parts.length < 2) {
+      return null;
+    }
+    return parts.join('|');
+  }
+
+  List<String> _geocodeQueriesForItem(WorkerFeedItemModel item) {
+    final pincode = item.companyPincode.trim();
+    if (pincode.isEmpty) {
+      return const [];
+    }
+    final areaCandidates = <String>[
+      item.locationLabel.trim(),
+      item.companyArea.trim(),
+    ].where((value) => value.isNotEmpty).toSet().toList();
+    final cityCandidates = <String>[
+      item.companyCity.trim(),
+      item.city.trim(),
+    ].where((value) => value.isNotEmpty).toSet().toList();
+    final queries = <String>[];
+    for (final area in areaCandidates) {
+      for (final city in cityCandidates) {
+        queries.add('$area, $city, $pincode, India');
+      }
+    }
+    return queries.toSet().toList();
+  }
+
+  Future<void> _ensureDerivedJobCoordinates(WorkerFeedItemModel item) async {
+    final cacheKey = _derivedCoordinateCacheKey(item);
+    if (cacheKey == null ||
+        _geocodedJobCoordinateCache.containsKey(cacheKey) ||
+        _geocodingJobCoordinateKeys.contains(cacheKey)) {
+      return;
+    }
+
+    _geocodingJobCoordinateKeys.add(cacheKey);
+    _DerivedJobCoordinates? derivedCoordinates;
+
+    try {
+      for (final query in _geocodeQueriesForItem(item)) {
+        try {
+          final results = await locationFromAddress(query);
+          if (results.isEmpty) {
+            continue;
+          }
+          derivedCoordinates = _DerivedJobCoordinates(
+            latitude: results.first.latitude,
+            longitude: results.first.longitude,
+            source: query,
+          );
+          break;
+        } catch (_) {
+          continue;
+        }
+      }
+      if (kDebugMode || kProfileMode) {
+        debugPrint(
+          derivedCoordinates == null
+              ? 'Geo miss: ${item.title} key=$cacheKey'
+              : 'Geo hit: ${item.title} key=$cacheKey source=${derivedCoordinates.source}',
+        );
+      }
+    } finally {
+      _geocodingJobCoordinateKeys.remove(cacheKey);
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _geocodedJobCoordinateCache[cacheKey] = derivedCoordinates;
+    });
+  }
+
+  _DerivedJobCoordinates? _resolveJobCoordinatesForItem(WorkerFeedItemModel item) {
+    if (item.latitude != null && item.longitude != null) {
+      return _DerivedJobCoordinates(
+        latitude: item.latitude!,
+        longitude: item.longitude!,
+        source: item.coordinateSource.isEmpty ? 'feed' : item.coordinateSource,
+      );
+    }
+    final cacheKey = _derivedCoordinateCacheKey(item);
+    if (cacheKey == null) {
+      return null;
+    }
+    return _geocodedJobCoordinateCache[cacheKey];
   }
 
   bool _isSessionError(String message) {
@@ -996,6 +1132,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                           visibleJobsCount: _filteredFeed.length,
                           liveLocation:
                               _liveLocationSnapshot(dashboard.profile),
+                          resolveJobCoordinatesForItem:
+                              _resolveJobCoordinatesForItem,
                           feed: _filteredFeed,
                           query: _feedQuery,
                           showUnlockedOnly: _showUnlockedOnly,
@@ -1235,6 +1373,8 @@ class _FeedTab extends StatelessWidget {
   final WorkerDashboardModel dashboard;
   final int visibleJobsCount;
   final _LiveLocationSnapshot liveLocation;
+  final _DerivedJobCoordinates? Function(WorkerFeedItemModel item)
+      resolveJobCoordinatesForItem;
   final List<WorkerFeedItemModel> feed;
   final String query;
   final bool showUnlockedOnly;
@@ -1261,6 +1401,7 @@ class _FeedTab extends StatelessWidget {
     required this.dashboard,
     required this.visibleJobsCount,
     required this.liveLocation,
+    required this.resolveJobCoordinatesForItem,
     required this.feed,
     required this.query,
     required this.showUnlockedOnly,
@@ -1612,8 +1753,12 @@ class _FeedTab extends StatelessWidget {
             ...feed.map(
               (item) {
                 final actionLoading = activeJobActionId == item.id;
-                final distanceLabel =
-                    _distanceLabel(context, liveLocation, item);
+                final distanceLabel = _distanceLabel(
+                  context,
+                  liveLocation,
+                  item,
+                  resolvedCoordinates: resolveJobCoordinatesForItem(item),
+                );
                 final metaParts = [
                   if (item.city.trim().isNotEmpty) item.city.trim(),
                   distanceLabel,
@@ -2588,12 +2733,15 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                       title: item.title,
                       description: item.description,
                       city: item.city,
+                      locationLabel: item.locationLabel,
                       wageAmount: item.wageAmount,
                       workersNeeded: item.workersNeeded,
                       categoryName: item.categoryName,
                       companyLocked: item.companyLocked,
                       companyName: item.companyName,
+                      companyArea: item.companyArea,
                       companyCity: item.companyCity,
+                      companyPincode: item.companyPincode,
                       contactPerson: item.contactPerson,
                       companyMobile: item.companyMobile,
                       publishedAt: item.publishedAt,
@@ -3993,16 +4141,21 @@ String _distanceLabel(
   BuildContext context,
   _LiveLocationSnapshot liveLocation,
   WorkerFeedItemModel item,
+  {_DerivedJobCoordinates? resolvedCoordinates}
 ) {
   final l10n = WorkerLocalizations.of(context);
   final workerLat = liveLocation.latitude;
   final workerLng = liveLocation.longitude;
-  final jobLat = item.latitude;
-  final jobLng = item.longitude;
+  final jobLat = resolvedCoordinates?.latitude ?? item.latitude;
+  final jobLng = resolvedCoordinates?.longitude ?? item.longitude;
+  final coordinateSource =
+      resolvedCoordinates?.source.isNotEmpty == true
+          ? resolvedCoordinates!.source
+          : item.coordinateSource;
   if (workerLat == null || workerLng == null) {
     if (kDebugMode || kProfileMode) {
       debugPrint(
-        'KM hidden: ${item.title} source=${item.coordinateSource} '
+        'KM hidden: ${item.title} source=$coordinateSource '
         'jobLat=$jobLat jobLng=$jobLng workerLat=$workerLat workerLng=$workerLng',
       );
     }
@@ -4011,7 +4164,7 @@ String _distanceLabel(
   if (jobLat == null || jobLng == null) {
     if (kDebugMode || kProfileMode) {
       debugPrint(
-        'KM unavailable: ${item.title} source=${item.coordinateSource} '
+        'KM unavailable: ${item.title} source=$coordinateSource '
         'jobLat=$jobLat jobLng=$jobLng workerLat=$workerLat workerLng=$workerLng',
       );
     }
@@ -4024,7 +4177,7 @@ String _distanceLabel(
       km < 1 ? l10n.mAway((km * 1000).round().toString()) : l10n.kmAway(kmText);
   if (kDebugMode || kProfileMode) {
     debugPrint(
-      'KM shown: ${item.title} source=${item.coordinateSource} '
+      'KM shown: ${item.title} source=$coordinateSource '
       'jobLat=$jobLat jobLng=$jobLng workerLat=$workerLat workerLng=$workerLng distance=$label',
     );
   }
@@ -4044,6 +4197,14 @@ double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
 }
 
 double _degreesToRadians(double value) => value * math.pi / 180;
+
+String _normalizeGeocodePart(String value) {
+  return value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[^a-z0-9,\- ]'), '');
+}
 
 String _prettyText(BuildContext context, String value) {
   return WorkerLocalizations.of(context).prettyValue(value);

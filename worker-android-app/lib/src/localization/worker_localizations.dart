@@ -146,6 +146,44 @@ class WorkerLocalizations {
   String companyCity(String city) =>
       isHindi ? 'कंपनी शहर: $city' : 'Company city: $city';
 
+  String get allJobs => isHindi ? 'सभी जॉब्स' : 'All Jobs';
+  String get jobsNearYou => isHindi ? 'पास की जॉब्स' : 'Jobs Near You';
+  String get otherCities => isHindi ? 'अन्य शहर' : 'Other Cities';
+  String get advancedFilters => isHindi ? 'एडवांस फ़िल्टर' : 'Advanced filters';
+  String get clearAction => isHindi ? 'साफ़ करें' : 'Clear';
+  String get clearAll => isHindi ? 'सभी साफ़ करें' : 'Clear all';
+  String get activeFiltersTitle => isHindi ? 'सक्रिय फ़िल्टर' : 'Active filters';
+  String jobsAvailableForSelectedFilters(int count) => isHindi
+      ? 'चुने हुए फ़िल्टर के लिए $count जॉब उपलब्ध हैं'
+      : '$count jobs available for selected filters';
+  String get industryCategory => isHindi ? 'इंडस्ट्री कैटेगरी' : 'Industry Category';
+  String get allIndustryCategories =>
+      isHindi ? 'सभी इंडस्ट्री कैटेगरी' : 'All Industry Categories';
+  String get businessType => isHindi ? 'बिज़नेस टाइप' : 'Business Type';
+  String get allBusinessTypes =>
+      isHindi ? 'सभी बिज़नेस टाइप' : 'All Business Types';
+  String get selectIndustryFirst =>
+      isHindi ? 'पहले इंडस्ट्री चुनें' : 'Select industry first';
+  String get category => isHindi ? 'कैटेगरी' : 'Category';
+  String get allCategories => isHindi ? 'सभी कैटेगरी' : 'All Categories';
+  String get cityFilter => isHindi ? 'शहर फ़िल्टर' : 'City filter';
+  String get allCities => isHindi ? 'सभी शहर' : 'All Cities';
+  String get wageFilter => isHindi ? 'वेतन फ़िल्टर' : 'Wage filter';
+  String get allWages => isHindi ? 'सभी वेतन' : 'All Wages';
+  String get savedOnly => isHindi ? 'सिर्फ़ सेव्ड' : 'Saved only';
+  String get appliedOnly => isHindi ? 'सिर्फ़ अप्लाइड' : 'Applied only';
+  String get unlockedOnly => isHindi ? 'सिर्फ़ अनलॉक' : 'Unlocked only';
+  String filterLabel(String label, String value) =>
+      isHindi ? '$label: $value' : '$label: $value';
+  String get noJobsMatchCurrentFilters => isHindi
+      ? 'मौजूदा फ़िल्टर से कोई जॉब नहीं मिली। फ़िल्टर साफ़ करें, दूसरा शहर चुनें, या दूरी बढ़ाएँ।'
+      : 'No jobs match the current filters. Try clearing filters, selecting another city, or increasing distance.';
+  String get noActiveJobsAvailable => isHindi
+      ? 'अभी कोई सक्रिय जॉब उपलब्ध नहीं है।'
+      : 'No active jobs are available right now.';
+  String get enableLocationOrSelectCity => isHindi
+      ? 'पास की जॉब्स देखने के लिए लोकेशन चालू करें या शहर चुनें।'
+      : 'Enable location or select a city to see nearby jobs.';
   String get walletActivation =>
       isHindi ? 'वॉलेट और एक्टिवेशन' : 'Wallet & activation';
   String get walletActivationSubtitle => isHindi

@@ -24,6 +24,84 @@ class WorkerCategoryOption {
   }
 }
 
+class WorkerMasterOption {
+  final String id;
+  final String label;
+  final String value;
+  final String slug;
+
+  WorkerMasterOption({
+    required this.id,
+    required this.label,
+    required this.value,
+    required this.slug,
+  });
+
+  factory WorkerMasterOption.fromJson(Map<String, dynamic> json) {
+    return WorkerMasterOption(
+      id: json['id'] as String? ?? '',
+      label: json['label'] as String? ?? '',
+      value: json['value'] as String? ?? '',
+      slug: json['slug'] as String? ?? '',
+    );
+  }
+}
+
+class WorkerIndustryBusinessDependency {
+  final String id;
+  final WorkerMasterOption industryCategory;
+  final WorkerMasterOption businessType;
+
+  WorkerIndustryBusinessDependency({
+    required this.id,
+    required this.industryCategory,
+    required this.businessType,
+  });
+
+  factory WorkerIndustryBusinessDependency.fromJson(Map<String, dynamic> json) {
+    return WorkerIndustryBusinessDependency(
+      id: json['id'] as String? ?? '',
+      industryCategory: WorkerMasterOption.fromJson(
+          json['industryCategory'] as Map<String, dynamic>? ?? const {}),
+      businessType: WorkerMasterOption.fromJson(
+          json['businessType'] as Map<String, dynamic>? ?? const {}),
+    );
+  }
+}
+
+class WorkerCategoryDependency {
+  final String id;
+  final WorkerMasterOption industryCategory;
+  final WorkerMasterOption? businessType;
+  final String categoryId;
+  final String categoryName;
+  final String categorySlug;
+
+  WorkerCategoryDependency({
+    required this.id,
+    required this.industryCategory,
+    required this.businessType,
+    required this.categoryId,
+    required this.categoryName,
+    required this.categorySlug,
+  });
+
+  factory WorkerCategoryDependency.fromJson(Map<String, dynamic> json) {
+    return WorkerCategoryDependency(
+      id: json['id'] as String? ?? '',
+      industryCategory: WorkerMasterOption.fromJson(
+          json['industryCategory'] as Map<String, dynamic>? ?? const {}),
+      businessType: json['businessType'] == null
+          ? null
+          : WorkerMasterOption.fromJson(
+              json['businessType'] as Map<String, dynamic>),
+      categoryId: json['categoryId'] as String? ?? '',
+      categoryName: json['categoryName'] as String? ?? '',
+      categorySlug: json['categorySlug'] as String? ?? '',
+    );
+  }
+}
+
 class WorkerProfileModel {
   final String id;
   final String fullName;
@@ -261,6 +339,16 @@ class WorkerFeedItemModel {
   final String title;
   final String description;
   final String city;
+  final String categoryId;
+  final String categorySlug;
+  final String industryCategoryId;
+  final String industryCategoryLabel;
+  final String industryCategoryValue;
+  final String industryCategorySlug;
+  final String businessTypeId;
+  final String businessTypeLabel;
+  final String businessTypeValue;
+  final String businessTypeSlug;
   final String locationLabel;
   final double wageAmount;
   final int workersNeeded;
@@ -289,6 +377,16 @@ class WorkerFeedItemModel {
     required this.title,
     required this.description,
     required this.city,
+    required this.categoryId,
+    required this.categorySlug,
+    required this.industryCategoryId,
+    required this.industryCategoryLabel,
+    required this.industryCategoryValue,
+    required this.industryCategorySlug,
+    required this.businessTypeId,
+    required this.businessTypeLabel,
+    required this.businessTypeValue,
+    required this.businessTypeSlug,
     required this.locationLabel,
     required this.wageAmount,
     required this.workersNeeded,
@@ -319,6 +417,16 @@ class WorkerFeedItemModel {
       title: json['title'] as String? ?? '',
       description: json['description'] as String? ?? '',
       city: json['city'] as String? ?? '',
+      categoryId: json['categoryId'] as String? ?? '',
+      categorySlug: json['categorySlug'] as String? ?? '',
+      industryCategoryId: json['industryCategoryId'] as String? ?? '',
+      industryCategoryLabel: json['industryCategoryLabel'] as String? ?? '',
+      industryCategoryValue: json['industryCategoryValue'] as String? ?? '',
+      industryCategorySlug: json['industryCategorySlug'] as String? ?? '',
+      businessTypeId: json['businessTypeId'] as String? ?? '',
+      businessTypeLabel: json['businessTypeLabel'] as String? ?? '',
+      businessTypeValue: json['businessTypeValue'] as String? ?? '',
+      businessTypeSlug: json['businessTypeSlug'] as String? ?? '',
       locationLabel: json['locationLabel'] as String? ?? '',
       wageAmount: (json['wageAmount'] as num?)?.toDouble() ?? 0,
       workersNeeded: json['workersNeeded'] as int? ?? 0,
@@ -454,6 +562,11 @@ class WorkerDashboardModel {
   final List<WorkerNotificationModel> notifications;
   final int unreadNotificationCount;
   final List<WorkerCategoryOption> availableCategories;
+  final List<WorkerMasterOption> availableIndustryCategories;
+  final List<WorkerMasterOption> availableBusinessTypes;
+  final List<WorkerIndustryBusinessDependency> industryBusinessDependencies;
+  final List<WorkerCategoryDependency> categoryDependencies;
+  final List<String> availableCities;
   final WorkerPlanModel? workerPlan;
 
   WorkerDashboardModel({
@@ -465,6 +578,11 @@ class WorkerDashboardModel {
     required this.notifications,
     required this.unreadNotificationCount,
     required this.availableCategories,
+    required this.availableIndustryCategories,
+    required this.availableBusinessTypes,
+    required this.industryBusinessDependencies,
+    required this.categoryDependencies,
+    required this.availableCities,
     required this.workerPlan,
   });
 
@@ -490,6 +608,27 @@ class WorkerDashboardModel {
       availableCategories: ((json['availableCategories'] as List?) ?? [])
           .map((item) =>
               WorkerCategoryOption.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      availableIndustryCategories:
+          ((json['availableIndustryCategories'] as List?) ?? [])
+              .map((item) =>
+                  WorkerMasterOption.fromJson(item as Map<String, dynamic>))
+              .toList(),
+      availableBusinessTypes: ((json['availableBusinessTypes'] as List?) ?? [])
+          .map((item) =>
+              WorkerMasterOption.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      industryBusinessDependencies:
+          ((json['industryBusinessDependencies'] as List?) ?? [])
+              .map((item) => WorkerIndustryBusinessDependency.fromJson(
+                  item as Map<String, dynamic>))
+              .toList(),
+      categoryDependencies: ((json['categoryDependencies'] as List?) ?? [])
+          .map((item) =>
+              WorkerCategoryDependency.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      availableCities: ((json['availableCities'] as List?) ?? [])
+          .map((item) => item.toString())
           .toList(),
       workerPlan: json['workerPlan'] == null
           ? null

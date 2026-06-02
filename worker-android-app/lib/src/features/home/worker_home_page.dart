@@ -61,6 +61,14 @@ class _DerivedJobCoordinates {
   });
 }
 
+enum _FeedViewTab {
+  all,
+  nearby,
+  otherCities,
+  saved,
+  applied,
+}
+
 class _WorkerHomePageState extends State<WorkerHomePage> {
   final _apiService = WorkerApiService();
   final _sessionStore = SessionStore();
@@ -76,10 +84,13 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   String _error = '';
   int _selectedIndex = 0;
   String _feedQuery = '';
+  _FeedViewTab _selectedFeedTab = _FeedViewTab.all;
   bool _showUnlockedOnly = false;
   bool _showSavedOnly = false;
   bool _showAppliedOnly = false;
   List<String> _selectedCategoryFilters = const [];
+  String _selectedIndustryFilter = 'all';
+  String _selectedBusinessTypeFilter = 'all';
   String _selectedCityFilter = 'all';
   String _selectedWageBand = 'all';
   String _jobActionId = '';
@@ -906,6 +917,337 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     );
   }
 
+  String _normalizeFilterKey(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  bool _matchesNormalizedValue(String selected, Iterable<String?> values) {
+    final normalizedSelected = _normalizeFilterKey(selected);
+    if (normalizedSelected.isEmpty) {
+      return false;
+    }
+    for (final value in values) {
+      if (_normalizeFilterKey(value ?? '') == normalizedSelected) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String _resolveCurrentCity(WorkerProfileModel profile) {
+    final liveCity = _liveCity.trim();
+    if (liveCity.isNotEmpty) {
+      return liveCity;
+    }
+    final profileCity = profile.city.trim();
+    if (profileCity.isNotEmpty) {
+      return profileCity;
+    }
+    return profile.homeCity.trim();
+  }
+
+  List<WorkerMasterOption> _availableBusinessTypeOptions(
+    WorkerDashboardModel dashboard,
+  ) {
+    final selectedIndustry = _selectedIndustryFilter;
+    if (selectedIndustry == 'all') {
+      return const [];
+    }
+    final allowedIds = dashboard.industryBusinessDependencies
+        .where((dependency) => _matchesNormalizedValue(selectedIndustry, [
+              dependency.industryCategory.id,
+              dependency.industryCategory.slug,
+              dependency.industryCategory.value,
+              dependency.industryCategory.label,
+            ]))
+        .map((dependency) => dependency.businessType.id)
+        .toSet();
+    return dashboard.availableBusinessTypes
+        .where((option) => allowedIds.contains(option.id))
+        .toList()
+      ..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+  }
+
+  List<WorkerCategoryOption> _availableCategoryOptions(
+    WorkerDashboardModel dashboard,
+  ) {
+    final categoriesByKey = <String, WorkerCategoryOption>{
+      for (final option in dashboard.availableCategories)
+        _normalizeFilterKey(option.id): option,
+      for (final option in dashboard.availableCategories)
+        _normalizeFilterKey(option.name): option,
+    };
+
+    Iterable<WorkerCategoryOption> options = dashboard.availableCategories;
+    if (_selectedIndustryFilter != 'all') {
+      final filteredDependencyCategories = dashboard.categoryDependencies.where(
+        (dependency) {
+          final matchesIndustry = _matchesNormalizedValue(
+            _selectedIndustryFilter,
+            [
+              dependency.industryCategory.id,
+              dependency.industryCategory.slug,
+              dependency.industryCategory.value,
+              dependency.industryCategory.label,
+            ],
+          );
+          if (!matchesIndustry) {
+            return false;
+          }
+          if (_selectedBusinessTypeFilter == 'all') {
+            return true;
+          }
+          final businessType = dependency.businessType;
+          return businessType != null &&
+              _matchesNormalizedValue(_selectedBusinessTypeFilter, [
+                businessType.id,
+                businessType.slug,
+                businessType.value,
+                businessType.label,
+              ]);
+        },
+      );
+      final allowedKeys = filteredDependencyCategories
+          .expand((dependency) => [
+                _normalizeFilterKey(dependency.categoryId),
+                _normalizeFilterKey(dependency.categorySlug),
+                _normalizeFilterKey(dependency.categoryName),
+              ])
+          .where((value) => value.isNotEmpty)
+          .toSet();
+      options = dashboard.availableCategories.where((option) {
+        return allowedKeys.contains(_normalizeFilterKey(option.id)) ||
+            allowedKeys.contains(_normalizeFilterKey(option.name));
+      });
+      if (options.isEmpty) {
+        final fallback = filteredDependencyCategories
+            .map((dependency) {
+              final match = categoriesByKey[
+                      _normalizeFilterKey(dependency.categoryId)] ??
+                  categoriesByKey[_normalizeFilterKey(dependency.categoryName)];
+              return match ??
+                  WorkerCategoryOption(
+                    id: dependency.categoryId,
+                    name: dependency.categoryName,
+                    description: '',
+                    imageUrl: '',
+                    isActive: true,
+                  );
+            })
+            .toList();
+        options = fallback;
+      }
+    }
+
+    final deduped = <String, WorkerCategoryOption>{};
+    for (final option in options) {
+      final key = _normalizeFilterKey(option.id.isNotEmpty ? option.id : option.name);
+      if (key.isNotEmpty) {
+        deduped[key] = option;
+      }
+    }
+    return deduped.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  }
+
+  bool _itemMatchesIndustry(
+    WorkerFeedItemModel item,
+    WorkerDashboardModel dashboard,
+  ) {
+    if (_selectedIndustryFilter == 'all') {
+      return true;
+    }
+    final directValues = [
+      item.industryCategoryId,
+      item.industryCategorySlug,
+      item.industryCategoryValue,
+      item.industryCategoryLabel,
+    ];
+    if (_matchesNormalizedValue(_selectedIndustryFilter, directValues)) {
+      return true;
+    }
+    for (final dependency in dashboard.categoryDependencies) {
+      final matchesCategory = _matchesNormalizedValue(item.categoryId, [
+            dependency.categoryId,
+            dependency.categorySlug,
+            dependency.categoryName,
+          ]) ||
+          _matchesNormalizedValue(item.categorySlug, [
+            dependency.categoryId,
+            dependency.categorySlug,
+            dependency.categoryName,
+          ]) ||
+          _matchesNormalizedValue(item.categoryName, [
+            dependency.categoryId,
+            dependency.categorySlug,
+            dependency.categoryName,
+          ]);
+      if (!matchesCategory) {
+        continue;
+      }
+      if (_matchesNormalizedValue(_selectedIndustryFilter, [
+        dependency.industryCategory.id,
+        dependency.industryCategory.slug,
+        dependency.industryCategory.value,
+        dependency.industryCategory.label,
+      ])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _itemMatchesBusinessType(
+    WorkerFeedItemModel item,
+    WorkerDashboardModel dashboard,
+  ) {
+    if (_selectedBusinessTypeFilter == 'all') {
+      return true;
+    }
+    final directValues = [
+      item.businessTypeId,
+      item.businessTypeSlug,
+      item.businessTypeValue,
+      item.businessTypeLabel,
+    ];
+    if (_matchesNormalizedValue(_selectedBusinessTypeFilter, directValues)) {
+      return true;
+    }
+    for (final dependency in dashboard.categoryDependencies) {
+      final businessType = dependency.businessType;
+      if (businessType == null) {
+        continue;
+      }
+      final matchesCategory = _matchesNormalizedValue(item.categoryId, [
+            dependency.categoryId,
+            dependency.categorySlug,
+            dependency.categoryName,
+          ]) ||
+          _matchesNormalizedValue(item.categorySlug, [
+            dependency.categoryId,
+            dependency.categorySlug,
+            dependency.categoryName,
+          ]) ||
+          _matchesNormalizedValue(item.categoryName, [
+            dependency.categoryId,
+            dependency.categorySlug,
+            dependency.categoryName,
+          ]);
+      if (!matchesCategory) {
+        continue;
+      }
+      final matchesIndustry = _selectedIndustryFilter == 'all' ||
+          _matchesNormalizedValue(_selectedIndustryFilter, [
+            dependency.industryCategory.id,
+            dependency.industryCategory.slug,
+            dependency.industryCategory.value,
+            dependency.industryCategory.label,
+          ]);
+      if (!matchesIndustry) {
+        continue;
+      }
+      if (_matchesNormalizedValue(_selectedBusinessTypeFilter, [
+        businessType.id,
+        businessType.slug,
+        businessType.value,
+        businessType.label,
+      ])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _itemMatchesSelectedCategories(WorkerFeedItemModel item) {
+    if (_selectedCategoryFilters.isEmpty) {
+      return true;
+    }
+    return _selectedCategoryFilters.any(
+      (selected) => _matchesNormalizedValue(selected, [
+        item.categoryId,
+        item.categorySlug,
+        item.categoryName,
+      ]),
+    );
+  }
+
+  bool _itemMatchesCity(WorkerFeedItemModel item) {
+    return _selectedCityFilter == 'all' ||
+        _matchesNormalizedValue(_selectedCityFilter, [
+          item.city,
+          item.companyCity,
+        ]);
+  }
+
+  bool _itemMatchesNearby(WorkerFeedItemModel item) {
+    final workerLat = _livePosition?.latitude;
+    final workerLng = _livePosition?.longitude;
+    if (workerLat == null || workerLng == null) {
+      return false;
+    }
+    final resolvedCoordinates = _resolveJobCoordinatesForItem(item);
+    final jobLat = resolvedCoordinates?.latitude ?? item.latitude;
+    final jobLng = resolvedCoordinates?.longitude ?? item.longitude;
+    if (jobLat == null || jobLng == null) {
+      return false;
+    }
+    return _haversineKm(workerLat, workerLng, jobLat, jobLng) <= 10;
+  }
+
+  bool _itemMatchesOtherCities(
+    WorkerFeedItemModel item,
+    WorkerProfileModel profile,
+  ) {
+    final currentCity = _resolveCurrentCity(profile);
+    if (currentCity.trim().isEmpty) {
+      return item.city.trim().isNotEmpty;
+    }
+    return !_matchesNormalizedValue(currentCity, [item.city]);
+  }
+
+  List<String> _availableCityOptions(WorkerDashboardModel dashboard) {
+    final values = <String>{
+      ...dashboard.availableCities.where((item) => item.trim().isNotEmpty),
+      ...dashboard.feed
+          .map((item) => item.city)
+          .where((item) => item.trim().isNotEmpty),
+      ...dashboard.feed
+          .map((item) => item.companyCity)
+          .where((item) => item.trim().isNotEmpty),
+    };
+    final options = values.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return options;
+  }
+
+  String _feedEmptyMessage(WorkerDashboardModel dashboard) {
+    final l10n = WorkerLocalizations.of(context);
+    if (_selectedFeedTab == _FeedViewTab.nearby &&
+        (_livePosition == null ||
+            dashboard.feed.every((item) =>
+                (item.latitude == null || item.longitude == null) &&
+                _resolveJobCoordinatesForItem(item) == null))) {
+      return l10n.enableLocationOrSelectCity;
+    }
+    final hasAnyFilter = _selectedFeedTab != _FeedViewTab.all ||
+        _selectedIndustryFilter != 'all' ||
+        _selectedBusinessTypeFilter != 'all' ||
+        _selectedCategoryFilters.isNotEmpty ||
+        _selectedCityFilter != 'all' ||
+        _selectedWageBand != 'all' ||
+        _showUnlockedOnly ||
+        _showSavedOnly ||
+        _showAppliedOnly ||
+        _feedQuery.trim().isNotEmpty;
+    if (hasAnyFilter) {
+      return l10n.noJobsMatchCurrentFilters;
+    }
+    return l10n.noActiveJobsAvailable;
+  }
+
   List<WorkerFeedItemModel> get _filteredFeed {
     final dashboard = _dashboard;
     if (dashboard == null) return const [];
@@ -916,20 +1258,34 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           item.city.toLowerCase().contains(_feedQuery.toLowerCase()) ||
           item.categoryName.toLowerCase().contains(_feedQuery.toLowerCase());
       final matchesLock = !_showUnlockedOnly || !item.companyLocked;
-      final matchesSaved = !_showSavedOnly || item.isSaved;
-      final matchesApplied = !_showAppliedOnly || item.hasApplied;
-      final matchesCategory = _selectedCategoryFilters.isEmpty ||
-          _selectedCategoryFilters.contains(item.categoryName);
-      final matchesCity =
-          _selectedCityFilter == 'all' || item.city == _selectedCityFilter;
+      final matchesSaved =
+          (_selectedFeedTab != _FeedViewTab.saved && !_showSavedOnly) ||
+              item.isSaved;
+      final matchesApplied =
+          (_selectedFeedTab != _FeedViewTab.applied && !_showAppliedOnly) ||
+              item.hasApplied;
+      final matchesIndustry = _itemMatchesIndustry(item, dashboard);
+      final matchesBusinessType = _itemMatchesBusinessType(item, dashboard);
+      final matchesCategory = _itemMatchesSelectedCategories(item);
+      final matchesCity = _itemMatchesCity(item);
       final matchesWage = _matchesWageBand(item.wageAmount, _selectedWageBand);
+      final matchesTab = switch (_selectedFeedTab) {
+        _FeedViewTab.all => true,
+        _FeedViewTab.saved => item.isSaved,
+        _FeedViewTab.applied => item.hasApplied,
+        _FeedViewTab.otherCities => _itemMatchesOtherCities(item, dashboard.profile),
+        _FeedViewTab.nearby => _itemMatchesNearby(item),
+      };
       return matchesQuery &&
           matchesLock &&
           matchesSaved &&
           matchesApplied &&
+          matchesIndustry &&
+          matchesBusinessType &&
           matchesCategory &&
           matchesCity &&
-          matchesWage;
+          matchesWage &&
+          matchesTab;
     }).toList();
   }
 
@@ -1135,15 +1491,29 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                           resolveJobCoordinatesForItem:
                               _resolveJobCoordinatesForItem,
                           feed: _filteredFeed,
+                          emptyStateMessage: _feedEmptyMessage(dashboard),
                           query: _feedQuery,
+                          selectedFeedTab: _selectedFeedTab,
                           showUnlockedOnly: _showUnlockedOnly,
                           showSavedOnly: _showSavedOnly,
                           showAppliedOnly: _showAppliedOnly,
+                          selectedIndustryFilter: _selectedIndustryFilter,
+                          selectedBusinessTypeFilter: _selectedBusinessTypeFilter,
                           selectedCategoryFilters: _selectedCategoryFilters,
                           selectedCityFilter: _selectedCityFilter,
                           selectedWageBand: _selectedWageBand,
+                          industryOptions: dashboard.availableIndustryCategories
+                            ..sort((a, b) => a.label
+                                .toLowerCase()
+                                .compareTo(b.label.toLowerCase())),
+                          businessTypeOptions:
+                              _availableBusinessTypeOptions(dashboard),
+                          categoryOptions: _availableCategoryOptions(dashboard),
+                          cityOptions: _availableCityOptions(dashboard),
                           activeJobActionId: _jobActionId,
                           onRefresh: _loadDashboard,
+                          onFeedTabChanged: (value) =>
+                              setState(() => _selectedFeedTab = value),
                           onQueryChanged: (value) =>
                               setState(() => _feedQuery = value),
                           onToggleUnlockedOnly: (value) =>
@@ -1152,6 +1522,37 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                               setState(() => _showSavedOnly = value),
                           onToggleAppliedOnly: (value) =>
                               setState(() => _showAppliedOnly = value),
+                          onIndustryFilterChanged: (value) => setState(() {
+                            _selectedIndustryFilter = value;
+                            _selectedBusinessTypeFilter = 'all';
+                            final availableCategories = _availableCategoryOptions(
+                              dashboard,
+                            );
+                            final allowedKeys = availableCategories
+                                .expand((item) => [item.id, item.name])
+                                .map(_normalizeFilterKey)
+                                .where((item) => item.isNotEmpty)
+                                .toSet();
+                            _selectedCategoryFilters = _selectedCategoryFilters
+                                .where((item) =>
+                                    allowedKeys.contains(_normalizeFilterKey(item)))
+                                .toList(growable: false);
+                          }),
+                          onBusinessTypeFilterChanged: (value) => setState(() {
+                            _selectedBusinessTypeFilter = value;
+                            final availableCategories = _availableCategoryOptions(
+                              dashboard,
+                            );
+                            final allowedKeys = availableCategories
+                                .expand((item) => [item.id, item.name])
+                                .map(_normalizeFilterKey)
+                                .where((item) => item.isNotEmpty)
+                                .toSet();
+                            _selectedCategoryFilters = _selectedCategoryFilters
+                                .where((item) =>
+                                    allowedKeys.contains(_normalizeFilterKey(item)))
+                                .toList(growable: false);
+                          }),
                           onCategoryFiltersChanged: (value) => setState(() =>
                               _selectedCategoryFilters =
                                   List.unmodifiable(value)),
@@ -1161,9 +1562,12 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                               setState(() => _selectedWageBand = value),
                           onClearFilters: () => setState(() {
                             _feedQuery = '';
+                            _selectedFeedTab = _FeedViewTab.all;
                             _showUnlockedOnly = false;
                             _showSavedOnly = false;
                             _showAppliedOnly = false;
+                            _selectedIndustryFilter = 'all';
+                            _selectedBusinessTypeFilter = 'all';
                             _selectedCategoryFilters = const [];
                             _selectedCityFilter = 'all';
                             _selectedWageBand = 'all';
@@ -1369,6 +1773,44 @@ class _TopSummarySection extends StatelessWidget {
   }
 }
 
+class _FeedFilterTabChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FeedFilterTabChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF173C77) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? const Color(0xFF173C77) : const Color(0xFFD6E0F0),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : const Color(0xFF173C77),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FeedTab extends StatelessWidget {
   final WorkerDashboardModel dashboard;
   final int visibleJobsCount;
@@ -1376,19 +1818,30 @@ class _FeedTab extends StatelessWidget {
   final _DerivedJobCoordinates? Function(WorkerFeedItemModel item)
       resolveJobCoordinatesForItem;
   final List<WorkerFeedItemModel> feed;
+  final String emptyStateMessage;
   final String query;
+  final _FeedViewTab selectedFeedTab;
   final bool showUnlockedOnly;
   final bool showSavedOnly;
   final bool showAppliedOnly;
+  final String selectedIndustryFilter;
+  final String selectedBusinessTypeFilter;
   final List<String> selectedCategoryFilters;
   final String selectedCityFilter;
   final String selectedWageBand;
+  final List<WorkerMasterOption> industryOptions;
+  final List<WorkerMasterOption> businessTypeOptions;
+  final List<WorkerCategoryOption> categoryOptions;
+  final List<String> cityOptions;
   final String activeJobActionId;
   final Future<void> Function() onRefresh;
+  final ValueChanged<_FeedViewTab> onFeedTabChanged;
   final ValueChanged<String> onQueryChanged;
   final ValueChanged<bool> onToggleUnlockedOnly;
   final ValueChanged<bool> onToggleSavedOnly;
   final ValueChanged<bool> onToggleAppliedOnly;
+  final ValueChanged<String> onIndustryFilterChanged;
+  final ValueChanged<String> onBusinessTypeFilterChanged;
   final ValueChanged<List<String>> onCategoryFiltersChanged;
   final ValueChanged<String> onCityFilterChanged;
   final ValueChanged<String> onWageBandChanged;
@@ -1403,19 +1856,30 @@ class _FeedTab extends StatelessWidget {
     required this.liveLocation,
     required this.resolveJobCoordinatesForItem,
     required this.feed,
+    required this.emptyStateMessage,
     required this.query,
+    required this.selectedFeedTab,
     required this.showUnlockedOnly,
     required this.showSavedOnly,
     required this.showAppliedOnly,
+    required this.selectedIndustryFilter,
+    required this.selectedBusinessTypeFilter,
     required this.selectedCategoryFilters,
     required this.selectedCityFilter,
     required this.selectedWageBand,
+    required this.industryOptions,
+    required this.businessTypeOptions,
+    required this.categoryOptions,
+    required this.cityOptions,
     required this.activeJobActionId,
     required this.onRefresh,
+    required this.onFeedTabChanged,
     required this.onQueryChanged,
     required this.onToggleUnlockedOnly,
     required this.onToggleSavedOnly,
     required this.onToggleAppliedOnly,
+    required this.onIndustryFilterChanged,
+    required this.onBusinessTypeFilterChanged,
     required this.onCategoryFiltersChanged,
     required this.onCityFilterChanged,
     required this.onWageBandChanged,
@@ -1428,46 +1892,59 @@ class _FeedTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
-    final availableCategoryOptions = dashboard.availableCategories
-        .where((item) => item.name.trim().isNotEmpty)
-        .toList();
-    final categoryOptions = availableCategoryOptions.isNotEmpty
-        ? (availableCategoryOptions
-          ..sort(
-              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())))
-        : ({
-            for (final name in dashboard.feed
-                .map((item) => item.categoryName.trim())
-                .where((item) => item.isNotEmpty))
-              name: WorkerCategoryOption(
-                id: name,
-                name: name,
-                description: '',
-                imageUrl: '',
-                isActive: true,
-              ),
-          }).values.toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    final cityOptions = <String>{
-      ...dashboard.feed
-          .map((item) => item.city)
-          .where((item) => item.trim().isNotEmpty),
-    }.toList()
-      ..sort();
+    final categoryNameByKey = <String, String>{
+      for (final option in categoryOptions) option.id: option.name,
+      for (final option in categoryOptions) option.name: option.name,
+    };
     final activeFilters = <String>[
+      if (selectedFeedTab == _FeedViewTab.nearby)
+        l10n.filterLabel(l10n.jobsNearYou, '10 km'),
+      if (selectedFeedTab == _FeedViewTab.otherCities) l10n.otherCities,
+      if (selectedFeedTab == _FeedViewTab.saved) l10n.saved,
+      if (selectedFeedTab == _FeedViewTab.applied) l10n.appliedWithoutStatus,
+      if (selectedIndustryFilter != 'all')
+        l10n.filterLabel(
+          l10n.industryCategory,
+          _findMasterOptionLabel(industryOptions, selectedIndustryFilter),
+        ),
+      if (selectedBusinessTypeFilter != 'all')
+        l10n.filterLabel(
+          l10n.businessType,
+          _findMasterOptionLabel(
+            businessTypeOptions,
+            selectedBusinessTypeFilter,
+          ),
+        ),
       if (selectedCategoryFilters.isNotEmpty)
-        'Categories: ${selectedCategoryFilters.join(', ')}',
-      if (selectedCityFilter != 'all') 'City: $selectedCityFilter',
-      if (selectedWageBand == 'lt700') 'Wage: Below Rs 700',
-      if (selectedWageBand == '700to999') 'Wage: Rs 700 - 999',
-      if (selectedWageBand == '1000plus') 'Wage: Rs 1000+',
-      if (showUnlockedOnly) 'Unlocked only',
-      if (showSavedOnly) 'Saved only',
-      if (showAppliedOnly) 'Applied only',
+        l10n.filterLabel(
+          l10n.category,
+          selectedCategoryFilters
+              .map((item) => categoryNameByKey[item] ?? item)
+              .join(', '),
+        ),
+      if (selectedCityFilter != 'all')
+        l10n.filterLabel(l10n.city, selectedCityFilter),
+      if (selectedWageBand == 'lt700')
+        l10n.filterLabel(l10n.wage, 'Below Rs 700'),
+      if (selectedWageBand == '700to999')
+        l10n.filterLabel(l10n.wage, 'Rs 700 - 999'),
+      if (selectedWageBand == '1000plus')
+        l10n.filterLabel(l10n.wage, 'Rs 1000+'),
+      if (showUnlockedOnly) l10n.unlockedOnly,
+      if (showSavedOnly) l10n.savedOnly,
+      if (showAppliedOnly) l10n.appliedOnly,
     ];
     final selectedCategorySummary = selectedCategoryFilters.isEmpty
         ? l10n.searchForSkills
-        : selectedCategoryFilters.join(', ');
+        : selectedCategoryFilters
+            .map((item) => categoryNameByKey[item] ?? item)
+            .join(', ');
+    final selectedCategoryDropdownValue =
+        selectedCategoryFilters.length == 1 &&
+                categoryOptions
+                    .any((option) => option.id == selectedCategoryFilters.first)
+            ? selectedCategoryFilters.first
+            : 'all';
 
     return RefreshIndicator.adaptive(
       onRefresh: onRefresh,
@@ -1526,19 +2003,64 @@ class _FeedTab extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 14),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _FeedFilterTabChip(
+                          label: l10n.allJobs,
+                          selected: selectedFeedTab == _FeedViewTab.all,
+                          onTap: () => onFeedTabChanged(_FeedViewTab.all),
+                        ),
+                        const SizedBox(width: 10),
+                        _FeedFilterTabChip(
+                          label: l10n.jobsNearYou,
+                          selected: selectedFeedTab == _FeedViewTab.nearby,
+                          onTap: () => onFeedTabChanged(_FeedViewTab.nearby),
+                        ),
+                        const SizedBox(width: 10),
+                        _FeedFilterTabChip(
+                          label: l10n.otherCities,
+                          selected: selectedFeedTab == _FeedViewTab.otherCities,
+                          onTap: () => onFeedTabChanged(_FeedViewTab.otherCities),
+                        ),
+                        const SizedBox(width: 10),
+                        _FeedFilterTabChip(
+                          label: l10n.saved,
+                          selected: selectedFeedTab == _FeedViewTab.saved,
+                          onTap: () => onFeedTabChanged(_FeedViewTab.saved),
+                        ),
+                        const SizedBox(width: 10),
+                        _FeedFilterTabChip(
+                          label: l10n.appliedWithoutStatus,
+                          selected: selectedFeedTab == _FeedViewTab.applied,
+                          onTap: () => onFeedTabChanged(_FeedViewTab.applied),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    l10n.jobsAvailableForSelectedFilters(feed.length),
+                    style: const TextStyle(
+                      color: Color(0xFF173C77),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: Text(
-                          l10n.isHindi ? 'एडवांस फ़िल्टर' : 'Advanced filters',
+                          l10n.advancedFilters,
                           style: const TextStyle(
                               fontWeight: FontWeight.w800, fontSize: 15),
                         ),
                       ),
                       TextButton(
                         onPressed: onClearFilters,
-                        child: Text(l10n.isHindi ? 'साफ़ करें' : 'Clear'),
+                        child: Text(l10n.clearAction),
                       ),
                     ],
                   ),
@@ -1561,7 +2083,7 @@ class _FeedTab extends StatelessWidget {
                             (category) => Chip(
                               avatar: const Icon(Icons.check_circle_rounded,
                                   size: 18),
-                              label: Text(category),
+                              label: Text(categoryNameByKey[category] ?? category),
                               onDeleted: () {
                                 onCategoryFiltersChanged(
                                   selectedCategoryFilters
@@ -1576,11 +2098,93 @@ class _FeedTab extends StatelessWidget {
                     const SizedBox(height: 12),
                   ],
                   DropdownButtonFormField<String>(
+                    value: selectedIndustryFilter,
+                    items: [
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text(l10n.allIndustryCategories),
+                      ),
+                      ...industryOptions.map(
+                        (option) => DropdownMenuItem(
+                          value: option.id,
+                          child: Text(option.label),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        onIndustryFilterChanged(value);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: l10n.industryCategory,
+                      prefixIcon: const Icon(Icons.apartment_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedBusinessTypeFilter,
+                    items: [
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text(selectedIndustryFilter == 'all'
+                            ? l10n.selectIndustryFirst
+                            : l10n.allBusinessTypes),
+                      ),
+                      ...businessTypeOptions.map(
+                        (option) => DropdownMenuItem(
+                          value: option.id,
+                          child: Text(option.label),
+                        ),
+                      ),
+                    ],
+                    onChanged: selectedIndustryFilter == 'all'
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              onBusinessTypeFilterChanged(value);
+                            }
+                          },
+                    decoration: InputDecoration(
+                      labelText: l10n.businessType,
+                      prefixIcon: const Icon(Icons.business_center_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedCategoryDropdownValue,
+                    items: [
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text(l10n.allCategories),
+                      ),
+                      ...categoryOptions.map(
+                        (option) => DropdownMenuItem(
+                          value: option.id,
+                          child: Text(option.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+                      onCategoryFiltersChanged(
+                        value == 'all' ? const [] : [value],
+                      );
+                    },
+                    decoration: InputDecoration(
+                      labelText: l10n.category,
+                      prefixIcon: const Icon(Icons.category_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
                     value: selectedCityFilter,
                     items: [
                       DropdownMenuItem(
                         value: 'all',
-                        child: Text(l10n.isHindi ? 'सभी शहर' : 'All cities'),
+                        child: Text(l10n.allCities),
                       ),
                       ...cityOptions.map(
                         (city) => DropdownMenuItem(
@@ -1595,7 +2199,7 @@ class _FeedTab extends StatelessWidget {
                       }
                     },
                     decoration: InputDecoration(
-                      labelText: l10n.isHindi ? 'शहर फ़िल्टर' : 'City filter',
+                      labelText: l10n.cityFilter,
                       prefixIcon: const Icon(Icons.location_on_outlined),
                     ),
                   ),
@@ -1605,7 +2209,7 @@ class _FeedTab extends StatelessWidget {
                     items: [
                       DropdownMenuItem(
                         value: 'all',
-                        child: Text(l10n.isHindi ? 'सभी वेतन' : 'All wages'),
+                        child: Text(l10n.allWages),
                       ),
                       DropdownMenuItem(
                         value: 'lt700',
@@ -1628,7 +2232,7 @@ class _FeedTab extends StatelessWidget {
                       }
                     },
                     decoration: InputDecoration(
-                      labelText: l10n.isHindi ? 'वेतन फ़िल्टर' : 'Wage filter',
+                      labelText: l10n.wageFilter,
                       prefixIcon: const Icon(Icons.currency_rupee_rounded),
                     ),
                   ),
@@ -1640,32 +2244,19 @@ class _FeedTab extends StatelessWidget {
                       FilterChip(
                         selected: showUnlockedOnly,
                         onSelected: onToggleUnlockedOnly,
-                        label: Text(
-                            l10n.isHindi ? 'सिर्फ़ अनलॉक' : 'Unlocked only'),
+                        label: Text(l10n.unlockedOnly),
                       ),
                       FilterChip(
                         selected: showSavedOnly,
                         onSelected: onToggleSavedOnly,
-                        label:
-                            Text(l10n.isHindi ? 'सिर्फ़ सेव्ड' : 'Saved only'),
+                        label: Text(l10n.savedOnly),
                       ),
                       FilterChip(
                         selected: showAppliedOnly,
                         onSelected: onToggleAppliedOnly,
-                        label: Text(
-                            l10n.isHindi ? 'सिर्फ़ अप्लाइड' : 'Applied only'),
+                        label: Text(l10n.appliedOnly),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.isHindi
-                        ? 'चुने हुए फ़िल्टर के लिए ${feed.length} जॉब उपलब्ध हैं'
-                        : '${feed.length} jobs available for selected filters',
-                    style: const TextStyle(
-                      color: Color(0xFF173C77),
-                      fontWeight: FontWeight.w800,
-                    ),
                   ),
                   if (activeFilters.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -1684,7 +2275,7 @@ class _FeedTab extends StatelessWidget {
                             children: [
                               Expanded(
                                 child: Text(
-                                  'Active filters',
+                                  l10n.activeFiltersTitle,
                                   style: const TextStyle(
                                     color: Color(0xFF173C77),
                                     fontWeight: FontWeight.w800,
@@ -1693,7 +2284,7 @@ class _FeedTab extends StatelessWidget {
                               ),
                               TextButton(
                                 onPressed: onClearFilters,
-                                child: const Text('Clear all'),
+                                child: Text(l10n.clearAll),
                               ),
                             ],
                           ),
@@ -1725,15 +2316,6 @@ class _FeedTab extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: dashboard.profile.categoryLabels
-                        .map((label) =>
-                            _chip(label, fill: const Color(0xFFF0F6FF)))
-                        .toList(),
-                  ),
                 ],
               ),
             ),
@@ -1744,7 +2326,7 @@ class _FeedTab extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(22),
                 child: Text(
-                  l10n.noJobsMatchMessage,
+                  emptyStateMessage,
                   style: const TextStyle(color: Color(0xFF475569), height: 1.6),
                 ),
               ),
@@ -2061,12 +2643,12 @@ class _CategorySelectorSheet extends StatefulWidget {
 
 class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
   final _searchController = TextEditingController();
-  late final Set<String> _selectedNames;
+  late final Set<String> _selectedIds;
 
   @override
   void initState() {
     super.initState();
-    _selectedNames = {...widget.initiallySelected};
+    _selectedIds = {...widget.initiallySelected};
   }
 
   @override
@@ -2132,16 +2714,15 @@ class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
                               const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final option = filteredOptions[index];
-                            final selected =
-                                _selectedNames.contains(option.name);
+                            final selected = _selectedIds.contains(option.id);
                             return InkWell(
                               borderRadius: BorderRadius.circular(18),
                               onTap: () {
                                 setState(() {
                                   if (selected) {
-                                    _selectedNames.remove(option.name);
+                                    _selectedIds.remove(option.id);
                                   } else {
-                                    _selectedNames.add(option.name);
+                                    _selectedIds.add(option.id);
                                   }
                                 });
                               },
@@ -2210,9 +2791,9 @@ class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
                                       onChanged: (value) {
                                         setState(() {
                                           if (value ?? false) {
-                                            _selectedNames.add(option.name);
+                                            _selectedIds.add(option.id);
                                           } else {
-                                            _selectedNames.remove(option.name);
+                                            _selectedIds.remove(option.id);
                                           }
                                         });
                                       },
@@ -2237,7 +2818,7 @@ class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
                     Expanded(
                       child: FilledButton(
                         onPressed: () => Navigator.of(context)
-                            .pop(_selectedNames.toList()..sort()),
+                            .pop(_selectedIds.toList()..sort()),
                         child: Text(l10n.applyFilters),
                       ),
                     ),
@@ -2733,6 +3314,16 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                       title: item.title,
                       description: item.description,
                       city: item.city,
+                      categoryId: item.categoryId,
+                      categorySlug: item.categorySlug,
+                      industryCategoryId: item.industryCategoryId,
+                      industryCategoryLabel: item.industryCategoryLabel,
+                      industryCategoryValue: item.industryCategoryValue,
+                      industryCategorySlug: item.industryCategorySlug,
+                      businessTypeId: item.businessTypeId,
+                      businessTypeLabel: item.businessTypeLabel,
+                      businessTypeValue: item.businessTypeValue,
+                      businessTypeSlug: item.businessTypeSlug,
                       locationLabel: item.locationLabel,
                       wageAmount: item.wageAmount,
                       workersNeeded: item.workersNeeded,
@@ -4204,6 +4795,15 @@ String _normalizeGeocodePart(String value) {
       .toLowerCase()
       .replaceAll(RegExp(r'\s+'), ' ')
       .replaceAll(RegExp(r'[^a-z0-9,\- ]'), '');
+}
+
+String _findMasterOptionLabel(List<WorkerMasterOption> options, String id) {
+  for (final option in options) {
+    if (option.id == id) {
+      return option.label;
+    }
+  }
+  return id;
 }
 
 String _prettyText(BuildContext context, String value) {

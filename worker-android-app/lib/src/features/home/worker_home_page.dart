@@ -1890,6 +1890,37 @@ class _FeedTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
+    Text _compactDropdownText(String text) {
+      return Text(
+        text,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 12.5,
+          height: 1.15,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+
+    InputDecoration _compactDropdownDecoration(
+      String label,
+      IconData icon,
+    ) {
+      return InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        isDense: true,
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        floatingLabelStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+        contentPadding: const EdgeInsets.fromLTRB(12, 18, 12, 10),
+      );
+    }
+
     final categoryNameByKey = <String, String>{
       for (final option in categoryOptions) option.id: option.name,
       for (final option in categoryOptions) option.name: option.name,
@@ -2099,6 +2130,12 @@ class _FeedTab extends StatelessWidget {
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,
                           value: selectedIndustryFilter,
+                          selectedItemBuilder: (context) => [
+                            _compactDropdownText(l10n.allIndustryCategories),
+                            ...industryOptions.map(
+                              (option) => _compactDropdownText(option.label),
+                            ),
+                          ],
                           items: [
                             DropdownMenuItem(
                               value: 'all',
@@ -2124,10 +2161,9 @@ class _FeedTab extends StatelessWidget {
                               onIndustryFilterChanged(value);
                             }
                           },
-                          decoration: InputDecoration(
-                            labelText: l10n.industryCategory,
-                            prefixIcon: const Icon(Icons.apartment_rounded),
-                            isDense: true,
+                          decoration: _compactDropdownDecoration(
+                            l10n.industryCategory,
+                            Icons.apartment_rounded,
                           ),
                         ),
                       ),
@@ -2136,6 +2172,16 @@ class _FeedTab extends StatelessWidget {
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,
                           value: selectedBusinessTypeFilter,
+                          selectedItemBuilder: (context) => [
+                            _compactDropdownText(
+                              selectedIndustryFilter == 'all'
+                                  ? l10n.selectIndustryFirst
+                                  : l10n.allBusinessTypes,
+                            ),
+                            ...businessTypeOptions.map(
+                              (option) => _compactDropdownText(option.label),
+                            ),
+                          ],
                           items: [
                             DropdownMenuItem(
                               value: 'all',
@@ -2165,11 +2211,9 @@ class _FeedTab extends StatelessWidget {
                                     onBusinessTypeFilterChanged(value);
                                   }
                                 },
-                          decoration: InputDecoration(
-                            labelText: l10n.businessType,
-                            prefixIcon:
-                                const Icon(Icons.business_center_outlined),
-                            isDense: true,
+                          decoration: _compactDropdownDecoration(
+                            l10n.businessType,
+                            Icons.business_center_outlined,
                           ),
                         ),
                       ),
@@ -2183,6 +2227,12 @@ class _FeedTab extends StatelessWidget {
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,
                           value: selectedCategoryDropdownValue,
+                          selectedItemBuilder: (context) => [
+                            _compactDropdownText(l10n.allCategories),
+                            ...categoryOptions.map(
+                              (option) => _compactDropdownText(option.name),
+                            ),
+                          ],
                           items: [
                             DropdownMenuItem(
                               value: 'all',
@@ -2211,10 +2261,9 @@ class _FeedTab extends StatelessWidget {
                               value == 'all' ? const [] : [value],
                             );
                           },
-                          decoration: InputDecoration(
-                            labelText: l10n.category,
-                            prefixIcon: const Icon(Icons.category_rounded),
-                            isDense: true,
+                          decoration: _compactDropdownDecoration(
+                            l10n.category,
+                            Icons.category_rounded,
                           ),
                         ),
                       ),
@@ -2223,6 +2272,12 @@ class _FeedTab extends StatelessWidget {
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,
                           value: selectedCityFilter,
+                          selectedItemBuilder: (context) => [
+                            _compactDropdownText(l10n.allCities),
+                            ...cityOptions.map(
+                              (city) => _compactDropdownText(city),
+                            ),
+                          ],
                           items: [
                             DropdownMenuItem(
                               value: 'all',
@@ -2248,11 +2303,9 @@ class _FeedTab extends StatelessWidget {
                               onCityFilterChanged(value);
                             }
                           },
-                          decoration: InputDecoration(
-                            labelText: l10n.cityFilter,
-                            prefixIcon:
-                                const Icon(Icons.location_on_outlined),
-                            isDense: true,
+                          decoration: _compactDropdownDecoration(
+                            l10n.cityFilter,
+                            Icons.location_on_outlined,
                           ),
                         ),
                       ),
@@ -2262,6 +2315,14 @@ class _FeedTab extends StatelessWidget {
                   DropdownButtonFormField<String>(
                     isExpanded: true,
                     value: selectedWageBand,
+                    selectedItemBuilder: (context) => [
+                      _compactDropdownText(l10n.allWages),
+                      _compactDropdownText(
+                        l10n.isHindi ? 'Rs 700 से कम' : 'Below Rs 700',
+                      ),
+                      _compactDropdownText('Rs 700 - 999'),
+                      _compactDropdownText('Rs 1000+'),
+                    ],
                     items: [
                       DropdownMenuItem(
                         value: 'all',
@@ -2301,10 +2362,9 @@ class _FeedTab extends StatelessWidget {
                         onWageBandChanged(value);
                       }
                     },
-                    decoration: InputDecoration(
-                      labelText: l10n.wageFilter,
-                      prefixIcon: const Icon(Icons.currency_rupee_rounded),
-                      isDense: true,
+                    decoration: _compactDropdownDecoration(
+                      l10n.wageFilter,
+                      Icons.currency_rupee_rounded,
                     ),
                   ),
                   if (activeFilters.isNotEmpty) ...[

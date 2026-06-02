@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -484,7 +484,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'सपोर्ट विकल्प अभी उपलब्ध नहीं हैं।'
+                ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤µà¤¿à¤•à¤²à¥à¤ª à¤…à¤­à¥€ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¤‚à¥¤'
                 : 'Support options are not available right now.',
           ),
         ),
@@ -498,7 +498,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       builder: (sheetContext) {
         final title = support.title.trim().isNotEmpty
             ? support.title.trim()
-            : (l10n.isHindi ? 'सपोर्ट' : 'Support');
+            : (l10n.isHindi ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ' : 'Support');
         final subtitle = support.subtitle.trim();
 
         return SafeArea(
@@ -528,7 +528,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                     leading: const Icon(Icons.chat_rounded,
                         color: Color(0xFF16A34A)),
                     title: Text(
-                        l10n.isHindi ? 'व्हाट्सएप सपोर्ट' : 'WhatsApp support'),
+                        l10n.isHindi ? 'à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ' : 'WhatsApp support'),
                     subtitle: Text(support.whatsappNumber.trim()),
                     onTap: () async {
                       Navigator.of(sheetContext).pop();
@@ -540,7 +540,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.support_agent_rounded,
                         color: Color(0xFF173C77)),
-                    title: Text(l10n.isHindi ? 'सपोर्ट लिंक' : 'Support link'),
+                    title: Text(l10n.isHindi ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤²à¤¿à¤‚à¤•' : 'Support link'),
                     subtitle: Text(chatbotUrl),
                     onTap: () async {
                       Navigator.of(sheetContext).pop();
@@ -575,7 +575,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'व्हाट्सएप सपोर्ट उपलब्ध नहीं है।'
+                ? 'à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤'
                 : 'WhatsApp support is not available.',
           ),
         ),
@@ -586,7 +586,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     final message = support.prefilledMessage.trim().isNotEmpty
         ? support.prefilledMessage.trim()
         : (l10n.isHindi
-            ? 'नमस्ते टीम, मुझे Rozgar worker app में मदद चाहिए।'
+            ? 'à¤¨à¤®à¤¸à¥à¤¤à¥‡ à¤Ÿà¥€à¤®, à¤®à¥à¤à¥‡ Rozgar worker app à¤®à¥‡à¤‚ à¤®à¤¦à¤¦ à¤šà¤¾à¤¹à¤¿à¤à¥¤'
             : 'Hello Team, I need help with the Rozgar worker app.');
 
     final uri =
@@ -597,7 +597,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'व्हाट्सएप खोला नहीं जा सका।'
+                ? 'à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤–à¥‹à¤²à¤¾ à¤¨à¤¹à¥€à¤‚ à¤œà¤¾ à¤¸à¤•à¤¾à¥¤'
                 : 'Could not open WhatsApp.',
           ),
         ),
@@ -613,7 +613,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'सपोर्ट लिंक उपलब्ध नहीं है।'
+                ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤²à¤¿à¤‚à¤• à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤'
                 : 'Support link is not available.',
           ),
         ),
@@ -631,7 +631,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'सपोर्ट लिंक अमान्य है।'
+                ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤²à¤¿à¤‚à¤• à¤…à¤®à¤¾à¤¨à¥à¤¯ à¤¹à¥ˆà¥¤'
                 : 'Support link is invalid.',
           ),
         ),
@@ -645,7 +645,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'सपोर्ट लिंक खोला नहीं जा सका।'
+                ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤²à¤¿à¤‚à¤• à¤–à¥‹à¤²à¤¾ à¤¨à¤¹à¥€à¤‚ à¤œà¤¾ à¤¸à¤•à¤¾à¥¤'
                 : 'Could not open the support link.',
           ),
         ),
@@ -1185,16 +1185,17 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   bool _itemMatchesNearby(WorkerFeedItemModel item) {
     final workerLat = _livePosition?.latitude;
     final workerLng = _livePosition?.longitude;
-    if (workerLat == null || workerLng == null) {
-      return false;
-    }
     final resolvedCoordinates = _resolveJobCoordinatesForItem(item);
     final jobLat = resolvedCoordinates?.latitude ?? item.latitude;
     final jobLng = resolvedCoordinates?.longitude ?? item.longitude;
-    if (jobLat == null || jobLng == null) {
+    if (workerLat != null && workerLng != null && jobLat != null && jobLng != null) {
+      return _haversineKm(workerLat, workerLng, jobLat, jobLng) <= 10;
+    }
+    final currentCity = _resolveCurrentCity(_dashboard!.profile);
+    if (currentCity.trim().isEmpty) {
       return false;
     }
-    return _haversineKm(workerLat, workerLng, jobLat, jobLng) <= 10;
+    return _matchesNormalizedValue(currentCity, [item.city, item.companyCity]);
   }
 
   bool _itemMatchesOtherCities(
@@ -1226,10 +1227,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   String _feedEmptyMessage(WorkerDashboardModel dashboard) {
     final l10n = WorkerLocalizations.of(context);
     if (_selectedFeedTab == _FeedViewTab.nearby &&
-        (_livePosition == null ||
-            dashboard.feed.every((item) =>
-                (item.latitude == null || item.longitude == null) &&
-                _resolveJobCoordinatesForItem(item) == null))) {
+        _resolveCurrentCity(dashboard.profile).trim().isEmpty) {
       return l10n.enableLocationOrSelectCity;
     }
     final hasAnyFilter = _selectedFeedTab != _FeedViewTab.all ||
@@ -1384,7 +1382,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                     ),
                 ],
               ),
-              tooltip: l10n.isHindi ? 'सेव्ड जॉब्स' : 'Saved jobs',
+              tooltip: l10n.isHindi ? 'à¤¸à¥‡à¤µà¥à¤¡ à¤œà¥‰à¤¬à¥à¤¸' : 'Saved jobs',
             ),
           if (dashboard != null)
             IconButton(
@@ -1423,7 +1421,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
             IconButton(
               onPressed: _openSupport,
               icon: const Icon(Icons.support_agent_rounded),
-              tooltip: l10n.isHindi ? 'सपोर्ट' : 'Support',
+              tooltip: l10n.isHindi ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ' : 'Support',
             ),
         ],
       ),
@@ -1614,7 +1612,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           NavigationDestination(
             icon: Icon(Icons.work_outline_rounded),
             selectedIcon: Icon(Icons.work_rounded),
-            label: l10n.isHindi ? 'होम' : 'Home',
+            label: l10n.isHindi ? 'à¤¹à¥‹à¤®' : 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
@@ -1662,7 +1660,7 @@ class _TopSummarySection extends StatelessWidget {
     final jobsValue = '$visibleJobsCount';
     final wageValue = profile.expectedDailyWage > 0
         ? 'Rs ${profile.expectedDailyWage.toStringAsFixed(profile.expectedDailyWage % 1 == 0 ? 0 : 1)}'
-        : '—';
+        : 'â€”';
 
     return Container(
       width: double.infinity,
@@ -1930,9 +1928,6 @@ class _FeedTab extends StatelessWidget {
         l10n.filterLabel(l10n.wage, 'Rs 700 - 999'),
       if (selectedWageBand == '1000plus')
         l10n.filterLabel(l10n.wage, 'Rs 1000+'),
-      if (showUnlockedOnly) l10n.unlockedOnly,
-      if (showSavedOnly) l10n.savedOnly,
-      if (showAppliedOnly) l10n.appliedOnly,
     ];
     final selectedCategorySummary = selectedCategoryFilters.isEmpty
         ? l10n.searchForSkills
@@ -2097,133 +2092,208 @@ class _FeedTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  DropdownButtonFormField<String>(
-                    value: selectedIndustryFilter,
-                    items: [
-                      DropdownMenuItem(
-                        value: 'all',
-                        child: Text(l10n.allIndustryCategories),
-                      ),
-                      ...industryOptions.map(
-                        (option) => DropdownMenuItem(
-                          value: option.id,
-                          child: Text(option.label),
-                        ),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        onIndustryFilterChanged(value);
-                      }
-                    },
-                    decoration: InputDecoration(
-                      labelText: l10n.industryCategory,
-                      prefixIcon: const Icon(Icons.apartment_rounded),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: selectedBusinessTypeFilter,
-                    items: [
-                      DropdownMenuItem(
-                        value: 'all',
-                        child: Text(selectedIndustryFilter == 'all'
-                            ? l10n.selectIndustryFirst
-                            : l10n.allBusinessTypes),
-                      ),
-                      ...businessTypeOptions.map(
-                        (option) => DropdownMenuItem(
-                          value: option.id,
-                          child: Text(option.label),
-                        ),
-                      ),
-                    ],
-                    onChanged: selectedIndustryFilter == 'all'
-                        ? null
-                        : (value) {
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: selectedIndustryFilter,
+                          items: [
+                            DropdownMenuItem(
+                              value: 'all',
+                              child: Text(
+                                l10n.allIndustryCategories,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            ...industryOptions.map(
+                              (option) => DropdownMenuItem(
+                                value: option.id,
+                                child: Text(
+                                  option.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) {
                             if (value != null) {
-                              onBusinessTypeFilterChanged(value);
+                              onIndustryFilterChanged(value);
                             }
                           },
-                    decoration: InputDecoration(
-                      labelText: l10n.businessType,
-                      prefixIcon: const Icon(Icons.business_center_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: selectedCategoryDropdownValue,
-                    items: [
-                      DropdownMenuItem(
-                        value: 'all',
-                        child: Text(l10n.allCategories),
+                          decoration: InputDecoration(
+                            labelText: l10n.industryCategory,
+                            prefixIcon: const Icon(Icons.apartment_rounded),
+                            isDense: true,
+                          ),
+                        ),
                       ),
-                      ...categoryOptions.map(
-                        (option) => DropdownMenuItem(
-                          value: option.id,
-                          child: Text(option.name),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: selectedBusinessTypeFilter,
+                          items: [
+                            DropdownMenuItem(
+                              value: 'all',
+                              child: Text(
+                                selectedIndustryFilter == 'all'
+                                    ? l10n.selectIndustryFirst
+                                    : l10n.allBusinessTypes,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            ...businessTypeOptions.map(
+                              (option) => DropdownMenuItem(
+                                value: option.id,
+                                child: Text(
+                                  option.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: selectedIndustryFilter == 'all'
+                              ? null
+                              : (value) {
+                                  if (value != null) {
+                                    onBusinessTypeFilterChanged(value);
+                                  }
+                                },
+                          decoration: InputDecoration(
+                            labelText: l10n.businessType,
+                            prefixIcon:
+                                const Icon(Icons.business_center_outlined),
+                            isDense: true,
+                          ),
                         ),
                       ),
                     ],
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-                      onCategoryFiltersChanged(
-                        value == 'all' ? const [] : [value],
-                      );
-                    },
-                    decoration: InputDecoration(
-                      labelText: l10n.category,
-                      prefixIcon: const Icon(Icons.category_rounded),
-                    ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: selectedCityFilter,
-                    items: [
-                      DropdownMenuItem(
-                        value: 'all',
-                        child: Text(l10n.allCities),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: selectedCategoryDropdownValue,
+                          items: [
+                            DropdownMenuItem(
+                              value: 'all',
+                              child: Text(
+                                l10n.allCategories,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            ...categoryOptions.map(
+                              (option) => DropdownMenuItem(
+                                value: option.id,
+                                child: Text(
+                                  option.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            onCategoryFiltersChanged(
+                              value == 'all' ? const [] : [value],
+                            );
+                          },
+                          decoration: InputDecoration(
+                            labelText: l10n.category,
+                            prefixIcon: const Icon(Icons.category_rounded),
+                            isDense: true,
+                          ),
+                        ),
                       ),
-                      ...cityOptions.map(
-                        (city) => DropdownMenuItem(
-                          value: city,
-                          child: Text(city),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: selectedCityFilter,
+                          items: [
+                            DropdownMenuItem(
+                              value: 'all',
+                              child: Text(
+                                l10n.allCities,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            ...cityOptions.map(
+                              (city) => DropdownMenuItem(
+                                value: city,
+                                child: Text(
+                                  city,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              onCityFilterChanged(value);
+                            }
+                          },
+                          decoration: InputDecoration(
+                            labelText: l10n.cityFilter,
+                            prefixIcon:
+                                const Icon(Icons.location_on_outlined),
+                            isDense: true,
+                          ),
                         ),
                       ),
                     ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        onCityFilterChanged(value);
-                      }
-                    },
-                    decoration: InputDecoration(
-                      labelText: l10n.cityFilter,
-                      prefixIcon: const Icon(Icons.location_on_outlined),
-                    ),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     value: selectedWageBand,
                     items: [
                       DropdownMenuItem(
                         value: 'all',
-                        child: Text(l10n.allWages),
+                        child: Text(
+                          l10n.allWages,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'lt700',
                         child: Text(
-                            l10n.isHindi ? 'Rs 700 से कम' : 'Below Rs 700'),
+                          l10n.isHindi ? 'Rs 700 से कम' : 'Below Rs 700',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: '700to999',
                         child: Text(
-                            l10n.isHindi ? 'Rs 700 - 999' : 'Rs 700 - 999'),
+                          l10n.isHindi ? 'Rs 700 - 999' : 'Rs 700 - 999',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: '1000plus',
-                        child: Text(l10n.isHindi ? 'Rs 1000+' : 'Rs 1000+'),
+                        child: Text(
+                          l10n.isHindi ? 'Rs 1000+' : 'Rs 1000+',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                     onChanged: (value) {
@@ -2234,32 +2304,11 @@ class _FeedTab extends StatelessWidget {
                     decoration: InputDecoration(
                       labelText: l10n.wageFilter,
                       prefixIcon: const Icon(Icons.currency_rupee_rounded),
+                      isDense: true,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FilterChip(
-                        selected: showUnlockedOnly,
-                        onSelected: onToggleUnlockedOnly,
-                        label: Text(l10n.unlockedOnly),
-                      ),
-                      FilterChip(
-                        selected: showSavedOnly,
-                        onSelected: onToggleSavedOnly,
-                        label: Text(l10n.savedOnly),
-                      ),
-                      FilterChip(
-                        selected: showAppliedOnly,
-                        onSelected: onToggleAppliedOnly,
-                        label: Text(l10n.appliedOnly),
-                      ),
-                    ],
-                  ),
                   if (activeFilters.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(8),
@@ -2377,7 +2426,7 @@ class _FeedTab extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    '${item.city}  •  Published: ${_shortDate(context, item.publishedAt)}',
+                                    '${item.city}  â€¢  Published: ${_shortDate(context, item.publishedAt)}',
                                     style: const TextStyle(
                                         color: Color(0xFF64748B)),
                                   ),
@@ -2482,7 +2531,7 @@ class _FeedTab extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    metaParts.join(' • '),
+                                    metaParts.join(' â€¢ '),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -2575,7 +2624,7 @@ class _FeedTab extends StatelessWidget {
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 12),
                                   child: Text(l10n.isHindi
-                                      ? 'पूरा विवरण'
+                                      ? 'à¤ªà¥‚à¤°à¤¾ à¤µà¤¿à¤µà¤°à¤£'
                                       : 'View details'),
                                 ),
                               ),
@@ -2937,7 +2986,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'कंपनी का व्हाट्सएप नंबर उपलब्ध नहीं है।'
+                ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤•à¤¾ à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤¨à¤‚à¤¬à¤° à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤'
                 : 'Company WhatsApp number is not available.',
           ),
         ),
@@ -2960,7 +3009,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'व्हाट्सएप खोला नहीं जा सका।'
+                ? 'à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤–à¥‹à¤²à¤¾ à¤¨à¤¹à¥€à¤‚ à¤œà¤¾ à¤¸à¤•à¤¾à¥¤'
                 : 'Could not open WhatsApp.',
           ),
         ),
@@ -2975,7 +3024,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.isHindi ? 'जॉब डिटेल्स' : 'Job details'),
+        title: Text(l10n.isHindi ? 'à¤œà¥‰à¤¬ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸' : 'Job details'),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -3024,7 +3073,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                 const SizedBox(height: 10),
                 Text(
                   l10n.isHindi
-                      ? 'यह जॉब ${_shortDate(context, item.expiresAt)} तक खुली है और ${item.workersNeeded} वर्कर चाहिए।'
+                      ? 'à¤¯à¤¹ à¤œà¥‰à¤¬ ${_shortDate(context, item.expiresAt)} à¤¤à¤• à¤–à¥à¤²à¥€ à¤¹à¥ˆ à¤”à¤° ${item.workersNeeded} à¤µà¤°à¥à¤•à¤° à¤šà¤¾à¤¹à¤¿à¤à¥¤'
                       : 'This job is open until ${_shortDate(context, item.expiresAt)} and needs ${item.workersNeeded} workers.',
                   style: const TextStyle(
                     color: Color(0xFFE6EEFF),
@@ -3045,7 +3094,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       value: l10n.workersNeeded(item.workersNeeded),
                     ),
                     _SummaryChip(
-                      label: l10n.isHindi ? 'मैच' : 'Match',
+                      label: l10n.isHindi ? 'à¤®à¥ˆà¤š' : 'Match',
                       value: l10n.localizeMatchReason(item.matchReason),
                     ),
                   ],
@@ -3061,7 +3110,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l10n.isHindi ? 'जॉब ओवरव्यू' : 'Job overview',
+                    l10n.isHindi ? 'à¤œà¥‰à¤¬ à¤“à¤µà¤°à¤µà¥à¤¯à¥‚' : 'Job overview',
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w800),
                   ),
@@ -3104,7 +3153,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l10n.isHindi ? 'कंपनी डिटेल्स' : 'Company details',
+                    l10n.isHindi ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸' : 'Company details',
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w800),
                   ),
@@ -3131,7 +3180,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                     Column(
                       children: [
                         _ProfileInfoTile(
-                          label: l10n.isHindi ? 'कंपनी' : 'Company',
+                          label: l10n.isHindi ? 'à¤•à¤‚à¤ªà¤¨à¥€' : 'Company',
                           value: item.companyName,
                         ),
                         const SizedBox(height: 12),
@@ -3140,7 +3189,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                             Expanded(
                               child: _ProfileInfoTile(
                                 label: l10n.isHindi
-                                    ? 'संपर्क व्यक्ति'
+                                    ? 'à¤¸à¤‚à¤ªà¤°à¥à¤• à¤µà¥à¤¯à¤•à¥à¤¤à¤¿'
                                     : 'Contact person',
                                 value: item.contactPerson ?? '-',
                               ),
@@ -3148,7 +3197,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: _ProfileInfoTile(
-                                label: l10n.isHindi ? 'मोबाइल' : 'Mobile',
+                                label: l10n.isHindi ? 'à¤®à¥‹à¤¬à¤¾à¤‡à¤²' : 'Mobile',
                                 value: item.companyMobile ?? '-',
                               ),
                             ),
@@ -3156,7 +3205,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                         ),
                         const SizedBox(height: 12),
                         _ProfileInfoTile(
-                          label: l10n.isHindi ? 'कंपनी शहर' : 'Company city',
+                          label: l10n.isHindi ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤¶à¤¹à¤°' : 'Company city',
                           value: item.companyCity,
                         ),
                         if ((item.companyMobile ?? '').trim().isNotEmpty) ...[
@@ -3171,7 +3220,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                                     const EdgeInsets.symmetric(vertical: 14),
                                 child: Text(
                                   l10n.isHindi
-                                      ? 'व्हाट्सएप पर बात करें'
+                                      ? 'à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤ªà¤° à¤¬à¤¾à¤¤ à¤•à¤°à¥‡à¤‚'
                                       : 'Chat on WhatsApp',
                                 ),
                               ),
@@ -3192,7 +3241,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l10n.isHindi ? 'जॉब एक्टिविटी' : 'Job activity',
+                    l10n.isHindi ? 'à¤œà¥‰à¤¬ à¤à¤•à¥à¤Ÿà¤¿à¤µà¤¿à¤Ÿà¥€' : 'Job activity',
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w800),
                   ),
@@ -3201,14 +3250,14 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                     children: [
                       Expanded(
                         child: _ProfileInfoTile(
-                          label: l10n.isHindi ? 'पोस्ट की गई' : 'Published',
+                          label: l10n.isHindi ? 'à¤ªà¥‹à¤¸à¥à¤Ÿ à¤•à¥€ à¤—à¤ˆ' : 'Published',
                           value: _shortDate(context, item.publishedAt),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _ProfileInfoTile(
-                          label: l10n.isHindi ? 'समाप्ति' : 'Expires',
+                          label: l10n.isHindi ? 'à¤¸à¤®à¤¾à¤ªà¥à¤¤à¤¿' : 'Expires',
                           value: _shortDate(context, item.expiresAt),
                         ),
                       ),
@@ -3217,7 +3266,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                   if (item.appliedAt != null) ...[
                     const SizedBox(height: 12),
                     _ProfileInfoTile(
-                      label: l10n.isHindi ? 'अप्लाई किया गया' : 'Applied on',
+                      label: l10n.isHindi ? 'à¤…à¤ªà¥à¤²à¤¾à¤ˆ à¤•à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾' : 'Applied on',
                       value: _shortDate(context, item.appliedAt!),
                     ),
                   ],
@@ -3393,7 +3442,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.isHindi ? 'सेव्ड जॉब्स' : 'Saved jobs'),
+        title: Text(l10n.isHindi ? 'à¤¸à¥‡à¤µà¥à¤¡ à¤œà¥‰à¤¬à¥à¤¸' : 'Saved jobs'),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -3423,7 +3472,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  l10n.isHindi ? 'आपकी शॉर्टलिस्ट' : 'Your shortlist',
+                  l10n.isHindi ? 'à¤†à¤ªà¤•à¥€ à¤¶à¥‰à¤°à¥à¤Ÿà¤²à¤¿à¤¸à¥à¤Ÿ' : 'Your shortlist',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -3433,7 +3482,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                 const SizedBox(height: 10),
                 Text(
                   l10n.isHindi
-                      ? 'सेव की गई जॉब्स को एक जगह से देखें, तुलना करें और सही समय पर अप्लाई करें।'
+                      ? 'à¤¸à¥‡à¤µ à¤•à¥€ à¤—à¤ˆ à¤œà¥‰à¤¬à¥à¤¸ à¤•à¥‹ à¤à¤• à¤œà¤—à¤¹ à¤¸à¥‡ à¤¦à¥‡à¤–à¥‡à¤‚, à¤¤à¥à¤²à¤¨à¤¾ à¤•à¤°à¥‡à¤‚ à¤”à¤° à¤¸à¤¹à¥€ à¤¸à¤®à¤¯ à¤ªà¤° à¤…à¤ªà¥à¤²à¤¾à¤ˆ à¤•à¤°à¥‡à¤‚à¥¤'
                       : 'Review your saved jobs in one place, compare them, and apply when you are ready.',
                   style: const TextStyle(
                     color: Color(0xFFE6EEFF),
@@ -3450,11 +3499,11 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                       value: '${_items.length}',
                     ),
                     _SummaryChip(
-                      label: l10n.isHindi ? 'अनलॉक' : 'Unlocked',
+                      label: l10n.isHindi ? 'à¤…à¤¨à¤²à¥‰à¤•' : 'Unlocked',
                       value: '$unlockedCount',
                     ),
                     _SummaryChip(
-                      label: l10n.isHindi ? 'अप्लाइड' : 'Applied',
+                      label: l10n.isHindi ? 'à¤…à¤ªà¥à¤²à¤¾à¤‡à¤¡' : 'Applied',
                       value:
                           '${_items.where((item) => item.hasApplied).length}',
                     ),
@@ -3470,7 +3519,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                 padding: const EdgeInsets.all(22),
                 child: Text(
                   l10n.isHindi
-                      ? 'अभी कोई सेव्ड जॉब नहीं है। फीड से जॉब सेव करें और वह यहाँ दिखाई देगी।'
+                      ? 'à¤…à¤­à¥€ à¤•à¥‹à¤ˆ à¤¸à¥‡à¤µà¥à¤¡ à¤œà¥‰à¤¬ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤ à¤«à¥€à¤¡ à¤¸à¥‡ à¤œà¥‰à¤¬ à¤¸à¥‡à¤µ à¤•à¤°à¥‡à¤‚ à¤”à¤° à¤µà¤¹ à¤¯à¤¹à¤¾à¤ à¤¦à¤¿à¤–à¤¾à¤ˆ à¤¦à¥‡à¤—à¥€à¥¤'
                       : 'No saved jobs yet. Save jobs from the feed and they will appear here.',
                   style: const TextStyle(color: Color(0xFF475569), height: 1.6),
                 ),
@@ -3547,10 +3596,10 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                             _FeedTab._chip(
                               item.companyLocked
                                   ? (l10n.isHindi
-                                      ? 'कंपनी लॉक'
+                                      ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤²à¥‰à¤•'
                                       : 'Company locked')
                                   : (l10n.isHindi
-                                      ? 'कंपनी खुली'
+                                      ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤–à¥à¤²à¥€'
                                       : 'Company unlocked'),
                             ),
                             if (item.hasApplied)
@@ -3574,7 +3623,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 12),
                                   child: Text(l10n.isHindi
-                                      ? 'पूरा विवरण'
+                                      ? 'à¤ªà¥‚à¤°à¤¾ à¤µà¤¿à¤µà¤°à¤£'
                                       : 'View details'),
                                 ),
                               ),
@@ -3730,7 +3779,7 @@ class _NotificationsTab extends StatelessWidget {
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      '${l10n.localizeNotificationMessage(type: notification.type, message: notification.message)}\n${_shortDate(context, notification.createdAt)} - ${_prettyText(context, notification.priority)} ${l10n.isHindi ? 'प्राथमिकता' : 'priority'}',
+                      '${l10n.localizeNotificationMessage(type: notification.type, message: notification.message)}\n${_shortDate(context, notification.createdAt)} - ${_prettyText(context, notification.priority)} ${l10n.isHindi ? 'à¤ªà¥à¤°à¤¾à¤¥à¤®à¤¿à¤•à¤¤à¤¾' : 'priority'}',
                       style: const TextStyle(height: 1.5),
                     ),
                   ),
@@ -3851,7 +3900,7 @@ class _WalletTab extends StatelessWidget {
                       Expanded(
                         child: _MiniStatCard(
                           label: l10n.isHindi
-                              ? 'रजिस्ट्रेशन फीस (एक बार)'
+                              ? 'à¤°à¤œà¤¿à¤¸à¥à¤Ÿà¥à¤°à¥‡à¤¶à¤¨ à¤«à¥€à¤¸ (à¤à¤• à¤¬à¤¾à¤°)'
                               : 'Registration fee (one time)',
                           value:
                               'Rs ${dashboard.wallet.registrationFee.toStringAsFixed(0)}',
@@ -3860,7 +3909,7 @@ class _WalletTab extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: _MiniStatCard(
-                          label: l10n.isHindi ? 'फीस स्टेटस' : 'Fee status',
+                          label: l10n.isHindi ? 'à¤«à¥€à¤¸ à¤¸à¥à¤Ÿà¥‡à¤Ÿà¤¸' : 'Fee status',
                           value: dashboard.wallet.registrationFeePaid
                               ? (l10n.isHindi ? 'Paid' : 'Paid')
                               : (l10n.isHindi ? 'Pending' : 'Pending'),
@@ -4118,7 +4167,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: _ProfileInfoTile(
-                          label: l10n.isHindi ? 'स्थिति' : 'Status',
+                          label: l10n.isHindi ? 'à¤¸à¥à¤¥à¤¿à¤¤à¤¿' : 'Status',
                           value: _prettyText(context, profile.status),
                         ),
                       ),
@@ -4249,14 +4298,14 @@ class _ProfileTabState extends State<_ProfileTab> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            l10n.isHindi ? 'अकाउंट' : 'Account',
+                            l10n.isHindi ? 'à¤…à¤•à¤¾à¤‰à¤‚à¤Ÿ' : 'Account',
                             style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.w800),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             l10n.isHindi
-                                ? 'यदि आप इस डिवाइस से बाहर निकलना चाहते हैं, तो नीचे लॉगआउट करें।'
+                                ? 'à¤¯à¤¦à¤¿ à¤†à¤ª à¤‡à¤¸ à¤¡à¤¿à¤µà¤¾à¤‡à¤¸ à¤¸à¥‡ à¤¬à¤¾à¤¹à¤° à¤¨à¤¿à¤•à¤²à¤¨à¤¾ à¤šà¤¾à¤¹à¤¤à¥‡ à¤¹à¥ˆà¤‚, à¤¤à¥‹ à¤¨à¥€à¤šà¥‡ à¤²à¥‰à¤—à¤†à¤‰à¤Ÿ à¤•à¤°à¥‡à¤‚à¥¤'
                                 : 'Use logout below if you want to sign out from this device.',
                             style: const TextStyle(
                                 color: Color(0xFF64748B), height: 1.5),
@@ -4274,7 +4323,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 14),
                               ),
-                              label: Text(l10n.isHindi ? 'लॉगआउट' : 'Logout'),
+                              label: Text(l10n.isHindi ? 'à¤²à¥‰à¤—à¤†à¤‰à¤Ÿ' : 'Logout'),
                             ),
                           ),
                         ],
@@ -4535,8 +4584,8 @@ class _CompactStatusPill extends StatelessWidget {
       ),
       child: Text(
         isActive
-            ? (l10n.isHindi ? 'सक्रिय' : 'Active')
-            : (l10n.isHindi ? 'निष्क्रिय' : 'Inactive'),
+            ? (l10n.isHindi ? 'à¤¸à¤•à¥à¤°à¤¿à¤¯' : 'Active')
+            : (l10n.isHindi ? 'à¤¨à¤¿à¤·à¥à¤•à¥à¤°à¤¿à¤¯' : 'Inactive'),
         style: TextStyle(
           color: foreground,
           fontWeight: FontWeight.w800,
@@ -4656,17 +4705,17 @@ String _buildWhatsAppMessage({
       : profile.expectedDailyWage.toStringAsFixed(1);
 
   if (isHindi) {
-    return 'नमस्ते $contactName,\n\n'
-        'मेरा नाम ${profile.fullName} है। मुझे आपकी जॉब "${item.title}" में रुचि है।\n\n'
-        'मेरी प्रोफाइल:\n'
-        'नाम: ${profile.fullName}\n'
-        'मोबाइल: ${profile.mobile}\n'
-        'शहर: ${profile.city}\n'
-        'कैटेगरी: ${categories.isEmpty ? '-' : categories}\n'
-        'स्किल्स: ${skills.isEmpty ? '-' : skills}\n'
-        'अनुभव: $experience वर्ष\n'
-        'अपेक्षित दिहाड़ी: Rs $wage\n\n'
-        'कृपया बताइए अगर यह जॉब अभी उपलब्ध है।';
+    return 'à¤¨à¤®à¤¸à¥à¤¤à¥‡ $contactName,\n\n'
+        'à¤®à¥‡à¤°à¤¾ à¤¨à¤¾à¤® ${profile.fullName} à¤¹à¥ˆà¥¤ à¤®à¥à¤à¥‡ à¤†à¤ªà¤•à¥€ à¤œà¥‰à¤¬ "${item.title}" à¤®à¥‡à¤‚ à¤°à¥à¤šà¤¿ à¤¹à¥ˆà¥¤\n\n'
+        'à¤®à¥‡à¤°à¥€ à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤²:\n'
+        'à¤¨à¤¾à¤®: ${profile.fullName}\n'
+        'à¤®à¥‹à¤¬à¤¾à¤‡à¤²: ${profile.mobile}\n'
+        'à¤¶à¤¹à¤°: ${profile.city}\n'
+        'à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€: ${categories.isEmpty ? '-' : categories}\n'
+        'à¤¸à¥à¤•à¤¿à¤²à¥à¤¸: ${skills.isEmpty ? '-' : skills}\n'
+        'à¤…à¤¨à¥à¤­à¤µ: $experience à¤µà¤°à¥à¤·\n'
+        'à¤…à¤ªà¥‡à¤•à¥à¤·à¤¿à¤¤ à¤¦à¤¿à¤¹à¤¾à¤¡à¤¼à¥€: Rs $wage\n\n'
+        'à¤•à¥ƒà¤ªà¤¯à¤¾ à¤¬à¤¤à¤¾à¤‡à¤ à¤…à¤—à¤° à¤¯à¤¹ à¤œà¥‰à¤¬ à¤…à¤­à¥€ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¹à¥ˆà¥¤';
   }
 
   return 'Hello $contactName,\n\n'
@@ -4864,7 +4913,7 @@ String _resolvePrimaryLiveLocation(
   if (homeCity.isNotEmpty) {
     return homeCity;
   }
-  return l10n.isHindi ? 'अपना शहर जोड़ें' : 'Set your city';
+  return l10n.isHindi ? 'à¤…à¤ªà¤¨à¤¾ à¤¶à¤¹à¤° à¤œà¥‹à¤¡à¤¼à¥‡à¤‚' : 'Set your city';
 }
 
 String _resolveSecondaryLiveLocation(
@@ -4904,12 +4953,12 @@ String _activationHeadline(
   }
 
   return switch (activation.status) {
-    'active' => 'वर्कर एक्सेस सक्रिय है',
-    'inactive_wallet_empty' => 'वॉलेट रिचार्ज की जरूरत है',
-    'inactive_subscription_expired' => 'एक्सेस दोबारा सक्रिय करें',
-    'blocked' => 'वर्कर एक्सेस ब्लॉक है',
-    'rejected' => 'प्रोफ़ाइल अस्वीकृत है',
-    _ => 'वर्कर प्रोफ़ाइल अपडेट करें',
+    'active' => 'à¤µà¤°à¥à¤•à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¹à¥ˆ',
+    'inactive_wallet_empty' => 'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤•à¥€ à¤œà¤°à¥‚à¤°à¤¤ à¤¹à¥ˆ',
+    'inactive_subscription_expired' => 'à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¦à¥‹à¤¬à¤¾à¤°à¤¾ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤•à¤°à¥‡à¤‚',
+    'blocked' => 'à¤µà¤°à¥à¤•à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¬à¥à¤²à¥‰à¤• à¤¹à¥ˆ',
+    'rejected' => 'à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤…à¤¸à¥à¤µà¥€à¤•à¥ƒà¤¤ à¤¹à¥ˆ',
+    _ => 'à¤µà¤°à¥à¤•à¤° à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤•à¤°à¥‡à¤‚',
   };
 }
 
@@ -4921,16 +4970,16 @@ String _activationDescription(
 
   return switch (activation.status) {
     'active' =>
-      'आपका वॉलेट सक्रिय है। दैनिक कटौती के बाद भी कंपनी डिटेल्स खुली रहेंगी।',
+      'à¤†à¤ªà¤•à¤¾ à¤µà¥‰à¤²à¥‡à¤Ÿ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¹à¥ˆà¥¤ à¤¦à¥ˆà¤¨à¤¿à¤• à¤•à¤Ÿà¥Œà¤¤à¥€ à¤•à¥‡ à¤¬à¤¾à¤¦ à¤­à¥€ à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤–à¥à¤²à¥€ à¤°à¤¹à¥‡à¤‚à¤—à¥€à¥¤',
     'inactive_wallet_empty' =>
-      'वॉलेट बैलेंस कम है। रिचार्ज करके कंपनी डिटेल्स और विजिबिलिटी फिर से चालू करें।',
+      'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤¬à¥ˆà¤²à¥‡à¤‚à¤¸ à¤•à¤® à¤¹à¥ˆà¥¤ à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤•à¤°à¤•à¥‡ à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤”à¤° à¤µà¤¿à¤œà¤¿à¤¬à¤¿à¤²à¤¿à¤Ÿà¥€ à¤«à¤¿à¤° à¤¸à¥‡ à¤šà¤¾à¤²à¥‚ à¤•à¤°à¥‡à¤‚à¥¤',
     'inactive_subscription_expired' =>
-      'एक्सेस अवधि खत्म हो गई है। रिचार्ज करके दोबारा सक्रिय करें।',
+      'à¤à¤•à¥à¤¸à¥‡à¤¸ à¤…à¤µà¤§à¤¿ à¤–à¤¤à¥à¤® à¤¹à¥‹ à¤—à¤ˆ à¤¹à¥ˆà¥¤ à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤•à¤°à¤•à¥‡ à¤¦à¥‹à¤¬à¤¾à¤°à¤¾ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤•à¤°à¥‡à¤‚à¥¤',
     'blocked' =>
-      'एडमिन ने इस प्रोफ़ाइल को रोका है। सहायता के लिए एडमिन से संपर्क करें।',
+      'à¤à¤¡à¤®à¤¿à¤¨ à¤¨à¥‡ à¤‡à¤¸ à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤•à¥‹ à¤°à¥‹à¤•à¤¾ à¤¹à¥ˆà¥¤ à¤¸à¤¹à¤¾à¤¯à¤¤à¤¾ à¤•à¥‡ à¤²à¤¿à¤ à¤à¤¡à¤®à¤¿à¤¨ à¤¸à¥‡ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤•à¤°à¥‡à¤‚à¥¤',
     'rejected' =>
-      'प्रोफ़ाइल को समीक्षा के बाद स्वीकार नहीं किया गया। जानकारी अपडेट करें।',
-    _ => 'बेहतर मैच पाने के लिए अपनी जानकारी और वॉलेट स्थिति अपडेट रखें।',
+      'à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤•à¥‹ à¤¸à¤®à¥€à¤•à¥à¤·à¤¾ à¤•à¥‡ à¤¬à¤¾à¤¦ à¤¸à¥à¤µà¥€à¤•à¤¾à¤° à¤¨à¤¹à¥€à¤‚ à¤•à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾à¥¤ à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€ à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤•à¤°à¥‡à¤‚à¥¤',
+    _ => 'à¤¬à¥‡à¤¹à¤¤à¤° à¤®à¥ˆà¤š à¤ªà¤¾à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤…à¤ªà¤¨à¥€ à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€ à¤”à¤° à¤µà¥‰à¤²à¥‡à¤Ÿ à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤°à¤–à¥‡à¤‚à¥¤',
   };
 }
 
@@ -4941,8 +4990,8 @@ String _walletVisibilityRule(
   }
 
   if (dashboard.activation.isActive) {
-    return 'एक्सेस सक्रिय रहने तक आपकी प्रोफ़ाइल दिखाई देगी और कंपनी संपर्क उपलब्ध रहेंगे।';
+    return 'à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤°à¤¹à¤¨à¥‡ à¤¤à¤• à¤†à¤ªà¤•à¥€ à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤¦à¤¿à¤–à¤¾à¤ˆ à¤¦à¥‡à¤—à¥€ à¤”à¤° à¤•à¤‚à¤ªà¤¨à¥€ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤°à¤¹à¥‡à¤‚à¤—à¥‡à¥¤';
   }
 
-  return 'वॉलेट बैलेंस और सक्रिय स्थिति के आधार पर कंपनी डिटेल्स और विजिबिलिटी नियंत्रित होती है।';
+  return 'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤¬à¥ˆà¤²à¥‡à¤‚à¤¸ à¤”à¤° à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤•à¥‡ à¤†à¤§à¤¾à¤° à¤ªà¤° à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤”à¤° à¤µà¤¿à¤œà¤¿à¤¬à¤¿à¤²à¤¿à¤Ÿà¥€ à¤¨à¤¿à¤¯à¤‚à¤¤à¥à¤°à¤¿à¤¤ à¤¹à¥‹à¤¤à¥€ à¤¹à¥ˆà¥¤';
 }

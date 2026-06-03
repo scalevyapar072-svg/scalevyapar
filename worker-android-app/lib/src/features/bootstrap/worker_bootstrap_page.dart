@@ -56,7 +56,7 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0E3A69),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -65,41 +65,11 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
                 SizedBox(
-                  width: 196,
-                  height: 196,
+                  width: 220,
+                  height: 220,
                   child: Image(
                     image: AssetImage('assets/images/rozgar-logo-startup.png'),
                     fit: BoxFit.contain,
-                  ),
-                ),
-                SizedBox(height: 28),
-                Text(
-                  'Rozgar',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'Loading your worker dashboard...',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFE2E8F0),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: 28),
-                SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 ),
               ],

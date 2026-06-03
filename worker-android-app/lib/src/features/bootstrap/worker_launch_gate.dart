@@ -141,7 +141,7 @@ class _LaunchSplashView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF0E3A69),
+      color: Colors.white,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -149,40 +149,11 @@ class _LaunchSplashView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
               SizedBox(
-                width: 196,
-                height: 196,
+                width: 220,
+                height: 220,
                 child: Image(
                   image: AssetImage('assets/images/rozgar-logo-startup.png'),
                   fit: BoxFit.contain,
-                ),
-              ),
-              SizedBox(height: 28),
-              Text(
-                'Rozgar',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              SizedBox(height: 12),
-              Text(
-                'Loading your worker dashboard...',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Color(0xFFE2E8F0),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 28),
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ),
             ],

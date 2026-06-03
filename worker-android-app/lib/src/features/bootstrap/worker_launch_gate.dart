@@ -149,29 +149,11 @@ class _LaunchSplashView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
               SizedBox(
-                width: 156,
-                height: 156,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0x14FFFFFF),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.all(14),
-                        child: Image(
-                          image: AssetImage('assets/images/rozgar-logo-round.png'),
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
+                width: 196,
+                height: 196,
+                child: Image(
+                  image: AssetImage('assets/images/rozgar-logo-startup.png'),
+                  fit: BoxFit.contain,
                 ),
               ),
               SizedBox(height: 28),

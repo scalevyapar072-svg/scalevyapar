@@ -102,6 +102,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   String _liveArea = '';
   bool _locationPermissionDenied = false;
   bool _locationUnavailable = false;
+  List<String> _favouriteCities = const [];
+  bool _popularCategoriesExpanded = false;
+  static const int _collapsedPopularCategoryCount = 8;
 
   @override
   void initState() {
@@ -114,6 +117,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     _dashboard = widget.initialDashboard;
     _attachPushNotifications();
     _refreshLiveLocation();
+    unawaited(_loadFavouriteCities());
     if (_dashboard != null) {
       _prefetchFeedCoordinateLookups(_dashboard!.feed);
     }
@@ -260,6 +264,16 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  Future<void> _loadFavouriteCities() async {
+    final savedCities = await _sessionStore.getFavouriteCities();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _favouriteCities = _dedupeCities(savedCities);
+    });
   }
 
   String _cleanError(Object error) =>
@@ -1093,6 +1107,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                     name: dependency.categoryName,
                     description: '',
                     imageUrl: '',
+                    showOnHome: false,
+                    homeOrder: 0,
                     isActive: true,
                   );
             })
@@ -1244,7 +1260,13 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     );
   }
 
-  void _openViewMoreJobs() {
+  void _openViewMoreJobs({
+    String? overrideCityFilter,
+    List<String>? overrideCategoryFilters,
+    String? overrideIndustryFilter,
+    String? overrideBusinessTypeFilter,
+    _FeedViewTab? overrideFeedTab,
+  }) {
     final dashboard = _dashboard;
     if (dashboard == null) {
       return;
@@ -1257,15 +1279,18 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
               initialDashboard: dashboard,
               initialLiveLocation: _liveLocationSnapshot(dashboard.profile),
               initialQuery: _feedQuery,
-              initialFeedTab: _selectedFeedTab,
+              initialFeedTab: overrideFeedTab ?? _selectedFeedTab,
               initialShowUnlockedOnly: _showUnlockedOnly,
               initialShowSavedOnly: _showSavedOnly,
               initialShowAppliedOnly: _showAppliedOnly,
-              initialSelectedIndustryFilter: _selectedIndustryFilter,
+              initialSelectedIndustryFilter:
+                  overrideIndustryFilter ?? _selectedIndustryFilter,
               initialSelectedBusinessTypeFilter:
-                  _selectedBusinessTypeFilter,
-              initialSelectedCategoryFilters: _selectedCategoryFilters,
-              initialSelectedCityFilter: _selectedCityFilter,
+                  overrideBusinessTypeFilter ?? _selectedBusinessTypeFilter,
+              initialSelectedCategoryFilters:
+                  overrideCategoryFilters ?? _selectedCategoryFilters,
+              initialSelectedCityFilter:
+                  overrideCityFilter ?? _selectedCityFilter,
               initialSelectedWageBand: _selectedWageBand,
               resolveJobCoordinatesForItem: _resolveJobCoordinatesForItem,
             ),
@@ -1276,6 +1301,213 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
             _loadDashboard();
           }
         });
+  }
+
+  Future<void> _openFavouriteCitiesPicker() async {
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      return;
+    }
+    final selected = await Navigator.of(context).push<List<String>>(
+      MaterialPageRoute(
+        builder: (_) => _FavouriteCitiesPage(
+          initialSelectedCities: _favouriteCities,
+          availableCities: _popularCities(dashboard),
+          cityJobCounts: _jobCountByCity(dashboard),
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+    if (selected == null || !mounted) {
+      return;
+    }
+    final deduped = _dedupeCities(selected);
+    await _sessionStore.saveFavouriteCities(deduped);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _favouriteCities = deduped;
+    });
+  }
+
+  Future<void> _clearFavouriteCities() async {
+    await _sessionStore.saveFavouriteCities(const []);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _favouriteCities = const [];
+    });
+  }
+
+  void _openCityJobs(String city) {
+    _openViewMoreJobs(
+      overrideFeedTab: _FeedViewTab.all,
+      overrideCityFilter: city,
+    );
+  }
+
+  void _openCategoryJobs(WorkerCategoryOption option) {
+    _openViewMoreJobs(
+      overrideFeedTab: _FeedViewTab.all,
+      overrideIndustryFilter: 'all',
+      overrideBusinessTypeFilter: 'all',
+      overrideCategoryFilters: [option.id],
+    );
+  }
+
+  String _normalizeCityKey(String value) => _normalizeFilterKey(value);
+
+  List<String> _dedupeCities(Iterable<String> cities) {
+    final byKey = <String, String>{};
+    for (final city in cities) {
+      final trimmed = city.trim();
+      final key = _normalizeCityKey(trimmed);
+      if (trimmed.isEmpty || key.isEmpty) {
+        continue;
+      }
+      byKey.putIfAbsent(key, () => trimmed);
+    }
+    return byKey.values.toList(growable: false);
+  }
+
+  Map<String, int> _jobCountByCity(WorkerDashboardModel dashboard) {
+    final counts = <String, int>{};
+    for (final item in dashboard.feed) {
+      final city = (item.city.trim().isNotEmpty ? item.city : item.companyCity)
+          .trim();
+      final key = _normalizeCityKey(city);
+      if (key.isEmpty) {
+        continue;
+      }
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  List<String> _popularCities(WorkerDashboardModel dashboard) {
+    final counts = _jobCountByCity(dashboard);
+    final baseCities = dashboard.availableCities
+        .where((item) => item.trim().isNotEmpty)
+        .toList(growable: false);
+    final options = _dedupeCities(
+      baseCities.isNotEmpty ? baseCities : _availableCityOptions(dashboard),
+    );
+    options.sort((left, right) {
+      final countCompare =
+          (counts[_normalizeCityKey(right)] ?? 0).compareTo(
+        counts[_normalizeCityKey(left)] ?? 0,
+      );
+      if (countCompare != 0) {
+        return countCompare;
+      }
+      return left.toLowerCase().compareTo(right.toLowerCase());
+    });
+    return options;
+  }
+
+  List<String> _homeCitySuggestions(WorkerDashboardModel dashboard) {
+    final suggestions = <String>[];
+    final rankedCities = _popularCities(dashboard);
+
+    void addCity(String city) {
+      final trimmed = city.trim();
+      if (trimmed.isEmpty) {
+        return;
+      }
+      final key = _normalizeCityKey(trimmed);
+      if (key.isEmpty ||
+          suggestions.any((item) => _normalizeCityKey(item) == key)) {
+        return;
+      }
+      suggestions.add(trimmed);
+    }
+
+    for (final city in _favouriteCities) {
+      addCity(city);
+    }
+
+    addCity(_liveCity);
+
+    for (final city in rankedCities) {
+      if (suggestions.length >= 3) {
+        break;
+      }
+      addCity(city);
+    }
+
+    if (suggestions.length < 2) {
+      for (final city in _availableCityOptions(dashboard)) {
+        if (suggestions.length >= 3) {
+          break;
+        }
+        addCity(city);
+      }
+    }
+
+    return suggestions.take(3).toList(growable: false);
+  }
+
+  List<WorkerCategoryOption> _popularCategories(WorkerDashboardModel dashboard) {
+    final categories = List<WorkerCategoryOption>.from(
+      dashboard.availableCategories.where((item) => item.isActive),
+    );
+    categories.sort((left, right) {
+      if (left.showOnHome != right.showOnHome) {
+        return left.showOnHome ? -1 : 1;
+      }
+      final orderCompare = left.homeOrder.compareTo(right.homeOrder);
+      if (orderCompare != 0) {
+        return orderCompare;
+      }
+      return left.name.toLowerCase().compareTo(right.name.toLowerCase());
+    });
+    final highlighted = categories.where((item) => item.showOnHome).toList();
+    if (highlighted.isEmpty) {
+      return categories;
+    }
+    final highlightedKeys = highlighted.map((item) => item.id).toSet();
+    final remaining = categories
+        .where((item) => !highlightedKeys.contains(item.id))
+        .toList(growable: false);
+    return [...highlighted, ...remaining];
+  }
+
+  List<Widget> _buildHomeSections(WorkerDashboardModel dashboard) {
+    final popularCategories = _popularCategories(dashboard);
+    final suggestedCities = _homeCitySuggestions(dashboard);
+    final visibleCategories = _popularCategoriesExpanded
+        ? popularCategories
+        : popularCategories
+            .take(_collapsedPopularCategoryCount)
+            .toList(growable: false);
+    return [
+      _FavouriteCitiesSection(
+        title: 'Jobs in your favourite cities',
+        changeLabel: 'Change',
+        addMoreLabel: 'Add more',
+        clearLabel: 'Clear',
+        visibleCities: suggestedCities,
+        cityJobCounts: _jobCountByCity(dashboard),
+        onChange: _openFavouriteCitiesPicker,
+        onClear: _favouriteCities.isEmpty ? null : _clearFavouriteCities,
+        onCityTap: _openCityJobs,
+      ),
+      const SizedBox(height: 16),
+      _PopularCategoriesSection(
+        title: 'Popular Job Categories',
+        options: visibleCategories,
+        onCategoryTap: _openCategoryJobs,
+        canExpand: popularCategories.length > _collapsedPopularCategoryCount,
+        expanded: _popularCategoriesExpanded,
+        onToggleExpand: () {
+          setState(() {
+            _popularCategoriesExpanded = !_popularCategoriesExpanded;
+          });
+        },
+      ),
+    ];
   }
 
   bool _itemMatchesCity(WorkerFeedItemModel item) {
@@ -1679,6 +1911,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                           onOpenDetails: _openJobDetails,
                           showViewMoreButton: _filteredFeed.length > 8,
                           onViewMoreJobs: _openViewMoreJobs,
+                          sectionsAfterJobs: _buildHomeSections(dashboard),
                         ),
                         _WalletTab(
                           dashboard: dashboard,
@@ -1954,6 +2187,8 @@ class _FeedTab extends StatelessWidget {
   final Future<void> Function(String jobPostId) onToggleSaved;
   final ValueChanged<WorkerFeedItemModel> onOpenDetails;
   final bool showTopSummarySection;
+  final List<Widget> sectionsBeforeJobs;
+  final List<Widget> sectionsAfterJobs;
   final bool showViewMoreButton;
   final VoidCallback? onViewMoreJobs;
 
@@ -1995,6 +2230,8 @@ class _FeedTab extends StatelessWidget {
     required this.onToggleSaved,
     required this.onOpenDetails,
     this.showTopSummarySection = true,
+    this.sectionsBeforeJobs = const [],
+    this.sectionsAfterJobs = const [],
     this.showViewMoreButton = false,
     this.onViewMoreJobs,
   });
@@ -2549,6 +2786,10 @@ class _FeedTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+          if (sectionsBeforeJobs.isNotEmpty) ...[
+            ...sectionsBeforeJobs,
+            const SizedBox(height: 8),
+          ],
           if (feed.isEmpty)
             Card(
               child: Padding(
@@ -2856,6 +3097,10 @@ class _FeedTab extends StatelessWidget {
               ),
             ),
           ],
+          if (sectionsAfterJobs.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            ...sectionsAfterJobs,
+          ],
         ],
       ),
     );
@@ -3128,6 +3373,8 @@ class _AllJobsPageState extends State<_AllJobsPage> {
                 name: dependency.categoryName,
                 description: '',
                 imageUrl: '',
+                showOnHome: false,
+                homeOrder: 0,
                 isActive: true,
               );
         });
@@ -3575,6 +3822,623 @@ class _AllJobsPageState extends State<_AllJobsPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FavouriteCitiesSection extends StatelessWidget {
+  final String title;
+  final String changeLabel;
+  final String addMoreLabel;
+  final String clearLabel;
+  final List<String> visibleCities;
+  final Map<String, int> cityJobCounts;
+  final VoidCallback onChange;
+  final VoidCallback? onClear;
+  final ValueChanged<String> onCityTap;
+
+  const _FavouriteCitiesSection({
+    required this.title,
+    required this.changeLabel,
+    required this.addMoreLabel,
+    required this.clearLabel,
+    required this.visibleCities,
+    required this.cityJobCounts,
+    required this.onChange,
+    required this.onClear,
+    required this.onCityTap,
+  });
+
+  String _normalizeCityKey(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[-_/|]+'), ' ')
+        .replaceAll(RegExp(r'[.,:;()[\]{}]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final visibleCardCount = visibleCities.length + 1;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            OutlinedButton(
+              onPressed: onChange,
+              style: OutlinedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: Text(
+                changeLabel,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: onClear,
+              style: OutlinedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: Text(
+                clearLabel,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final maxCardsInViewport = visibleCardCount >= 4 ? 4 : visibleCardCount;
+            final totalSpacing = 8.0 * (maxCardsInViewport - 1);
+            final cardWidth = ((constraints.maxWidth - totalSpacing) / maxCardsInViewport)
+                .clamp(84.0, 104.0);
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ...visibleCities.map((city) {
+                    final count = cityJobCounts[_normalizeCityKey(city)] ?? 0;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _FavouriteCityCard(
+                        width: cardWidth,
+                        city: city,
+                        count: count,
+                        onTap: () => onCityTap(city),
+                      ),
+                    );
+                  }),
+                  _AddMoreCityCard(
+                    width: cardWidth,
+                    label: addMoreLabel,
+                    onTap: onChange,
+                    accentColor: theme.colorScheme.primary,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _FavouriteCityCard extends StatelessWidget {
+  final double width;
+  final String city;
+  final int count;
+  final VoidCallback onTap;
+
+  const _FavouriteCityCard({
+    required this.width,
+    required this.city,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        width: width,
+        height: 92,
+        padding: const EdgeInsets.fromLTRB(9, 9, 9, 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7ED),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.45)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              city,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF9A3412),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.bolt_rounded,
+                    color: Color(0xFFF59E0B),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      '$count Jobs',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF7C2D12),
+                        fontSize: 10.2,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddMoreCityCard extends StatelessWidget {
+  final double width;
+  final String label;
+  final VoidCallback onTap;
+  final Color accentColor;
+
+  const _AddMoreCityCard({
+    required this.width,
+    required this.label,
+    required this.onTap,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        width: width,
+        height: 92,
+        padding: const EdgeInsets.fromLTRB(9, 9, 9, 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: accentColor.withOpacity(0.35),
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: accentColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF1E293B),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PopularCategoriesSection extends StatelessWidget {
+  final String title;
+  final List<WorkerCategoryOption> options;
+  final ValueChanged<WorkerCategoryOption> onCategoryTap;
+  final bool canExpand;
+  final bool expanded;
+  final VoidCallback? onToggleExpand;
+
+  const _PopularCategoriesSection({
+    required this.title,
+    required this.options,
+    required this.onCategoryTap,
+    this.canExpand = false,
+    this.expanded = false,
+    this.onToggleExpand,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (options.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            if (canExpand && onToggleExpand != null)
+              TextButton.icon(
+                onPressed: onToggleExpand,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  foregroundColor: const Color(0xFF1D4ED8),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                iconAlignment: IconAlignment.end,
+                icon: Icon(
+                  expanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  size: 20,
+                ),
+                label: Text(expanded ? 'Show less' : 'Show more'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cardWidth = ((constraints.maxWidth - 24) / 4).clamp(78.0, 92.0);
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: options.map((option) {
+                return SizedBox(
+                  width: cardWidth,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => onCategoryTap(option),
+                    child: Container(
+                      height: 124,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          _CategoryImage(option: option),
+                          const SizedBox(height: 6),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: Text(
+                                option.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.fade,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  height: 1.15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(growable: false),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _FavouriteCitiesPage extends StatefulWidget {
+  final List<String> initialSelectedCities;
+  final List<String> availableCities;
+  final Map<String, int> cityJobCounts;
+
+  const _FavouriteCitiesPage({
+    required this.initialSelectedCities,
+    required this.availableCities,
+    required this.cityJobCounts,
+  });
+
+  @override
+  State<_FavouriteCitiesPage> createState() => _FavouriteCitiesPageState();
+}
+
+class _FavouriteCitiesPageState extends State<_FavouriteCitiesPage> {
+  final _searchController = TextEditingController();
+  late List<String> _selectedCities;
+
+  String _normalizeCityKey(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[-_/|]+'), ' ')
+        .replaceAll(RegExp(r'[.,:;()[\]{}]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCities = List<String>.from(widget.initialSelectedCities);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _toggleCity(String city) {
+    setState(() {
+      if (_selectedCities.any(
+        (item) => _normalizeCityKey(item) == _normalizeCityKey(city),
+      )) {
+        _selectedCities = _selectedCities
+            .where((item) => _normalizeCityKey(item) != _normalizeCityKey(city))
+            .toList(growable: false);
+      } else {
+        _selectedCities = [..._selectedCities, city];
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _searchController.text.trim().toLowerCase();
+    final filteredCities = widget.availableCities.where((city) {
+      if (query.isEmpty) {
+        return true;
+      }
+      return city.toLowerCase().contains(query);
+    }).toList(growable: false);
+
+    return Scaffold(
+      appBar: AppBar(),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Set your preferred cities to view more jobs!',
+                style: TextStyle(
+                  fontSize: 30,
+                  height: 1.12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'You will see jobs from selected locations.',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 16,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Search & add locations you like',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _searchController,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Example: Mumbai',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Selected Locations',
+                style: TextStyle(
+                  color: Color(0xFF475569),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _selectedCities
+                    .map(
+                      (city) => Chip(
+                        label: Text(city),
+                        onDeleted: () => _toggleCity(city),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Or select from the popular cities',
+                style: TextStyle(
+                  color: Color(0xFF475569),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: filteredCities.map((city) {
+                      final selected = _selectedCities.any(
+                        (item) =>
+                            _normalizeCityKey(item) == _normalizeCityKey(city),
+                      );
+                      final count =
+                          widget.cityJobCounts[_normalizeCityKey(city)] ?? 0;
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => _toggleCity(city),
+                        child: Container(
+                          width: 108,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? const Color(0xFFE0E7FF)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: selected
+                                  ? const Color(0xFF1D4ED8)
+                                  : const Color(0xFFCBD5E1),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                city,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: selected
+                                      ? const Color(0xFF1D4ED8)
+                                      : const Color(0xFF1E293B),
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '$count Jobs',
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(const <String>[]),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text(
+                        'Skip',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(_selectedCities),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text(
+                        'Submit',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -4,6 +4,8 @@ class WorkerCategoryOption {
   final String description;
   final String imageUrl;
   final bool isActive;
+  final bool showOnHome;
+  final int homeOrder;
 
   WorkerCategoryOption({
     required this.id,
@@ -11,6 +13,8 @@ class WorkerCategoryOption {
     required this.description,
     required this.imageUrl,
     required this.isActive,
+    required this.showOnHome,
+    required this.homeOrder,
   });
 
   factory WorkerCategoryOption.fromJson(Map<String, dynamic> json) {
@@ -20,6 +24,8 @@ class WorkerCategoryOption {
       description: json['description'] as String? ?? '',
       imageUrl: json['imageUrl'] as String? ?? '',
       isActive: json['isActive'] as bool? ?? true,
+      showOnHome: json['showOnHome'] as bool? ?? false,
+      homeOrder: (json['homeOrder'] as num?)?.toInt() ?? 0,
     );
   }
 }

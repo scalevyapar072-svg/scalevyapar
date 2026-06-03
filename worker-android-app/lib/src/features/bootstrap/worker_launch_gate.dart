@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -7,6 +7,39 @@ import '../../localization/worker_localizations.dart';
 import '../../services/session_store.dart';
 
 enum _LaunchGateStep { splash, language, done }
+
+const _launchLanguageOptions = <_LaunchLanguageOption>[
+  _LaunchLanguageOption(
+    code: 'hi-en',
+    title: 'Hindi + English',
+    effectiveLocaleCode: 'en',
+    buttonLabel: 'SELECT HINDI + ENGLISH',
+  ),
+  _LaunchLanguageOption(
+    code: 'en',
+    title: 'English',
+    effectiveLocaleCode: 'en',
+    buttonLabel: 'SELECT ENGLISH',
+  ),
+  _LaunchLanguageOption(
+    code: 'hi',
+    title: 'हिन्दी',
+    effectiveLocaleCode: 'hi',
+    buttonLabel: 'हिन्दी चुनें',
+  ),
+  _LaunchLanguageOption(
+    code: 'mr',
+    title: 'मराठी',
+    effectiveLocaleCode: 'en',
+    buttonLabel: 'SELECT मराठी',
+  ),
+  _LaunchLanguageOption(
+    code: 'kn',
+    title: 'ಕನ್ನಡ',
+    effectiveLocaleCode: 'en',
+    buttonLabel: 'SELECT ಕನ್ನಡ',
+  ),
+];
 
 class WorkerLaunchGate extends StatefulWidget {
   final Widget child;
@@ -30,22 +63,8 @@ class _WorkerLaunchGateState extends State<WorkerLaunchGate> {
   @override
   void initState() {
     super.initState();
-    _selectedCode = WidgetsBinding.instance.platformDispatcher.locale
-        .languageCode
-        .toLowerCase()
-        .startsWith('hi')
-        ? 'hi'
-        : 'en';
+    _selectedCode = 'en';
     _startSplashTimer();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final localeCode = WorkerLanguageScope.of(context).locale.languageCode;
-    if (_step != _LaunchGateStep.done) {
-      _selectedCode = localeCode.toLowerCase().startsWith('hi') ? 'hi' : 'en';
-    }
   }
 
   void _startSplashTimer() {
@@ -69,9 +88,18 @@ class _WorkerLaunchGateState extends State<WorkerLaunchGate> {
     );
   }
 
+  _LaunchLanguageOption _selectedOption() {
+    return _launchLanguageOptions.firstWhere(
+      (option) => option.code == _selectedCode,
+      orElse: () => _launchLanguageOptions.first,
+    );
+  }
+
   Future<void> _completeLanguageChoice() async {
-    final setLocaleFuture =
-        WorkerLanguageScope.of(context).setLocale(Locale(_selectedCode));
+    final selected = _selectedOption();
+    final setLocaleFuture = WorkerLanguageScope.of(
+      context,
+    ).setLocale(Locale(selected.effectiveLocaleCode));
     if (!mounted) {
       return;
     }
@@ -88,25 +116,22 @@ class _WorkerLaunchGateState extends State<WorkerLaunchGate> {
     }
 
     return Material(
-          color: Colors.white,
-          child: SafeArea(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: _step == _LaunchGateStep.splash
-                  ? const _LaunchSplashView()
-                  : _LaunchLanguageView(
-                      selectedCode: _selectedCode,
-                      onChanged: (value) =>
-                          setState(() => _selectedCode = value),
-                      onContinue: _completeLanguageChoice,
-                      continueLabel: _selectedCode == 'hi'
-                          ? 'हिंदी चुनें'
-                          : 'SELECT ${_selectedCode.toUpperCase()}',
-                      loadingLabel: l10n.loadingDashboard,
-                    ),
-              ),
-            ),
-          );
+      color: Colors.white,
+      child: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: _step == _LaunchGateStep.splash
+              ? const _LaunchSplashView()
+              : _LaunchLanguageView(
+                  selectedCode: _selectedCode,
+                  onChanged: (value) => setState(() => _selectedCode = value),
+                  onContinue: _completeLanguageChoice,
+                  continueLabel: _selectedOption().buttonLabel,
+                  loadingLabel: l10n.loadingDashboard,
+                ),
+        ),
+      ),
+    );
   }
 }
 
@@ -115,128 +140,73 @@ class _LaunchSplashView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -88,
-          right: -64,
-          child: Container(
-            width: 220,
-            height: 220,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [Color(0x14173C77), Color(0x0D2F6FDF)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: -34,
-          bottom: -58,
-          child: Container(
-            width: 170,
-            height: 170,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0x12FF8A00),
-            ),
-          ),
-        ),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 184,
-                  height: 184,
+    return Container(
+      color: const Color(0xFF0E3A69),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              SizedBox(
+                width: 156,
+                height: 156,
+                child: DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white,
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x14173C77),
-                        blurRadius: 28,
-                        offset: Offset(0, 16),
+                    color: Color(0x14FFFFFF),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
                       ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: Image.asset(
-                    'assets/images/rozgar-logo-round.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF4F7FB),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: const Text(
-                    'ScaleVyapar business automation',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF173C77),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      child: Padding(
+                        padding: EdgeInsets.all(14),
+                        child: Image(
+                          image: AssetImage('assets/images/rozgar-logo-round.png'),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Rozgar by ScaleVyapar',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFF102A43),
-                    fontSize: 34,
-                    fontWeight: FontWeight.w900,
-                    height: 1.08,
-                  ),
+              ),
+              SizedBox(height: 28),
+              Text(
+                'Rozgar',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Find work faster. Connect with verified companies.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFF52606D),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    height: 1.55,
-                  ),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Loading your worker dashboard...',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFFE2E8F0),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 18),
-                Container(
-                  width: 72,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF173C77), Color(0xFFFF8A00)],
-                    ),
-                  ),
+              ),
+              SizedBox(height: 28),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
-                const SizedBox(height: 34),
-                const SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF173C77)),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -279,117 +249,120 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
 
   @override
   Widget build(BuildContext context) {
-    const options = <({String code, String title, String subtitle})>[
-      (
-        code: 'en',
-        title: 'English',
-        subtitle: 'Continue in English',
-      ),
-      (
-        code: 'hi',
-        title: 'हिंदी',
-        subtitle: 'हिंदी में आगे बढ़ें',
-      ),
-    ];
-
     return Column(
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 28, 24, 18),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Column(
+                SizedBox(
+                  height: 214,
+                  child: Stack(
                     children: [
-                      Container(
-                        width: 128,
-                        height: 128,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x14173C77),
-                              blurRadius: 24,
-                              offset: Offset(0, 12),
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0xFF2447D5),
+                                Color(0xFFF7F8FD),
+                              ],
+                              stops: [0, 0.74],
                             ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(14),
-                        child: Image.asset(
-                          'assets/images/rozgar-logo-round.png',
-                          fit: BoxFit.contain,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'Rozgar by ScaleVyapar',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF102A43),
+                      Positioned(
+                        left: -44,
+                        right: -44,
+                        bottom: 0,
+                        child: Container(
+                          height: 84,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.elliptical(420, 78),
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Hello!\nनमस्ते!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w300,
-                          height: 1.2,
-                          color: Color(0xFF425466),
+                      Positioned(
+                        left: 18,
+                        top: 24,
+                        child: Container(
+                          width: 108,
+                          height: 108,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(32),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x22173C77),
+                                blurRadius: 22,
+                                offset: Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.accessibility_new_rounded,
+                            color: Color(0xFF2447D5),
+                            size: 60,
+                          ),
+                        ),
+                      ),
+                      const Positioned(
+                        top: 24,
+                        left: 144,
+                        right: 6,
+                        child: Text(
+                          'Hello!\nनमस्ते!\nவணக்கம்!',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w300,
+                            height: 1.24,
+                            color: Color(0xFF4B5563),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 28),
-                Text(
-                  widget.selectedCode == 'hi' ? 'भाषा चुनें' : 'Select Language',
-                  style: const TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF102A43),
+                const SizedBox(height: 10),
+                const Text(
+                  'Select Language',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF1F2937),
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  widget.selectedCode == 'hi'
-                      ? 'Rozgar ऐप में उपयोग करने के लिए अपनी भाषा चुनें।'
-                      : 'Choose the language you want to use in Rozgar.',
-                  style: const TextStyle(
-                    fontSize: 17,
+                const Text(
+                  'Job information will be seen in this language.',
+                  style: TextStyle(
+                    fontSize: 16,
                     color: Color(0xFF6B7280),
-                    height: 1.5,
+                    height: 1.45,
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(26),
                     border: Border.all(color: const Color(0xFFE5E7EB)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x0F173C77),
-                        blurRadius: 24,
-                        offset: Offset(0, 14),
-                      ),
-                    ],
                   ),
                   child: Column(
-                    children: options.map((option) {
+                    children: _launchLanguageOptions.map((option) {
                       final isSelected = option.code == widget.selectedCode;
                       return Padding(
                         padding: EdgeInsets.only(
-                          bottom: option == options.last ? 0 : 12,
+                          bottom: option == _launchLanguageOptions.last ? 0 : 12,
                         ),
                         child: InkWell(
                           onTap: () => widget.onChanged(option.code),
@@ -399,7 +372,7 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 18,
-                              vertical: 18,
+                              vertical: 14,
                             ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(18),
@@ -415,35 +388,18 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
                             child: Row(
                               children: [
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        option.title,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: isSelected
-                                              ? FontWeight.w800
-                                              : FontWeight.w500,
-                                          color: isSelected
-                                              ? Colors.white
-                                              : const Color(0xFF111827),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        option.subtitle,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: isSelected
-                                              ? const Color(0xFFDDE6FF)
-                                              : const Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    option.title,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w800
+                                          : FontWeight.w500,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : const Color(0xFF111827),
+                                    ),
                                   ),
                                 ),
                                 if (isSelected)
@@ -465,14 +421,14 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
           child: SizedBox(
             width: double.infinity,
             child: FilledButton(
               onPressed: _submitting ? null : _handleContinue,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF2447D5),
-                padding: const EdgeInsets.symmetric(vertical: 18),
+                padding: const EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -480,7 +436,7 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
               child: Text(
                 _submitting ? widget.loadingLabel : widget.continueLabel,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 17,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.8,
                 ),
@@ -491,4 +447,18 @@ class _LaunchLanguageViewState extends State<_LaunchLanguageView> {
       ],
     );
   }
+}
+
+class _LaunchLanguageOption {
+  final String code;
+  final String title;
+  final String effectiveLocaleCode;
+  final String buttonLabel;
+
+  const _LaunchLanguageOption({
+    required this.code,
+    required this.title,
+    required this.effectiveLocaleCode,
+    required this.buttonLabel,
+  });
 }

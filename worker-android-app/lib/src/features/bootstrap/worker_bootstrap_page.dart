@@ -56,7 +56,7 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF0E3A69),
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -65,47 +65,59 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
                 SizedBox(
-                  width: 144,
-                  height: 144,
+                  width: 156,
+                  height: 156,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x14173C77),
-                          blurRadius: 24,
-                          offset: Offset(0, 14),
-                        ),
-                      ],
+                      color: Color(0x14FFFFFF),
                     ),
                     child: Padding(
-                      padding: EdgeInsets.all(14),
-                      child: Image(
-                        image: AssetImage('assets/images/rozgar-logo-round.png'),
-                        fit: BoxFit.contain,
+                      padding: EdgeInsets.all(12),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(14),
+                          child: Image(
+                            image: AssetImage('assets/images/rozgar-logo-round.png'),
+                            fit: BoxFit.contain,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-                SizedBox(height: 26),
+                SizedBox(height: 28),
                 Text(
-                  'Rozgar by ScaleVyapar',
+                  'Rozgar',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Color(0xFF102A43),
-                    fontSize: 24,
+                    color: Colors.white,
+                    fontSize: 30,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 16),
+                SizedBox(height: 12),
+                Text(
+                  'Loading your worker dashboard...',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFE2E8F0),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 28),
                 SizedBox(
                   width: 28,
                   height: 28,
                   child: CircularProgressIndicator(
                     strokeWidth: 3,
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xFF173C77)),
+                        AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 ),
               ],

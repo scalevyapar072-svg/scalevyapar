@@ -921,7 +921,20 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     return value
         .trim()
         .toLowerCase()
+        .replaceAll(RegExp(r'[-_/|]+'), ' ')
+        .replaceAll(RegExp(r'[.,:;()[\]{}]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  Set<String> _normalizedValueSet(Iterable<String?> values) {
+    return values
+        .map((value) => _normalizeFilterKey(value ?? ''))
+        .where((value) => value.isNotEmpty)
+        .toSet();
+  }
+
+  bool _setsIntersect(Set<String> left, Set<String> right) {
+    return left.any(right.contains);
   }
 
   bool _matchesNormalizedValue(String selected, Iterable<String?> values) {
@@ -935,6 +948,52 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       }
     }
     return false;
+  }
+
+  Set<String> _selectedCategoryIdentityKeys(
+    String selected,
+    WorkerDashboardModel dashboard,
+  ) {
+    final keys = <String>{_normalizeFilterKey(selected)}
+      ..removeWhere((value) => value.isEmpty);
+    if (keys.isEmpty) {
+      return keys;
+    }
+
+    var changed = true;
+    while (changed) {
+      changed = false;
+
+      for (final option in dashboard.availableCategories) {
+        final optionKeys = _normalizedValueSet([option.id, option.name]);
+        if (!_setsIntersect(keys, optionKeys)) {
+          continue;
+        }
+        final lengthBefore = keys.length;
+        keys.addAll(optionKeys);
+        if (keys.length != lengthBefore) {
+          changed = true;
+        }
+      }
+
+      for (final dependency in dashboard.categoryDependencies) {
+        final dependencyKeys = _normalizedValueSet([
+          dependency.categoryId,
+          dependency.categorySlug,
+          dependency.categoryName,
+        ]);
+        if (!_setsIntersect(keys, dependencyKeys)) {
+          continue;
+        }
+        final lengthBefore = keys.length;
+        keys.addAll(dependencyKeys);
+        if (keys.length != lengthBefore) {
+          changed = true;
+        }
+      }
+    }
+
+    return keys;
   }
 
   String _resolveCurrentCity(WorkerProfileModel profile) {
@@ -1165,12 +1224,23 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     if (_selectedCategoryFilters.isEmpty) {
       return true;
     }
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      return true;
+    }
+    final itemCategoryKeys = _normalizedValueSet([
+      item.categoryId,
+      item.categorySlug,
+      item.categoryName,
+    ]);
+    if (itemCategoryKeys.isEmpty) {
+      return false;
+    }
     return _selectedCategoryFilters.any(
-      (selected) => _matchesNormalizedValue(selected, [
-        item.categoryId,
-        item.categorySlug,
-        item.categoryName,
-      ]),
+      (selected) => _setsIntersect(
+        _selectedCategoryIdentityKeys(selected, dashboard),
+        itemCategoryKeys,
+      ),
     );
   }
 
@@ -1924,6 +1994,12 @@ class _FeedTab extends StatelessWidget {
     final categoryNameByKey = <String, String>{
       for (final option in categoryOptions) option.id: option.name,
       for (final option in categoryOptions) option.name: option.name,
+      for (final dependency in dashboard.categoryDependencies)
+        dependency.categoryId: dependency.categoryName,
+      for (final dependency in dashboard.categoryDependencies)
+        dependency.categorySlug: dependency.categoryName,
+      for (final dependency in dashboard.categoryDependencies)
+        dependency.categoryName: dependency.categoryName,
     };
     final activeFilters = <String>[
       if (selectedFeedTab == _FeedViewTab.nearby)

@@ -69,6 +69,277 @@ enum _FeedViewTab {
   applied,
 }
 
+String _normalizeJobRankKey(String value) {
+  return value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[-_/|]+'), ' ')
+      .replaceAll(RegExp(r'[.,:;()[\]{}]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ');
+}
+
+Set<String> _normalizedJobRankSet(Iterable<String?> values) {
+  return values
+      .map((value) => _normalizeJobRankKey(value ?? ''))
+      .where((value) => value.isNotEmpty)
+      .toSet();
+}
+
+bool _jobRankSetsIntersect(Set<String> left, Set<String> right) {
+  return left.any(right.contains);
+}
+
+String _resolveWorkerCurrentCity(
+  _LiveLocationSnapshot liveLocation,
+  WorkerProfileModel profile,
+) {
+  final liveCity = liveLocation.city.trim();
+  if (liveCity.isNotEmpty) {
+    return liveCity;
+  }
+  final profileCity = profile.city.trim();
+  if (profileCity.isNotEmpty) {
+    return profileCity;
+  }
+  return profile.homeCity.trim();
+}
+
+Set<String> _workerCategoryKeys(WorkerProfileModel profile) {
+  return _normalizedJobRankSet([
+    ...profile.categoryIds,
+    ...profile.categoryLabels,
+  ]);
+}
+
+Set<String> _workerIndustryKeys(
+  WorkerDashboardModel dashboard,
+  WorkerProfileModel profile,
+) {
+  final workerCategoryKeys = _workerCategoryKeys(profile);
+  final result = <String>{};
+  for (final dependency in dashboard.categoryDependencies) {
+    final categoryKeys = _normalizedJobRankSet([
+      dependency.categoryId,
+      dependency.categorySlug,
+      dependency.categoryName,
+    ]);
+    if (!_jobRankSetsIntersect(workerCategoryKeys, categoryKeys)) {
+      continue;
+    }
+    result.addAll(_normalizedJobRankSet([
+      dependency.industryCategory.id,
+      dependency.industryCategory.slug,
+      dependency.industryCategory.value,
+      dependency.industryCategory.label,
+    ]));
+  }
+  return result;
+}
+
+Set<String> _workerBusinessTypeKeys(
+  WorkerDashboardModel dashboard,
+  WorkerProfileModel profile,
+) {
+  final workerCategoryKeys = _workerCategoryKeys(profile);
+  final result = <String>{};
+  for (final dependency in dashboard.categoryDependencies) {
+    final businessType = dependency.businessType;
+    if (businessType == null) {
+      continue;
+    }
+    final categoryKeys = _normalizedJobRankSet([
+      dependency.categoryId,
+      dependency.categorySlug,
+      dependency.categoryName,
+    ]);
+    if (!_jobRankSetsIntersect(workerCategoryKeys, categoryKeys)) {
+      continue;
+    }
+    result.addAll(_normalizedJobRankSet([
+      businessType.id,
+      businessType.slug,
+      businessType.value,
+      businessType.label,
+    ]));
+  }
+  return result;
+}
+
+Set<String> _jobCategoryKeys(WorkerFeedItemModel item) {
+  return _normalizedJobRankSet([
+    item.categoryId,
+    item.categorySlug,
+    item.categoryName,
+  ]);
+}
+
+Set<String> _jobIndustryKeys(
+  WorkerDashboardModel dashboard,
+  WorkerFeedItemModel item,
+) {
+  final keys = _normalizedJobRankSet([
+    item.industryCategoryId,
+    item.industryCategorySlug,
+    item.industryCategoryValue,
+    item.industryCategoryLabel,
+  ]);
+  if (keys.isNotEmpty) {
+    return keys;
+  }
+  final result = <String>{};
+  final itemCategoryKeys = _jobCategoryKeys(item);
+  for (final dependency in dashboard.categoryDependencies) {
+    final dependencyCategoryKeys = _normalizedJobRankSet([
+      dependency.categoryId,
+      dependency.categorySlug,
+      dependency.categoryName,
+    ]);
+    if (!_jobRankSetsIntersect(itemCategoryKeys, dependencyCategoryKeys)) {
+      continue;
+    }
+    result.addAll(_normalizedJobRankSet([
+      dependency.industryCategory.id,
+      dependency.industryCategory.slug,
+      dependency.industryCategory.value,
+      dependency.industryCategory.label,
+    ]));
+  }
+  return result;
+}
+
+Set<String> _jobBusinessTypeKeys(
+  WorkerDashboardModel dashboard,
+  WorkerFeedItemModel item,
+) {
+  final keys = _normalizedJobRankSet([
+    item.businessTypeId,
+    item.businessTypeSlug,
+    item.businessTypeValue,
+    item.businessTypeLabel,
+  ]);
+  if (keys.isNotEmpty) {
+    return keys;
+  }
+  final result = <String>{};
+  final itemCategoryKeys = _jobCategoryKeys(item);
+  for (final dependency in dashboard.categoryDependencies) {
+    final businessType = dependency.businessType;
+    if (businessType == null) {
+      continue;
+    }
+    final dependencyCategoryKeys = _normalizedJobRankSet([
+      dependency.categoryId,
+      dependency.categorySlug,
+      dependency.categoryName,
+    ]);
+    if (!_jobRankSetsIntersect(itemCategoryKeys, dependencyCategoryKeys)) {
+      continue;
+    }
+    result.addAll(_normalizedJobRankSet([
+      businessType.id,
+      businessType.slug,
+      businessType.value,
+      businessType.label,
+    ]));
+  }
+  return result;
+}
+
+DateTime _safeJobPublishedAt(String value) {
+  return DateTime.tryParse(value) ?? DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+List<WorkerFeedItemModel> _rankWorkerFeedItems({
+  required List<WorkerFeedItemModel> items,
+  required WorkerDashboardModel dashboard,
+  required WorkerProfileModel profile,
+  required _LiveLocationSnapshot liveLocation,
+}) {
+  final workerCategoryKeys = _workerCategoryKeys(profile);
+  final workerIndustryKeys = _workerIndustryKeys(dashboard, profile);
+  final workerBusinessKeys = _workerBusinessTypeKeys(dashboard, profile);
+  final currentCity = _normalizeJobRankKey(
+    _resolveWorkerCurrentCity(liveLocation, profile),
+  );
+
+  final indexed = items.indexed.toList();
+  indexed.sort((left, right) {
+    final leftItem = left.$2;
+    final rightItem = right.$2;
+
+    final leftCategoryMatch = _jobRankSetsIntersect(
+      workerCategoryKeys,
+      _jobCategoryKeys(leftItem),
+    );
+    final rightCategoryMatch = _jobRankSetsIntersect(
+      workerCategoryKeys,
+      _jobCategoryKeys(rightItem),
+    );
+    final categoryCompare = (rightCategoryMatch ? 1 : 0) -
+        (leftCategoryMatch ? 1 : 0);
+    if (categoryCompare != 0) {
+      return categoryCompare;
+    }
+
+    final leftCityMatch = currentCity.isNotEmpty &&
+        _jobRankSetsIntersect(
+          {currentCity},
+          _normalizedJobRankSet([leftItem.city, leftItem.companyCity]),
+        );
+    final rightCityMatch = currentCity.isNotEmpty &&
+        _jobRankSetsIntersect(
+          {currentCity},
+          _normalizedJobRankSet([rightItem.city, rightItem.companyCity]),
+        );
+    final cityCompare = (rightCityMatch ? 1 : 0) - (leftCityMatch ? 1 : 0);
+    if (cityCompare != 0) {
+      return cityCompare;
+    }
+
+    final leftIndustryBusinessScore =
+        (_jobRankSetsIntersect(
+                  workerIndustryKeys,
+                  _jobIndustryKeys(dashboard, leftItem),
+                )
+                ? 1
+                : 0) +
+            (_jobRankSetsIntersect(
+                  workerBusinessKeys,
+                  _jobBusinessTypeKeys(dashboard, leftItem),
+                )
+                ? 1
+                : 0);
+    final rightIndustryBusinessScore =
+        (_jobRankSetsIntersect(
+                  workerIndustryKeys,
+                  _jobIndustryKeys(dashboard, rightItem),
+                )
+                ? 1
+                : 0) +
+            (_jobRankSetsIntersect(
+                  workerBusinessKeys,
+                  _jobBusinessTypeKeys(dashboard, rightItem),
+                )
+                ? 1
+                : 0);
+    final industryBusinessCompare =
+        rightIndustryBusinessScore.compareTo(leftIndustryBusinessScore);
+    if (industryBusinessCompare != 0) {
+      return industryBusinessCompare;
+    }
+
+    final publishedCompare = _safeJobPublishedAt(rightItem.publishedAt)
+        .compareTo(_safeJobPublishedAt(leftItem.publishedAt));
+    if (publishedCompare != 0) {
+      return publishedCompare;
+    }
+
+    return left.$1.compareTo(right.$1);
+  });
+
+  return indexed.map((entry) => entry.$2).toList(growable: false);
+}
+
 class _WorkerHomePageState extends State<WorkerHomePage> {
   final _apiService = WorkerApiService();
   final _sessionStore = SessionStore();
@@ -1586,7 +1857,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     final dashboard = _dashboard;
     if (dashboard == null) return const [];
 
-    return dashboard.feed.where((item) {
+    final filtered = dashboard.feed.where((item) {
       final matchesQuery = _feedQuery.isEmpty ||
           item.title.toLowerCase().contains(_feedQuery.toLowerCase()) ||
           item.city.toLowerCase().contains(_feedQuery.toLowerCase()) ||
@@ -1620,7 +1891,14 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           matchesCity &&
           matchesWage &&
           matchesTab;
-    }).toList();
+    }).toList(growable: false);
+
+    return _rankWorkerFeedItems(
+      items: filtered,
+      dashboard: dashboard,
+      profile: dashboard.profile,
+      liveLocation: _liveLocationSnapshot(dashboard.profile),
+    );
   }
 
   @override
@@ -2810,267 +3088,377 @@ class _FeedTab extends StatelessWidget {
                   item,
                   resolvedCoordinates: resolveJobCoordinatesForItem(item),
                 );
-                final metaParts = [
-                  if (item.city.trim().isNotEmpty) item.city.trim(),
-                  distanceLabel,
-                  if (item.publishedAt.trim().isNotEmpty)
-                    'Published: ${_shortDate(context, item.publishedAt)}',
-                  if ((item.shiftType ?? '').trim().isNotEmpty)
-                    item.shiftType!.trim(),
-                ];
                 final hasCompanyMobile =
                     (item.companyMobile ?? '').trim().isNotEmpty;
+                final categoryMatch = _jobRankSetsIntersect(
+                  _workerCategoryKeys(dashboard.profile),
+                  _jobCategoryKeys(item),
+                );
+                final showLockedState = !categoryMatch;
                 final canContactCompany =
-                    !item.companyLocked && hasCompanyMobile;
+                    !item.companyLocked && categoryMatch && hasCompanyMobile;
+                final locationText = _locationLine(item, distanceLabel);
+                final companyPerson = (item.contactPerson ?? '').trim().isNotEmpty
+                    ? item.contactPerson!.trim()
+                    : (showLockedState || item.companyLocked
+                        ? (l10n.isHindi ? 'लॉक्ड' : 'Locked')
+                        : '-');
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: showLockedState
+                          ? const Color(0xFFF2D7A6)
+                          : const Color(0xFFDDE7F3),
+                    ),
+                  ),
+                  child: InkWell(
+                    onTap: () => onOpenDetails(item),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0, end: 1),
+                                  duration: const Duration(milliseconds: 850),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, value, child) {
+                                    final shake = math.sin(value * math.pi * 4) *
+                                        1.8 *
+                                        (1 - value);
+                                    final scale = 0.98 + (0.02 * value);
+                                    return Transform.scale(
+                                      scale: scale,
+                                      child: Transform.translate(
+                                        offset: Offset(shake, 0),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                     ),
+                                     decoration: BoxDecoration(
+                                      color: showLockedState
+                                          ? const Color(0xFFFFF8EE)
+                                          : const Color(0xFFE8F7EF),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: showLockedState
+                                            ? const Color(0xFFF2D7A6)
+                                            : const Color(0xFFB8E0C7),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      item.categoryName,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: showLockedState
+                                            ? const Color(0xFF9A5B13)
+                                            : const Color(0xFF0F766E),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1.1,
+                                      ),
+                                    ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '${item.city}  â€¢  Published: ${_shortDate(context, item.publishedAt)}',
-                                    style: const TextStyle(
-                                        color: Color(0xFF64748B)),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                IconButton.outlined(
+                              const SizedBox(width: 8),
+                              _statusBadge(
+                                locked: showLockedState,
+                                isHindi: l10n.isHindi,
+                              ),
+                              const SizedBox(width: 6),
+                              SizedBox(
+                                width: 34,
+                                height: 34,
+                                child: IconButton(
                                   onPressed: actionLoading
                                       ? null
                                       : () => onToggleSaved(item.id),
+                                  padding: EdgeInsets.zero,
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: item.isSaved
+                                        ? const Color(0xFFE8F0FF)
+                                        : const Color(0xFFF8FAFC),
+                                    side: const BorderSide(
+                                      color: Color(0xFFD7E2EE),
+                                    ),
+                                  ),
                                   icon: Icon(
                                     item.isSaved
                                         ? Icons.bookmark_rounded
                                         : Icons.bookmark_outline_rounded,
+                                    size: 18,
+                                    color: const Color(0xFF173C77),
                                   ),
                                   tooltip: item.isSaved
                                       ? l10n.removeFromShortlist
                                       : l10n.saveJob,
                                 ),
-                                const SizedBox(height: 6),
-                                Container(
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.companyName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFF0F172A),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    if (item.title.trim().isNotEmpty &&
+                                        item.title.trim() != item.categoryName.trim()) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        item.title.trim(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Flexible(
+                                child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 11, vertical: 7),
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF0F6FF),
+                                    color: const Color(0xFFF4F8FD),
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                        color: const Color(0xFFD3E4FF)),
+                                      color: const Color(0xFFD6E4F0),
+                                    ),
                                   ),
                                   child: Text(
-                                    'Rs ${item.wageAmount.toStringAsFixed(0)}',
+                                    _wageLabel(item),
+                                    textAlign: TextAlign.right,
                                     style: const TextStyle(
                                       color: Color(0xFF173C77),
-                                      fontSize: 14,
+                                      fontSize: 12.5,
                                       fontWeight: FontWeight.w800,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${l10n.isHindi ? 'Worker Required' : 'Worker Required'}: ${item.workersNeeded}',
+                            style: const TextStyle(
+                              color: Color(0xFF334155),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${l10n.isHindi ? 'Contact Person' : 'Contact Person'}: $companyPerson',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFF334155),
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              if (canContactCompany) ...[
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 42,
+                                  height: 42,
+                                  child: OutlinedButton(
+                                    onPressed: () => _openJobWhatsApp(
+                                      context,
+                                      item,
+                                      dashboard.profile,
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      backgroundColor: const Color(0xFFEFFAF3),
+                                      side: const BorderSide(
+                                        color: Color(0xFFB7E8C6),
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    child: Image.asset(
+                                      'assets/images/whatsapp_icon.jpeg',
+                                      width: 22,
+                                      height: 22,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 42,
+                                  height: 42,
+                                  child: OutlinedButton(
+                                    onPressed: () => _callJobCompany(context, item),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      backgroundColor: const Color(0xFFF8FAFC),
+                                      side: const BorderSide(
+                                        color: Color(0xFFD7E2EE),
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.call_rounded,
+                                      size: 19,
+                                      color: Color(0xFF173C77),
                                     ),
                                   ),
                                 ),
                               ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          item.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Color(0xFF475569), height: 1.45),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0.0, end: 1.0),
-                              duration: const Duration(milliseconds: 900),
-                              curve: Curves.easeOutCubic,
-                              builder: (context, value, child) {
-                                final shake = math.sin(value * math.pi * 4) *
-                                    2.2 *
-                                    (1 - value);
-                                final scale = 0.96 +
-                                    (0.04 * value) +
-                                    (0.035 * math.sin(value * math.pi));
-                                return Transform.scale(
-                                  scale: scale,
-                                  child: Transform.translate(
-                                    offset: Offset(shake, 0),
-                                    child: child,
-                                  ),
-                                );
-                              },
-                              child: _chip(item.categoryName,
-                                  fill: const Color(0xFFE6F7EF)),
-                            ),
-                            _chip(l10n.workersNeeded(item.workersNeeded)),
-                            _chip(l10n.localizeMatchReason(item.matchReason)),
-                            if (item.isSaved)
-                              _chip(l10n.saved, fill: const Color(0xFFF0FDF4)),
-                            if (item.hasApplied)
-                              _chip(
-                                item.applicationStatus == null
-                                    ? l10n.appliedWithoutStatus
-                                    : l10n.appliedStatusLabel(
-                                        item.applicationStatus!),
-                                fill: const Color(0xFFEFF6FF),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on_rounded,
+                                size: 16,
+                                color: Color(0xFF64748B),
                               ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  locationText,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (item.hasApplied || item.isSaved) ...[
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                if (item.hasApplied)
+                                  _chip(
+                                    item.applicationStatus == null
+                                        ? l10n.appliedWithoutStatus
+                                        : l10n.appliedStatusLabel(
+                                            item.applicationStatus!,
+                                          ),
+                                    fill: const Color(0xFFEFF6FF),
+                                  ),
+                                if (item.isSaved)
+                                  _chip(
+                                    l10n.saved,
+                                    fill: const Color(0xFFF0FDF4),
+                                  ),
+                              ],
+                            ),
                           ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    metaParts.join(' â€¢ '),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => onOpenDetails(item),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    side: const BorderSide(
+                                      color: Color(0xFFD7E2EE),
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    l10n.isHindi
+                                        ? 'विवरण देखें'
+                                        : 'View Details',
                                     style: const TextStyle(
-                                      color: Color(0xFF64748B),
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF173C77),
+                                      fontWeight: FontWeight.w800,
                                     ),
-                                  ),
-                                  if (!item.companyLocked &&
-                                      (item.contactPerson ?? '')
-                                          .trim()
-                                          .isNotEmpty) ...[
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      'Contact: ${item.contactPerson!.trim()}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Color(0xFF475569),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            if (item.companyLocked)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 9),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF7E6),
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(
-                                      color: const Color(0xFFF7D8A5)),
-                                ),
-                                child: const Text(
-                                  'Category Locked',
-                                  style: TextStyle(
-                                    color: Color(0xFF92400E),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                              )
-                            else
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    width: 44,
-                                    height: 44,
-                                    child: IconButton.filledTonal(
-                                      onPressed: canContactCompany
-                                          ? () => _openJobWhatsApp(
-                                              context, item, dashboard.profile)
-                                          : null,
-                                      icon: const Icon(Icons.chat_rounded,
-                                          size: 24),
-                                      tooltip: 'WhatsApp',
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: item.hasApplied || actionLoading
+                                      ? null
+                                      : () => onApply(item.id),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF173C77),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  SizedBox(
-                                    width: 44,
-                                    height: 44,
-                                    child: IconButton.outlined(
-                                      onPressed: canContactCompany
-                                          ? () => _callJobCompany(context, item)
-                                          : null,
-                                      icon: const Icon(Icons.call_rounded,
-                                          size: 24),
-                                      tooltip: 'Call',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () => onOpenDetails(item),
-                                icon: const Icon(Icons.open_in_new_rounded),
-                                label: Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  child: Text(l10n.isHindi
-                                      ? 'à¤ªà¥‚à¤°à¤¾ à¤µà¤¿à¤µà¤°à¤£'
-                                      : 'View details'),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: FilledButton.tonal(
-                                onPressed: item.hasApplied || actionLoading
-                                    ? null
-                                    : () => onApply(item.id),
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
                                   child: Text(
                                     actionLoading
                                         ? l10n.working
                                         : item.hasApplied
                                             ? l10n.applicationSent
                                             : l10n.applyToJob,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -3102,6 +3490,91 @@ class _FeedTab extends StatelessWidget {
             ...sectionsAfterJobs,
           ],
         ],
+      ),
+    );
+  }
+
+  static String _salaryTypeLabel(WorkerFeedItemModel item) {
+    final normalized = (item.shiftType ?? '').trim().toLowerCase();
+    if (normalized.contains('month')) {
+      return 'Monthly Salary';
+    }
+    if (normalized.contains('week')) {
+      return 'Weekly Payment';
+    }
+    if (normalized.contains('contract')) {
+      return 'Contract Payment';
+    }
+    if (normalized.contains('piece')) {
+      return 'Piece Rate';
+    }
+    if (normalized.contains('daily')) {
+      return 'Daily Wage';
+    }
+    return '';
+  }
+
+  static String _wageLabel(WorkerFeedItemModel item) {
+    final amount = item.wageAmount % 1 == 0
+        ? item.wageAmount.toStringAsFixed(0)
+        : item.wageAmount.toStringAsFixed(1);
+    final salaryType = _salaryTypeLabel(item);
+    return salaryType.isEmpty ? 'Rs $amount' : 'Rs $amount $salaryType';
+  }
+
+  static String _locationLine(
+    WorkerFeedItemModel item,
+    String distanceLabel,
+  ) {
+    final locationParts = <String>[
+      if (item.companyArea.trim().isNotEmpty) item.companyArea.trim(),
+      if (item.companyCity.trim().isNotEmpty)
+        item.companyCity.trim()
+      else if (item.city.trim().isNotEmpty)
+        item.city.trim(),
+    ];
+    if (locationParts.isEmpty && item.locationLabel.trim().isNotEmpty) {
+      locationParts.add(item.locationLabel.trim());
+    }
+    if (distanceLabel.trim().isEmpty) {
+      return locationParts.join(', ');
+    }
+    if (locationParts.isEmpty) {
+      return distanceLabel;
+    }
+    return '${locationParts.join(', ')} • $distanceLabel';
+  }
+
+  static Widget _statusBadge({
+    required bool locked,
+    required bool isHindi,
+  }) {
+    final background = locked
+        ? const Color(0xFFFFF4E5)
+        : const Color(0xFFE8F7EF);
+    final border = locked
+        ? const Color(0xFFF5C98B)
+        : const Color(0xFF9DD7B6);
+    final textColor = locked
+        ? const Color(0xFF9A5B13)
+        : const Color(0xFF166534);
+    final label = locked
+        ? (isHindi ? 'कैटेगरी लॉक्ड' : 'Category Locked')
+        : (isHindi ? 'मैचिंग' : 'Matching');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -3589,7 +4062,7 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   }
 
   List<WorkerFeedItemModel> get _filteredFeed {
-    return _dashboard.feed.where((item) {
+    final filtered = _dashboard.feed.where((item) {
       final matchesQuery = _feedQuery.isEmpty ||
           item.title.toLowerCase().contains(_feedQuery.toLowerCase()) ||
           item.city.toLowerCase().contains(_feedQuery.toLowerCase()) ||
@@ -3623,7 +4096,14 @@ class _AllJobsPageState extends State<_AllJobsPage> {
           matchesCity &&
           matchesWage &&
           matchesTab;
-    }).toList();
+    }).toList(growable: false);
+
+    return _rankWorkerFeedItems(
+      items: filtered,
+      dashboard: _dashboard,
+      profile: _dashboard.profile,
+      liveLocation: widget.initialLiveLocation,
+    );
   }
 
   Future<void> _loadDashboard() async {

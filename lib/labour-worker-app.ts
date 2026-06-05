@@ -161,6 +161,9 @@ export type WorkerAppFeedItem = {
   companyName: string
   companyArea: string
   companyCity: string
+  companyPincode: string
+  companyLatitude: number | null
+  companyLongitude: number | null
   contactPerson: string | null
   companyMobile: string | null
   publishedAt: string
@@ -170,6 +173,7 @@ export type WorkerAppFeedItem = {
   applicationStatus: string | null
   isSaved: boolean
   appliedAt: string | null
+  coordinateSource: string
 }
 
 export type WorkerAppNotification = {
@@ -1265,6 +1269,11 @@ const buildWorkerFeed = (
           ? 'Available in your city'
           : 'Open job from an active company'
 
+      const companyLatitude = companyRecord?.latitude ?? null
+      const companyLongitude = companyRecord?.longitude ?? null
+      const hasJobCoordinates = jobPost.latitude != null && jobPost.longitude != null
+      const hasCompanyCoordinates = companyLatitude != null && companyLongitude != null
+
       return {
         id: jobPost.id,
         title: jobPost.title,
@@ -1291,6 +1300,9 @@ const buildWorkerFeed = (
         companyName: activation.canViewCompanyDetails ? company?.companyName || 'Company not found' : 'Unlock company details after activation',
         companyArea: toStringValue(companyRecord?.area),
         companyCity: company?.city || '',
+        companyPincode: toStringValue(companyRecord?.pincode),
+        companyLatitude,
+        companyLongitude,
         contactPerson: activation.canViewCompanyDetails ? company?.contactPerson || null : null,
         companyMobile: activation.canViewCompanyDetails ? resolveCompanyContactMobile(company) || null : null,
         publishedAt: jobPost.publishedAt,
@@ -1299,7 +1311,8 @@ const buildWorkerFeed = (
         hasApplied: Boolean(application),
         applicationStatus: application?.status || null,
         isSaved: Boolean(savedJob),
-        appliedAt: application?.appliedAt || null
+        appliedAt: application?.appliedAt || null,
+        coordinateSource: hasJobCoordinates ? 'job' : hasCompanyCoordinates ? 'company' : ''
       } satisfies WorkerAppFeedItem
     })
 

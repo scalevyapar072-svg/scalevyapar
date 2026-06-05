@@ -95,6 +95,10 @@ type LabourCompany = {
   mobile: string
   contactMobile: string
   city: string
+  area: string
+  pincode: string
+  latitude: number | ''
+  longitude: number | ''
   categoryIds: string[]
   status: CompanyStatus
   registrationFeePaid: boolean
@@ -458,6 +462,10 @@ const blankCompany: LabourCompany = {
   mobile: '',
   contactMobile: '',
   city: '',
+  area: '',
+  pincode: '',
+  latitude: '',
+  longitude: '',
   categoryIds: [],
   status: 'pending',
   registrationFeePaid: false,
@@ -484,6 +492,41 @@ const blankJobPost: LabourJobPost = {
 }
 
 const jobSalaryTypeOptions = labourMasterSeedValues.job_salary_type.map(option => option.value || option.label)
+
+const inferJobPostSalaryType = (salaryType: string, description: string) => {
+  const direct = salaryType.trim()
+  if (direct) return direct
+  const match = /salary\s*type\s*:\s*([a-z ]+)/i.exec(description || '')
+  const extracted = (match?.[1] || '').trim().toLowerCase()
+  if (!extracted) return ''
+  if (extracted.includes('daily')) return 'Daily Wage'
+  if (extracted.includes('week')) return 'Weekly Payment'
+  if (extracted.includes('month')) return 'Monthly Salary'
+  if (extracted.includes('contract')) return 'Contract Payment'
+  if (extracted.includes('piece')) return 'Piece Rate'
+  return ''
+}
+
+const normalizeDraftCoordinate = (value: unknown): number | '' => {
+  if (value === null || value === undefined || value === '') return ''
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : ''
+}
+
+const hydrateCompanyDraft = (company: LabourCompany): LabourCompany => ({
+  ...company,
+  area: String((company as LabourCompany & { area?: string }).area || '').trim(),
+  pincode: String((company as LabourCompany & { pincode?: string }).pincode || '').trim(),
+  latitude: normalizeDraftCoordinate((company as LabourCompany & { latitude?: number | '' | null }).latitude),
+  longitude: normalizeDraftCoordinate((company as LabourCompany & { longitude?: number | '' | null }).longitude),
+})
+
+const hydrateJobPostDraft = (jobPost: LabourJobPost): LabourJobPost => ({
+  ...jobPost,
+  latitude: normalizeDraftCoordinate(jobPost.latitude),
+  longitude: normalizeDraftCoordinate(jobPost.longitude),
+  salaryType: inferJobPostSalaryType(jobPost.salaryType || '', jobPost.description || '')
+})
 
 const blankWalletTransaction: WalletTransaction = {
   id: '',
@@ -817,6 +860,7 @@ export default function LabourExchangeAdminPage() {
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
+  const [companyCoordinateLookupPending, setCompanyCoordinateLookupPending] = useState(false)
   const [activeSection, setActiveSection] = useState<LabourSection>('overview')
 
   const [categoryDraft, setCategoryDraft] = useState<LabourCategory>(blankCategory)
@@ -1158,6 +1202,21 @@ export default function LabourExchangeAdminPage() {
   const getCompanyName = (companyId: string) =>
     snapshot.companies.find(company => company.id === companyId)?.companyName || companyId
   const getCompanyById = (companyId: string) => snapshot.companies.find(company => company.id === companyId)
+  const selectedJobCompany = getCompanyById(jobPostDraft.companyId)
+  const fillJobPostFromCompany = (draft: LabourJobPost, companyId: string) => {
+    const company = getCompanyById(companyId)
+    if (!company) {
+      return { ...draft, companyId }
+    }
+    return {
+      ...draft,
+      companyId,
+      city: draft.city.trim() ? draft.city : company.city.trim(),
+      locationLabel: draft.locationLabel.trim() ? draft.locationLabel : company.area.trim(),
+      latitude: draft.latitude === '' ? normalizeDraftCoordinate(company.latitude) : draft.latitude,
+      longitude: draft.longitude === '' ? normalizeDraftCoordinate(company.longitude) : draft.longitude,
+    }
+  }
   const getEntityName = (entityType: WalletEntityType, entityId: string) =>
     entityType === 'worker' ? getWorkerById(entityId)?.fullName || '' : getCompanyById(entityId)?.companyName || ''
   const formatIdentityProofType = (value: WorkerIdentityProofType) => {
@@ -1819,6 +1878,8 @@ export default function LabourExchangeAdminPage() {
     if (!companyDraft.mobile.trim()) return 'Owner number is required.'
     if (!isTenDigitMobile(companyDraft.mobile)) return 'Owner number must be exactly 10 digits.'
     if (companyDraft.contactMobile.trim() && !isTenDigitMobile(companyDraft.contactMobile)) return 'Contact number must be exactly 10 digits.'
+    if (companyDraft.pincode.trim() && !/^\d{6}$/.test(companyDraft.pincode.trim())) return 'Pincode must be exactly 6 digits.'
+    if ((companyDraft.latitude === '') != (companyDraft.longitude === '')) return 'Fill both company latitude and longitude or leave both blank.'
     if (companyDraft.categoryIds.length === 0) return 'Select at least one company category.'
     if (companyDraft.status === 'active' && !companyDraft.activePlan) return 'Active companies should have a plan selected.'
 
@@ -1841,10 +1902,22 @@ export default function LabourExchangeAdminPage() {
     if (!jobPostDraft.companyId) return 'Company is required.'
     if (!jobPostDraft.categoryId) return 'Category is required.'
     if (!jobPostDraft.salaryType.trim()) return 'Salary type is required.'
+    if ((jobPostDraft.latitude === '') != (jobPostDraft.longitude === '')) return 'Fill both job latitude and longitude or leave both blank.'
     if (jobPostDraft.workersNeeded <= 0) return 'Workers needed must be greater than 0.'
     if (jobPostDraft.validityDays <= 0) return 'Validity days must be greater than 0.'
     if (jobPostDraft.wageAmount < 0) return 'Wage amount cannot be negative.'
     return ''
+  }
+
+  const lookupCompanyCoordinates = async () => {
+    setCompanyCoordinateLookupPending(true)
+    try {
+      setError(
+        'Automatic coordinate lookup is not configured in this deployment. Fill Latitude and Longitude manually using a trusted map source.'
+      )
+    } finally {
+      setCompanyCoordinateLookupPending(false)
+    }
   }
 
   const validateWalletTransaction = () => {
@@ -2876,6 +2949,61 @@ export default function LabourExchangeAdminPage() {
                     ))}
                   </select>
                 </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Area / Locality</label>
+                    <input
+                      value={companyDraft.area}
+                      onChange={event => setCompanyDraft(current => ({ ...current, area: event.target.value }))}
+                      placeholder="Lajpat Nagar"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Pincode</label>
+                    <input
+                      value={companyDraft.pincode}
+                      maxLength={6}
+                      onChange={event => setCompanyDraft(current => ({ ...current, pincode: event.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                      placeholder="110024"
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={companyDraft.latitude}
+                      onChange={event => setCompanyDraft(current => ({ ...current, latitude: event.target.value === '' ? '' : Number(event.target.value) }))}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Longitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={companyDraft.longitude}
+                      onChange={event => setCompanyDraft(current => ({ ...current, longitude: event.target.value === '' ? '' : Number(event.target.value) }))}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => void lookupCompanyCoordinates()}
+                    disabled={companyCoordinateLookupPending}
+                    style={subtleButtonStyle}
+                  >
+                    {companyCoordinateLookupPending ? 'Getting...' : 'Get Coordinates'}
+                  </button>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                    Uses Area + City + Pincode. This deployment currently keeps lookup manual for privacy, so you can paste verified coordinates here.
+                  </p>
+                </div>
                 <div>
                   <label style={labelStyle}>Company Email *</label>
                   <input
@@ -2966,11 +3094,11 @@ export default function LabourExchangeAdminPage() {
                           {company.contactPerson} | Owner {company.mobile || 'No owner number'} | Contact {company.contactMobile || company.mobile || 'No contact number'} | {company.city || 'No city'} | {company.status} | {company.registrationFeePaid ? 'Fee paid' : 'Fee pending'}
                         </p>
                         <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>
-                          Categories: {company.categoryIds.map(getCategoryName).join(', ') || 'None'} | Plan {getPlanName(company.activePlan)}
+                          Categories: {company.categoryIds.map(getCategoryName).join(', ') || 'None'} | Plan {getPlanName(company.activePlan)} | Area {company.area || '—'} | Pincode {company.pincode || '—'} | Lat {company.latitude === '' ? '—' : company.latitude} | Lng {company.longitude === '' ? '—' : company.longitude}
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                        <button onClick={() => { setCompanyDraft(company); setEditingCompanyId(company.id) }} style={subtleButtonStyle}>Edit</button>
+                        <button onClick={() => { setCompanyDraft(hydrateCompanyDraft(company)); setEditingCompanyId(company.id) }} style={subtleButtonStyle}>Edit</button>
                         <button onClick={() => void removeEntity('companies', company.id, company.companyName)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
                       </div>
                     </div>
@@ -2996,7 +3124,11 @@ export default function LabourExchangeAdminPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>Company *</label>
-                    <select value={jobPostDraft.companyId} onChange={event => setJobPostDraft(current => ({ ...current, companyId: event.target.value }))} style={inputStyle}>
+                    <select
+                      value={jobPostDraft.companyId}
+                      onChange={event => setJobPostDraft(current => fillJobPostFromCompany(current, event.target.value))}
+                      style={inputStyle}
+                    >
                       <option value="">Select company</option>
                       {snapshot.companies.map(company => (
                         <option key={company.id} value={company.id}>{company.companyName}</option>
@@ -3062,6 +3194,22 @@ export default function LabourExchangeAdminPage() {
                     />
                   </div>
                 </div>
+                <p style={{ margin: '-2px 0 0', color: '#64748b', fontSize: '12px' }}>
+                  Distance in worker app appears only when Latitude and Longitude are filled.
+                </p>
+                {selectedJobCompany ? (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => setJobPostDraft(current => fillJobPostFromCompany(current, current.companyId))}
+                      style={subtleButtonStyle}
+                    >
+                      Use Company Location
+                    </button>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                      Uses company Area / Locality and coordinates only when the job fields are blank, and you can still override them manually.
+                    </p>
+                  </div>
+                ) : null}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>Wage Amount</label>
@@ -3158,7 +3306,7 @@ export default function LabourExchangeAdminPage() {
                           </p>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                          <button onClick={() => { setJobPostDraft(jobPost); setEditingJobPostId(jobPost.id) }} style={subtleButtonStyle}>Edit</button>
+                          <button onClick={() => { setJobPostDraft(hydrateJobPostDraft(jobPost)); setEditingJobPostId(jobPost.id) }} style={subtleButtonStyle}>Edit</button>
                           <button onClick={() => void removeEntity('jobPosts', jobPost.id, jobPost.title)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
                         </div>
                       </div>

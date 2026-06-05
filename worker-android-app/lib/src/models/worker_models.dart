@@ -364,6 +364,8 @@ class WorkerFeedItemModel {
   final String companyArea;
   final String companyCity;
   final String companyPincode;
+  final double? companyLatitude;
+  final double? companyLongitude;
   final String? contactPerson;
   final String? companyMobile;
   final String publishedAt;
@@ -402,6 +404,8 @@ class WorkerFeedItemModel {
     required this.companyArea,
     required this.companyCity,
     required this.companyPincode,
+    required this.companyLatitude,
+    required this.companyLongitude,
     required this.contactPerson,
     required this.companyMobile,
     required this.publishedAt,
@@ -447,6 +451,14 @@ class WorkerFeedItemModel {
               json['zip'])
           as String? ??
           '',
+      companyLatitude: _readCoordinate(json, const [
+        'companyLatitude',
+        'companyLat',
+      ]),
+      companyLongitude: _readCoordinate(json, const [
+        'companyLongitude',
+        'companyLng',
+      ]),
       contactPerson: json['contactPerson'] as String?,
       companyMobile: json['companyMobile'] as String?,
       publishedAt: json['publishedAt'] as String? ?? '',
@@ -462,19 +474,58 @@ class WorkerFeedItemModel {
         'lat',
         'workLocationLatitude',
         'locationLatitude',
-        'companyLatitude',
       ]),
       longitude: _readCoordinate(json, const [
         'longitude',
         'lng',
         'workLocationLongitude',
         'locationLongitude',
-        'companyLongitude',
       ]),
-      shiftType:
-          (json['salaryType'] ?? json['shiftType'] ?? json['shift'] ?? json['workShift']) as String?,
+      shiftType: _readSalaryType(json),
     );
   }
+}
+
+String? _readSalaryType(Map<String, dynamic> json) {
+  final directValue =
+      (json['salaryType'] ?? json['shiftType'] ?? json['shift'] ?? json['workShift'])
+          ?.toString()
+          .trim();
+  if (directValue != null && directValue.isNotEmpty) {
+    return directValue;
+  }
+
+  final description = (json['description'] as String? ?? '').trim();
+  if (description.isEmpty) {
+    return null;
+  }
+
+  try {
+    final match = RegExp(
+      r'salary\s*type\s*:\s*([a-z ]+)',
+      caseSensitive: false,
+    ).firstMatch(description);
+    final extracted = match?.group(1)?.trim().toLowerCase() ?? '';
+    if (extracted.contains('daily')) {
+      return 'Daily Wage';
+    }
+    if (extracted.contains('week')) {
+      return 'Weekly Payment';
+    }
+    if (extracted.contains('month')) {
+      return 'Monthly Salary';
+    }
+    if (extracted.contains('contract')) {
+      return 'Contract Payment';
+    }
+    if (extracted.contains('piece')) {
+      return 'Piece Rate';
+    }
+  } catch (_) {
+    return '';
+  }
+
+  return null;
 }
 
 double? _readCoordinate(Map<String, dynamic> json, List<String> keys) {

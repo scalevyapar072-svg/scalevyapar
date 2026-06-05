@@ -344,8 +344,6 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   final _apiService = WorkerApiService();
   final _sessionStore = SessionStore();
   final _rechargeAmountController = TextEditingController(text: '50');
-  final Map<String, _DerivedJobCoordinates?> _geocodedJobCoordinateCache = {};
-  final Set<String> _geocodingJobCoordinateKeys = <String>{};
   late final Razorpay _razorpay;
 
   late String _token;
@@ -578,103 +576,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   void _prefetchFeedCoordinateLookups(List<WorkerFeedItemModel> feed) {
-    for (final item in feed) {
-      if (item.latitude != null && item.longitude != null) {
-        continue;
-      }
-      unawaited(_ensureDerivedJobCoordinates(item));
-    }
-  }
-
-  String? _derivedCoordinateCacheKey(WorkerFeedItemModel item) {
-    final pincode = _normalizeGeocodePart(item.companyPincode);
-    if (pincode.isEmpty) {
-      return null;
-    }
-    final parts = [
-      item.locationLabel,
-      item.companyArea,
-      item.companyCity,
-      item.city,
-      pincode,
-    ]
-        .map(_normalizeGeocodePart)
-        .where((value) => value.isNotEmpty)
-        .toList();
-    if (parts.length < 2) {
-      return null;
-    }
-    return parts.join('|');
-  }
-
-  List<String> _geocodeQueriesForItem(WorkerFeedItemModel item) {
-    final pincode = item.companyPincode.trim();
-    if (pincode.isEmpty) {
-      return const [];
-    }
-    final areaCandidates = <String>[
-      item.locationLabel.trim(),
-      item.companyArea.trim(),
-    ].where((value) => value.isNotEmpty).toSet().toList();
-    final cityCandidates = <String>[
-      item.companyCity.trim(),
-      item.city.trim(),
-    ].where((value) => value.isNotEmpty).toSet().toList();
-    final queries = <String>[];
-    for (final area in areaCandidates) {
-      for (final city in cityCandidates) {
-        queries.add('$area, $city, $pincode, India');
-      }
-    }
-    return queries.toSet().toList();
-  }
-
-  Future<void> _ensureDerivedJobCoordinates(WorkerFeedItemModel item) async {
-    final cacheKey = _derivedCoordinateCacheKey(item);
-    if (cacheKey == null ||
-        _geocodedJobCoordinateCache.containsKey(cacheKey) ||
-        _geocodingJobCoordinateKeys.contains(cacheKey)) {
-      return;
-    }
-
-    _geocodingJobCoordinateKeys.add(cacheKey);
-    _DerivedJobCoordinates? derivedCoordinates;
-
-    try {
-      for (final query in _geocodeQueriesForItem(item)) {
-        try {
-          final results = await locationFromAddress(query);
-          if (results.isEmpty) {
-            continue;
-          }
-          derivedCoordinates = _DerivedJobCoordinates(
-            latitude: results.first.latitude,
-            longitude: results.first.longitude,
-            source: query,
-          );
-          break;
-        } catch (_) {
-          continue;
-        }
-      }
-      if (kDebugMode || kProfileMode) {
-        debugPrint(
-          derivedCoordinates == null
-              ? 'Geo miss: ${item.title} key=$cacheKey'
-              : 'Geo hit: ${item.title} key=$cacheKey source=${derivedCoordinates.source}',
-        );
-      }
-    } finally {
-      _geocodingJobCoordinateKeys.remove(cacheKey);
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _geocodedJobCoordinateCache[cacheKey] = derivedCoordinates;
-    });
+    // Job/company coordinates should come directly from the feed.
   }
 
   _DerivedJobCoordinates? _resolveJobCoordinatesForItem(WorkerFeedItemModel item) {
@@ -682,14 +584,17 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       return _DerivedJobCoordinates(
         latitude: item.latitude!,
         longitude: item.longitude!,
-        source: item.coordinateSource.isEmpty ? 'feed' : item.coordinateSource,
+          source: item.coordinateSource.isEmpty ? 'feed' : item.coordinateSource,
       );
     }
-    final cacheKey = _derivedCoordinateCacheKey(item);
-    if (cacheKey == null) {
-      return null;
+    if (item.companyLatitude != null && item.companyLongitude != null) {
+      return _DerivedJobCoordinates(
+        latitude: item.companyLatitude!,
+        longitude: item.companyLongitude!,
+        source: 'company',
+      );
     }
-    return _geocodedJobCoordinateCache[cacheKey];
+    return null;
   }
 
   bool _isSessionError(String message) {
@@ -5630,6 +5535,8 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                       companyArea: item.companyArea,
                       companyCity: item.companyCity,
                       companyPincode: item.companyPincode,
+                      companyLatitude: item.companyLatitude,
+                      companyLongitude: item.companyLongitude,
                       contactPerson: item.contactPerson,
                       companyMobile: item.companyMobile,
                       publishedAt: item.publishedAt,

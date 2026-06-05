@@ -9,6 +9,11 @@ const addDays = (dateValue: string, days: number) => {
 }
 
 const isTenDigitMobile = (value: string) => /^\d{10}$/.test(value.trim())
+const toNullableNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +23,10 @@ export async function POST(request: NextRequest) {
     const mobile = String(body.mobile || '').trim()
     const contactMobile = String(body.contactMobile || '').trim()
     const city = String(body.city || '').trim()
+    const area = String(body.area || '').trim()
+    const pincode = String(body.pincode || '').trim()
+    const latitude = toNullableNumber(body.latitude)
+    const longitude = toNullableNumber(body.longitude)
     const categoryIds = Array.isArray(body.categoryIds) ? body.categoryIds.map((item: unknown) => String(item)).filter(Boolean) : []
     const activePlan = String(body.activePlan || '').trim()
     const jobTitle = String(body.jobTitle || '').trim()
@@ -76,6 +85,10 @@ export async function POST(request: NextRequest) {
         mobile,
         contactMobile: contactMobile || mobile,
         city,
+        area,
+        pincode,
+        latitude,
+        longitude,
         categoryIds,
         status: 'pending',
         registrationFeePaid: false,
@@ -97,6 +110,9 @@ export async function POST(request: NextRequest) {
         title: jobTitle,
         description: jobDescription,
         city,
+        locationLabel: area,
+        latitude,
+        longitude,
         workersNeeded,
         wageAmount,
         validityDays,

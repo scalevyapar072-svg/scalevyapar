@@ -472,7 +472,7 @@ class WorkerFeedItemModel {
         'companyLongitude',
       ]),
       shiftType:
-          (json['shiftType'] ?? json['shift'] ?? json['workShift']) as String?,
+          (json['salaryType'] ?? json['shiftType'] ?? json['shift'] ?? json['workShift']) as String?,
     );
   }
 }

@@ -153,6 +153,7 @@ export type WorkerAppFeedItem = {
   locationLabel: string
   latitude: number | null
   longitude: number | null
+  salaryType: string
   wageAmount: number
   workersNeeded: number
   categoryName: string
@@ -1282,6 +1283,7 @@ const buildWorkerFeed = (
         locationLabel: jobPost.locationLabel,
         latitude: jobPost.latitude,
         longitude: jobPost.longitude,
+        salaryType: jobPost.salaryType || '',
         wageAmount: jobPost.wageAmount,
         workersNeeded: jobPost.workersNeeded,
         categoryName,

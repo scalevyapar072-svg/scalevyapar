@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { labourMasterSeedValues } from '@/lib/labour-masters-schema'
 
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked' | 'rejected'
@@ -110,6 +111,7 @@ type LabourJobPost = {
   locationLabel: string
   latitude: number | ''
   longitude: number | ''
+  salaryType: string
   workersNeeded: number
   wageAmount: number
   validityDays: number
@@ -472,6 +474,7 @@ const blankJobPost: LabourJobPost = {
   locationLabel: '',
   latitude: '',
   longitude: '',
+  salaryType: '',
   workersNeeded: 1,
   wageAmount: 0,
   validityDays: 3,
@@ -479,6 +482,8 @@ const blankJobPost: LabourJobPost = {
   publishedAt: '',
   expiresAt: ''
 }
+
+const jobSalaryTypeOptions = labourMasterSeedValues.job_salary_type.map(option => option.value || option.label)
 
 const blankWalletTransaction: WalletTransaction = {
   id: '',
@@ -1835,6 +1840,7 @@ export default function LabourExchangeAdminPage() {
     if (!jobPostDraft.title.trim()) return 'Job title is required.'
     if (!jobPostDraft.companyId) return 'Company is required.'
     if (!jobPostDraft.categoryId) return 'Category is required.'
+    if (!jobPostDraft.salaryType.trim()) return 'Salary type is required.'
     if (jobPostDraft.workersNeeded <= 0) return 'Workers needed must be greater than 0.'
     if (jobPostDraft.validityDays <= 0) return 'Validity days must be greater than 0.'
     if (jobPostDraft.wageAmount < 0) return 'Wage amount cannot be negative.'
@@ -3056,10 +3062,23 @@ export default function LabourExchangeAdminPage() {
                     />
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={labelStyle}>Wage Amount</label>
                     <input type="number" min="0" value={jobPostDraft.wageAmount} onChange={event => setJobPostDraft(current => ({ ...current, wageAmount: Number(event.target.value) }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Salary Type *</label>
+                    <select
+                      value={jobPostDraft.salaryType}
+                      onChange={event => setJobPostDraft(current => ({ ...current, salaryType: event.target.value }))}
+                      style={inputStyle}
+                    >
+                      <option value="">Select salary type</option>
+                      {jobSalaryTypeOptions.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label style={labelStyle}>Validity Days</label>

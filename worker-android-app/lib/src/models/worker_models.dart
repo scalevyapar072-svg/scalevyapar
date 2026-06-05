@@ -501,11 +501,14 @@ String? _readSalaryType(Map<String, dynamic> json) {
   }
 
   try {
-    final match = RegExp(
+    final matches = RegExp(
       r'salary\s*type\s*:\s*([a-z ]+)',
       caseSensitive: false,
-    ).firstMatch(description);
-    final extracted = match?.group(1)?.trim().toLowerCase() ?? '';
+    ).allMatches(description);
+    if (matches.isEmpty) {
+      return null;
+    }
+    final extracted = matches.last.group(1)?.trim().toLowerCase() ?? '';
     if (extracted.contains('daily')) {
       return 'Daily Wage';
     }
@@ -522,7 +525,7 @@ String? _readSalaryType(Map<String, dynamic> json) {
       return 'Piece Rate';
     }
   } catch (_) {
-    return '';
+    return null;
   }
 
   return null;

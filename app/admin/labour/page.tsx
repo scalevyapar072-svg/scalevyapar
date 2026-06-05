@@ -493,11 +493,13 @@ const blankJobPost: LabourJobPost = {
 
 const jobSalaryTypeOptions = labourMasterSeedValues.job_salary_type.map(option => option.value || option.label)
 
+const salaryTypeLinePattern = /salary\s*type\s*:\s*[a-z ]+/gi
+
 const inferJobPostSalaryType = (salaryType: string, description: string) => {
   const direct = salaryType.trim()
   if (direct) return direct
-  const match = /salary\s*type\s*:\s*([a-z ]+)/i.exec(description || '')
-  const extracted = (match?.[1] || '').trim().toLowerCase()
+  const matches = Array.from((description || '').matchAll(/salary\s*type\s*:\s*([a-z ]+)/gi))
+  const extracted = (matches[matches.length - 1]?.[1] || '').trim().toLowerCase()
   if (!extracted) return ''
   if (extracted.includes('daily')) return 'Daily Wage'
   if (extracted.includes('week')) return 'Weekly Payment'
@@ -505,6 +507,35 @@ const inferJobPostSalaryType = (salaryType: string, description: string) => {
   if (extracted.includes('contract')) return 'Contract Payment'
   if (extracted.includes('piece')) return 'Piece Rate'
   return ''
+}
+
+const syncJobPostDescriptionSalaryType = (description: string, salaryType: string) => {
+  const normalizedDescription = String(description || '').trim()
+  const normalizedSalaryType = salaryType.trim()
+  if (!normalizedDescription || !normalizedSalaryType) {
+    return normalizedDescription
+  }
+
+  if (!salaryTypeLinePattern.test(normalizedDescription)) {
+    salaryTypeLinePattern.lastIndex = 0
+    return normalizedDescription
+  }
+
+  salaryTypeLinePattern.lastIndex = 0
+  let didReplace = false
+  const synced = normalizedDescription
+    .replace(salaryTypeLinePattern, () => {
+      if (didReplace) {
+        return ''
+      }
+      didReplace = true
+      return `Salary type: ${normalizedSalaryType}`
+    })
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;:])/g, '$1')
+    .trim()
+  salaryTypeLinePattern.lastIndex = 0
+  return synced
 }
 
 const normalizeDraftCoordinate = (value: unknown): number | '' => {
@@ -523,6 +554,10 @@ const hydrateCompanyDraft = (company: LabourCompany): LabourCompany => ({
 
 const hydrateJobPostDraft = (jobPost: LabourJobPost): LabourJobPost => ({
   ...jobPost,
+  description: syncJobPostDescriptionSalaryType(
+    jobPost.description || '',
+    inferJobPostSalaryType(jobPost.salaryType || '', jobPost.description || '')
+  ),
   latitude: normalizeDraftCoordinate(jobPost.latitude),
   longitude: normalizeDraftCoordinate(jobPost.longitude),
   salaryType: inferJobPostSalaryType(jobPost.salaryType || '', jobPost.description || '')
@@ -2156,6 +2191,10 @@ export default function LabourExchangeAdminPage() {
     const publishedAt = jobPostDraft.publishedAt || new Date().toISOString().slice(0, 10)
     const payload = {
       ...jobPostDraft,
+      description: syncJobPostDescriptionSalaryType(
+        jobPostDraft.description,
+        jobPostDraft.salaryType
+      ),
       publishedAt,
       expiresAt: jobPostDraft.expiresAt || addDays(publishedAt, jobPostDraft.validityDays)
     }
@@ -3219,7 +3258,16 @@ export default function LabourExchangeAdminPage() {
                     <label style={labelStyle}>Salary Type *</label>
                     <select
                       value={jobPostDraft.salaryType}
-                      onChange={event => setJobPostDraft(current => ({ ...current, salaryType: event.target.value }))}
+                      onChange={event =>
+                        setJobPostDraft(current => ({
+                          ...current,
+                          salaryType: event.target.value,
+                          description: syncJobPostDescriptionSalaryType(
+                            current.description,
+                            event.target.value
+                          ),
+                        }))
+                      }
                       style={inputStyle}
                     >
                       <option value="">Select salary type</option>
@@ -3300,7 +3348,12 @@ export default function LabourExchangeAdminPage() {
                         <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>
                           {jobPost.locationLabel || 'No area/locality'} | Lat {jobPost.latitude === '' ? '—' : jobPost.latitude} | Lng {jobPost.longitude === '' ? '—' : jobPost.longitude}
                         </p>
-                        <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>{jobPost.description || 'No description yet.'}</p>
+                        <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>
+                          {syncJobPostDescriptionSalaryType(
+                            jobPost.description || '',
+                            inferJobPostSalaryType(jobPost.salaryType || '', jobPost.description || '')
+                          ) || 'No description yet.'}
+                        </p>
                           <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
                             {jobPost.workersNeeded} workers | {formatCurrency(jobPost.wageAmount)} | {jobPost.validityDays} days | {formatDate(jobPost.publishedAt)} to {formatDate(jobPost.expiresAt)}
                           </p>

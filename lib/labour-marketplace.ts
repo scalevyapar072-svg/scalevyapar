@@ -1067,9 +1067,11 @@ const isMissingJobPostSalaryTypeColumnError = (message: string) => {
   )
 }
 
+const jobPostSalaryTypeLinePattern = /salary\s*type\s*:\s*[a-z ]+/gi
+
 const parseJobPostSalaryTypeFromDescription = (description: string) => {
-  const match = /salary\s*type\s*:\s*([a-z ]+)/i.exec(description || '')
-  const extracted = (match?.[1] || '').trim().toLowerCase()
+  const matches = Array.from((description || '').matchAll(/salary\s*type\s*:\s*([a-z ]+)/gi))
+  const extracted = (matches[matches.length - 1]?.[1] || '').trim().toLowerCase()
   if (!extracted) return ''
   if (extracted.includes('daily')) return 'Daily Wage'
   if (extracted.includes('week')) return 'Weekly Payment'
@@ -1083,6 +1085,35 @@ const resolveJobPostSalaryType = (salaryType: string, description: string) => {
   const direct = String(salaryType || '').trim()
   if (direct) return direct
   return parseJobPostSalaryTypeFromDescription(description)
+}
+
+const syncJobPostDescriptionSalaryType = (description: string, salaryType: string) => {
+  const normalizedDescription = String(description || '').trim()
+  const normalizedSalaryType = String(salaryType || '').trim()
+  if (!normalizedDescription || !normalizedSalaryType) {
+    return normalizedDescription
+  }
+
+  if (!jobPostSalaryTypeLinePattern.test(normalizedDescription)) {
+    jobPostSalaryTypeLinePattern.lastIndex = 0
+    return normalizedDescription
+  }
+
+  jobPostSalaryTypeLinePattern.lastIndex = 0
+  let didReplace = false
+  const synced = normalizedDescription
+    .replace(jobPostSalaryTypeLinePattern, () => {
+      if (didReplace) {
+        return ''
+      }
+      didReplace = true
+      return `Salary type: ${normalizedSalaryType}`
+    })
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;:])/g, '$1')
+    .trim()
+  jobPostSalaryTypeLinePattern.lastIndex = 0
+  return synced
 }
 
 const normalizeCompany = (
@@ -1137,13 +1168,14 @@ const normalizeJobPost = (
     String((payload.salaryType ?? legacyPayload.salary_type ?? existing?.salaryType) || '').trim(),
     description
   )
+  const normalizedDescription = syncJobPostDescriptionSalaryType(description, salaryType)
 
   return {
     id: existing?.id || String(payload.id || createId('job')),
     companyId: String(payload.companyId || existing?.companyId || '').trim(),
     categoryId: String(payload.categoryId || existing?.categoryId || '').trim(),
     title: String(payload.title || existing?.title || '').trim(),
-    description,
+    description: normalizedDescription,
     city: String(payload.city || existing?.city || '').trim(),
     locationLabel: String(payload.locationLabel || existing?.locationLabel || '').trim(),
     latitude: toNullableNumber(payload.latitude ?? existing?.latitude ?? null),

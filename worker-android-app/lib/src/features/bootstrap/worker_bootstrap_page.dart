@@ -56,62 +56,20 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1F314C),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 164,
-                  height: 164,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.18),
-                        blurRadius: 26,
-                        offset: const Offset(0, 14),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(14),
-                  child: Image.asset(
-                    'assets/images/rozgar-logo-round.png',
+              children: const [
+                SizedBox(
+                  width: 220,
+                  height: 220,
+                  child: Image(
+                    image: AssetImage('assets/images/rozgar-logo-startup.png'),
                     fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(height: 34),
-                const Text(
-                  'Rozgar',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 38,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Loading your worker dashboard...',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFD9E5FF),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 34),
-                const SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 ),
               ],

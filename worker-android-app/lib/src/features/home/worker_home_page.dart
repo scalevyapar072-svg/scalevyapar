@@ -69,6 +69,8 @@ enum _FeedViewTab {
   applied,
 }
 
+const double _minimumWalletRechargeAmount = 50;
+
 String _normalizeJobRankKey(String value) {
   return value
       .trim()
@@ -344,8 +346,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   final _apiService = WorkerApiService();
   final _sessionStore = SessionStore();
   final _rechargeAmountController = TextEditingController(text: '50');
-  final Map<String, _DerivedJobCoordinates?> _geocodedJobCoordinateCache = {};
-  final Set<String> _geocodingJobCoordinateKeys = <String>{};
+  final _rechargeNoteController = TextEditingController();
   late final Razorpay _razorpay;
 
   late String _token;
@@ -402,6 +403,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     _pushMessagesSubscription?.cancel();
     _razorpay.clear();
     _rechargeAmountController.dispose();
+    _rechargeNoteController.dispose();
     super.dispose();
   }
 
@@ -578,103 +580,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   void _prefetchFeedCoordinateLookups(List<WorkerFeedItemModel> feed) {
-    for (final item in feed) {
-      if (item.latitude != null && item.longitude != null) {
-        continue;
-      }
-      unawaited(_ensureDerivedJobCoordinates(item));
-    }
-  }
-
-  String? _derivedCoordinateCacheKey(WorkerFeedItemModel item) {
-    final pincode = _normalizeGeocodePart(item.companyPincode);
-    if (pincode.isEmpty) {
-      return null;
-    }
-    final parts = [
-      item.locationLabel,
-      item.companyArea,
-      item.companyCity,
-      item.city,
-      pincode,
-    ]
-        .map(_normalizeGeocodePart)
-        .where((value) => value.isNotEmpty)
-        .toList();
-    if (parts.length < 2) {
-      return null;
-    }
-    return parts.join('|');
-  }
-
-  List<String> _geocodeQueriesForItem(WorkerFeedItemModel item) {
-    final pincode = item.companyPincode.trim();
-    if (pincode.isEmpty) {
-      return const [];
-    }
-    final areaCandidates = <String>[
-      item.locationLabel.trim(),
-      item.companyArea.trim(),
-    ].where((value) => value.isNotEmpty).toSet().toList();
-    final cityCandidates = <String>[
-      item.companyCity.trim(),
-      item.city.trim(),
-    ].where((value) => value.isNotEmpty).toSet().toList();
-    final queries = <String>[];
-    for (final area in areaCandidates) {
-      for (final city in cityCandidates) {
-        queries.add('$area, $city, $pincode, India');
-      }
-    }
-    return queries.toSet().toList();
-  }
-
-  Future<void> _ensureDerivedJobCoordinates(WorkerFeedItemModel item) async {
-    final cacheKey = _derivedCoordinateCacheKey(item);
-    if (cacheKey == null ||
-        _geocodedJobCoordinateCache.containsKey(cacheKey) ||
-        _geocodingJobCoordinateKeys.contains(cacheKey)) {
-      return;
-    }
-
-    _geocodingJobCoordinateKeys.add(cacheKey);
-    _DerivedJobCoordinates? derivedCoordinates;
-
-    try {
-      for (final query in _geocodeQueriesForItem(item)) {
-        try {
-          final results = await locationFromAddress(query);
-          if (results.isEmpty) {
-            continue;
-          }
-          derivedCoordinates = _DerivedJobCoordinates(
-            latitude: results.first.latitude,
-            longitude: results.first.longitude,
-            source: query,
-          );
-          break;
-        } catch (_) {
-          continue;
-        }
-      }
-      if (kDebugMode || kProfileMode) {
-        debugPrint(
-          derivedCoordinates == null
-              ? 'Geo miss: ${item.title} key=$cacheKey'
-              : 'Geo hit: ${item.title} key=$cacheKey source=${derivedCoordinates.source}',
-        );
-      }
-    } finally {
-      _geocodingJobCoordinateKeys.remove(cacheKey);
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _geocodedJobCoordinateCache[cacheKey] = derivedCoordinates;
-    });
+    // Job/company coordinates should come directly from the feed.
   }
 
   _DerivedJobCoordinates? _resolveJobCoordinatesForItem(WorkerFeedItemModel item) {
@@ -682,14 +588,17 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       return _DerivedJobCoordinates(
         latitude: item.latitude!,
         longitude: item.longitude!,
-        source: item.coordinateSource.isEmpty ? 'feed' : item.coordinateSource,
+          source: item.coordinateSource.isEmpty ? 'feed' : item.coordinateSource,
       );
     }
-    final cacheKey = _derivedCoordinateCacheKey(item);
-    if (cacheKey == null) {
-      return null;
+    if (item.companyLatitude != null && item.companyLongitude != null) {
+      return _DerivedJobCoordinates(
+        latitude: item.companyLatitude!,
+        longitude: item.companyLongitude!,
+        source: 'company',
+      );
     }
-    return _geocodedJobCoordinateCache[cacheKey];
+    return null;
   }
 
   bool _isSessionError(String message) {
@@ -983,9 +892,13 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
 
   Future<void> _startWalletRecharge() async {
     final amount = double.tryParse(_rechargeAmountController.text.trim());
-    if (amount == null || amount < 10) {
+    if (amount == null || amount < _minimumWalletRechargeAmount) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Minimum recharge amount is Rs 10.')),
+        SnackBar(
+          content: Text(
+            'Minimum recharge amount is Rs ${_minimumWalletRechargeAmount.toStringAsFixed(0)}.',
+          ),
+        ),
       );
       return;
     }
@@ -1090,6 +1003,10 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   Future<void> _applyToJob(String jobPostId) async {
+    if (!_isWorkerActive()) {
+      await _showRechargeWalletDialog();
+      return;
+    }
     final l10n = WorkerLocalizations.of(context);
     setState(() => _jobActionId = jobPostId);
     try {
@@ -1116,6 +1033,44 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         setState(() => _jobActionId = '');
       }
     }
+  }
+
+  bool _isWorkerActive() {
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      return false;
+    }
+    return dashboard.activation.isActive ||
+        dashboard.profile.status.trim().toLowerCase() == 'active';
+  }
+
+  Future<void> _showRechargeWalletDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Recharge your Wallet'),
+          content: const Text(
+            'Your worker access is inactive. Recharge to continue applying for jobs.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                if (mounted) {
+                  setState(() => _selectedIndex = 1);
+                }
+              },
+              child: const Text('Recharge'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _toggleSavedJob(String jobPostId) async {
@@ -1178,8 +1133,12 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         builder: (_) => _JobDetailsPage(
           item: item,
           profile: dashboard.profile,
+          isWorkerActive: _isWorkerActive(),
+          liveLocation: _liveLocationSnapshot(dashboard.profile),
+          resolvedCoordinates: _resolveJobCoordinatesForItem(item),
           onApply: _applyToJob,
           onToggleSaved: _toggleSavedJob,
+          onOpenWallet: () => setState(() => _selectedIndex = 1),
         ),
       ),
     );
@@ -1195,8 +1154,10 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         builder: (_) => _SavedJobsPage(
           profile: dashboard.profile,
           items: dashboard.feed.where((item) => item.isSaved).toList(),
+          isWorkerActive: _isWorkerActive(),
           onApply: _applyToJob,
           onToggleSaved: _toggleSavedJob,
+          onOpenWallet: () => setState(() => _selectedIndex = 1),
         ),
       ),
     );
@@ -1548,6 +1509,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
             builder: (_) => _AllJobsPage(
               token: _token,
               initialDashboard: dashboard,
+              initialIsWorkerActive: _isWorkerActive(),
               initialLiveLocation: _liveLocationSnapshot(dashboard.profile),
               initialQuery: _feedQuery,
               initialFeedTab: overrideFeedTab ?? _selectedFeedTab,
@@ -1564,6 +1526,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                   overrideCityFilter ?? _selectedCityFilter,
               initialSelectedWageBand: _selectedWageBand,
               resolveJobCoordinatesForItem: _resolveJobCoordinatesForItem,
+              onOpenWallet: () => setState(() => _selectedIndex = 1),
             ),
           ),
         )
@@ -2194,6 +2157,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                         _WalletTab(
                           dashboard: dashboard,
                           rechargeAmountController: _rechargeAmountController,
+                          rechargeNoteController: _rechargeNoteController,
                           onStartWalletRecharge: _startWalletRecharge,
                           onRefresh: _loadDashboard,
                           loading: _walletPaymentLoading || _loading,
@@ -3598,6 +3562,7 @@ class _FeedTab extends StatelessWidget {
 class _AllJobsPage extends StatefulWidget {
   final String token;
   final WorkerDashboardModel initialDashboard;
+  final bool initialIsWorkerActive;
   final _LiveLocationSnapshot initialLiveLocation;
   final _DerivedJobCoordinates? Function(WorkerFeedItemModel item)
       resolveJobCoordinatesForItem;
@@ -3611,10 +3576,12 @@ class _AllJobsPage extends StatefulWidget {
   final List<String> initialSelectedCategoryFilters;
   final String initialSelectedCityFilter;
   final String initialSelectedWageBand;
+  final VoidCallback onOpenWallet;
 
   const _AllJobsPage({
     required this.token,
     required this.initialDashboard,
+    required this.initialIsWorkerActive,
     required this.initialLiveLocation,
     required this.resolveJobCoordinatesForItem,
     required this.initialQuery,
@@ -3627,6 +3594,7 @@ class _AllJobsPage extends StatefulWidget {
     required this.initialSelectedCategoryFilters,
     required this.initialSelectedCityFilter,
     required this.initialSelectedWageBand,
+    required this.onOpenWallet,
   });
 
   @override
@@ -3637,6 +3605,7 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   final _apiService = WorkerApiService();
 
   late WorkerDashboardModel _dashboard;
+  late bool _isWorkerActive;
   late String _feedQuery;
   late _FeedViewTab _selectedFeedTab;
   late bool _showUnlockedOnly;
@@ -3655,6 +3624,7 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   void initState() {
     super.initState();
     _dashboard = widget.initialDashboard;
+    _isWorkerActive = widget.initialIsWorkerActive;
     _feedQuery = widget.initialQuery;
     _selectedFeedTab = widget.initialFeedTab;
     _showUnlockedOnly = widget.initialShowUnlockedOnly;
@@ -4125,6 +4095,34 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   }
 
   Future<void> _handleApply(String jobPostId) async {
+    if (!_isWorkerActive) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Recharge your Wallet'),
+            content: const Text(
+              'Your worker access is inactive. Recharge to continue applying for jobs.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Not now'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  widget.onOpenWallet();
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Recharge'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
     final l10n = WorkerLocalizations.of(context);
     setState(() => _jobActionId = jobPostId);
     try {
@@ -4133,7 +4131,11 @@ class _AllJobsPageState extends State<_AllJobsPage> {
         jobPostId: jobPostId,
       );
       if (!mounted) return;
-      setState(() => _dashboard = dashboard);
+      setState(() {
+        _dashboard = dashboard;
+        _isWorkerActive = dashboard.activation.isActive ||
+            dashboard.profile.status.trim().toLowerCase() == 'active';
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.applicationSentSuccess)));
@@ -4176,8 +4178,12 @@ class _AllJobsPageState extends State<_AllJobsPage> {
         builder: (_) => _JobDetailsPage(
           item: item,
           profile: _dashboard.profile,
+          isWorkerActive: _isWorkerActive,
+          liveLocation: widget.initialLiveLocation,
+          resolvedCoordinates: widget.resolveJobCoordinatesForItem(item),
           onApply: _handleApply,
           onToggleSaved: _handleToggleSaved,
+          onOpenWallet: widget.onOpenWallet,
         ),
       ),
     );
@@ -5168,14 +5174,22 @@ class _CategoryImage extends StatelessWidget {
 class _JobDetailsPage extends StatefulWidget {
   final WorkerFeedItemModel item;
   final WorkerProfileModel profile;
+  final bool isWorkerActive;
+  final _LiveLocationSnapshot liveLocation;
+  final _DerivedJobCoordinates? resolvedCoordinates;
   final Future<void> Function(String jobPostId) onApply;
   final Future<void> Function(String jobPostId) onToggleSaved;
+  final VoidCallback onOpenWallet;
 
   const _JobDetailsPage({
     required this.item,
     required this.profile,
+    required this.isWorkerActive,
+    required this.liveLocation,
+    required this.resolvedCoordinates,
     required this.onApply,
     required this.onToggleSaved,
+    required this.onOpenWallet,
   });
 
   @override
@@ -5210,6 +5224,19 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
   }
 
   Future<void> _handleApply() async {
+    final categoryMatch = _jobRankSetsIntersect(
+      _workerCategoryKeys(widget.profile),
+      _jobCategoryKeys(widget.item),
+    );
+    final showLockedState = widget.item.companyLocked || !categoryMatch;
+    if (showLockedState) {
+      await _showCategoryLockedDialog();
+      return;
+    }
+    if (!widget.isWorkerActive) {
+      await _showRechargeWalletDialog();
+      return;
+    }
     setState(() => _actionLoading = true);
     try {
       await widget.onApply(widget.item.id);
@@ -5223,6 +5250,54 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
         setState(() => _actionLoading = false);
       }
     }
+  }
+
+  Future<void> _showCategoryLockedDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Category Locked'),
+          content: const Text(
+            'This job is not available for your selected job category.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showRechargeWalletDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Recharge your Wallet'),
+          content: const Text(
+            'Your worker access is inactive. Recharge to continue applying for jobs.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                widget.onOpenWallet();
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+              child: const Text('Recharge'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _openWhatsApp() async {
@@ -5269,81 +5344,334 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
     final item = widget.item;
+    final distanceLabel = _distanceLabel(
+      context,
+      widget.liveLocation,
+      item,
+      resolvedCoordinates: widget.resolvedCoordinates,
+    );
+    final locationLine = _FeedTab._locationLine(item, distanceLabel);
+    final companyLocationLine = _joinJobDetailParts([
+      item.companyArea,
+      item.companyCity,
+    ]);
+    final wageLabel = _FeedTab._wageLabel(item);
+    final parsedDetails = _extractJobDescriptionDetails(item.description);
+    final descriptionNotes = _descriptionNotes(
+      item.description,
+      parsedDetails,
+    );
+    final categoryMatch = _jobRankSetsIntersect(
+      _workerCategoryKeys(widget.profile),
+      _jobCategoryKeys(item),
+    );
+    final showLockedState = item.companyLocked || !categoryMatch;
+    final hasCompanyMobile = item.companyMobile?.trim().isNotEmpty ?? false;
+    final canRevealCompanyContact = widget.isWorkerActive && !showLockedState;
+    final requirementFields = <_JobDetailFieldData>[
+      _JobDetailFieldData(
+        label: 'Worker Required',
+        value: item.workersNeeded.toString(),
+      ),
+      if ((parsedDetails['experience required'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Experience Required',
+          value: parsedDetails['experience required']!,
+        ),
+      if ((parsedDetails['worker category'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Worker Category',
+          value: parsedDetails['worker category']!,
+        ),
+      if ((parsedDetails['gender preference'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Gender Preference',
+          value: parsedDetails['gender preference']!,
+        ),
+      if ((parsedDetails['required skills'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Required Skills',
+          value: parsedDetails['required skills']!,
+        ),
+    ];
+    final workDetailFields = <_JobDetailFieldData>[
+      if ((parsedDetails['shift type'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Shift Type',
+          value: parsedDetails['shift type']!,
+        ),
+      if ((parsedDetails['duty hours'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Duty Hours',
+          value: parsedDetails['duty hours']!,
+        ),
+      if ((parsedDetails['weekly off'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Weekly Off',
+          value: parsedDetails['weekly off']!,
+        ),
+      if ((parsedDetails['job duration'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Job Duration',
+          value: parsedDetails['job duration']!,
+        ),
+      if ((parsedDetails['job location'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Job Location',
+          value: parsedDetails['job location']!,
+        ),
+      if (companyLocationLine.isNotEmpty)
+        _JobDetailFieldData(
+          label: 'City / Area',
+          value: companyLocationLine,
+        ),
+      _JobDetailFieldData(
+        label: 'Distance',
+        value: distanceLabel,
+      ),
+    ];
+    final salaryFacilitiesFields = <_JobDetailFieldData>[
+      _JobDetailFieldData(
+        label: 'Salary',
+        value: wageLabel,
+      ),
+      if ((parsedDetails['overtime available'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Overtime Available',
+          value: parsedDetails['overtime available']!,
+        ),
+      if ((parsedDetails['food facility'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Food Facility',
+          value: parsedDetails['food facility']!,
+        ),
+      if ((parsedDetails['accommodation'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Accommodation',
+          value: parsedDetails['accommodation']!,
+        ),
+      if ((parsedDetails['transport facility'] ?? '').isNotEmpty)
+        _JobDetailFieldData(
+          label: 'Transport Facility',
+          value: parsedDetails['transport facility']!,
+        ),
+    ];
+    final jobActivityFields = <_JobDetailFieldData>[
+      _JobDetailFieldData(
+        label: 'Posted Date',
+        value: _shortDate(context, item.publishedAt),
+      ),
+      _JobDetailFieldData(
+        label: 'Expiry Date',
+        value: _shortDate(context, item.expiresAt),
+      ),
+      _JobDetailFieldData(
+        label: 'Job Status',
+        value: _jobStatusLabel(item),
+      ),
+      _JobDetailFieldData(
+        label: 'Applied Status',
+        value: _hasApplied
+            ? (_applicationStatus == null
+                ? l10n.appliedWithoutStatus
+                : l10n.appliedStatusLabel(_applicationStatus!))
+            : 'Not applied',
+      ),
+      _JobDetailFieldData(
+        label: 'Saved Status',
+        value: _isSaved ? l10n.saved : 'Not saved',
+      ),
+      _JobDetailFieldData(
+        label: 'Category Status',
+        value: showLockedState ? 'Category Locked' : 'Matching',
+      ),
+    ];
+    final specialInstructions = parsedDetails['special instructions'] ?? '';
+    final languagesPreferred = parsedDetails['languages preferred'] ?? '';
+    final canContactCompany = canRevealCompanyContact && hasCompanyMobile;
+    final statusFill =
+        showLockedState ? const Color(0xFFFFF7ED) : const Color(0xFFF0FDF4);
+    final statusBorder =
+        showLockedState ? const Color(0xFFF5C98B) : const Color(0xFFB7E8C6);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(l10n.isHindi ? 'à¤œà¥‰à¤¬ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸' : 'Job details'),
+        surfaceTintColor: Colors.white,
+        backgroundColor: Colors.white,
+        title: const Text('Job details'),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
+              color: Colors.white,
               borderRadius: BorderRadius.circular(24),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF173C77),
-                  Color(0xFF2859B3),
-                  Color(0xFF2F6FDF)
-                ],
+              border: Border.all(
+                color: showLockedState
+                    ? const Color(0xFFF5D0A4)
+                    : const Color(0xFFBFE5CC),
               ),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x22173C77),
+                  color: Color(0x140F172A),
                   blurRadius: 24,
-                  offset: Offset(0, 14),
+                  offset: Offset(0, 12),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.city,
-                  style: const TextStyle(
-                    color: Color(0xFFD7E4FF),
-                    fontWeight: FontWeight.w700,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: showLockedState
+                                  ? const Color(0xFFFFF4E5)
+                                  : const Color(0xFFE8F7EF),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: showLockedState
+                                    ? const Color(0xFFF5C98B)
+                                    : const Color(0xFF9DD7B6),
+                              ),
+                            ),
+                            child: Text(
+                              item.categoryName,
+                              style: TextStyle(
+                                color: showLockedState
+                                    ? const Color(0xFF9A5B13)
+                                    : const Color(0xFF166534),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          _FeedTab._statusBadge(
+                            locked: showLockedState,
+                            isHindi: l10n.isHindi,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: OutlinedButton(
+                        onPressed: _actionLoading ? null : _handleSaveToggle,
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          backgroundColor:
+                              _isSaved ? const Color(0xFFF0FDF4) : Colors.white,
+                          side: const BorderSide(color: Color(0xFFD7E2EE)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Icon(
+                          _isSaved
+                              ? Icons.bookmark_rounded
+                              : Icons.bookmark_outline_rounded,
+                          color: const Color(0xFF173C77),
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 Text(
                   item.title,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
+                    color: Color(0xFF0F172A),
+                    fontSize: 23,
                     fontWeight: FontWeight.w900,
                     height: 1.2,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Text(
-                  l10n.isHindi
-                      ? 'à¤¯à¤¹ à¤œà¥‰à¤¬ ${_shortDate(context, item.expiresAt)} à¤¤à¤• à¤–à¥à¤²à¥€ à¤¹à¥ˆ à¤”à¤° ${item.workersNeeded} à¤µà¤°à¥à¤•à¤° à¤šà¤¾à¤¹à¤¿à¤à¥¤'
-                      : 'This job is open until ${_shortDate(context, item.expiresAt)} and needs ${item.workersNeeded} workers.',
+                  item.companyName,
                   style: const TextStyle(
-                    color: Color(0xFFE6EEFF),
-                    height: 1.5,
+                    color: Color(0xFF475569),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    _SummaryChip(
-                      label: l10n.wage,
-                      value: 'Rs ${item.wageAmount.toStringAsFixed(0)}',
+                    _JobDetailHighlightChip(
+                      icon: Icons.currency_rupee_rounded,
+                      label: wageLabel,
+                      fill: const Color(0xFFF8FAFF),
+                      border: const Color(0xFFD7E2EE),
+                      textColor: const Color(0xFF173C77),
                     ),
-                    _SummaryChip(
-                      label: l10n.jobs,
-                      value: l10n.workersNeeded(item.workersNeeded),
+                    _JobDetailHighlightChip(
+                      icon: Icons.groups_rounded,
+                      label: 'Worker Required: ${item.workersNeeded}',
+                      fill: statusFill,
+                      border: statusBorder,
+                      textColor: const Color(0xFF166534),
                     ),
-                    _SummaryChip(
-                      label: l10n.isHindi ? 'à¤®à¥ˆà¤š' : 'Match',
-                      value: l10n.localizeMatchReason(item.matchReason),
+                    if (_hasApplied)
+                      _JobDetailHighlightChip(
+                        icon: Icons.verified_rounded,
+                        label: _applicationStatus == null
+                            ? l10n.appliedWithoutStatus
+                            : l10n.appliedStatusLabel(_applicationStatus!),
+                        fill: const Color(0xFFEFF6FF),
+                        border: const Color(0xFFBFDBFE),
+                        textColor: const Color(0xFF1D4ED8),
+                      ),
+                    if (_isSaved)
+                      _JobDetailHighlightChip(
+                        icon: Icons.bookmark_rounded,
+                        label: l10n.saved,
+                        fill: const Color(0xFFF0FDF4),
+                        border: const Color(0xFFBBF7D0),
+                        textColor: const Color(0xFF166534),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.location_on_rounded,
+                      size: 18,
+                      color: Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        locationLine,
+                        style: const TextStyle(
+                          color: Color(0xFF475569),
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.45,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -5351,197 +5679,259 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
             ),
           ),
           const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.isHindi ? 'à¤œà¥‰à¤¬ à¤“à¤µà¤°à¤µà¥à¤¯à¥‚' : 'Job overview',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w800),
+          _JobDetailSectionCard(
+            title: 'Company Details',
+            child: Column(
+              children: [
+                if (showLockedState)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: const Color(0xFFFFF7E6),
+                      border: Border.all(color: const Color(0xFFF7D8A5)),
+                    ),
+                    child: Text(
+                      'Company details are locked.',
+                      style: const TextStyle(
+                        color: Color(0xFF92400E),
+                        fontWeight: FontWeight.w700,
+                        height: 1.55,
+                      ),
+                    ),
+                  ),
+                if (showLockedState) const SizedBox(height: 12),
+                if (!showLockedState && !widget.isWorkerActive) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: const Color(0xFFEEF4FF),
+                      border: Border.all(color: const Color(0xFFD6E4FF)),
+                    ),
+                    child: const Text(
+                      'Recharge your wallet to unlock company contact details.',
+                      style: TextStyle(
+                        color: Color(0xFF173C77),
+                        fontWeight: FontWeight.w700,
+                        height: 1.55,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _FeedTab._chip(item.categoryName),
-                      _FeedTab._chip(l10n.workersNeeded(item.workersNeeded)),
-                      _FeedTab._chip(
-                          l10n.localizeMatchReason(item.matchReason)),
-                      if (_isSaved)
-                        _FeedTab._chip(l10n.saved,
-                            fill: const Color(0xFFF0FDF4)),
-                      if (_hasApplied)
-                        _FeedTab._chip(
-                          _applicationStatus == null
-                              ? l10n.appliedWithoutStatus
-                              : l10n.appliedStatusLabel(_applicationStatus!),
-                          fill: const Color(0xFFEFF6FF),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    item.description,
-                    style:
-                        const TextStyle(color: Color(0xFF475569), height: 1.7),
+                ],
+                _JobDetailInfoRow(
+                  label: 'Company Name',
+                  value: item.companyName,
+                ),
+                if (canRevealCompanyContact &&
+                    (item.contactPerson?.trim().isNotEmpty ?? false)) ...[
+                  const SizedBox(height: 10),
+                  _JobDetailInfoRow(
+                    label: 'Contact Person',
+                    value: item.contactPerson!.trim(),
                   ),
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.isHindi ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸' : 'Company details',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 14),
-                  if (item.companyLocked)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: const Color(0xFFFFF7E6),
-                        border: Border.all(color: const Color(0xFFF7D8A5)),
-                      ),
-                      child: Text(
-                        l10n.companyLockedMessage,
-                        style: const TextStyle(
-                          color: Color(0xFF92400E),
-                          fontWeight: FontWeight.w700,
-                          height: 1.6,
-                        ),
-                      ),
-                    )
-                  else
-                    Column(
-                      children: [
-                        _ProfileInfoTile(
-                          label: l10n.isHindi ? 'à¤•à¤‚à¤ªà¤¨à¥€' : 'Company',
-                          value: item.companyName,
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _ProfileInfoTile(
-                                label: l10n.isHindi
-                                    ? 'à¤¸à¤‚à¤ªà¤°à¥à¤• à¤µà¥à¤¯à¤•à¥à¤¤à¤¿'
-                                    : 'Contact person',
-                                value: item.contactPerson ?? '-',
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _ProfileInfoTile(
-                                label: l10n.isHindi ? 'à¤®à¥‹à¤¬à¤¾à¤‡à¤²' : 'Mobile',
-                                value: item.companyMobile ?? '-',
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _ProfileInfoTile(
-                          label: l10n.isHindi ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤¶à¤¹à¤°' : 'Company city',
-                          value: item.companyCity,
-                        ),
-                        if ((item.companyMobile ?? '').trim().isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                              onPressed: _openWhatsApp,
-                              icon: const Icon(Icons.chat_rounded),
-                              label: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                child: Text(
-                                  l10n.isHindi
-                                      ? 'à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤ªà¤° à¤¬à¤¾à¤¤ à¤•à¤°à¥‡à¤‚'
-                                      : 'Chat on WhatsApp',
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.isHindi ? 'à¤œà¥‰à¤¬ à¤à¤•à¥à¤Ÿà¤¿à¤µà¤¿à¤Ÿà¥€' : 'Job activity',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
+                const SizedBox(height: 10),
+                _JobDetailInfoRow(
+                  label: 'City / Area',
+                  value: companyLocationLine.isEmpty
+                      ? (item.city.trim().isEmpty ? '-' : item.city.trim())
+                      : companyLocationLine,
+                ),
+                if (canContactCompany) ...[
                   const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
-                        child: _ProfileInfoTile(
-                          label: l10n.isHindi ? 'à¤ªà¥‹à¤¸à¥à¤Ÿ à¤•à¥€ à¤—à¤ˆ' : 'Published',
-                          value: _shortDate(context, item.publishedAt),
+                        child: _JobDetailActionButton(
+                          label: 'WhatsApp',
+                          backgroundColor: const Color(0xFFEFFAF3),
+                          borderColor: const Color(0xFFB7E8C6),
+                          onPressed: _openWhatsApp,
+                          child: Image.asset(
+                            'assets/images/whatsapp_icon.jpeg',
+                            width: 22,
+                            height: 22,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: _ProfileInfoTile(
-                          label: l10n.isHindi ? 'à¤¸à¤®à¤¾à¤ªà¥à¤¤à¤¿' : 'Expires',
-                          value: _shortDate(context, item.expiresAt),
+                        child: _JobDetailActionButton(
+                          label: 'Call',
+                          backgroundColor: const Color(0xFFF8FAFC),
+                          borderColor: const Color(0xFFD7E2EE),
+                          onPressed: () => _callJobCompany(context, item),
+                          child: const Icon(
+                            Icons.call_rounded,
+                            size: 19,
+                            color: Color(0xFF173C77),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  if (item.appliedAt != null) ...[
-                    const SizedBox(height: 12),
-                    _ProfileInfoTile(
-                      label: l10n.isHindi ? 'à¤…à¤ªà¥à¤²à¤¾à¤ˆ à¤•à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾' : 'Applied on',
-                      value: _shortDate(context, item.appliedAt!),
-                    ),
-                  ],
                 ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _JobDetailCardGrid(
+            cards: [
+              _JobDetailSectionCard(
+                title: 'Job Requirement',
+                compact: true,
+                child: _JobDetailFieldList(
+                  fields: requirementFields,
+                  emptyLabel: 'Requirement details are not available yet.',
+                ),
               ),
+              _JobDetailSectionCard(
+                title: 'Work Detail',
+                compact: true,
+                child: _JobDetailFieldList(
+                  fields: workDetailFields,
+                  emptyLabel: 'Work timing and location details are not available yet.',
+                ),
+              ),
+              _JobDetailSectionCard(
+                title: 'Salary Facilities',
+                compact: true,
+                child: _JobDetailFieldList(
+                  fields: salaryFacilitiesFields,
+                  emptyLabel: 'Salary and facility details are not available yet.',
+                ),
+              ),
+              _JobDetailSectionCard(
+                title: 'Job Activity',
+                compact: true,
+                child: _JobDetailFieldList(
+                  fields: jobActivityFields,
+                  emptyLabel: 'Job activity is not available yet.',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _JobDetailSectionCard(
+            title: 'Job Description',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (descriptionNotes.isNotEmpty)
+                  ...descriptionNotes.map(
+                    (note) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            margin: const EdgeInsets.only(top: 8),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF173C77),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              note,
+                              style: const TextStyle(
+                                color: Color(0xFF334155),
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    'No additional instructions provided.',
+                    style: const TextStyle(
+                      color: Color(0xFF334155),
+                      fontSize: 13.5,
+                      height: 1.6,
+                    ),
+                  ),
+                if (specialInstructions.trim().isNotEmpty &&
+                    !descriptionNotes.contains(specialInstructions.trim())) ...[
+                  const SizedBox(height: 12),
+                  _JobDetailInfoRow(
+                    label: 'Special Instructions',
+                    value: specialInstructions,
+                  ),
+                ],
+                if (languagesPreferred.trim().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Languages Preferred',
+                    style: const TextStyle(
+                      color: Color(0xFF475569),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: languagesPreferred
+                        .split(RegExp(r'[,/]+'))
+                        .map((value) => value.trim())
+                        .where((value) => value.isNotEmpty)
+                        .map(
+                          (value) => _FeedTab._chip(
+                            value,
+                            fill: const Color(0xFFF8FAFC),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+          ),
           child: Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _actionLoading ? null : _handleSaveToggle,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: Color(0xFFD7E2EE)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                   icon: Icon(
                     _isSaved
                         ? Icons.bookmark_rounded
                         : Icons.bookmark_outline_rounded,
                   ),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Text(
-                        _isSaved ? l10n.removeFromShortlist : l10n.saveJob),
+                  label: Text(
+                    _isSaved ? l10n.removeFromShortlist : l10n.saveJob,
                   ),
                 ),
               ),
@@ -5550,15 +5940,19 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                 child: FilledButton(
                   onPressed:
                       _hasApplied || _actionLoading ? null : _handleApply,
-                  child: Padding(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF173C77),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Text(
-                      _actionLoading
-                          ? l10n.working
-                          : _hasApplied
-                              ? l10n.applicationSent
-                              : l10n.applyToJob,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
+                  ),
+                  child: Text(
+                    _actionLoading
+                        ? l10n.working
+                        : _hasApplied
+                            ? l10n.applicationSent
+                            : l10n.applyToJob,
                   ),
                 ),
               ),
@@ -5570,17 +5964,453 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
   }
 }
 
+class _JobDetailFieldData {
+  final String label;
+  final String value;
+
+  const _JobDetailFieldData({
+    required this.label,
+    required this.value,
+  });
+}
+
+class _JobDetailSectionCard extends StatelessWidget {
+  final String title;
+  final Widget child;
+  final bool compact;
+
+  const _JobDetailSectionCard({
+    required this.title,
+    required this.child,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(compact ? 13 : 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F0F172A),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: compact ? 15.5 : 17,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          SizedBox(height: compact ? 10 : 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _JobDetailCardGrid extends StatelessWidget {
+  final List<Widget> cards;
+
+  const _JobDetailCardGrid({
+    required this.cards,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 320) {
+          return Column(
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                cards[index],
+                if (index != cards.length - 1) const SizedBox(height: 12),
+              ],
+            ],
+          );
+        }
+
+        final rows = <Widget>[];
+        for (var i = 0; i < cards.length; i += 2) {
+          rows.add(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: cards[i]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: i + 1 < cards.length
+                      ? cards[i + 1]
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          );
+          if (i + 2 < cards.length) {
+            rows.add(const SizedBox(height: 12));
+          }
+        }
+        return Column(children: rows);
+      },
+    );
+  }
+}
+
+class _JobDetailFieldList extends StatelessWidget {
+  final List<_JobDetailFieldData> fields;
+  final String emptyLabel;
+
+  const _JobDetailFieldList({
+    required this.fields,
+    required this.emptyLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (fields.isEmpty) {
+      return Text(
+        emptyLabel,
+        style: const TextStyle(
+          color: Color(0xFF64748B),
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          height: 1.5,
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (var index = 0; index < fields.length; index++) ...[
+          _JobDetailCompactRow(field: fields[index]),
+          if (index != fields.length - 1) const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _JobDetailCompactRow extends StatelessWidget {
+  final _JobDetailFieldData field;
+
+  const _JobDetailCompactRow({
+    required this.field,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            field.label,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            field.value,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JobDetailInfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _JobDetailInfoRow({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JobDetailActionButton extends StatelessWidget {
+  final String label;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Widget child;
+  final VoidCallback onPressed;
+
+  const _JobDetailActionButton({
+    required this.label,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.child,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        backgroundColor: backgroundColor,
+        side: BorderSide(color: borderColor),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          child,
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF173C77),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JobDetailHighlightChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color fill;
+  final Color border;
+  final Color textColor;
+
+  const _JobDetailHighlightChip({
+    required this.icon,
+    required this.label,
+    required this.fill,
+    required this.border,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: textColor),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const List<String> _jobDescriptionFieldLabels = [
+  'connected plan',
+  'worker category',
+  'gender preference',
+  'experience required',
+  'job location',
+  'shift type',
+  'duty hours',
+  'weekly off',
+  'job duration',
+  'salary type',
+  'overtime available',
+  'food facility',
+  'accommodation',
+  'transport facility',
+  'required skills',
+  'special instructions',
+  'languages preferred',
+  'submission mode',
+];
+
+const List<String> _jobDescriptionExcludedPrefixes = [
+  'worker required',
+  'workers needed',
+  'salary amount',
+  'company name',
+  'contact person',
+  'company city',
+  'city',
+  'area',
+  'distance',
+  'posted date',
+  'expiry date',
+  'job status',
+  'applied status',
+  'saved status',
+  'category status',
+  'category match',
+];
+
+Map<String, String> _extractJobDescriptionDetails(String description) {
+  final normalized = description.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  final details = <String, String>{};
+  final allLabelsPattern = _jobDescriptionFieldLabels
+      .map(RegExp.escape)
+      .join('|');
+
+  for (final line in normalized.split('\n')) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) continue;
+    final match = RegExp(r'^([^:]+):\s*(.+)$').firstMatch(trimmed);
+    if (match == null) continue;
+    final label = match.group(1)!.trim().toLowerCase();
+    final value = match.group(2)!.trim();
+    if (_jobDescriptionFieldLabels.contains(label) && value.isNotEmpty) {
+      details[label] = value;
+    }
+  }
+
+  for (final label in _jobDescriptionFieldLabels) {
+    if (details.containsKey(label)) continue;
+    final match = RegExp(
+      '(?:^|\\n|\\b)${RegExp.escape(label)}\\s*:\\s*([\\s\\S]*?)(?=(?:\\n|\\b(?:$allLabelsPattern)\\s*:)|\$)',
+      caseSensitive: false,
+    ).firstMatch(normalized);
+    final value = match?.group(1)?.trim() ?? '';
+    if (value.isNotEmpty) {
+      details[label] = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
+  }
+
+  return details;
+}
+
+List<String> _descriptionNotes(
+  String description,
+  Map<String, String> parsedDetails,
+) {
+  final notes = <String>[];
+  for (final line in description.replaceAll('\r\n', '\n').split('\n')) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) continue;
+    if (trimmed.toLowerCase() == 'job requirement details') continue;
+    final lower = trimmed.toLowerCase();
+    final isStructured = _jobDescriptionFieldLabels.any(
+          (label) => lower.startsWith('$label:'),
+        ) ||
+        _jobDescriptionExcludedPrefixes.any(
+          (label) => lower.startsWith('$label:'),
+        );
+    if (!isStructured) {
+      notes.add(trimmed);
+    }
+  }
+  return notes;
+}
+
+String _joinJobDetailParts(List<String?> values) {
+  return values
+      .map((value) => (value ?? '').trim())
+      .where((value) => value.isNotEmpty)
+      .join(', ');
+}
+
+String _jobStatusLabel(WorkerFeedItemModel item) {
+  final expiresAt = DateTime.tryParse(item.expiresAt);
+  if (expiresAt != null && expiresAt.isBefore(DateTime.now())) {
+    return 'Expired';
+  }
+  return 'Active';
+}
+
 class _SavedJobsPage extends StatefulWidget {
   final WorkerProfileModel profile;
   final List<WorkerFeedItemModel> items;
+  final bool isWorkerActive;
   final Future<void> Function(String jobPostId) onApply;
   final Future<void> Function(String jobPostId) onToggleSaved;
+  final VoidCallback onOpenWallet;
 
   const _SavedJobsPage({
     required this.profile,
     required this.items,
+    required this.isWorkerActive,
     required this.onApply,
     required this.onToggleSaved,
+    required this.onOpenWallet,
   });
 
   @override
@@ -5598,6 +6428,34 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
   }
 
   Future<void> _handleApply(String jobPostId) async {
+    if (!widget.isWorkerActive) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Recharge your Wallet'),
+            content: const Text(
+              'Your worker access is inactive. Recharge to continue applying for jobs.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Not now'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  widget.onOpenWallet();
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Recharge'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
     setState(() => _actionJobId = jobPostId);
     try {
       await widget.onApply(jobPostId);
@@ -5630,6 +6488,8 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                       companyArea: item.companyArea,
                       companyCity: item.companyCity,
                       companyPincode: item.companyPincode,
+                      companyLatitude: item.companyLatitude,
+                      companyLongitude: item.companyLongitude,
                       contactPerson: item.contactPerson,
                       companyMobile: item.companyMobile,
                       publishedAt: item.publishedAt,
@@ -5676,8 +6536,33 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
         builder: (_) => _JobDetailsPage(
           item: item,
           profile: widget.profile,
+          isWorkerActive: widget.isWorkerActive,
+          liveLocation: _LiveLocationSnapshot(
+            latitude: widget.profile.latitude,
+            longitude: widget.profile.longitude,
+            city: widget.profile.city,
+            area: '',
+            permissionDenied: false,
+            unavailable: false,
+          ),
+          resolvedCoordinates: item.latitude != null && item.longitude != null
+              ? _DerivedJobCoordinates(
+                  latitude: item.latitude!,
+                  longitude: item.longitude!,
+                  source: item.coordinateSource.isEmpty
+                      ? 'feed'
+                      : item.coordinateSource,
+                )
+              : (item.companyLatitude != null && item.companyLongitude != null
+                    ? _DerivedJobCoordinates(
+                        latitude: item.companyLatitude!,
+                        longitude: item.companyLongitude!,
+                        source: 'company',
+                      )
+                    : null),
           onApply: _handleApply,
           onToggleSaved: _handleToggleSaved,
+          onOpenWallet: widget.onOpenWallet,
         ),
       ),
     );
@@ -6051,6 +6936,7 @@ class _NotificationsTab extends StatelessWidget {
 class _WalletTab extends StatelessWidget {
   final WorkerDashboardModel dashboard;
   final TextEditingController rechargeAmountController;
+  final TextEditingController rechargeNoteController;
   final Future<void> Function() onStartWalletRecharge;
   final Future<void> Function() onRefresh;
   final bool loading;
@@ -6058,6 +6944,7 @@ class _WalletTab extends StatelessWidget {
   const _WalletTab({
     required this.dashboard,
     required this.rechargeAmountController,
+    required this.rechargeNoteController,
     required this.onStartWalletRecharge,
     required this.onRefresh,
     required this.loading,
@@ -6066,173 +6953,268 @@ class _WalletTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
+    final isActive = _dashboardWorkerActive(dashboard);
+    final daysRemaining = math.max(dashboard.wallet.estimatedDaysRemaining, 0);
+    final daysLabel = daysRemaining == 1 ? '1 day left' : '$daysRemaining days left';
+    final planName = (dashboard.workerPlan?.name.trim().isNotEmpty ?? false)
+        ? dashboard.workerPlan!.name.trim()
+        : 'Starter Plan';
+    final planHeadline =
+        isActive ? '$planName Active' : 'Plan Expired';
+    final planSubtitle =
+        isActive ? daysLabel : 'Recharge Required';
+    final activationLabel = isActive ? 'Active' : 'Inactive';
+    final historyItems = dashboard.wallet.transactions;
+
     return RefreshIndicator.adaptive(
       onRefresh: onRefresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.walletActivation,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          _WalletSurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Wallet & activation',
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.walletActivationSubtitle,
-                    style:
-                        const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _walletVisibilityRule(l10n, dashboard),
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    height: 1.55,
                   ),
-                  const SizedBox(height: 18),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF0E254A), Color(0xFF173C77)],
-                      ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0E254A), Color(0xFF173C77)],
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.currentBalance,
-                          style: const TextStyle(color: Color(0xFFD7E4FF)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x22173C77),
+                        blurRadius: 22,
+                        offset: Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Current Balance',
+                        style: TextStyle(
+                          color: Color(0xFFD7E4FF),
+                          fontWeight: FontWeight.w700,
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _WalletAccentPill(
+                            label: 'Plan Status: $activationLabel',
+                          ),
+                          _WalletAccentPill(label: 'Days Remaining: $daysRemaining'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _WalletDetailCard(
+                  title: 'Plan Status',
+                  value: planHeadline,
+                  subtitle: planSubtitle,
+                  highlight: !isActive,
+                ),
+                const SizedBox(height: 12),
+                _WalletDetailCard(
+                  title: 'Estimated Active Days',
+                  value: daysLabel,
+                ),
+                const SizedBox(height: 12),
+                _WalletDetailCard(
+                  title: 'Minimum Recharge',
+                  value: 'Rs ${_minimumWalletRechargeAmount.toStringAsFixed(0)}',
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Recharge Section',
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: rechargeAmountController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Recharge Amount',
+                          hintText: 'Enter recharge amount',
+                          prefixIcon: Icon(Icons.currency_rupee_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: rechargeNoteController,
+                        decoration: const InputDecoration(
+                          labelText: 'Recharge Note',
+                          hintText: 'Recharge note (optional)',
+                          prefixIcon: Icon(Icons.edit_note_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: loading ? null : onStartWalletRecharge,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF173C77),
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: Text(
+                            loading ? 'Opening payment...' : 'Recharge Now',
+                            style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        Text(
-                          _walletVisibilityRule(l10n, dashboard),
-                          style: const TextStyle(
-                              color: Color(0xFFE6EEFF), height: 1.6),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.dailyDeduction,
-                          value:
-                              'Rs ${dashboard.wallet.dailyCharge.toStringAsFixed(0)}',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.estimatedActiveDays,
-                          value: '${dashboard.wallet.estimatedDaysRemaining}',
-                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.isHindi
-                              ? 'à¤°à¤œà¤¿à¤¸à¥à¤Ÿà¥à¤°à¥‡à¤¶à¤¨ à¤«à¥€à¤¸ (à¤à¤• à¤¬à¤¾à¤°)'
-                              : 'Registration fee (one time)',
-                          value:
-                              'Rs ${dashboard.wallet.registrationFee.toStringAsFixed(0)}',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.isHindi ? 'à¤«à¥€à¤¸ à¤¸à¥à¤Ÿà¥‡à¤Ÿà¤¸' : 'Fee status',
-                          value: dashboard.wallet.registrationFeePaid
-                              ? (l10n.isHindi ? 'Paid' : 'Paid')
-                              : (l10n.isHindi ? 'Pending' : 'Pending'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: rechargeAmountController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Recharge amount',
-                      hintText: 'Enter amount',
-                      prefixIcon: Icon(Icons.currency_rupee_rounded),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: loading ? null : onStartWalletRecharge,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
-                            loading ? 'Opening payment...' : 'Recharge Wallet'),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            l10n.rechargeHistory,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            'Recharge & deduction history',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
-          ...dashboard.wallet.transactions.map(
-            (transaction) => Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                title: Text(_prettyText(context, transaction.transactionType)),
-                subtitle: Text(
-                  transaction.note.isEmpty
-                      ? transaction.reference
-                      : transaction.note,
+          if (historyItems.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Text(
+                'No records available.',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+              ),
+            )
+          else
+            ...historyItems.map(
+              (transaction) => Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${transaction.direction == 'debit' ? '-' : '+'} Rs ${transaction.amount.toStringAsFixed(0)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: transaction.direction == 'debit'
-                            ? const Color(0xFFB91C1C)
-                            : const Color(0xFF166534),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _prettyText(context, transaction.transactionType),
+                            style: const TextStyle(
+                              color: Color(0xFF0F172A),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${transaction.direction == 'debit' ? '-' : '+'} Rs ${transaction.amount.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: transaction.direction == 'debit'
+                                ? const Color(0xFFB91C1C)
+                                : const Color(0xFF166534),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _WalletHistoryPill(
+                          label: 'Date: ${_shortDate(context, transaction.createdAt)}',
+                        ),
+                        _WalletHistoryPill(
+                          label: 'Type: ${_prettyText(context, transaction.status)}',
+                        ),
+                      ],
+                    ),
+                    if (transaction.note.trim().isNotEmpty ||
+                        transaction.reference.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        transaction.note.trim().isNotEmpty
+                            ? transaction.note.trim()
+                            : transaction.reference.trim(),
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 13,
+                          height: 1.45,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${_prettyText(context, transaction.status)} | ${_shortDate(context, transaction.createdAt)}',
-                      style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF64748B)),
-                    ),
+                    ],
                   ],
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -6380,6 +7362,12 @@ class _ProfileTabState extends State<_ProfileTab> {
   Widget build(BuildContext context) {
     final profile = widget.dashboard.profile;
     final l10n = WorkerLocalizations.of(context);
+    final categoryContext = _resolveProfileCategoryContext(
+      widget.dashboard,
+      _selectedCategories,
+      profile.categoryLabels,
+    );
+    final isActive = _dashboardWorkerActive(widget.dashboard);
 
     return RefreshIndicator.adaptive(
       onRefresh: widget.onRefresh,
@@ -6387,199 +7375,180 @@ class _ProfileTabState extends State<_ProfileTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.workerProfile,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          _WalletSurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.workerProfile,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.workerProfileSubtitle,
-                    style:
-                        const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.workerProfileSubtitle,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    height: 1.5,
                   ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ProfileInfoTile(
-                          label: l10n.mobile,
-                          value: profile.mobile,
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ProfileInfoTile(
+                        label: l10n.mobile,
+                        value: profile.mobile,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ProfileInfoTile(
+                        label: 'Status',
+                        value: isActive ? 'Active' : 'Inactive',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: l10n.fullName,
+                    prefixIcon: const Icon(Icons.person_outline_rounded),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _cityController,
+                  decoration: InputDecoration(
+                    labelText: l10n.city,
+                    prefixIcon: const Icon(Icons.home_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _experienceController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: l10n.experienceYears,
+                          prefixIcon: const Icon(Icons.workspace_premium_outlined),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _ProfileInfoTile(
-                          label: l10n.isHindi ? 'à¤¸à¥à¤¥à¤¿à¤¤à¤¿' : 'Status',
-                          value: _prettyText(context, profile.status),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _wageController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: l10n.expectedDailyWage,
+                          prefixIcon: const Icon(Icons.currency_rupee_rounded),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: l10n.fullName,
-                      prefixIcon: const Icon(Icons.person_outline_rounded),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _skillsController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: l10n.skills,
+                    hintText: l10n.skillsHint,
+                    prefixIcon: const Icon(Icons.build_circle_outlined),
                   ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: _cityController,
-                    decoration: InputDecoration(
-                      labelText: l10n.city,
-                      prefixIcon: const Icon(Icons.location_city_outlined),
-                    ),
+                ),
+                const SizedBox(height: 16),
+                _ProfileReadOnlyField(
+                  label: 'Industry Category',
+                  icon: Icons.apartment_rounded,
+                  value: categoryContext.industryLabel,
+                ),
+                const SizedBox(height: 12),
+                _ProfileReadOnlyField(
+                  label: 'Business Type',
+                  icon: Icons.business_center_rounded,
+                  value: categoryContext.businessTypeLabel,
+                ),
+                const SizedBox(height: 12),
+                _ProfileReadOnlyField(
+                  label: 'Job Category',
+                  icon: Icons.category_outlined,
+                  value: categoryContext.jobCategoryLabel,
+                  helperText: 'Job category is fixed from registration.',
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _availability,
+                  items: [
+                    DropdownMenuItem(
+                        value: 'available_today',
+                        child: Text(l10n.availableToday)),
+                    DropdownMenuItem(
+                        value: 'available_this_week',
+                        child: Text(l10n.availableThisWeek)),
+                    DropdownMenuItem(
+                        value: 'not_available',
+                        child: Text(l10n.notAvailable)),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _availability = value);
+                    }
+                  },
+                  decoration: InputDecoration(
+                    labelText: l10n.availability,
+                    prefixIcon: const Icon(Icons.event_available_rounded),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _experienceController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: l10n.experienceYears,
-                            prefixIcon:
-                                const Icon(Icons.workspace_premium_outlined),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: widget.loading ? null : _submit,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF173C77),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _wageController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: l10n.expectedDailyWage,
-                            prefixIcon:
-                                const Icon(Icons.currency_rupee_rounded),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _skillsController,
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: l10n.skills,
-                      hintText: l10n.skillsHint,
-                      prefixIcon: const Icon(Icons.build_circle_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(l10n.categories,
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children:
-                        widget.dashboard.availableCategories.map((category) {
-                      final selected =
-                          _selectedCategories.contains(category.id);
-                      return FilterChip(
-                        selected: selected,
-                        label: Text(category.name),
-                        onSelected: (value) {
-                          setState(() {
-                            if (value) {
-                              _selectedCategories.add(category.id);
-                            } else {
-                              _selectedCategories.remove(category.id);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _availability,
-                    items: [
-                      DropdownMenuItem(
-                          value: 'available_today',
-                          child: Text(l10n.availableToday)),
-                      DropdownMenuItem(
-                          value: 'available_this_week',
-                          child: Text(l10n.availableThisWeek)),
-                      DropdownMenuItem(
-                          value: 'not_available',
-                          child: Text(l10n.notAvailable)),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _availability = value);
-                      }
-                    },
-                    decoration: InputDecoration(
-                      labelText: l10n.availability,
-                      prefixIcon: const Icon(Icons.event_available_rounded),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: widget.loading ? null : _submit,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
-                            widget.loading ? l10n.saving : l10n.saveProfile),
+                          widget.loading ? l10n.saving : l10n.saveProfile,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  Card(
-                    color: const Color(0xFFFFFBEB),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.isHindi ? 'à¤…à¤•à¤¾à¤‰à¤‚à¤Ÿ' : 'Account',
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w800),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: widget.onLogout,
+                        icon: const Icon(Icons.logout_rounded),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0F172A),
+                          side: const BorderSide(color: Color(0xFFD7E2EE)),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            l10n.isHindi
-                                ? 'à¤¯à¤¦à¤¿ à¤†à¤ª à¤‡à¤¸ à¤¡à¤¿à¤µà¤¾à¤‡à¤¸ à¤¸à¥‡ à¤¬à¤¾à¤¹à¤° à¤¨à¤¿à¤•à¤²à¤¨à¤¾ à¤šà¤¾à¤¹à¤¤à¥‡ à¤¹à¥ˆà¤‚, à¤¤à¥‹ à¤¨à¥€à¤šà¥‡ à¤²à¥‰à¤—à¤†à¤‰à¤Ÿ à¤•à¤°à¥‡à¤‚à¥¤'
-                                : 'Use logout below if you want to sign out from this device.',
-                            style: const TextStyle(
-                                color: Color(0xFF64748B), height: 1.5),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: widget.onLogout,
-                              icon: const Icon(Icons.logout_rounded),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFB42318),
-                                side:
-                                    const BorderSide(color: Color(0xFFFDA29B)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                              ),
-                              label: Text(l10n.isHindi ? 'à¤²à¥‰à¤—à¤†à¤‰à¤Ÿ' : 'Logout'),
-                            ),
-                          ),
-                        ],
+                        ),
+                        label: const Text(
+                          'Logout',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -6774,6 +7743,152 @@ class _MiniStatCard extends StatelessWidget {
   }
 }
 
+class _WalletSurfaceCard extends StatelessWidget {
+  final Widget child;
+
+  const _WalletSurfaceCard({
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x140F172A),
+            blurRadius: 22,
+            offset: Offset(0, 12),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _WalletDetailCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String? subtitle;
+  final bool highlight;
+
+  const _WalletDetailCard({
+    required this.title,
+    required this.value,
+    this.subtitle,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: highlight ? const Color(0xFFFFF7E6) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: highlight ? const Color(0xFFF7D8A5) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: highlight ? const Color(0xFF92400E) : const Color(0xFF0F172A),
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              subtitle!,
+              style: TextStyle(
+                color:
+                    highlight ? const Color(0xFF92400E) : const Color(0xFF475569),
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WalletAccentPill extends StatelessWidget {
+  final String label;
+
+  const _WalletAccentPill({
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0x1AD7E4FF),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0x33D7E4FF)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _WalletHistoryPill extends StatelessWidget {
+  final String label;
+
+  const _WalletHistoryPill({
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF475569),
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _SummaryChip extends StatelessWidget {
   final String label;
   final String value;
@@ -6916,6 +8031,135 @@ class _ProfileInfoTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProfileReadOnlyField extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final String value;
+  final String? helperText;
+
+  const _ProfileReadOnlyField({
+    required this.label,
+    required this.icon,
+    required this.value,
+    this.helperText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon),
+            suffixIcon:
+                const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF475569)),
+          ),
+          child: Text(
+            value.trim().isEmpty ? '-' : value.trim(),
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        if (helperText != null && helperText!.trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              helperText!,
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ResolvedProfileCategoryContext {
+  final String industryLabel;
+  final String businessTypeLabel;
+  final String jobCategoryLabel;
+
+  const _ResolvedProfileCategoryContext({
+    required this.industryLabel,
+    required this.businessTypeLabel,
+    required this.jobCategoryLabel,
+  });
+}
+
+bool _dashboardWorkerActive(WorkerDashboardModel dashboard) {
+  return dashboard.activation.isActive ||
+      dashboard.profile.status.trim().toLowerCase() == 'active';
+}
+
+_ResolvedProfileCategoryContext _resolveProfileCategoryContext(
+  WorkerDashboardModel dashboard,
+  List<String> selectedCategoryIds,
+  List<String> categoryLabels,
+) {
+  final workerKeys = _normalizedJobRankSet([
+    ...selectedCategoryIds,
+    ...categoryLabels,
+  ]);
+
+  String jobCategoryLabel = categoryLabels
+      .map((item) => item.trim())
+      .firstWhere((item) => item.isNotEmpty, orElse: () => '');
+  if (jobCategoryLabel.isEmpty) {
+    final matchedCategory = dashboard.availableCategories.firstWhere(
+      (category) => workerKeys.contains(_normalizeJobRankKey(category.id)) ||
+          workerKeys.contains(_normalizeJobRankKey(category.name)),
+      orElse: () => WorkerCategoryOption(
+        id: '',
+        name: '',
+        description: '',
+        imageUrl: '',
+        isActive: false,
+        showOnHome: false,
+        homeOrder: 0,
+      ),
+    );
+    jobCategoryLabel = matchedCategory.name.trim();
+  }
+
+  for (final dependency in dashboard.categoryDependencies) {
+    final dependencyCategoryKeys = _normalizedJobRankSet([
+      dependency.categoryId,
+      dependency.categorySlug,
+      dependency.categoryName,
+    ]);
+    if (!_jobRankSetsIntersect(workerKeys, dependencyCategoryKeys)) {
+      continue;
+    }
+    return _ResolvedProfileCategoryContext(
+      industryLabel: dependency.industryCategory.label.trim().isNotEmpty
+          ? dependency.industryCategory.label.trim()
+          : dependency.industryCategory.value.trim(),
+      businessTypeLabel: dependency.businessType == null
+          ? '-'
+          : (dependency.businessType!.label.trim().isNotEmpty
+              ? dependency.businessType!.label.trim()
+              : dependency.businessType!.value.trim()),
+      jobCategoryLabel: jobCategoryLabel.isEmpty ? dependency.categoryName : jobCategoryLabel,
+    );
+  }
+
+  return _ResolvedProfileCategoryContext(
+    industryLabel: '-',
+    businessTypeLabel: '-',
+    jobCategoryLabel: jobCategoryLabel.isEmpty ? '-' : jobCategoryLabel,
+  );
 }
 
 String _normalizeWhatsappPhone(String value) {

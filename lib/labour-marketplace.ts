@@ -94,6 +94,10 @@ export interface LabourCompanyRecord {
   mobile: string
   contactMobile: string
   city: string
+  area: string
+  pincode: string
+  latitude: number | null
+  longitude: number | null
   categoryIds: string[]
   status: CompanyStatus
   registrationFeePaid: boolean
@@ -113,6 +117,7 @@ export interface LabourJobPostRecord {
   locationLabel: string
   latitude: number | null
   longitude: number | null
+  salaryType?: string
   workersNeeded: number
   wageAmount: number
   validityDays: number
@@ -722,6 +727,10 @@ const mapCompanyRow = (row: {
   mobile: string
   contact_mobile?: string | null
   city: string | null
+  area?: string | null
+  pincode?: string | null
+  latitude?: number | null
+  longitude?: number | null
   category_ids: string[] | null
   status: string | null
   registration_fee_paid: boolean | null
@@ -736,6 +745,10 @@ const mapCompanyRow = (row: {
   mobile: row.mobile,
   contactMobile: row.contact_mobile || row.mobile || '',
   city: row.city || '',
+  area: row.area || '',
+  pincode: row.pincode || '',
+  latitude: row.latitude ?? null,
+  longitude: row.longitude ?? null,
   categoryIds: row.category_ids || [],
   status: (row.status as CompanyStatus | null) || 'pending',
   registrationFeePaid: row.registration_fee_paid ?? false,
@@ -754,6 +767,7 @@ const mapJobPostRow = (row: {
   location_label: string | null
   latitude: number | null
   longitude: number | null
+  salary_type?: string | null
   workers_needed: number | null
   wage_amount: number | null
   validity_days: number | null
@@ -772,6 +786,7 @@ const mapJobPostRow = (row: {
   locationLabel: row.location_label || '',
   latitude: row.latitude ?? null,
   longitude: row.longitude ?? null,
+  salaryType: resolveJobPostSalaryType(row.salary_type || '', row.description || ''),
   workersNeeded: row.workers_needed ?? 1,
   wageAmount: row.wage_amount ?? 0,
   validityDays: row.validity_days ?? 0,
@@ -1034,6 +1049,73 @@ const isMissingCompanyContactMobileColumnError = (message: string) => {
   )
 }
 
+const isMissingCompanyLocationColumnsError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return ['area', 'pincode', 'latitude', 'longitude'].some(column =>
+    normalized.includes(column) && (
+      normalized.includes('column') ||
+      normalized.includes('schema cache')
+    )
+  )
+}
+
+const isMissingJobPostSalaryTypeColumnError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return normalized.includes('salary_type') && (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  )
+}
+
+const jobPostSalaryTypeLinePattern = /salary\s*type\s*:\s*[a-z ]+/gi
+
+const parseJobPostSalaryTypeFromDescription = (description: string) => {
+  const matches = Array.from((description || '').matchAll(/salary\s*type\s*:\s*([a-z ]+)/gi))
+  const extracted = (matches[matches.length - 1]?.[1] || '').trim().toLowerCase()
+  if (!extracted) return ''
+  if (extracted.includes('daily')) return 'Daily Wage'
+  if (extracted.includes('week')) return 'Weekly Payment'
+  if (extracted.includes('month')) return 'Monthly Salary'
+  if (extracted.includes('contract')) return 'Contract Payment'
+  if (extracted.includes('piece')) return 'Piece Rate'
+  return ''
+}
+
+const resolveJobPostSalaryType = (salaryType: string, description: string) => {
+  const direct = String(salaryType || '').trim()
+  if (direct) return direct
+  return parseJobPostSalaryTypeFromDescription(description)
+}
+
+const syncJobPostDescriptionSalaryType = (description: string, salaryType: string) => {
+  const normalizedDescription = String(description || '').trim()
+  const normalizedSalaryType = String(salaryType || '').trim()
+  if (!normalizedDescription || !normalizedSalaryType) {
+    return normalizedDescription
+  }
+
+  if (!jobPostSalaryTypeLinePattern.test(normalizedDescription)) {
+    jobPostSalaryTypeLinePattern.lastIndex = 0
+    return normalizedDescription
+  }
+
+  jobPostSalaryTypeLinePattern.lastIndex = 0
+  let didReplace = false
+  const synced = normalizedDescription
+    .replace(jobPostSalaryTypeLinePattern, () => {
+      if (didReplace) {
+        return ''
+      }
+      didReplace = true
+      return `Salary type: ${normalizedSalaryType}`
+    })
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;:])/g, '$1')
+    .trim()
+  jobPostSalaryTypeLinePattern.lastIndex = 0
+  return synced
+}
+
 const normalizeCompany = (
   payload: Partial<LabourCompanyRecord>,
   existing?: LabourCompanyRecord
@@ -1049,6 +1131,10 @@ const normalizeCompany = (
     mobile: primaryMobile,
     contactMobile,
     city: String(payload.city || existing?.city || '').trim(),
+    area: String(payload.area || existing?.area || '').trim(),
+    pincode: String(payload.pincode || existing?.pincode || '').trim(),
+    latitude: toNullableNumber(payload.latitude ?? existing?.latitude ?? null),
+    longitude: toNullableNumber(payload.longitude ?? existing?.longitude ?? null),
     categoryIds: toStringArray(payload.categoryIds || existing?.categoryIds || []),
     status: (payload.status || existing?.status || 'pending') as CompanyStatus,
     registrationFeePaid: toBoolean(payload.registrationFeePaid, existing?.registrationFeePaid ?? false),
@@ -1073,20 +1159,28 @@ const normalizeJobPost = (
   existing?: LabourJobPostRecord
 ): LabourJobPostRecord => {
   const now = new Date().toISOString()
+  const legacyPayload = payload as Partial<LabourJobPostRecord> & { salary_type?: string | null }
   const validityDays = toNumber(payload.validityDays, existing?.validityDays ?? 3)
   const publishedAt = String(payload.publishedAt || existing?.publishedAt || new Date().toISOString().slice(0, 10))
   const expiresAt = String(payload.expiresAt || existing?.expiresAt || addDays(publishedAt, validityDays))
+  const description = String(payload.description || existing?.description || '').trim()
+  const salaryType = resolveJobPostSalaryType(
+    String((payload.salaryType ?? legacyPayload.salary_type ?? existing?.salaryType) || '').trim(),
+    description
+  )
+  const normalizedDescription = syncJobPostDescriptionSalaryType(description, salaryType)
 
   return {
     id: existing?.id || String(payload.id || createId('job')),
     companyId: String(payload.companyId || existing?.companyId || '').trim(),
     categoryId: String(payload.categoryId || existing?.categoryId || '').trim(),
     title: String(payload.title || existing?.title || '').trim(),
-    description: String(payload.description || existing?.description || '').trim(),
+    description: normalizedDescription,
     city: String(payload.city || existing?.city || '').trim(),
     locationLabel: String(payload.locationLabel || existing?.locationLabel || '').trim(),
     latitude: toNullableNumber(payload.latitude ?? existing?.latitude ?? null),
     longitude: toNullableNumber(payload.longitude ?? existing?.longitude ?? null),
+    salaryType,
     workersNeeded: toNumber(payload.workersNeeded, existing?.workersNeeded ?? 1),
     wageAmount: toNumber(payload.wageAmount, existing?.wageAmount ?? 0),
     validityDays,
@@ -1551,6 +1645,10 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     mobile: company.mobile,
     contact_mobile: company.contactMobile || company.mobile,
     city: company.city,
+    area: company.area || null,
+    pincode: company.pincode || null,
+    latitude: company.latitude ?? null,
+    longitude: company.longitude ?? null,
     category_ids: company.categoryIds,
     status: company.status,
     registration_fee_paid: company.registrationFeePaid,
@@ -1566,6 +1664,10 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     title: jobPost.title,
     description: jobPost.description,
     city: jobPost.city,
+    location_label: jobPost.locationLabel || null,
+    latitude: jobPost.latitude ?? null,
+    longitude: jobPost.longitude ?? null,
+    salary_type: jobPost.salaryType || null,
     workers_needed: jobPost.workersNeeded,
     wage_amount: jobPost.wageAmount,
     validity_days: jobPost.validityDays,
@@ -1905,6 +2007,10 @@ export const createLabourEntity = async (
         mobile: record.mobile,
         contact_mobile: record.contactMobile || record.mobile,
         city: record.city,
+        area: record.area || null,
+        pincode: record.pincode || null,
+        latitude: record.latitude,
+        longitude: record.longitude,
         category_ids: record.categoryIds,
         status: record.status,
         registration_fee_paid: record.registrationFeePaid,
@@ -1913,8 +2019,26 @@ export const createLabourEntity = async (
         updated_at: record.updatedAt
       }
       let { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(companyPayload)
-      if (error && isMissingCompanyContactMobileColumnError(error.message)) {
-        const { contact_mobile, ...legacyCompanyPayload } = companyPayload
+      if (error && (isMissingCompanyContactMobileColumnError(error.message) || isMissingCompanyLocationColumnsError(error.message))) {
+        let legacyCompanyPayload: Record<string, unknown> = { ...companyPayload }
+        if (isMissingCompanyContactMobileColumnError(error.message)) {
+          const { contact_mobile, ...withoutContactMobile } = legacyCompanyPayload as typeof companyPayload
+          legacyCompanyPayload = withoutContactMobile
+        }
+        if (isMissingCompanyLocationColumnsError(error.message)) {
+          const {
+            area,
+            pincode,
+            latitude,
+            longitude,
+            ...withoutLocationFields
+          } = legacyCompanyPayload as typeof companyPayload
+          void area
+          void pincode
+          void latitude
+          void longitude
+          legacyCompanyPayload = withoutLocationFields
+        }
         ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).insert(legacyCompanyPayload))
       }
       if (error) throw new Error(`Failed to create labour company: ${error.message}`)
@@ -1923,7 +2047,7 @@ export const createLabourEntity = async (
     }
     case 'jobPosts': {
       const record = normalizeJobPost(payload)
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.jobPosts).insert({
+      const jobPostPayload = {
         id: record.id,
         company_id: record.companyId,
         category_id: record.categoryId,
@@ -1933,6 +2057,7 @@ export const createLabourEntity = async (
         location_label: record.locationLabel || null,
         latitude: record.latitude,
         longitude: record.longitude,
+        salary_type: record.salaryType || null,
         workers_needed: record.workersNeeded,
         wage_amount: record.wageAmount,
         validity_days: record.validityDays,
@@ -1941,7 +2066,12 @@ export const createLabourEntity = async (
         expires_at: record.expiresAt || null,
         created_at: record.createdAt,
         updated_at: record.updatedAt
-      })
+      }
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.jobPosts).insert(jobPostPayload)
+      if (error && isMissingJobPostSalaryTypeColumnError(error.message)) {
+        const { salary_type, ...legacyJobPostPayload } = jobPostPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.jobPosts).insert(legacyJobPostPayload))
+      }
       if (error) throw new Error(`Failed to create labour job post: ${error.message}`)
       await writeSupabaseAuditLog('create', entityType, record.id, `Created job post ${record.title}`, actor)
       break
@@ -2226,6 +2356,10 @@ export const updateLabourEntity = async (
         mobile: record.mobile,
         contact_mobile: record.contactMobile || record.mobile,
         city: record.city,
+        area: record.area || null,
+        pincode: record.pincode || null,
+        latitude: record.latitude,
+        longitude: record.longitude,
         category_ids: record.categoryIds,
         status: record.status,
         registration_fee_paid: record.registrationFeePaid,
@@ -2233,8 +2367,26 @@ export const updateLabourEntity = async (
         updated_at: record.updatedAt
       }
       let { error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(companyPayload).eq('id', id)
-      if (error && isMissingCompanyContactMobileColumnError(error.message)) {
-        const { contact_mobile, ...legacyCompanyPayload } = companyPayload
+      if (error && (isMissingCompanyContactMobileColumnError(error.message) || isMissingCompanyLocationColumnsError(error.message))) {
+        let legacyCompanyPayload: Record<string, unknown> = { ...companyPayload }
+        if (isMissingCompanyContactMobileColumnError(error.message)) {
+          const { contact_mobile, ...withoutContactMobile } = legacyCompanyPayload as typeof companyPayload
+          legacyCompanyPayload = withoutContactMobile
+        }
+        if (isMissingCompanyLocationColumnsError(error.message)) {
+          const {
+            area,
+            pincode,
+            latitude,
+            longitude,
+            ...withoutLocationFields
+          } = legacyCompanyPayload as typeof companyPayload
+          void area
+          void pincode
+          void latitude
+          void longitude
+          legacyCompanyPayload = withoutLocationFields
+        }
         ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.companies).update(legacyCompanyPayload).eq('id', id))
       }
       if (error) throw new Error(`Failed to update labour company: ${error.message}`)
@@ -2245,7 +2397,7 @@ export const updateLabourEntity = async (
       const existing = (await readSupabaseData()).jobPosts.find(record => record.id === id)
       if (!existing) return null
       const record = normalizeJobPost(payload, existing)
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.jobPosts).update({
+      const jobPostPayload = {
         company_id: record.companyId,
         category_id: record.categoryId,
         title: record.title,
@@ -2254,6 +2406,7 @@ export const updateLabourEntity = async (
         location_label: record.locationLabel || null,
         latitude: record.latitude,
         longitude: record.longitude,
+        salary_type: record.salaryType || null,
         workers_needed: record.workersNeeded,
         wage_amount: record.wageAmount,
         validity_days: record.validityDays,
@@ -2261,7 +2414,12 @@ export const updateLabourEntity = async (
         published_at: record.publishedAt || null,
         expires_at: record.expiresAt || null,
         updated_at: record.updatedAt
-      }).eq('id', id)
+      }
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.jobPosts).update(jobPostPayload).eq('id', id)
+      if (error && isMissingJobPostSalaryTypeColumnError(error.message)) {
+        const { salary_type, ...legacyJobPostPayload } = jobPostPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.jobPosts).update(legacyJobPostPayload).eq('id', id))
+      }
       if (error) throw new Error(`Failed to update labour job post: ${error.message}`)
       await writeSupabaseAuditLog('update', entityType, id, `Updated job post ${record.title}`, actor)
       break

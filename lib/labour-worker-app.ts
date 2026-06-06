@@ -880,11 +880,20 @@ const deriveWorkerStatus = (
     return 'inactive_wallet_empty'
   }
 
+  if (workerPlan) {
+    const planTiming = deriveWorkerPlanTiming(worker, workerPlan, transactions)
+    if (!planTiming.activeUntil || planTiming.estimatedDaysRemaining <= 0 || planTiming.isExpired) {
+      return 'inactive_subscription_expired'
+    }
+
+    return 'active'
+  }
+
   if (worker.walletBalance <= 0) {
     return 'inactive_wallet_empty'
   }
 
-  return 'active'
+  return 'inactive_subscription_expired'
 }
 
 const ensureWorkerUploadBucket = async () => {
@@ -931,6 +940,107 @@ const assertWorkerRegistrationPayload = (payload: WorkerRegistrationPayload) => 
 const getWorkerPlan = (plans: LabourPlanRecord[]) =>
   plans.find(plan => plan.audience === 'worker' && plan.isActive) || null
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000
+const WORKER_PLAN_ACTIVATION_TRANSACTION_TYPES = new Set<LabourWalletTransactionRecord['transactionType']>([
+  'registration_fee',
+  'wallet_recharge',
+  'plan_purchase'
+])
+
+type WorkerPlanTiming = {
+  activatedAt: string | null
+  activeUntil: string | null
+  estimatedDaysRemaining: number
+  isExpired: boolean
+}
+
+const getWorkerPlanRechargeUnits = (
+  transaction: LabourWalletTransactionRecord,
+  workerPlan: LabourPlanRecord | null
+) => {
+  if (!workerPlan || workerPlan.validityDays <= 0) {
+    return 0
+  }
+
+  if (transaction.transactionType === 'registration_fee') {
+    return 1
+  }
+
+  if ((workerPlan.planAmount || 0) <= 0) {
+    return 1
+  }
+
+  return Math.max(1, Math.floor(transaction.amount / workerPlan.planAmount))
+}
+
+const deriveWorkerPlanTiming = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[],
+  now = new Date()
+): WorkerPlanTiming => {
+  if (!workerPlan || workerPlan.validityDays <= 0) {
+    return {
+      activatedAt: null,
+      activeUntil: null,
+      estimatedDaysRemaining: 0,
+      isExpired: true
+    }
+  }
+
+  const activationTransactions = transactions
+    .filter(transaction =>
+      transaction.entityType === 'worker' &&
+      transaction.entityId === worker.id &&
+      transaction.status === 'completed' &&
+      WORKER_PLAN_ACTIVATION_TRANSACTION_TYPES.has(transaction.transactionType)
+    )
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+
+  let activatedAtMs: number | null = null
+  let activeUntilMs: number | null = null
+
+  for (const transaction of activationTransactions) {
+    const transactionMs = Date.parse(transaction.createdAt)
+    if (Number.isNaN(transactionMs)) {
+      continue
+    }
+
+    const rechargeUnits = getWorkerPlanRechargeUnits(transaction, workerPlan)
+    if (rechargeUnits <= 0) {
+      continue
+    }
+
+    const extensionMs = rechargeUnits * workerPlan.validityDays * DAY_IN_MS
+    const nextStartMs = activeUntilMs && activeUntilMs > transactionMs
+      ? activeUntilMs
+      : transactionMs
+
+    if (activatedAtMs == null) {
+      activatedAtMs = transactionMs
+    }
+    activeUntilMs = nextStartMs + extensionMs
+  }
+
+  if (activeUntilMs == null) {
+    return {
+      activatedAt: null,
+      activeUntil: null,
+      estimatedDaysRemaining: 0,
+      isExpired: true
+    }
+  }
+
+  const remainingMs = activeUntilMs - now.getTime()
+
+  return {
+    activatedAt: activatedAtMs == null ? null : new Date(activatedAtMs).toISOString(),
+    activeUntil: new Date(activeUntilMs).toISOString(),
+    estimatedDaysRemaining: remainingMs > 0 ? Math.ceil(remainingMs / DAY_IN_MS) : 0,
+    isExpired: remainingMs <= 0
+  }
+}
+
 const hasCompletedWorkerRegistrationFeeTransaction = (
   worker: LabourWorkerRecord,
   transactions: LabourWalletTransactionRecord[]
@@ -975,6 +1085,10 @@ const deriveActivationSummary = (
   const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
   const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
   const rechargeGap = Math.max(outstandingRegistrationFee - worker.walletBalance, 0)
+  const planTiming = deriveWorkerPlanTiming(worker, workerPlan, transactions)
+  const daysRemainingLabel = planTiming.estimatedDaysRemaining === 1
+    ? '1 day left'
+    : `${planTiming.estimatedDaysRemaining} days left`
 
   if (effectiveStatus === 'blocked') {
     return {
@@ -1039,13 +1153,26 @@ const deriveActivationSummary = (
     }
   }
 
+  if (effectiveStatus === 'inactive_subscription_expired') {
+    return {
+      isActive: false,
+      canViewCompanyDetails: false,
+      status: effectiveStatus,
+      headline: 'Plan expired',
+      description: workerPlan
+        ? `${workerPlan.name} has expired. Recharge to keep viewing company details and stay visible to employers.`
+        : 'Your worker access plan has expired. Recharge to continue applying for jobs.',
+      recommendedAction: workerPlan ? `Recharge Rs ${workerPlan.planAmount}` : 'Recharge wallet'
+    }
+  }
+
   return {
     isActive: effectiveStatus === 'active',
     canViewCompanyDetails: effectiveStatus === 'active',
     status: effectiveStatus,
     headline: 'Worker access is active',
     description: workerPlan
-      ? `Your one-time registration fee is settled. Daily deduction is Rs ${workerPlan.dailyCharge} and company details are unlocked.`
+      ? `${workerPlan.name} is active. ${daysRemainingLabel}. Company details are unlocked while the plan stays active.`
       : 'Your worker access is active and company details are unlocked.',
     recommendedAction: 'Apply to matching job posts'
   }
@@ -1088,20 +1215,25 @@ const toWorkerWalletSummary = (
   const registrationFeePaid = isWorkerRegistrationFeeSettled(worker, workerPlan, transactions)
   const outstandingRegistrationFee = registrationFeePaid ? 0 : registrationFee
   const lastDeduction = transactions.find(transaction => transaction.transactionType === 'wallet_deduction')
+  const planTiming = deriveWorkerPlanTiming(worker, workerPlan, transactions)
 
   return {
     balance: worker.walletBalance,
     dailyCharge,
     registrationFee,
     registrationFeePaid,
-    estimatedDaysRemaining: dailyCharge > 0 ? Math.floor(worker.walletBalance / dailyCharge) : 0,
+    estimatedDaysRemaining: planTiming.estimatedDaysRemaining,
     visibilityRule: outstandingRegistrationFee > 0
       ? worker.walletBalance > 0
         ? `A one-time registration fee of Rs ${registrationFee} is pending. Recharge until the wallet reaches at least Rs ${registrationFee}, then daily charges will start as per your worker plan.`
         : `Add wallet balance to cover the one-time registration fee of Rs ${registrationFee}. After that, daily worker charges apply as per the active plan.`
-      : dailyCharge > 0
-        ? `One-time registration fee is already charged. Rs ${dailyCharge} is deducted every active day. Company details unlock only while your worker access is active.`
-        : 'Worker daily deduction is not configured yet.',
+      : planTiming.estimatedDaysRemaining > 0
+        ? workerPlan
+          ? `${workerPlan.name} is active for ${planTiming.estimatedDaysRemaining === 1 ? '1 more day' : `${planTiming.estimatedDaysRemaining} more days`}.`
+          : 'Worker access is active.'
+        : workerPlan
+          ? `${workerPlan.name} has expired. Recharge to restore worker access and company details.`
+          : 'Recharge to restore worker access and company details.',
     lastDeductionAt: lastDeduction?.createdAt || null,
     transactions
   }

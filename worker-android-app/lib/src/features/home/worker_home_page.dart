@@ -995,6 +995,10 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   Future<void> _applyToJob(String jobPostId) async {
+    if (!_isWorkerActive()) {
+      await _showRechargeWalletDialog();
+      return;
+    }
     final l10n = WorkerLocalizations.of(context);
     setState(() => _jobActionId = jobPostId);
     try {
@@ -1021,6 +1025,44 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         setState(() => _jobActionId = '');
       }
     }
+  }
+
+  bool _isWorkerActive() {
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      return false;
+    }
+    return dashboard.activation.isActive ||
+        dashboard.profile.status.trim().toLowerCase() == 'active';
+  }
+
+  Future<void> _showRechargeWalletDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Recharge your Wallet'),
+          content: const Text(
+            'Your worker access is inactive. Recharge to continue applying for jobs.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                if (mounted) {
+                  setState(() => _selectedIndex = 1);
+                }
+              },
+              child: const Text('Recharge'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _toggleSavedJob(String jobPostId) async {
@@ -1083,10 +1125,12 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         builder: (_) => _JobDetailsPage(
           item: item,
           profile: dashboard.profile,
+          isWorkerActive: _isWorkerActive(),
           liveLocation: _liveLocationSnapshot(dashboard.profile),
           resolvedCoordinates: _resolveJobCoordinatesForItem(item),
           onApply: _applyToJob,
           onToggleSaved: _toggleSavedJob,
+          onOpenWallet: () => setState(() => _selectedIndex = 1),
         ),
       ),
     );
@@ -1102,8 +1146,10 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         builder: (_) => _SavedJobsPage(
           profile: dashboard.profile,
           items: dashboard.feed.where((item) => item.isSaved).toList(),
+          isWorkerActive: _isWorkerActive(),
           onApply: _applyToJob,
           onToggleSaved: _toggleSavedJob,
+          onOpenWallet: () => setState(() => _selectedIndex = 1),
         ),
       ),
     );
@@ -1455,6 +1501,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
             builder: (_) => _AllJobsPage(
               token: _token,
               initialDashboard: dashboard,
+              initialIsWorkerActive: _isWorkerActive(),
               initialLiveLocation: _liveLocationSnapshot(dashboard.profile),
               initialQuery: _feedQuery,
               initialFeedTab: overrideFeedTab ?? _selectedFeedTab,
@@ -1471,6 +1518,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                   overrideCityFilter ?? _selectedCityFilter,
               initialSelectedWageBand: _selectedWageBand,
               resolveJobCoordinatesForItem: _resolveJobCoordinatesForItem,
+              onOpenWallet: () => setState(() => _selectedIndex = 1),
             ),
           ),
         )
@@ -3505,6 +3553,7 @@ class _FeedTab extends StatelessWidget {
 class _AllJobsPage extends StatefulWidget {
   final String token;
   final WorkerDashboardModel initialDashboard;
+  final bool initialIsWorkerActive;
   final _LiveLocationSnapshot initialLiveLocation;
   final _DerivedJobCoordinates? Function(WorkerFeedItemModel item)
       resolveJobCoordinatesForItem;
@@ -3518,10 +3567,12 @@ class _AllJobsPage extends StatefulWidget {
   final List<String> initialSelectedCategoryFilters;
   final String initialSelectedCityFilter;
   final String initialSelectedWageBand;
+  final VoidCallback onOpenWallet;
 
   const _AllJobsPage({
     required this.token,
     required this.initialDashboard,
+    required this.initialIsWorkerActive,
     required this.initialLiveLocation,
     required this.resolveJobCoordinatesForItem,
     required this.initialQuery,
@@ -3534,6 +3585,7 @@ class _AllJobsPage extends StatefulWidget {
     required this.initialSelectedCategoryFilters,
     required this.initialSelectedCityFilter,
     required this.initialSelectedWageBand,
+    required this.onOpenWallet,
   });
 
   @override
@@ -3544,6 +3596,7 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   final _apiService = WorkerApiService();
 
   late WorkerDashboardModel _dashboard;
+  late bool _isWorkerActive;
   late String _feedQuery;
   late _FeedViewTab _selectedFeedTab;
   late bool _showUnlockedOnly;
@@ -3562,6 +3615,7 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   void initState() {
     super.initState();
     _dashboard = widget.initialDashboard;
+    _isWorkerActive = widget.initialIsWorkerActive;
     _feedQuery = widget.initialQuery;
     _selectedFeedTab = widget.initialFeedTab;
     _showUnlockedOnly = widget.initialShowUnlockedOnly;
@@ -4032,6 +4086,34 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   }
 
   Future<void> _handleApply(String jobPostId) async {
+    if (!_isWorkerActive) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Recharge your Wallet'),
+            content: const Text(
+              'Your worker access is inactive. Recharge to continue applying for jobs.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Not now'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  widget.onOpenWallet();
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Recharge'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
     final l10n = WorkerLocalizations.of(context);
     setState(() => _jobActionId = jobPostId);
     try {
@@ -4040,7 +4122,11 @@ class _AllJobsPageState extends State<_AllJobsPage> {
         jobPostId: jobPostId,
       );
       if (!mounted) return;
-      setState(() => _dashboard = dashboard);
+      setState(() {
+        _dashboard = dashboard;
+        _isWorkerActive = dashboard.activation.isActive ||
+            dashboard.profile.status.trim().toLowerCase() == 'active';
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.applicationSentSuccess)));
@@ -4083,10 +4169,12 @@ class _AllJobsPageState extends State<_AllJobsPage> {
         builder: (_) => _JobDetailsPage(
           item: item,
           profile: _dashboard.profile,
+          isWorkerActive: _isWorkerActive,
           liveLocation: widget.initialLiveLocation,
           resolvedCoordinates: widget.resolveJobCoordinatesForItem(item),
           onApply: _handleApply,
           onToggleSaved: _handleToggleSaved,
+          onOpenWallet: widget.onOpenWallet,
         ),
       ),
     );
@@ -5077,18 +5165,22 @@ class _CategoryImage extends StatelessWidget {
 class _JobDetailsPage extends StatefulWidget {
   final WorkerFeedItemModel item;
   final WorkerProfileModel profile;
+  final bool isWorkerActive;
   final _LiveLocationSnapshot liveLocation;
   final _DerivedJobCoordinates? resolvedCoordinates;
   final Future<void> Function(String jobPostId) onApply;
   final Future<void> Function(String jobPostId) onToggleSaved;
+  final VoidCallback onOpenWallet;
 
   const _JobDetailsPage({
     required this.item,
     required this.profile,
+    required this.isWorkerActive,
     required this.liveLocation,
     required this.resolvedCoordinates,
     required this.onApply,
     required this.onToggleSaved,
+    required this.onOpenWallet,
   });
 
   @override
@@ -5123,6 +5215,10 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
   }
 
   Future<void> _handleApply() async {
+    if (!widget.isWorkerActive) {
+      await _showRechargeWalletDialog();
+      return;
+    }
     setState(() => _actionLoading = true);
     try {
       await widget.onApply(widget.item.id);
@@ -5136,6 +5232,34 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
         setState(() => _actionLoading = false);
       }
     }
+  }
+
+  Future<void> _showRechargeWalletDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Recharge your Wallet'),
+          content: const Text(
+            'Your worker access is inactive. Recharge to continue applying for jobs.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                widget.onOpenWallet();
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+              child: const Text('Recharge'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _openWhatsApp() async {
@@ -5199,6 +5323,13 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
       item.description,
       parsedDetails,
     );
+    final categoryMatch = _jobRankSetsIntersect(
+      _workerCategoryKeys(widget.profile),
+      _jobCategoryKeys(item),
+    );
+    final showLockedState = item.companyLocked || !categoryMatch;
+    final hasCompanyMobile = item.companyMobile?.trim().isNotEmpty ?? false;
+    final canRevealCompanyContact = widget.isWorkerActive && !showLockedState;
     final requirementFields = <_JobDetailFieldData>[
       _JobDetailFieldData(
         label: 'Worker Required',
@@ -5314,17 +5445,16 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
       ),
       _JobDetailFieldData(
         label: 'Category Status',
-        value: item.companyLocked ? 'Category Locked' : 'Matching',
+        value: showLockedState ? 'Category Locked' : 'Matching',
       ),
     ];
     final specialInstructions = parsedDetails['special instructions'] ?? '';
     final languagesPreferred = parsedDetails['languages preferred'] ?? '';
-    final canContactCompany = !item.companyLocked &&
-        (item.companyMobile?.trim().isNotEmpty ?? false);
+    final canContactCompany = canRevealCompanyContact && hasCompanyMobile;
     final statusFill =
-        item.companyLocked ? const Color(0xFFFFF7ED) : const Color(0xFFF0FDF4);
+        showLockedState ? const Color(0xFFFFF7ED) : const Color(0xFFF0FDF4);
     final statusBorder =
-        item.companyLocked ? const Color(0xFFF5C98B) : const Color(0xFFB7E8C6);
+        showLockedState ? const Color(0xFFF5C98B) : const Color(0xFFB7E8C6);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -5342,7 +5472,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: item.companyLocked
+                color: showLockedState
                     ? const Color(0xFFF5D0A4)
                     : const Color(0xFFBFE5CC),
               ),
@@ -5372,12 +5502,12 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: item.companyLocked
+                              color: showLockedState
                                   ? const Color(0xFFFFF4E5)
                                   : const Color(0xFFE8F7EF),
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(
-                                color: item.companyLocked
+                                color: showLockedState
                                     ? const Color(0xFFF5C98B)
                                     : const Color(0xFF9DD7B6),
                               ),
@@ -5385,7 +5515,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                             child: Text(
                               item.categoryName,
                               style: TextStyle(
-                                color: item.companyLocked
+                                color: showLockedState
                                     ? const Color(0xFF9A5B13)
                                     : const Color(0xFF166534),
                                 fontSize: 13,
@@ -5394,7 +5524,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                             ),
                           ),
                           _FeedTab._statusBadge(
-                            locked: item.companyLocked,
+                            locked: showLockedState,
                             isHindi: l10n.isHindi,
                           ),
                         ],
@@ -5515,7 +5645,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
             title: 'Company Details',
             child: Column(
               children: [
-                if (item.companyLocked)
+                if (showLockedState)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
@@ -5533,20 +5663,39 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       ),
                     ),
                   ),
-                if (item.companyLocked) const SizedBox(height: 12),
+                if (showLockedState) const SizedBox(height: 12),
+                if (!widget.isWorkerActive) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: const Color(0xFFEEF4FF),
+                      border: Border.all(color: const Color(0xFFD6E4FF)),
+                    ),
+                    child: const Text(
+                      'Recharge your wallet to unlock company contact details.',
+                      style: TextStyle(
+                        color: Color(0xFF173C77),
+                        fontWeight: FontWeight.w700,
+                        height: 1.55,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 _JobDetailInfoRow(
                   label: 'Company Name',
                   value: item.companyName,
                 ),
-                const SizedBox(height: 10),
-                _JobDetailInfoRow(
-                  label: 'Contact Person',
-                  value: item.companyLocked
-                      ? 'Available after category match'
-                      : (item.contactPerson?.trim().isNotEmpty ?? false)
-                          ? item.contactPerson!.trim()
-                          : 'Not available',
-                ),
+                if (canRevealCompanyContact &&
+                    (item.contactPerson?.trim().isNotEmpty ?? false)) ...[
+                  const SizedBox(height: 10),
+                  _JobDetailInfoRow(
+                    label: 'Contact Person',
+                    value: item.contactPerson!.trim(),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 _JobDetailInfoRow(
                   label: 'City / Area',
@@ -6212,14 +6361,18 @@ String _jobStatusLabel(WorkerFeedItemModel item) {
 class _SavedJobsPage extends StatefulWidget {
   final WorkerProfileModel profile;
   final List<WorkerFeedItemModel> items;
+  final bool isWorkerActive;
   final Future<void> Function(String jobPostId) onApply;
   final Future<void> Function(String jobPostId) onToggleSaved;
+  final VoidCallback onOpenWallet;
 
   const _SavedJobsPage({
     required this.profile,
     required this.items,
+    required this.isWorkerActive,
     required this.onApply,
     required this.onToggleSaved,
+    required this.onOpenWallet,
   });
 
   @override
@@ -6237,6 +6390,34 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
   }
 
   Future<void> _handleApply(String jobPostId) async {
+    if (!widget.isWorkerActive) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Recharge your Wallet'),
+            content: const Text(
+              'Your worker access is inactive. Recharge to continue applying for jobs.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Not now'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  widget.onOpenWallet();
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Recharge'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
     setState(() => _actionJobId = jobPostId);
     try {
       await widget.onApply(jobPostId);
@@ -6317,6 +6498,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
         builder: (_) => _JobDetailsPage(
           item: item,
           profile: widget.profile,
+          isWorkerActive: widget.isWorkerActive,
           liveLocation: _LiveLocationSnapshot(
             latitude: widget.profile.latitude,
             longitude: widget.profile.longitude,
@@ -6342,6 +6524,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                     : null),
           onApply: _handleApply,
           onToggleSaved: _handleToggleSaved,
+          onOpenWallet: widget.onOpenWallet,
         ),
       ),
     );

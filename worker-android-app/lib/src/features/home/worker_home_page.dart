@@ -69,6 +69,8 @@ enum _FeedViewTab {
   applied,
 }
 
+const double _minimumWalletRechargeAmount = 50;
+
 String _normalizeJobRankKey(String value) {
   return value
       .trim()
@@ -344,6 +346,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   final _apiService = WorkerApiService();
   final _sessionStore = SessionStore();
   final _rechargeAmountController = TextEditingController(text: '50');
+  final _rechargeNoteController = TextEditingController();
   late final Razorpay _razorpay;
 
   late String _token;
@@ -400,6 +403,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     _pushMessagesSubscription?.cancel();
     _razorpay.clear();
     _rechargeAmountController.dispose();
+    _rechargeNoteController.dispose();
     super.dispose();
   }
 
@@ -888,9 +892,13 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
 
   Future<void> _startWalletRecharge() async {
     final amount = double.tryParse(_rechargeAmountController.text.trim());
-    if (amount == null || amount < 10) {
+    if (amount == null || amount < _minimumWalletRechargeAmount) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Minimum recharge amount is Rs 10.')),
+        SnackBar(
+          content: Text(
+            'Minimum recharge amount is Rs ${_minimumWalletRechargeAmount.toStringAsFixed(0)}.',
+          ),
+        ),
       );
       return;
     }
@@ -2149,6 +2157,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                         _WalletTab(
                           dashboard: dashboard,
                           rechargeAmountController: _rechargeAmountController,
+                          rechargeNoteController: _rechargeNoteController,
                           onStartWalletRecharge: _startWalletRecharge,
                           onRefresh: _loadDashboard,
                           loading: _walletPaymentLoading || _loading,
@@ -5215,6 +5224,15 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
   }
 
   Future<void> _handleApply() async {
+    final categoryMatch = _jobRankSetsIntersect(
+      _workerCategoryKeys(widget.profile),
+      _jobCategoryKeys(widget.item),
+    );
+    final showLockedState = widget.item.companyLocked || !categoryMatch;
+    if (showLockedState) {
+      await _showCategoryLockedDialog();
+      return;
+    }
     if (!widget.isWorkerActive) {
       await _showRechargeWalletDialog();
       return;
@@ -5232,6 +5250,26 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
         setState(() => _actionLoading = false);
       }
     }
+  }
+
+  Future<void> _showCategoryLockedDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Category Locked'),
+          content: const Text(
+            'This job is not available for your selected job category.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _showRechargeWalletDialog() async {
@@ -5655,7 +5693,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       border: Border.all(color: const Color(0xFFF7D8A5)),
                     ),
                     child: Text(
-                      l10n.companyLockedMessage,
+                      'Company details are locked.',
                       style: const TextStyle(
                         color: Color(0xFF92400E),
                         fontWeight: FontWeight.w700,
@@ -5664,7 +5702,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                     ),
                   ),
                 if (showLockedState) const SizedBox(height: 12),
-                if (!widget.isWorkerActive) ...[
+                if (!showLockedState && !widget.isWorkerActive) ...[
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
@@ -6898,6 +6936,7 @@ class _NotificationsTab extends StatelessWidget {
 class _WalletTab extends StatelessWidget {
   final WorkerDashboardModel dashboard;
   final TextEditingController rechargeAmountController;
+  final TextEditingController rechargeNoteController;
   final Future<void> Function() onStartWalletRecharge;
   final Future<void> Function() onRefresh;
   final bool loading;
@@ -6905,6 +6944,7 @@ class _WalletTab extends StatelessWidget {
   const _WalletTab({
     required this.dashboard,
     required this.rechargeAmountController,
+    required this.rechargeNoteController,
     required this.onStartWalletRecharge,
     required this.onRefresh,
     required this.loading,
@@ -6913,173 +6953,268 @@ class _WalletTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
+    final isActive = _dashboardWorkerActive(dashboard);
+    final daysRemaining = math.max(dashboard.wallet.estimatedDaysRemaining, 0);
+    final daysLabel = daysRemaining == 1 ? '1 day left' : '$daysRemaining days left';
+    final planName = (dashboard.workerPlan?.name.trim().isNotEmpty ?? false)
+        ? dashboard.workerPlan!.name.trim()
+        : 'Starter Plan';
+    final planHeadline =
+        isActive ? '$planName Active' : 'Plan Expired';
+    final planSubtitle =
+        isActive ? daysLabel : 'Recharge Required';
+    final activationLabel = isActive ? 'Active' : 'Inactive';
+    final historyItems = dashboard.wallet.transactions;
+
     return RefreshIndicator.adaptive(
       onRefresh: onRefresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.walletActivation,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          _WalletSurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Wallet & activation',
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.walletActivationSubtitle,
-                    style:
-                        const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _walletVisibilityRule(l10n, dashboard),
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    height: 1.55,
                   ),
-                  const SizedBox(height: 18),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF0E254A), Color(0xFF173C77)],
-                      ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0E254A), Color(0xFF173C77)],
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.currentBalance,
-                          style: const TextStyle(color: Color(0xFFD7E4FF)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x22173C77),
+                        blurRadius: 22,
+                        offset: Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Current Balance',
+                        style: TextStyle(
+                          color: Color(0xFFD7E4FF),
+                          fontWeight: FontWeight.w700,
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _WalletAccentPill(
+                            label: 'Plan Status: $activationLabel',
+                          ),
+                          _WalletAccentPill(label: 'Days Remaining: $daysRemaining'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _WalletDetailCard(
+                  title: 'Plan Status',
+                  value: planHeadline,
+                  subtitle: planSubtitle,
+                  highlight: !isActive,
+                ),
+                const SizedBox(height: 12),
+                _WalletDetailCard(
+                  title: 'Estimated Active Days',
+                  value: daysLabel,
+                ),
+                const SizedBox(height: 12),
+                _WalletDetailCard(
+                  title: 'Minimum Recharge',
+                  value: 'Rs ${_minimumWalletRechargeAmount.toStringAsFixed(0)}',
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Recharge Section',
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: rechargeAmountController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Recharge Amount',
+                          hintText: 'Enter recharge amount',
+                          prefixIcon: Icon(Icons.currency_rupee_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: rechargeNoteController,
+                        decoration: const InputDecoration(
+                          labelText: 'Recharge Note',
+                          hintText: 'Recharge note (optional)',
+                          prefixIcon: Icon(Icons.edit_note_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: loading ? null : onStartWalletRecharge,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF173C77),
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: Text(
+                            loading ? 'Opening payment...' : 'Recharge Now',
+                            style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        Text(
-                          _walletVisibilityRule(l10n, dashboard),
-                          style: const TextStyle(
-                              color: Color(0xFFE6EEFF), height: 1.6),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.dailyDeduction,
-                          value:
-                              'Rs ${dashboard.wallet.dailyCharge.toStringAsFixed(0)}',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.estimatedActiveDays,
-                          value: '${dashboard.wallet.estimatedDaysRemaining}',
-                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.isHindi
-                              ? 'à¤°à¤œà¤¿à¤¸à¥à¤Ÿà¥à¤°à¥‡à¤¶à¤¨ à¤«à¥€à¤¸ (à¤à¤• à¤¬à¤¾à¤°)'
-                              : 'Registration fee (one time)',
-                          value:
-                              'Rs ${dashboard.wallet.registrationFee.toStringAsFixed(0)}',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.isHindi ? 'à¤«à¥€à¤¸ à¤¸à¥à¤Ÿà¥‡à¤Ÿà¤¸' : 'Fee status',
-                          value: dashboard.wallet.registrationFeePaid
-                              ? (l10n.isHindi ? 'Paid' : 'Paid')
-                              : (l10n.isHindi ? 'Pending' : 'Pending'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: rechargeAmountController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Recharge amount',
-                      hintText: 'Enter amount',
-                      prefixIcon: Icon(Icons.currency_rupee_rounded),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: loading ? null : onStartWalletRecharge,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
-                            loading ? 'Opening payment...' : 'Recharge Wallet'),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            l10n.rechargeHistory,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            'Recharge & deduction history',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
-          ...dashboard.wallet.transactions.map(
-            (transaction) => Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                title: Text(_prettyText(context, transaction.transactionType)),
-                subtitle: Text(
-                  transaction.note.isEmpty
-                      ? transaction.reference
-                      : transaction.note,
+          if (historyItems.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Text(
+                'No records available.',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+              ),
+            )
+          else
+            ...historyItems.map(
+              (transaction) => Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${transaction.direction == 'debit' ? '-' : '+'} Rs ${transaction.amount.toStringAsFixed(0)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: transaction.direction == 'debit'
-                            ? const Color(0xFFB91C1C)
-                            : const Color(0xFF166534),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _prettyText(context, transaction.transactionType),
+                            style: const TextStyle(
+                              color: Color(0xFF0F172A),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${transaction.direction == 'debit' ? '-' : '+'} Rs ${transaction.amount.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: transaction.direction == 'debit'
+                                ? const Color(0xFFB91C1C)
+                                : const Color(0xFF166534),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _WalletHistoryPill(
+                          label: 'Date: ${_shortDate(context, transaction.createdAt)}',
+                        ),
+                        _WalletHistoryPill(
+                          label: 'Type: ${_prettyText(context, transaction.status)}',
+                        ),
+                      ],
+                    ),
+                    if (transaction.note.trim().isNotEmpty ||
+                        transaction.reference.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        transaction.note.trim().isNotEmpty
+                            ? transaction.note.trim()
+                            : transaction.reference.trim(),
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 13,
+                          height: 1.45,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${_prettyText(context, transaction.status)} | ${_shortDate(context, transaction.createdAt)}',
-                      style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF64748B)),
-                    ),
+                    ],
                   ],
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -7227,6 +7362,12 @@ class _ProfileTabState extends State<_ProfileTab> {
   Widget build(BuildContext context) {
     final profile = widget.dashboard.profile;
     final l10n = WorkerLocalizations.of(context);
+    final categoryContext = _resolveProfileCategoryContext(
+      widget.dashboard,
+      _selectedCategories,
+      profile.categoryLabels,
+    );
+    final isActive = _dashboardWorkerActive(widget.dashboard);
 
     return RefreshIndicator.adaptive(
       onRefresh: widget.onRefresh,
@@ -7234,199 +7375,180 @@ class _ProfileTabState extends State<_ProfileTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.workerProfile,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          _WalletSurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.workerProfile,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.workerProfileSubtitle,
-                    style:
-                        const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.workerProfileSubtitle,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    height: 1.5,
                   ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ProfileInfoTile(
-                          label: l10n.mobile,
-                          value: profile.mobile,
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ProfileInfoTile(
+                        label: l10n.mobile,
+                        value: profile.mobile,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ProfileInfoTile(
+                        label: 'Status',
+                        value: isActive ? 'Active' : 'Inactive',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: l10n.fullName,
+                    prefixIcon: const Icon(Icons.person_outline_rounded),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _cityController,
+                  decoration: InputDecoration(
+                    labelText: l10n.city,
+                    prefixIcon: const Icon(Icons.home_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _experienceController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: l10n.experienceYears,
+                          prefixIcon: const Icon(Icons.workspace_premium_outlined),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _ProfileInfoTile(
-                          label: l10n.isHindi ? 'à¤¸à¥à¤¥à¤¿à¤¤à¤¿' : 'Status',
-                          value: _prettyText(context, profile.status),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _wageController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: l10n.expectedDailyWage,
+                          prefixIcon: const Icon(Icons.currency_rupee_rounded),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: l10n.fullName,
-                      prefixIcon: const Icon(Icons.person_outline_rounded),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _skillsController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: l10n.skills,
+                    hintText: l10n.skillsHint,
+                    prefixIcon: const Icon(Icons.build_circle_outlined),
                   ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: _cityController,
-                    decoration: InputDecoration(
-                      labelText: l10n.city,
-                      prefixIcon: const Icon(Icons.location_city_outlined),
-                    ),
+                ),
+                const SizedBox(height: 16),
+                _ProfileReadOnlyField(
+                  label: 'Industry Category',
+                  icon: Icons.apartment_rounded,
+                  value: categoryContext.industryLabel,
+                ),
+                const SizedBox(height: 12),
+                _ProfileReadOnlyField(
+                  label: 'Business Type',
+                  icon: Icons.business_center_rounded,
+                  value: categoryContext.businessTypeLabel,
+                ),
+                const SizedBox(height: 12),
+                _ProfileReadOnlyField(
+                  label: 'Job Category',
+                  icon: Icons.category_outlined,
+                  value: categoryContext.jobCategoryLabel,
+                  helperText: 'Job category is fixed from registration.',
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _availability,
+                  items: [
+                    DropdownMenuItem(
+                        value: 'available_today',
+                        child: Text(l10n.availableToday)),
+                    DropdownMenuItem(
+                        value: 'available_this_week',
+                        child: Text(l10n.availableThisWeek)),
+                    DropdownMenuItem(
+                        value: 'not_available',
+                        child: Text(l10n.notAvailable)),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _availability = value);
+                    }
+                  },
+                  decoration: InputDecoration(
+                    labelText: l10n.availability,
+                    prefixIcon: const Icon(Icons.event_available_rounded),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _experienceController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: l10n.experienceYears,
-                            prefixIcon:
-                                const Icon(Icons.workspace_premium_outlined),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: widget.loading ? null : _submit,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF173C77),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _wageController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: l10n.expectedDailyWage,
-                            prefixIcon:
-                                const Icon(Icons.currency_rupee_rounded),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _skillsController,
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: l10n.skills,
-                      hintText: l10n.skillsHint,
-                      prefixIcon: const Icon(Icons.build_circle_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(l10n.categories,
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children:
-                        widget.dashboard.availableCategories.map((category) {
-                      final selected =
-                          _selectedCategories.contains(category.id);
-                      return FilterChip(
-                        selected: selected,
-                        label: Text(category.name),
-                        onSelected: (value) {
-                          setState(() {
-                            if (value) {
-                              _selectedCategories.add(category.id);
-                            } else {
-                              _selectedCategories.remove(category.id);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _availability,
-                    items: [
-                      DropdownMenuItem(
-                          value: 'available_today',
-                          child: Text(l10n.availableToday)),
-                      DropdownMenuItem(
-                          value: 'available_this_week',
-                          child: Text(l10n.availableThisWeek)),
-                      DropdownMenuItem(
-                          value: 'not_available',
-                          child: Text(l10n.notAvailable)),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _availability = value);
-                      }
-                    },
-                    decoration: InputDecoration(
-                      labelText: l10n.availability,
-                      prefixIcon: const Icon(Icons.event_available_rounded),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: widget.loading ? null : _submit,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
-                            widget.loading ? l10n.saving : l10n.saveProfile),
+                          widget.loading ? l10n.saving : l10n.saveProfile,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  Card(
-                    color: const Color(0xFFFFFBEB),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.isHindi ? 'à¤…à¤•à¤¾à¤‰à¤‚à¤Ÿ' : 'Account',
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w800),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: widget.onLogout,
+                        icon: const Icon(Icons.logout_rounded),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0F172A),
+                          side: const BorderSide(color: Color(0xFFD7E2EE)),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            l10n.isHindi
-                                ? 'à¤¯à¤¦à¤¿ à¤†à¤ª à¤‡à¤¸ à¤¡à¤¿à¤µà¤¾à¤‡à¤¸ à¤¸à¥‡ à¤¬à¤¾à¤¹à¤° à¤¨à¤¿à¤•à¤²à¤¨à¤¾ à¤šà¤¾à¤¹à¤¤à¥‡ à¤¹à¥ˆà¤‚, à¤¤à¥‹ à¤¨à¥€à¤šà¥‡ à¤²à¥‰à¤—à¤†à¤‰à¤Ÿ à¤•à¤°à¥‡à¤‚à¥¤'
-                                : 'Use logout below if you want to sign out from this device.',
-                            style: const TextStyle(
-                                color: Color(0xFF64748B), height: 1.5),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: widget.onLogout,
-                              icon: const Icon(Icons.logout_rounded),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFB42318),
-                                side:
-                                    const BorderSide(color: Color(0xFFFDA29B)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                              ),
-                              label: Text(l10n.isHindi ? 'à¤²à¥‰à¤—à¤†à¤‰à¤Ÿ' : 'Logout'),
-                            ),
-                          ),
-                        ],
+                        ),
+                        label: const Text(
+                          'Logout',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -7621,6 +7743,152 @@ class _MiniStatCard extends StatelessWidget {
   }
 }
 
+class _WalletSurfaceCard extends StatelessWidget {
+  final Widget child;
+
+  const _WalletSurfaceCard({
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x140F172A),
+            blurRadius: 22,
+            offset: Offset(0, 12),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _WalletDetailCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String? subtitle;
+  final bool highlight;
+
+  const _WalletDetailCard({
+    required this.title,
+    required this.value,
+    this.subtitle,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: highlight ? const Color(0xFFFFF7E6) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: highlight ? const Color(0xFFF7D8A5) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: highlight ? const Color(0xFF92400E) : const Color(0xFF0F172A),
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              subtitle!,
+              style: TextStyle(
+                color:
+                    highlight ? const Color(0xFF92400E) : const Color(0xFF475569),
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WalletAccentPill extends StatelessWidget {
+  final String label;
+
+  const _WalletAccentPill({
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0x1AD7E4FF),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0x33D7E4FF)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _WalletHistoryPill extends StatelessWidget {
+  final String label;
+
+  const _WalletHistoryPill({
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF475569),
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _SummaryChip extends StatelessWidget {
   final String label;
   final String value;
@@ -7763,6 +8031,135 @@ class _ProfileInfoTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProfileReadOnlyField extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final String value;
+  final String? helperText;
+
+  const _ProfileReadOnlyField({
+    required this.label,
+    required this.icon,
+    required this.value,
+    this.helperText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon),
+            suffixIcon:
+                const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF475569)),
+          ),
+          child: Text(
+            value.trim().isEmpty ? '-' : value.trim(),
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        if (helperText != null && helperText!.trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              helperText!,
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ResolvedProfileCategoryContext {
+  final String industryLabel;
+  final String businessTypeLabel;
+  final String jobCategoryLabel;
+
+  const _ResolvedProfileCategoryContext({
+    required this.industryLabel,
+    required this.businessTypeLabel,
+    required this.jobCategoryLabel,
+  });
+}
+
+bool _dashboardWorkerActive(WorkerDashboardModel dashboard) {
+  return dashboard.activation.isActive ||
+      dashboard.profile.status.trim().toLowerCase() == 'active';
+}
+
+_ResolvedProfileCategoryContext _resolveProfileCategoryContext(
+  WorkerDashboardModel dashboard,
+  List<String> selectedCategoryIds,
+  List<String> categoryLabels,
+) {
+  final workerKeys = _normalizedJobRankSet([
+    ...selectedCategoryIds,
+    ...categoryLabels,
+  ]);
+
+  String jobCategoryLabel = categoryLabels
+      .map((item) => item.trim())
+      .firstWhere((item) => item.isNotEmpty, orElse: () => '');
+  if (jobCategoryLabel.isEmpty) {
+    final matchedCategory = dashboard.availableCategories.firstWhere(
+      (category) => workerKeys.contains(_normalizeJobRankKey(category.id)) ||
+          workerKeys.contains(_normalizeJobRankKey(category.name)),
+      orElse: () => WorkerCategoryOption(
+        id: '',
+        name: '',
+        description: '',
+        imageUrl: '',
+        isActive: false,
+        showOnHome: false,
+        homeOrder: 0,
+      ),
+    );
+    jobCategoryLabel = matchedCategory.name.trim();
+  }
+
+  for (final dependency in dashboard.categoryDependencies) {
+    final dependencyCategoryKeys = _normalizedJobRankSet([
+      dependency.categoryId,
+      dependency.categorySlug,
+      dependency.categoryName,
+    ]);
+    if (!_jobRankSetsIntersect(workerKeys, dependencyCategoryKeys)) {
+      continue;
+    }
+    return _ResolvedProfileCategoryContext(
+      industryLabel: dependency.industryCategory.label.trim().isNotEmpty
+          ? dependency.industryCategory.label.trim()
+          : dependency.industryCategory.value.trim(),
+      businessTypeLabel: dependency.businessType == null
+          ? '-'
+          : (dependency.businessType!.label.trim().isNotEmpty
+              ? dependency.businessType!.label.trim()
+              : dependency.businessType!.value.trim()),
+      jobCategoryLabel: jobCategoryLabel.isEmpty ? dependency.categoryName : jobCategoryLabel,
+    );
+  }
+
+  return _ResolvedProfileCategoryContext(
+    industryLabel: '-',
+    businessTypeLabel: '-',
+    jobCategoryLabel: jobCategoryLabel.isEmpty ? '-' : jobCategoryLabel,
+  );
 }
 
 String _normalizeWhatsappPhone(String value) {

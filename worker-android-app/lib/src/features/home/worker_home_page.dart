@@ -7430,6 +7430,12 @@ class _ProfileTabState extends State<_ProfileTab> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                _ProfileReadOnlyField(
+                  label: 'Address',
+                  icon: Icons.home_work_outlined,
+                  value: profile.address.trim().isEmpty ? '-' : profile.address.trim(),
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
@@ -7541,7 +7547,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                           ),
                         ),
                         label: const Text(
-                          'Logout',
+                          'Log out',
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),

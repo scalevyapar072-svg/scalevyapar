@@ -74,6 +74,10 @@ export interface LabourWorkerRecord {
   expectedDailyWage: number
   walletBalance: number
   registrationFeePaid: boolean
+  activePlan: string
+  planValidFrom: string
+  planValidUntil: string
+  lastWalletDeductionDate: string
   status: WorkerStatus
   availability: WorkerAvailability
   isVisible: boolean
@@ -361,6 +365,10 @@ const defaultData: LabourMarketplaceData = {
       expectedDailyWage: 950,
       walletBalance: 40,
       registrationFeePaid: true,
+      activePlan: '',
+      planValidFrom: '',
+      planValidUntil: '',
+      lastWalletDeductionDate: '',
       status: 'active',
       availability: 'available_today',
       isVisible: true,
@@ -385,6 +393,10 @@ const defaultData: LabourMarketplaceData = {
       expectedDailyWage: 800,
       walletBalance: 0,
       registrationFeePaid: false,
+      activePlan: '',
+      planValidFrom: '',
+      planValidUntil: '',
+      lastWalletDeductionDate: '',
       status: 'inactive_wallet_empty',
       availability: 'available_this_week',
       isVisible: false,
@@ -406,6 +418,10 @@ const defaultData: LabourMarketplaceData = {
       mobile: '9898989898',
       contactMobile: '9898989898',
       city: 'Surat',
+      area: '',
+      pincode: '',
+      latitude: null,
+      longitude: null,
       categoryIds: ['cat-stitching', 'cat-embroidery'],
       status: 'active',
       registrationFeePaid: true,
@@ -421,6 +437,10 @@ const defaultData: LabourMarketplaceData = {
       mobile: '9765432100',
       contactMobile: '9765432100',
       city: 'Ahmedabad',
+      area: '',
+      pincode: '',
+      latitude: null,
+      longitude: null,
       categoryIds: ['cat-printer-labour'],
       status: 'pending',
       registrationFeePaid: false,
@@ -684,6 +704,13 @@ const mapWorkerRow = (row: {
   expected_daily_wage: number | null
   wallet_balance: number | null
   registration_fee_paid: boolean | null
+  active_plan: string | null
+  plan_valid_from: string | null
+  plan_valid_until: string | null
+  plan_start_date?: string | null
+  plan_end_date?: string | null
+  plan_valid_till?: string | null
+  last_wallet_deduction_date: string | null
   status: string | null
   availability: string | null
   is_visible: boolean | null
@@ -694,30 +721,39 @@ const mapWorkerRow = (row: {
   registration_completed_at: string | null
   created_at: string
   updated_at: string
-}): LabourWorkerRecord => ({
-  id: row.id,
-  fullName: row.full_name,
-  mobile: row.mobile,
-  city: row.city || '',
-  homeCity: row.home_city || '',
-  address: row.address || '',
-  profilePhotoPath: row.profile_photo_path || '',
-  skills: row.skills || [],
-  experienceYears: row.experience_years ?? 0,
-  expectedDailyWage: row.expected_daily_wage ?? 0,
-  walletBalance: row.wallet_balance ?? 0,
-  registrationFeePaid: row.registration_fee_paid ?? false,
-  status: (row.status as WorkerStatus | null) || 'pending',
-  availability: (row.availability as WorkerAvailability | null) || 'available_today',
-  isVisible: row.is_visible ?? true,
-  categoryIds: row.category_ids || [],
-  identityProofType: (row.identity_proof_type as WorkerIdentityProofType | null) || '',
-  identityProofNumber: row.identity_proof_number || '',
-  identityProofPath: row.identity_proof_path || '',
-  registrationCompletedAt: row.registration_completed_at || '',
-  createdAt: row.created_at,
-  updatedAt: row.updated_at
-})
+}): LabourWorkerRecord => {
+  const planValidFrom = row.plan_valid_from || row.plan_start_date || ''
+  const planValidUntil =
+    row.plan_valid_until || row.plan_valid_till || row.plan_end_date || ''
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    mobile: row.mobile,
+    city: row.city || '',
+    homeCity: row.home_city || '',
+    address: row.address || '',
+    profilePhotoPath: row.profile_photo_path || '',
+    skills: row.skills || [],
+    experienceYears: row.experience_years ?? 0,
+    expectedDailyWage: row.expected_daily_wage ?? 0,
+    walletBalance: row.wallet_balance ?? 0,
+    registrationFeePaid: row.registration_fee_paid ?? false,
+    activePlan: row.active_plan || '',
+    planValidFrom,
+    planValidUntil,
+    lastWalletDeductionDate: row.last_wallet_deduction_date || '',
+    status: (row.status as WorkerStatus | null) || 'pending',
+    availability: (row.availability as WorkerAvailability | null) || 'available_today',
+    isVisible: row.is_visible ?? true,
+    categoryIds: row.category_ids || [],
+    identityProofType: (row.identity_proof_type as WorkerIdentityProofType | null) || '',
+    identityProofNumber: row.identity_proof_number || '',
+    identityProofPath: row.identity_proof_path || '',
+    registrationCompletedAt: row.registration_completed_at || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
+}
 
 const mapCompanyRow = (row: {
   id: string
@@ -1007,6 +1043,18 @@ const normalizeWorker = (
   existing?: LabourWorkerRecord
 ): LabourWorkerRecord => {
   const now = new Date().toISOString()
+  const legacyPayload = payload as Partial<LabourWorkerRecord> & {
+    active_plan?: string
+    planStartDate?: string
+    plan_valid_from?: string
+    plan_start_date?: string
+    planValidTill?: string
+    planEndDate?: string
+    plan_valid_until?: string
+    plan_valid_till?: string
+    plan_end_date?: string
+    last_wallet_deduction_date?: string
+  }
   return {
     id: existing?.id || String(payload.id || createId('worker')),
     fullName: String(payload.fullName || existing?.fullName || '').trim(),
@@ -1020,6 +1068,26 @@ const normalizeWorker = (
     expectedDailyWage: toNumber(payload.expectedDailyWage, existing?.expectedDailyWage ?? 0),
     walletBalance: toNumber(payload.walletBalance, existing?.walletBalance ?? 0),
     registrationFeePaid: toBoolean(payload.registrationFeePaid, existing?.registrationFeePaid ?? false),
+    activePlan: String(payload.activePlan || legacyPayload.active_plan || existing?.activePlan || '').trim(),
+    planValidFrom: String(
+      payload.planValidFrom ||
+        legacyPayload.plan_valid_from ||
+        legacyPayload.planStartDate ||
+        legacyPayload.plan_start_date ||
+        existing?.planValidFrom ||
+        ''
+    ).trim(),
+    planValidUntil: String(
+      payload.planValidUntil ||
+        legacyPayload.plan_valid_until ||
+        legacyPayload.planValidTill ||
+        legacyPayload.plan_valid_till ||
+        legacyPayload.planEndDate ||
+        legacyPayload.plan_end_date ||
+        existing?.planValidUntil ||
+        ''
+    ).trim(),
+    lastWalletDeductionDate: String(payload.lastWalletDeductionDate || legacyPayload.last_wallet_deduction_date || existing?.lastWalletDeductionDate || '').trim(),
     status: (payload.status || existing?.status || 'pending') as WorkerStatus,
     availability: (payload.availability || existing?.availability || 'available_today') as WorkerAvailability,
     isVisible: toBoolean(payload.isVisible, existing?.isVisible ?? true),
@@ -1625,6 +1693,10 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     expected_daily_wage: worker.expectedDailyWage,
     wallet_balance: worker.walletBalance,
     registration_fee_paid: worker.registrationFeePaid,
+    active_plan: worker.activePlan || null,
+    plan_valid_from: worker.planValidFrom || null,
+    plan_valid_until: worker.planValidUntil || null,
+    last_wallet_deduction_date: worker.lastWalletDeductionDate || null,
     status: worker.status,
     availability: worker.availability,
     is_visible: worker.isVisible,
@@ -1977,6 +2049,10 @@ export const createLabourEntity = async (
         expected_daily_wage: record.expectedDailyWage,
         wallet_balance: record.walletBalance,
         registration_fee_paid: record.registrationFeePaid,
+        active_plan: record.activePlan || null,
+        plan_valid_from: record.planValidFrom || null,
+        plan_valid_until: record.planValidUntil || null,
+        last_wallet_deduction_date: record.lastWalletDeductionDate || null,
         status: record.status,
         availability: record.availability,
         is_visible: record.isVisible,
@@ -2326,6 +2402,10 @@ export const updateLabourEntity = async (
         expected_daily_wage: record.expectedDailyWage,
         wallet_balance: record.walletBalance,
         registration_fee_paid: record.registrationFeePaid,
+        active_plan: record.activePlan || null,
+        plan_valid_from: record.planValidFrom || null,
+        plan_valid_until: record.planValidUntil || null,
+        last_wallet_deduction_date: record.lastWalletDeductionDate || null,
         status: record.status,
         availability: record.availability,
         is_visible: record.isVisible,

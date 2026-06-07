@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionStore {
   static const _workerTokenKey = 'worker_token';
+  static const _workerPendingTokenKey = 'worker_pending_token';
   static const _workerLanguageCodeKey = 'worker_language_code';
   static const _workerFavouriteCitiesKey = 'worker_favourite_cities';
 
@@ -15,9 +16,25 @@ class SessionStore {
     return prefs.getString(_workerTokenKey);
   }
 
+  Future<void> savePendingToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_workerPendingTokenKey, token);
+  }
+
+  Future<String?> getPendingToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_workerPendingTokenKey);
+  }
+
+  Future<void> clearPendingToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_workerPendingTokenKey);
+  }
+
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_workerTokenKey);
+    await prefs.remove(_workerPendingTokenKey);
   }
 
   Future<void> saveLanguageCode(String languageCode) async {

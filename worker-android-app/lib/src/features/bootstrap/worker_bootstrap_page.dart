@@ -24,19 +24,30 @@ class _WorkerBootstrapPageState extends State<WorkerBootstrapPage> {
   }
 
   Future<void> _bootstrap() async {
-    final token = await _sessionStore.getToken();
+    final savedToken = await _sessionStore.getToken();
+    final pendingToken = await _sessionStore.getPendingToken();
+    final token = (savedToken != null && savedToken.isNotEmpty)
+        ? savedToken
+        : (pendingToken ?? '');
     if (!mounted) return;
 
-    if (token == null || token.isEmpty) {
+    if (token.isEmpty) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const OtpLoginPage()),
       );
       return;
     }
 
+    if (savedToken == null || savedToken.isEmpty) {
+      await _sessionStore.saveToken(token);
+    }
+
     try {
       final dashboard = await _apiService.getDashboard(token);
       if (!mounted) return;
+      if (dashboard.profile.isRegistrationComplete) {
+        await _sessionStore.clearPendingToken();
+      }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => dashboard.profile.isRegistrationComplete

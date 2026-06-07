@@ -15,7 +15,8 @@ import '../../models/worker_models.dart';
 import '../../services/session_store.dart';
 import '../../services/worker_api_service.dart';
 import '../../services/worker_push_service.dart';
-import '../auth/otp_login_page.dart';
+import '../bootstrap/worker_bootstrap_page.dart';
+import '../bootstrap/worker_launch_gate.dart';
 
 class WorkerHomePage extends StatefulWidget {
   final String initialToken;
@@ -610,6 +611,13 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         normalized.contains('forbidden');
   }
 
+  bool _isMissingWorkerError(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('worker account not found') ||
+        normalized.contains('worker not found') ||
+        (normalized.contains('404') && normalized.contains('worker'));
+  }
+
   Future<void> _resetSessionAndGoToLogin(String message) async {
     if (_redirectingToLogin) {
       return;
@@ -621,17 +629,29 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       return;
     }
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const OtpLoginPage()),
+      MaterialPageRoute(
+        builder: (_) => const WorkerLaunchGate(
+          child: WorkerBootstrapPage(),
+        ),
+      ),
       (route) => false,
     );
   }
 
   Future<bool> _handleSessionExpiryIfNeeded(String message) async {
-    if (!_isSessionError(message)) {
-      return false;
+    if (_isSessionError(message)) {
+      await _resetSessionAndGoToLogin('Session expired. Please login again.');
+      return true;
     }
-    await _resetSessionAndGoToLogin('Session expired. Please login again.');
-    return true;
+
+    if (_isMissingWorkerError(message)) {
+      await _resetSessionAndGoToLogin(
+        'Your worker account was not found. Please register or login again.',
+      );
+      return true;
+    }
+
+    return false;
   }
 
   Future<void> _logout() async {
@@ -902,7 +922,6 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       );
       return;
     }
-
     setState(() => _walletPaymentLoading = true);
     try {
       final order = await _apiService.createWalletRechargeOrder(
@@ -1040,8 +1059,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     if (dashboard == null) {
       return false;
     }
-    return dashboard.activation.isActive ||
-        dashboard.profile.status.trim().toLowerCase() == 'active';
+    return _dashboardWorkerActive(dashboard);
   }
 
   Future<void> _showRechargeWalletDialog() async {
@@ -2235,8 +2253,7 @@ class _TopSummarySection extends StatelessWidget {
         _resolvePrimaryLiveLocation(liveLocation, profile, l10n);
     final secondaryLocation =
         _resolveSecondaryLiveLocation(liveLocation, profile);
-    final isActive = dashboard.activation.isActive ||
-        profile.status.trim().toLowerCase() == 'active';
+    final isActive = _dashboardWorkerActive(dashboard);
     final walletValue = 'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}';
     final jobsValue = '$visibleJobsCount';
     final wageValue = profile.expectedDailyWage > 0
@@ -2481,6 +2498,7 @@ class _FeedTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
+    final isWorkerActive = _dashboardWorkerActive(dashboard);
     Text _compactDropdownText(String text) {
       return Text(
         text,
@@ -3059,14 +3077,15 @@ class _FeedTab extends StatelessWidget {
                   _jobCategoryKeys(item),
                 );
                 final showLockedState = !categoryMatch;
+                final canRevealCompanyContact =
+                    isWorkerActive && !item.companyLocked && categoryMatch;
                 final canContactCompany =
-                    !item.companyLocked && categoryMatch && hasCompanyMobile;
+                    canRevealCompanyContact && hasCompanyMobile;
                 final locationText = _locationLine(item, distanceLabel);
-                final companyPerson = (item.contactPerson ?? '').trim().isNotEmpty
+                final companyPerson = canRevealCompanyContact &&
+                        (item.contactPerson ?? '').trim().isNotEmpty
                     ? item.contactPerson!.trim()
-                    : (showLockedState || item.companyLocked
-                        ? (l10n.isHindi ? 'लॉक्ड' : 'Locked')
-                        : '-');
+                    : '';
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   elevation: 0,
@@ -3247,77 +3266,79 @@ class _FeedTab extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${l10n.isHindi ? 'Contact Person' : 'Contact Person'}: $companyPerson',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Color(0xFF334155),
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              if (canContactCompany) ...[
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: 42,
-                                  height: 42,
-                                  child: OutlinedButton(
-                                    onPressed: () => _openJobWhatsApp(
-                                      context,
-                                      item,
-                                      dashboard.profile,
-                                    ),
-                                    style: OutlinedButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      backgroundColor: const Color(0xFFEFFAF3),
-                                      side: const BorderSide(
-                                        color: Color(0xFFB7E8C6),
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                    ),
-                                    child: Image.asset(
-                                      'assets/images/whatsapp_icon.jpeg',
-                                      width: 22,
-                                      height: 22,
-                                      fit: BoxFit.contain,
+                          if (canRevealCompanyContact) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${l10n.isHindi ? 'Contact Person' : 'Contact Person'}: $companyPerson',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF334155),
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: 42,
-                                  height: 42,
-                                  child: OutlinedButton(
-                                    onPressed: () => _callJobCompany(context, item),
-                                    style: OutlinedButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      backgroundColor: const Color(0xFFF8FAFC),
-                                      side: const BorderSide(
-                                        color: Color(0xFFD7E2EE),
+                                if (canContactCompany) ...[
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 42,
+                                    height: 42,
+                                    child: OutlinedButton(
+                                      onPressed: () => _openJobWhatsApp(
+                                        context,
+                                        item,
+                                        dashboard.profile,
                                       ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        backgroundColor: const Color(0xFFEFFAF3),
+                                        side: const BorderSide(
+                                          color: Color(0xFFB7E8C6),
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14),
+                                        ),
                                       ),
-                                    ),
-                                    child: const Icon(
-                                      Icons.call_rounded,
-                                      size: 19,
-                                      color: Color(0xFF173C77),
+                                      child: Image.asset(
+                                        'assets/images/whatsapp_icon.jpeg',
+                                        width: 22,
+                                        height: 22,
+                                        fit: BoxFit.contain,
+                                      ),
                                     ),
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 42,
+                                    height: 42,
+                                    child: OutlinedButton(
+                                      onPressed: () => _callJobCompany(context, item),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        backgroundColor: const Color(0xFFF8FAFC),
+                                        side: const BorderSide(
+                                          color: Color(0xFFD7E2EE),
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.call_rounded,
+                                        size: 19,
+                                        color: Color(0xFF173C77),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
-                          ),
+                            ),
+                          ],
                           const SizedBox(height: 10),
                           Row(
                             children: [
@@ -4081,7 +4102,10 @@ class _AllJobsPageState extends State<_AllJobsPage> {
     try {
       final dashboard = await _apiService.getDashboard(widget.token);
       if (!mounted) return;
-      setState(() => _dashboard = dashboard);
+      setState(() {
+        _dashboard = dashboard;
+        _isWorkerActive = _dashboardWorkerActive(dashboard);
+      });
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -4133,8 +4157,7 @@ class _AllJobsPageState extends State<_AllJobsPage> {
       if (!mounted) return;
       setState(() {
         _dashboard = dashboard;
-        _isWorkerActive = dashboard.activation.isActive ||
-            dashboard.profile.status.trim().toLowerCase() == 'active';
+        _isWorkerActive = _dashboardWorkerActive(dashboard);
       });
       ScaffoldMessenger.of(
         context,
@@ -7193,7 +7216,8 @@ class _WalletTab extends StatelessWidget {
                           label: 'Date: ${_shortDate(context, transaction.createdAt)}',
                         ),
                         _WalletHistoryPill(
-                          label: 'Type: ${_prettyText(context, transaction.status)}',
+                          label:
+                              'Type: ${_prettyText(context, transaction.status)}',
                         ),
                       ],
                     ),
@@ -8105,8 +8129,11 @@ class _ResolvedProfileCategoryContext {
 }
 
 bool _dashboardWorkerActive(WorkerDashboardModel dashboard) {
-  return dashboard.activation.isActive ||
-      dashboard.profile.status.trim().toLowerCase() == 'active';
+  if (!dashboard.activation.isActive) {
+    return false;
+  }
+
+  return dashboard.wallet.estimatedDaysRemaining > 0;
 }
 
 _ResolvedProfileCategoryContext _resolveProfileCategoryContext(
@@ -8483,11 +8510,19 @@ String _activationDescription(
 
 String _walletVisibilityRule(
     WorkerLocalizations l10n, WorkerDashboardModel dashboard) {
+  if (dashboard.wallet.estimatedDaysRemaining <= 0) {
+    if (!l10n.isHindi) {
+      return 'Plan expired. Recharge to restore worker access and company details.';
+    }
+
+    return 'à¤¯à¥‹à¤œà¤¨à¤¾ à¤¸à¤®à¤¾à¤ªà¥à¤¤ à¤¹à¥‹ à¤šà¥à¤•à¥€ à¤¹à¥ˆà¥¤ à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤”à¤° à¤µà¤°à¥à¤•à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤«à¤¿à¤° à¤¸à¥‡ à¤šà¤¾à¤²à¥‚ à¤•à¤°à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤°à¥€à¤šà¤¾à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚à¥¤';
+  }
+
   if (!l10n.isHindi) {
     return dashboard.wallet.visibilityRule;
   }
 
-  if (dashboard.activation.isActive) {
+  if (_dashboardWorkerActive(dashboard)) {
     return 'à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤°à¤¹à¤¨à¥‡ à¤¤à¤• à¤†à¤ªà¤•à¥€ à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤¦à¤¿à¤–à¤¾à¤ˆ à¤¦à¥‡à¤—à¥€ à¤”à¤° à¤•à¤‚à¤ªà¤¨à¥€ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤°à¤¹à¥‡à¤‚à¤—à¥‡à¥¤';
   }
 

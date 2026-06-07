@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 
 import '../../localization/worker_localizations.dart';
 import '../../models/worker_models.dart';
+import '../../services/session_store.dart';
 import '../../services/worker_api_service.dart';
+import 'otp_login_page.dart';
 import '../home/worker_home_page.dart';
 
 class WorkerRegistrationPage extends StatefulWidget {
@@ -24,14 +26,20 @@ class WorkerRegistrationPage extends StatefulWidget {
 
 class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
   final _apiService = WorkerApiService();
+  final _sessionStore = SessionStore();
+
   late final TextEditingController _fullNameController;
-  late final TextEditingController _cityController;
+  late final TextEditingController _addressController;
   late final TextEditingController _skillsController;
   late final TextEditingController _experienceController;
   late final TextEditingController _wageController;
   late final TextEditingController _identityProofNumberController;
 
-  late List<String> _selectedCategories;
+  late String _jobSearchCity;
+  late String _homeCity;
+  late String _selectedIndustryId;
+  late String _selectedBusinessTypeId;
+  late String _selectedCategoryId;
   late String _availability;
   late String _identityProofType;
 
@@ -49,26 +57,36 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
     super.initState();
     final profile = widget.dashboard.profile;
     _fullNameController = TextEditingController(text: profile.fullName);
-    _cityController = TextEditingController(text: profile.city);
+    _addressController = TextEditingController(text: profile.address);
     _skillsController = TextEditingController(text: profile.skills.join(', '));
     _experienceController = TextEditingController(
-      text: profile.experienceYears == 0 ? '' : profile.experienceYears.toStringAsFixed(0),
+      text: profile.experienceYears == 0
+          ? ''
+          : profile.experienceYears.toStringAsFixed(0),
     );
     _wageController = TextEditingController(
-      text: profile.expectedDailyWage == 0 ? '' : profile.expectedDailyWage.toStringAsFixed(0),
+      text: profile.expectedDailyWage == 0
+          ? ''
+          : profile.expectedDailyWage.toStringAsFixed(0),
     );
-    _identityProofNumberController = TextEditingController(text: profile.identityProofNumber);
-    _selectedCategories = [...profile.categoryIds];
+    _identityProofNumberController =
+        TextEditingController(text: profile.identityProofNumber);
     _availability = profile.availability;
-    _identityProofType = profile.identityProofType.isEmpty ? 'aadhaar' : profile.identityProofType;
+    _identityProofType =
+        profile.identityProofType.isEmpty ? 'aadhaar' : profile.identityProofType;
     _profilePhotoPath = profile.profilePhotoPath;
     _identityProofPath = profile.identityProofPath;
+    _jobSearchCity = _resolveInitialCity(profile.city);
+    _homeCity = _resolveInitialCity(
+      profile.homeCity.isEmpty ? profile.city : profile.homeCity,
+    );
+    _hydrateCategorySelection(profile.categoryIds);
   }
 
   @override
   void dispose() {
     _fullNameController.dispose();
-    _cityController.dispose();
+    _addressController.dispose();
     _skillsController.dispose();
     _experienceController.dispose();
     _wageController.dispose();
@@ -79,6 +97,148 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
   bool get _isHindi => WorkerLocalizations.of(context).isHindi;
 
   String _t(String hindi, String english) => _isHindi ? hindi : english;
+
+  List<String> get _availableCities {
+    final items = <String>{
+      if (widget.dashboard.profile.city.trim().isNotEmpty)
+        widget.dashboard.profile.city.trim(),
+      if (widget.dashboard.profile.homeCity.trim().isNotEmpty)
+        widget.dashboard.profile.homeCity.trim(),
+      ...widget.dashboard.availableCities
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty),
+    };
+    final list = items.toList()..sort();
+    return list;
+  }
+
+  String _resolveInitialCity(String rawValue) {
+    final current = rawValue.trim();
+    if (current.isNotEmpty) return current;
+    if (_availableCities.isNotEmpty) return _availableCities.first;
+    return '';
+  }
+
+  String _optionLabel(WorkerMasterOption option) {
+    if (option.label.trim().isNotEmpty) return option.label.trim();
+    if (option.value.trim().isNotEmpty) return option.value.trim();
+    return option.slug.trim();
+  }
+
+  List<WorkerMasterOption> get _industryOptions {
+    final byId = <String, WorkerMasterOption>{};
+    for (final dependency in widget.dashboard.industryBusinessDependencies) {
+      byId[dependency.industryCategory.id] = dependency.industryCategory;
+    }
+    for (final dependency in widget.dashboard.categoryDependencies) {
+      byId[dependency.industryCategory.id] = dependency.industryCategory;
+    }
+    final items = byId.values.toList()
+      ..sort((a, b) => _optionLabel(a).compareTo(_optionLabel(b)));
+    return items;
+  }
+
+  List<WorkerMasterOption> _businessOptionsFor(String industryId) {
+    final byId = <String, WorkerMasterOption>{};
+    for (final dependency in widget.dashboard.industryBusinessDependencies) {
+      if (dependency.industryCategory.id == industryId) {
+        byId[dependency.businessType.id] = dependency.businessType;
+      }
+    }
+    for (final dependency in widget.dashboard.categoryDependencies) {
+      if (dependency.industryCategory.id == industryId &&
+          dependency.businessType != null) {
+        byId[dependency.businessType!.id] = dependency.businessType!;
+      }
+    }
+    final items = byId.values.toList()
+      ..sort((a, b) => _optionLabel(a).compareTo(_optionLabel(b)));
+    return items;
+  }
+
+  List<WorkerCategoryDependency> _categoryOptionsFor(
+    String industryId,
+    String businessTypeId,
+  ) {
+    final byId = <String, WorkerCategoryDependency>{};
+    final exactMatches = widget.dashboard.categoryDependencies.where(
+      (dependency) =>
+          dependency.industryCategory.id == industryId &&
+          (businessTypeId.isEmpty ||
+              dependency.businessType?.id == businessTypeId),
+    );
+    final fallbackMatches = widget.dashboard.categoryDependencies.where(
+      (dependency) => dependency.industryCategory.id == industryId,
+    );
+
+    final source = exactMatches.isNotEmpty ? exactMatches : fallbackMatches;
+    for (final dependency in source) {
+      byId[dependency.categoryId] = dependency;
+    }
+
+    final items = byId.values.toList()
+      ..sort((a, b) => a.categoryName.compareTo(b.categoryName));
+    return items;
+  }
+
+  void _hydrateCategorySelection(List<String> categoryIds) {
+    final selectedCategoryId = categoryIds
+        .map((item) => item.trim())
+        .firstWhere((item) => item.isNotEmpty, orElse: () => '');
+
+    WorkerCategoryDependency? matchedDependency;
+    for (final dependency in widget.dashboard.categoryDependencies) {
+      if (dependency.categoryId == selectedCategoryId) {
+        matchedDependency = dependency;
+        break;
+      }
+    }
+    matchedDependency ??= widget.dashboard.categoryDependencies.isNotEmpty
+        ? widget.dashboard.categoryDependencies.first
+        : null;
+
+    _selectedIndustryId = matchedDependency?.industryCategory.id ??
+        (_industryOptions.isNotEmpty ? _industryOptions.first.id : '');
+    _selectedBusinessTypeId = matchedDependency?.businessType?.id ??
+        (_businessOptionsFor(_selectedIndustryId).isNotEmpty
+            ? _businessOptionsFor(_selectedIndustryId).first.id
+            : '');
+    _selectedCategoryId = matchedDependency?.categoryId ??
+        (_categoryOptionsFor(_selectedIndustryId, _selectedBusinessTypeId)
+                .isNotEmpty
+            ? _categoryOptionsFor(
+                    _selectedIndustryId, _selectedBusinessTypeId)
+                .first
+                .categoryId
+            : '');
+    _syncCategorySelection();
+  }
+
+  void _syncCategorySelection() {
+    final businesses = _businessOptionsFor(_selectedIndustryId);
+    if (businesses.isEmpty) {
+      _selectedBusinessTypeId = '';
+    } else if (!businesses.any((item) => item.id == _selectedBusinessTypeId)) {
+      _selectedBusinessTypeId = businesses.first.id;
+    }
+
+    final categories =
+        _categoryOptionsFor(_selectedIndustryId, _selectedBusinessTypeId);
+    if (categories.isEmpty) {
+      _selectedCategoryId = '';
+    } else if (!categories.any((item) => item.categoryId == _selectedCategoryId)) {
+      _selectedCategoryId = categories.first.categoryId;
+    }
+  }
+
+  Future<void> _resetToLogin() async {
+    await _sessionStore.clear();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const OtpLoginPage()),
+      (route) => false,
+    );
+  }
 
   Future<void> _pickAndUpload({
     required String documentKind,
@@ -99,7 +259,12 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
 
     final picked = result.files.single;
     if (picked.path == null || picked.path!.isEmpty) {
-      setState(() => _error = _t('फ़ाइल पथ नहीं मिला। फिर से चुनें।', 'Selected file path is missing. Please choose again.'));
+      setState(() {
+        _error = _t(
+          'फ़ाइल पाथ नहीं मिला। फिर से चुनें।',
+          'Selected file path is missing. Please choose again.',
+        );
+      });
       return;
     }
 
@@ -133,12 +298,11 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
       if (!mounted) return;
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
-      if (mounted) {
-        setState(() {
-          _uploadingPhoto = false;
-          _uploadingProof = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _uploadingPhoto = false;
+        _uploadingProof = false;
+      });
     }
   }
 
@@ -147,12 +311,20 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
       setState(() => _error = _t('पूरा नाम जरूरी है।', 'Full name is required.'));
       return;
     }
-    if (_cityController.text.trim().isEmpty) {
-      setState(() => _error = _t('शहर जरूरी है।', 'City is required.'));
+    if (_jobSearchCity.trim().isEmpty) {
+      setState(() => _error = _t('जॉब सर्च सिटी जरूरी है।', 'Job search city is required.'));
       return;
     }
-    if (_selectedCategories.isEmpty) {
-      setState(() => _error = _t('कम से कम एक कैटेगरी चुनें।', 'Select at least one category.'));
+    if (_homeCity.trim().isEmpty) {
+      setState(() => _error = _t('होम सिटी जरूरी है।', 'Home city is required.'));
+      return;
+    }
+    if (_addressController.text.trim().isEmpty) {
+      setState(() => _error = _t('पता जरूरी है।', 'Address is required.'));
+      return;
+    }
+    if (_selectedCategoryId.isEmpty) {
+      setState(() => _error = _t('जॉब कैटेगरी चुनें।', 'Select a job category.'));
       return;
     }
     if (_profilePhotoPath.isEmpty) {
@@ -160,11 +332,21 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
       return;
     }
     if (_identityProofNumberController.text.trim().isEmpty) {
-      setState(() => _error = _t('आईडी प्रूफ नंबर जरूरी है।', 'Identity proof number is required.'));
+      setState(() {
+        _error = _t(
+          'आईडी प्रूफ नंबर जरूरी है।',
+          'Identity proof number is required.',
+        );
+      });
       return;
     }
     if (_identityProofPath.isEmpty) {
-      setState(() => _error = _t('आईडी प्रूफ दस्तावेज़ अपलोड करें।', 'Upload the identity proof document.'));
+      setState(() {
+        _error = _t(
+          'आईडी प्रूफ दस्तावेज़ अपलोड करें।',
+          'Upload the identity proof document.',
+        );
+      });
       return;
     }
 
@@ -177,8 +359,10 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
       final dashboard = await _apiService.completeRegistration(
         widget.token,
         fullName: _fullNameController.text.trim(),
-        city: _cityController.text.trim(),
-        categoryIds: _selectedCategories,
+        city: _jobSearchCity.trim(),
+        homeCity: _homeCity.trim(),
+        address: _addressController.text.trim(),
+        categoryIds: [_selectedCategoryId],
         skills: _skillsController.text
             .split(',')
             .map((item) => item.trim())
@@ -193,6 +377,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
         identityProofPath: _identityProofPath,
       );
 
+      await _sessionStore.clearPendingToken();
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -206,24 +391,90 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
       if (!mounted) return;
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
-      if (mounted) {
-        setState(() => _submitting = false);
-      }
+      if (!mounted) return;
+      setState(() => _submitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final categories = widget.dashboard.availableCategories;
+    final industries = _industryOptions;
+    final businesses = _businessOptionsFor(_selectedIndustryId);
+    final categories =
+        _categoryOptionsFor(_selectedIndustryId, _selectedBusinessTypeId);
+
+    final selectedIndustryValue = industries.any(
+      (item) => item.id == _selectedIndustryId,
+    )
+        ? _selectedIndustryId
+        : null;
+    final selectedBusinessValue = businesses.any(
+      (item) => item.id == _selectedBusinessTypeId,
+    )
+        ? _selectedBusinessTypeId
+        : null;
+    final selectedCategoryValue = categories.any(
+      (item) => item.categoryId == _selectedCategoryId,
+    )
+        ? _selectedCategoryId
+        : null;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.white,
         title: Text(_t('नया वर्कर अकाउंट', 'New worker account')),
+        actions: [
+          PopupMenuButton<_RegistrationExitAction>(
+            onSelected: (_) => _resetToLogin(),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _RegistrationExitAction.changeNumber,
+                child: Text(_t('नंबर बदलें', 'Change number')),
+              ),
+              PopupMenuItem(
+                value: _RegistrationExitAction.logout,
+                child: Text(_t('लॉग आउट', 'Log out')),
+              ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.logout_rounded, color: Color(0xFF0F172A)),
+                  const SizedBox(width: 6),
+                  Text(
+                    _t('लॉग आउट', 'Log out'),
+                    style: const TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          Card(
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0F0F172A),
+                  blurRadius: 20,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
@@ -231,7 +482,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                 children: [
                   Text(
                     _t('रजिस्ट्रेशन पूरा करें', 'Complete your registration'),
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -239,7 +490,10 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                       'काम शुरू करने से पहले फोटो, पहचान प्रमाण और बेसिक प्रोफाइल डिटेल्स जमा करें।',
                       'Before you start receiving work, submit your photo, identity proof, and basic profile details.',
                     ),
-                    style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      height: 1.5,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   TextField(
@@ -250,11 +504,55 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: _cityController,
+                  DropdownButtonFormField<String>(
+                    value: _jobSearchCity.isEmpty ? null : _jobSearchCity,
+                    items: _availableCities
+                        .map(
+                          (city) => DropdownMenuItem(
+                            value: city,
+                            child: Text(city),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _jobSearchCity = value);
+                      }
+                    },
                     decoration: InputDecoration(
-                      labelText: _t('शहर', 'City'),
+                      labelText: _t('जॉब सर्च सिटी', 'Job Search City'),
                       prefixIcon: const Icon(Icons.location_city_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _homeCity.isEmpty ? null : _homeCity,
+                    items: _availableCities
+                        .map(
+                          (city) => DropdownMenuItem(
+                            value: city,
+                            child: Text(city),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _homeCity = value);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: _t('होम सिटी', 'Home City'),
+                      prefixIcon: const Icon(Icons.home_work_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _addressController,
+                    minLines: 2,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: _t('पता', 'Address'),
+                      prefixIcon: const Icon(Icons.home_outlined),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -266,7 +564,8 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             labelText: _t('अनुभव (वर्ष)', 'Experience (years)'),
-                            prefixIcon: const Icon(Icons.workspace_premium_outlined),
+                            prefixIcon:
+                                const Icon(Icons.workspace_premium_outlined),
                           ),
                         ),
                       ),
@@ -276,8 +575,10 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                           controller: _wageController,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
-                            labelText: _t('दैनिक मजदूरी अपेक्षा', 'Expected daily wage'),
-                            prefixIcon: const Icon(Icons.currency_rupee_rounded),
+                            labelText:
+                                _t('दैनिक मजदूरी अपेक्षा', 'Expected daily wage'),
+                            prefixIcon:
+                                const Icon(Icons.currency_rupee_rounded),
                           ),
                         ),
                       ),
@@ -289,40 +590,105 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                     maxLines: 2,
                     decoration: InputDecoration(
                       labelText: _t('स्किल्स', 'Skills'),
-                      hintText: _t('जैसे: सिलाई, फिनिशिंग, वायरिंग', 'For example: stitching, finishing, wiring'),
+                      hintText: _t(
+                        'जैसे: सिलाई, फिनिशिंग, वायरिंग',
+                        'For example: stitching, finishing, wiring',
+                      ),
                       prefixIcon: const Icon(Icons.build_circle_outlined),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(_t('कैटेगरी चुनें', 'Choose categories'), style: const TextStyle(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: categories.map((category) {
-                      final selected = _selectedCategories.contains(category.id);
-                      return FilterChip(
-                        selected: selected,
-                        label: Text(category.name),
-                        onSelected: (value) {
-                          setState(() {
-                            if (value) {
-                              _selectedCategories.add(category.id);
-                            } else {
-                              _selectedCategories.remove(category.id);
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedIndustryValue,
+                    items: industries
+                        .map(
+                          (item) => DropdownMenuItem(
+                            value: item.id,
+                            child: Text(_optionLabel(item)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: industries.isEmpty
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedIndustryId = value;
+                                _syncCategorySelection();
+                              });
                             }
-                          });
-                        },
-                      );
-                    }).toList(),
+                          },
+                    decoration: InputDecoration(
+                      labelText: _t('इंडस्ट्री कैटेगरी', 'Industry Category'),
+                      prefixIcon: const Icon(Icons.apartment_rounded),
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedBusinessValue,
+                    items: businesses
+                        .map(
+                          (item) => DropdownMenuItem(
+                            value: item.id,
+                            child: Text(_optionLabel(item)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: businesses.isEmpty
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedBusinessTypeId = value;
+                                _syncCategorySelection();
+                              });
+                            }
+                          },
+                    decoration: InputDecoration(
+                      labelText: _t('बिज़नेस टाइप', 'Business Type'),
+                      prefixIcon:
+                          const Icon(Icons.business_center_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedCategoryValue,
+                    items: categories
+                        .map(
+                          (item) => DropdownMenuItem(
+                            value: item.categoryId,
+                            child: Text(item.categoryName),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: categories.isEmpty
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() => _selectedCategoryId = value);
+                            }
+                          },
+                    decoration: InputDecoration(
+                      labelText: _t('जॉब कैटेगरी', 'Job Category'),
+                      prefixIcon: const Icon(Icons.category_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: _availability,
                     items: [
-                      DropdownMenuItem(value: 'available_today', child: Text(_t('आज उपलब्ध', 'Available today'))),
-                      DropdownMenuItem(value: 'available_this_week', child: Text(_t('इस सप्ताह उपलब्ध', 'Available this week'))),
-                      DropdownMenuItem(value: 'not_available', child: Text(_t('अभी उपलब्ध नहीं', 'Not available'))),
+                      DropdownMenuItem(
+                        value: 'available_today',
+                        child: Text(_t('आज उपलब्ध', 'Available today')),
+                      ),
+                      DropdownMenuItem(
+                        value: 'available_this_week',
+                        child: Text(_t('इस सप्ताह उपलब्ध', 'Available this week')),
+                      ),
+                      DropdownMenuItem(
+                        value: 'not_available',
+                        child: Text(_t('अभी उपलब्ध नहीं', 'Not available')),
+                      ),
                     ],
                     onChanged: (value) {
                       if (value != null) {
@@ -331,13 +697,17 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                     },
                     decoration: InputDecoration(
                       labelText: _t('उपलब्धता', 'Availability'),
-                      prefixIcon: const Icon(Icons.event_available_rounded),
+                      prefixIcon:
+                          const Icon(Icons.event_available_rounded),
                     ),
                   ),
                   const SizedBox(height: 18),
                   _UploadCard(
                     title: _t('प्रोफाइल फोटो', 'Profile photo'),
-                    subtitle: _t('स्पष्ट चेहरा वाली फोटो अपलोड करें', 'Upload a clear photo of yourself'),
+                    subtitle: _t(
+                      'स्पष्ट चेहरा वाली फोटो अपलोड करें',
+                      'Upload a clear photo of yourself',
+                    ),
                     buttonLabel: _uploadingPhoto
                         ? _t('अपलोड हो रहा है...', 'Uploading...')
                         : _t('फोटो चुनें', 'Choose photo'),
@@ -346,7 +716,10 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                         : _t('फोटो अपलोड हो गई', 'Photo uploaded'),
                     onTap: _uploadingPhoto || _submitting
                         ? null
-                        : () => _pickAndUpload(documentKind: 'profile_photo', imageOnly: true),
+                        : () => _pickAndUpload(
+                              documentKind: 'profile_photo',
+                              imageOnly: true,
+                            ),
                     preview: _profilePhotoLocalPath.isEmpty
                         ? null
                         : ClipRRect(
@@ -363,11 +736,26 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                   DropdownButtonFormField<String>(
                     value: _identityProofType,
                     items: [
-                      DropdownMenuItem(value: 'aadhaar', child: Text(_t('आधार कार्ड', 'Aadhaar Card'))),
-                      DropdownMenuItem(value: 'pan', child: Text(_t('पैन कार्ड', 'PAN Card'))),
-                      DropdownMenuItem(value: 'voter_id', child: Text(_t('वोटर आईडी', 'Voter ID'))),
-                      DropdownMenuItem(value: 'driving_license', child: Text(_t('ड्राइविंग लाइसेंस', 'Driving License'))),
-                      DropdownMenuItem(value: 'other', child: Text(_t('अन्य', 'Other'))),
+                      DropdownMenuItem(
+                        value: 'aadhaar',
+                        child: Text(_t('आधार कार्ड', 'Aadhaar Card')),
+                      ),
+                      DropdownMenuItem(
+                        value: 'pan',
+                        child: Text(_t('पैन कार्ड', 'PAN Card')),
+                      ),
+                      DropdownMenuItem(
+                        value: 'voter_id',
+                        child: Text(_t('वोटर आईडी', 'Voter ID')),
+                      ),
+                      DropdownMenuItem(
+                        value: 'driving_license',
+                        child: Text(_t('ड्राइविंग लाइसेंस', 'Driving License')),
+                      ),
+                      DropdownMenuItem(
+                        value: 'other',
+                        child: Text(_t('अन्य', 'Other')),
+                      ),
                     ],
                     onChanged: (value) {
                       if (value != null) {
@@ -375,7 +763,10 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                       }
                     },
                     decoration: InputDecoration(
-                      labelText: _t('पहचान प्रमाण प्रकार', 'Identity proof type'),
+                      labelText: _t(
+                        'पहचान प्रमाण प्रकार',
+                        'Identity proof type',
+                      ),
                       prefixIcon: const Icon(Icons.badge_outlined),
                     ),
                   ),
@@ -383,14 +774,22 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                   TextField(
                     controller: _identityProofNumberController,
                     decoration: InputDecoration(
-                      labelText: _t('पहचान प्रमाण नंबर', 'Identity proof number'),
-                      prefixIcon: const Icon(Icons.confirmation_number_outlined),
+                      labelText:
+                          _t('पहचान प्रमाण नंबर', 'Identity proof number'),
+                      prefixIcon:
+                          const Icon(Icons.confirmation_number_outlined),
                     ),
                   ),
                   const SizedBox(height: 18),
                   _UploadCard(
-                    title: _t('पहचान प्रमाण दस्तावेज़', 'Identity proof document'),
-                    subtitle: _t('PDF या फोटो फॉर्मेट अपलोड करें', 'Upload a PDF or image document'),
+                    title: _t(
+                      'पहचान प्रमाण दस्तावेज़',
+                      'Identity proof document',
+                    ),
+                    subtitle: _t(
+                      'PDF या फोटो फॉर्मेट अपलोड करें',
+                      'Upload a PDF or image document',
+                    ),
                     buttonLabel: _uploadingProof
                         ? _t('अपलोड हो रहा है...', 'Uploading...')
                         : _t('दस्तावेज़ चुनें', 'Choose document'),
@@ -399,11 +798,16 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                         : _t('दस्तावेज़ अपलोड हो गया', 'Document uploaded'),
                     onTap: _uploadingProof || _submitting
                         ? null
-                        : () => _pickAndUpload(documentKind: 'identity_proof', imageOnly: false),
+                        : () => _pickAndUpload(
+                              documentKind: 'identity_proof',
+                              imageOnly: false,
+                            ),
                     preview: _identityProofLocalPath.isEmpty
                         ? null
                         : Text(
-                            _identityProofLocalPath.split(Platform.pathSeparator).last,
+                            _identityProofLocalPath
+                                .split(Platform.pathSeparator)
+                                .last,
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                   ),
@@ -413,7 +817,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         color: const Color(0xFFFEF2F2),
                         border: Border.all(color: const Color(0xFFFECACA)),
                       ),
@@ -430,13 +834,27 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: _submitting || _uploadingPhoto || _uploadingProof ? null : _submit,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        child: Text(
-                          _submitting
-                              ? _t('सबमिट हो रहा है...', 'Submitting...')
-                              : _t('रजिस्ट्रेशन पूरा करें', 'Complete registration'),
+                      onPressed: _submitting || _uploadingPhoto || _uploadingProof
+                          ? null
+                          : _submit,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF173C77),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: Text(
+                        _submitting
+                            ? _t('सबमिट हो रहा है...', 'Submitting...')
+                            : _t(
+                                'रजिस्ट्रेशन पूरा करें',
+                                'Complete registration',
+                              ),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
                         ),
                       ),
                     ),
@@ -471,18 +889,24 @@ class _UploadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+          ),
           const SizedBox(height: 6),
-          Text(subtitle, style: const TextStyle(color: Color(0xFF64748B), height: 1.4)),
+          Text(
+            subtitle,
+            style: const TextStyle(color: Color(0xFF64748B), height: 1.45),
+          ),
           if (preview != null) ...[
             const SizedBox(height: 12),
             preview!,
@@ -503,9 +927,17 @@ class _UploadCard extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: onTap,
               icon: const Icon(Icons.upload_file_rounded),
-              label: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(buttonLabel),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0F172A),
+                side: const BorderSide(color: Color(0xFFD7E2EE)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              label: Text(
+                buttonLabel,
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
           ),
@@ -513,4 +945,9 @@ class _UploadCard extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _RegistrationExitAction {
+  changeNumber,
+  logout,
 }

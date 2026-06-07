@@ -447,6 +447,8 @@ class WorkerApiService {
     String token, {
     required String fullName,
     required String city,
+    required String homeCity,
+    required String address,
     required List<String> categoryIds,
     required List<String> skills,
     required double experienceYears,
@@ -466,6 +468,8 @@ class WorkerApiService {
       body: jsonEncode({
         'fullName': fullName,
         'city': city,
+        'homeCity': homeCity,
+        'address': address,
         'categoryIds': categoryIds,
         'skills': skills,
         'experienceYears': experienceYears,

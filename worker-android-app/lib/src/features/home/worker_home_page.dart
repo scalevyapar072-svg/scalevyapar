@@ -15,7 +15,8 @@ import '../../models/worker_models.dart';
 import '../../services/session_store.dart';
 import '../../services/worker_api_service.dart';
 import '../../services/worker_push_service.dart';
-import '../auth/otp_login_page.dart';
+import '../bootstrap/worker_bootstrap_page.dart';
+import '../bootstrap/worker_launch_gate.dart';
 
 class WorkerHomePage extends StatefulWidget {
   final String initialToken;
@@ -628,7 +629,11 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       return;
     }
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const OtpLoginPage()),
+      MaterialPageRoute(
+        builder: (_) => const WorkerLaunchGate(
+          child: WorkerBootstrapPage(),
+        ),
+      ),
       (route) => false,
     );
   }

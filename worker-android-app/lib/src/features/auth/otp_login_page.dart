@@ -6,7 +6,7 @@ import '../../services/session_store.dart';
 import '../../services/worker_api_service.dart';
 import '../../services/worker_push_service.dart';
 import '../home/worker_home_page.dart';
-import 'worker_registration_page.dart';
+import 'worker_launch_language_page.dart';
 
 class OtpLoginPage extends StatefulWidget {
   const OtpLoginPage({super.key});
@@ -85,14 +85,24 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
       );
       final token = result.$1;
       await _sessionStore.saveToken(token);
+      await _sessionStore.savePendingToken(token);
       await WorkerPushService.instance.attachWorkerSession(token);
       if (!mounted) return;
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => result.$2.profile.isRegistrationComplete
-              ? WorkerHomePage(initialToken: token, initialDashboard: result.$2)
-              : WorkerRegistrationPage(token: token, dashboard: result.$2),
+          builder: (_) {
+            if (result.$2.profile.isRegistrationComplete) {
+              return WorkerHomePage(
+                initialToken: token,
+                initialDashboard: result.$2,
+              );
+            }
+            return WorkerLaunchLanguagePage.withDashboard(
+              token: token,
+              dashboard: result.$2,
+            );
+          },
         ),
       );
     } catch (error) {

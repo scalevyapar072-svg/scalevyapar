@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
@@ -10,7 +12,20 @@ import 'otp_login_page.dart';
 import 'worker_registration_page.dart';
 
 class WorkerLaunchLanguagePage extends StatefulWidget {
-  const WorkerLaunchLanguagePage({super.key});
+  final String? token;
+  final WorkerDashboardModel? dashboard;
+
+  const WorkerLaunchLanguagePage({
+    super.key,
+    this.token,
+    this.dashboard,
+  });
+
+  const WorkerLaunchLanguagePage.withDashboard({
+    super.key,
+    required this.token,
+    required this.dashboard,
+  });
 
   @override
   State<WorkerLaunchLanguagePage> createState() =>
@@ -18,6 +33,19 @@ class WorkerLaunchLanguagePage extends StatefulWidget {
 }
 
 class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
+  static const _options = <_LanguageOption>[
+    _LanguageOption(
+      code: 'en',
+      title: 'English',
+      subtitle: 'Continue in English',
+    ),
+    _LanguageOption(
+      code: 'hi',
+      title: 'हिन्दी',
+      subtitle: 'हिन्दी में आगे बढ़ें',
+    ),
+  ];
+
   final _sessionStore = SessionStore();
   final _apiService = WorkerApiService();
 
@@ -35,7 +63,10 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
     if (!mounted || saved == null || saved.isEmpty) {
       return;
     }
-    setState(() => _selectedCode = saved);
+    final normalized = saved.trim().toLowerCase();
+    if (normalized == 'hi' || normalized == 'en') {
+      setState(() => _selectedCode = normalized);
+    }
   }
 
   Future<void> _continue() async {
@@ -44,15 +75,24 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
     }
 
     setState(() => _continuing = true);
-    await WorkerLanguageScope.of(context).setLocale(Locale(_selectedCode));
-    if (!mounted) {
-      return;
-    }
+    final selected = _options.firstWhere(
+      (option) => option.code == _selectedCode,
+      orElse: () => _options.first,
+    );
+    final effectiveLocaleCode = selected.code == 'hi' ? 'hi' : 'en';
 
-    final token = await _sessionStore.getToken();
-    if (!mounted) {
-      return;
-    }
+    final widgetToken =
+        widget.token?.trim().isNotEmpty == true ? widget.token!.trim() : null;
+    final savedToken = await _sessionStore.getToken();
+    final pendingToken = await _sessionStore.getPendingToken();
+    final token = [
+      widgetToken,
+      savedToken?.trim().isNotEmpty == true ? savedToken!.trim() : null,
+      pendingToken?.trim().isNotEmpty == true ? pendingToken!.trim() : null,
+    ].firstWhere(
+      (value) => value != null && value.isNotEmpty,
+      orElse: () => null,
+    );
 
     if (token == null || token.trim().isEmpty) {
       _openOtpLogin();
@@ -60,16 +100,30 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
     }
 
     try {
-      final dashboard = await _apiService.getDashboard(token);
+      await _sessionStore.saveToken(token);
+      await _sessionStore.savePendingToken(token);
+      await _sessionStore.saveLanguageCode(effectiveLocaleCode);
+
+      final dashboard = widget.dashboard ?? await _apiService.getDashboard(token);
       if (!mounted) {
         return;
       }
+
+      unawaited(
+        WorkerLanguageScope.of(context).setLocale(
+          Locale(effectiveLocaleCode),
+        ),
+      );
       _openResolvedRoute(token, dashboard);
     } catch (_) {
       if (!mounted) {
         return;
       }
       _openOtpLogin();
+    } finally {
+      if (mounted) {
+        setState(() => _continuing = false);
+      }
     }
   }
 
@@ -98,22 +152,9 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
-    final options = const <_LanguageOption>[
-      _LanguageOption(
-        code: 'en',
-        title: 'English',
-        subtitle: 'Continue in English',
-      ),
-      _LanguageOption(
-        code: 'hi',
-        title: 'हिंदी',
-        subtitle: 'हिंदी में आगे बढ़ें',
-      ),
-    ];
-
-    final selected = options.firstWhere(
+    final selected = _options.firstWhere(
       (option) => option.code == _selectedCode,
-      orElse: () => options.first,
+      orElse: () => _options.first,
     );
 
     return Scaffold(
@@ -166,9 +207,7 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
                     ),
                     const SizedBox(height: 28),
                     Text(
-                      _selectedCode == 'hi'
-                          ? 'भाषा चुनें'
-                          : 'Select Language',
+                      _selectedCode == 'hi' ? 'भाषा चुनें' : 'Select Language',
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w400,
@@ -195,11 +234,11 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
                         border: Border.all(color: const Color(0xFFE5E7EB)),
                       ),
                       child: Column(
-                        children: options.map((option) {
+                        children: _options.map((option) {
                           final isSelected = option.code == _selectedCode;
                           return Padding(
                             padding: EdgeInsets.only(
-                              bottom: option == options.last ? 0 : 12,
+                              bottom: option == _options.last ? 0 : 12,
                             ),
                             child: InkWell(
                               onTap: () =>
@@ -294,7 +333,7 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
                     _continuing
                         ? l10n.loadingDashboard
                         : (_selectedCode == 'hi'
-                            ? 'हिंदी चुनें'
+                            ? 'हिन्दी चुनें'
                             : 'SELECT ${selected.title.toUpperCase()}'),
                     style: const TextStyle(
                       fontSize: 18,

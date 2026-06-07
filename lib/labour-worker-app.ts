@@ -880,13 +880,13 @@ const deriveWorkerStatus = (
     return 'inactive_wallet_empty'
   }
 
-  if (workerPlan) {
-    const planTiming = deriveWorkerPlanTiming(worker, workerPlan, transactions)
+  const planTiming = deriveWorkerPlanTiming(worker, workerPlan, transactions)
+  if (planTiming.activeUntil || workerPlan || worker.planValidUntil.trim()) {
     if (!planTiming.activeUntil || planTiming.estimatedDaysRemaining <= 0 || planTiming.isExpired) {
       return 'inactive_subscription_expired'
     }
 
-    return 'active'
+    return worker.status === 'active' ? 'active' : worker.status
   }
 
   if (worker.walletBalance <= 0) {
@@ -940,6 +940,23 @@ const assertWorkerRegistrationPayload = (payload: WorkerRegistrationPayload) => 
 const getWorkerPlan = (plans: LabourPlanRecord[]) =>
   plans.find(plan => plan.audience === 'worker' && plan.isActive) || null
 
+const getWorkerPlanForWorker = (
+  worker: LabourWorkerRecord,
+  plans: LabourPlanRecord[]
+) => {
+  const activePlanId = worker.activePlan.trim()
+  if (activePlanId) {
+    const mappedPlan = plans.find(
+      plan => plan.id === activePlanId && plan.audience === 'worker'
+    )
+    if (mappedPlan) {
+      return mappedPlan
+    }
+  }
+
+  return getWorkerPlan(plans)
+}
+
 const DAY_IN_MS = 24 * 60 * 60 * 1000
 const WORKER_PLAN_ACTIVATION_TRANSACTION_TYPES = new Set<LabourWalletTransactionRecord['transactionType']>([
   'registration_fee',
@@ -952,6 +969,61 @@ type WorkerPlanTiming = {
   activeUntil: string | null
   estimatedDaysRemaining: number
   isExpired: boolean
+}
+
+const parseDateOnlyUtc = (value: string) => {
+  const trimmed = value.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return null
+  }
+
+  const parsed = new Date(`${trimmed}T00:00:00.000Z`)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+const deriveAssignedWorkerPlanTiming = (
+  worker: LabourWorkerRecord,
+  now = new Date()
+): WorkerPlanTiming | null => {
+  const validFrom = worker.planValidFrom.trim()
+  const validUntil = worker.planValidUntil.trim()
+  if (!validUntil) {
+    return null
+  }
+
+  const activatedDateOnly = parseDateOnlyUtc(validFrom)
+  const expiryDateOnly = parseDateOnlyUtc(validUntil)
+  if (expiryDateOnly) {
+    const today = now.toISOString().slice(0, 10)
+    const isExpired = validUntil < today
+    const remainingMs = expiryDateOnly.getTime() - now.getTime()
+
+    return {
+      activatedAt: activatedDateOnly?.toISOString() || null,
+      activeUntil: validUntil,
+      estimatedDaysRemaining: isExpired
+        ? 0
+        : Math.max(1, remainingMs > 0 ? Math.ceil(remainingMs / DAY_IN_MS) : 1),
+      isExpired
+    }
+  }
+
+  const activatedAt = validFrom ? new Date(validFrom) : null
+  const activeUntil = new Date(validUntil)
+  if (Number.isNaN(activeUntil.getTime())) {
+    return null
+  }
+
+  const remainingMs = activeUntil.getTime() - now.getTime()
+  return {
+    activatedAt:
+      activatedAt && !Number.isNaN(activatedAt.getTime())
+        ? activatedAt.toISOString()
+        : null,
+    activeUntil: activeUntil.toISOString(),
+    estimatedDaysRemaining: remainingMs > 0 ? Math.ceil(remainingMs / DAY_IN_MS) : 0,
+    isExpired: remainingMs <= 0
+  }
 }
 
 const getWorkerPlanRechargeUnits = (
@@ -979,6 +1051,11 @@ const deriveWorkerPlanTiming = (
   transactions: LabourWalletTransactionRecord[],
   now = new Date()
 ): WorkerPlanTiming => {
+  const assignedPlanTiming = deriveAssignedWorkerPlanTiming(worker, now)
+  if (assignedPlanTiming) {
+    return assignedPlanTiming
+  }
+
   if (!workerPlan || workerPlan.validityDays <= 0) {
     return {
       activatedAt: null,
@@ -1012,7 +1089,7 @@ const deriveWorkerPlanTiming = (
     }
 
     const extensionMs = rechargeUnits * workerPlan.validityDays * DAY_IN_MS
-    const nextStartMs = activeUntilMs && activeUntilMs > transactionMs
+    const nextStartMs: number = activeUntilMs != null && activeUntilMs > transactionMs
       ? activeUntilMs
       : transactionMs
 
@@ -1401,8 +1478,10 @@ const buildWorkerFeed = (
           ? 'Available in your city'
           : 'Open job from an active company'
 
-      const companyLatitude = companyRecord?.latitude ?? null
-      const companyLongitude = companyRecord?.longitude ?? null
+      const companyLatitude: number | null =
+        typeof companyRecord?.latitude === 'number' ? companyRecord.latitude : null
+      const companyLongitude: number | null =
+        typeof companyRecord?.longitude === 'number' ? companyRecord.longitude : null
       const hasJobCoordinates = jobPost.latitude != null && jobPost.longitude != null
       const hasCompanyCoordinates = companyLatitude != null && companyLongitude != null
 
@@ -1740,7 +1819,7 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
     throw new Error('Worker account not found.')
   }
 
-  const workerPlan = getWorkerPlan(snapshot.plans)
+  const workerPlan = getWorkerPlanForWorker(worker, snapshot.plans)
   const walletTransactions = snapshot.walletTransactions
     .filter(transaction => transaction.entityType === 'worker' && transaction.entityId === worker.id)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
@@ -1894,7 +1973,7 @@ export const completeWorkerAppRegistration = async (
 
   const nextStatus = deriveWorkerStatus(
     nextWorker,
-    getWorkerPlan(snapshot.plans),
+    getWorkerPlanForWorker(nextWorker, snapshot.plans),
     snapshot.walletTransactions.filter(transaction => transaction.entityType === 'worker' && transaction.entityId === workerId)
   )
 
@@ -1943,7 +2022,7 @@ export const updateWorkerAppProfile = async (
   }
   const nextStatus = deriveWorkerStatus(
     mergedWorker,
-    getWorkerPlan(snapshot.plans),
+    getWorkerPlanForWorker(mergedWorker, snapshot.plans),
     snapshot.walletTransactions.filter(transaction => transaction.entityType === 'worker' && transaction.entityId === workerId)
   )
 
@@ -2041,7 +2120,7 @@ export const applyToWorkerJob = async (workerId: string, jobPostId: string, note
 
   const activation = deriveActivationSummary(
     worker,
-    getWorkerPlan(snapshot.plans),
+    getWorkerPlanForWorker(worker, snapshot.plans),
     snapshot.walletTransactions.filter(transaction => transaction.entityType === 'worker' && transaction.entityId === worker.id)
   )
   if (!activation.canViewCompanyDetails) {

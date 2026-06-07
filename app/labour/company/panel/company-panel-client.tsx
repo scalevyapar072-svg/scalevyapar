@@ -597,7 +597,7 @@ export function CompanyPanelClient({ signinMode = false }: Props) {
             ) : (
               <div className={styles.stack}>
                 {selectedJob.applicants.map(applicant => (
-                  <div key={applicant.applicationId} className={styles.listCard}>
+                  <article key={applicant.applicationId} className={styles.listCard}>
                     <div className={styles.sectionFooter}>
                       <div>
                         <p style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: '900' }}>{applicant.fullName}</p>

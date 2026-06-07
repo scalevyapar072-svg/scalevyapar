@@ -1,11 +1,16 @@
 ﻿'use client'
-import { useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
 export default function PaymentSuccessPage() {
-  const searchParams = useSearchParams()
-  const paymentId = searchParams.get('paymentId')
-  const plan = searchParams.get('plan')
+  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(null)
+
+  useEffect(() => {
+    setSearchParams(new URLSearchParams(window.location.search))
+  }, [])
+
+  const paymentId = searchParams?.get('paymentId')
+  const plan = searchParams?.get('plan')
   return (
     <div style={{ minHeight: '100vh', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ background: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', padding: '48px 40px', maxWidth: '460px', width: '100%', textAlign: 'center' }}>

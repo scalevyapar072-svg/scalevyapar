@@ -1,16 +1,28 @@
 ﻿'use client'
 
 import { useEffect, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-export default function CheckoutPage() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
+type RazorpayHandlerResponse = {
+  razorpay_payment_id: string
+  razorpay_order_id: string
+  razorpay_signature: string
+}
 
-  const planId = searchParams.get('planId') || ''
-  const planName = searchParams.get('planName') || 'Plan'
-  const amount = Number(searchParams.get('amount') || 0)
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => { open: () => void }
+  }
+}
+
+export default function CheckoutPage() {
+  const router = useRouter()
+  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(null)
+
+  const planId = searchParams?.get('planId') || ''
+  const planName = searchParams?.get('planName') || 'Plan'
+  const amount = Number(searchParams?.get('amount') || 0)
   const gst = Math.round(amount * 0.18)
   const total = amount + gst
 
@@ -23,6 +35,10 @@ export default function CheckoutPage() {
     script.async = true
     document.body.appendChild(script)
     return () => { document.body.removeChild(script) }
+  }, [])
+
+  useEffect(() => {
+    setSearchParams(new URLSearchParams(window.location.search))
   }, [])
 
   const handlePayment = async () => {
@@ -46,7 +62,7 @@ export default function CheckoutPage() {
         order_id: orderData.orderId,
         theme: { color: '#2563eb' },
         modal: { ondismiss: () => setLoading(false) },
-        handler: async (response) => {
+        handler: async (response: RazorpayHandlerResponse) => {
           const verifyRes = await fetch('/api/razorpay/verify-payment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -64,7 +80,7 @@ export default function CheckoutPage() {
       const rzp = new window.Razorpay(options)
       rzp.open()
     } catch (err) {
-      setError(err.message || 'Something went wrong')
+      setError(err instanceof Error ? err.message : 'Something went wrong')
       setLoading(false)
     }
   }

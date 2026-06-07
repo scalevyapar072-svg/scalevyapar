@@ -33,6 +33,9 @@ type LabourSection =
   | 'workerNotifications'
   | 'plans'
   | 'walletTransactions'
+  | 'workerRechargeHistory'
+  | 'jobPostPaymentHistory'
+  | 'companyBillingHistory'
   | 'rechargeRequests'
   | 'supportRequests'
   | 'reports'
@@ -77,6 +80,9 @@ type LabourWorker = {
   experienceYears: number
   expectedDailyWage: number
   walletBalance: number
+  activePlan: string
+  planValidFrom: string
+  planValidUntil: string
   status: WorkerStatus
   availability: WorkerAvailability
   isVisible: boolean
@@ -297,6 +303,45 @@ type WalletFilters = {
   status: 'all' | WalletTransaction['status']
 }
 
+type WorkerRechargeHistoryFilters = {
+  search: string
+  dateFrom: string
+  dateTo: string
+  city: string
+  transactionType: 'all' | WalletTransaction['transactionType']
+  direction: 'all' | WalletTransaction['direction']
+  status: 'all' | WalletTransaction['status']
+  planId: string
+  amountMin: string
+  amountMax: string
+}
+
+type JobPostPaymentHistoryFilters = {
+  dateFrom: string
+  dateTo: string
+  companySearch: string
+  mobileSearch: string
+  city: string
+  categoryId: string
+  paymentType: 'all' | WalletTransaction['transactionType']
+  status: 'all' | WalletTransaction['status']
+  planId: string
+  amountMin: string
+  amountMax: string
+}
+
+type CompanyBillingHistoryFilters = {
+  dateFrom: string
+  dateTo: string
+  companySearch: string
+  mobileSearch: string
+  billingType: 'all' | WalletTransaction['transactionType']
+  paymentStatus: 'all' | WalletTransaction['status']
+  planId: string
+  amountMin: string
+  amountMax: string
+}
+
 type RechargeFilters = {
   search: string
   priority: 'all' | RechargeRequestPriority
@@ -444,6 +489,9 @@ const blankWorker: LabourWorker = {
   experienceYears: 0,
   expectedDailyWage: 0,
   walletBalance: 0,
+  activePlan: '',
+  planValidFrom: '',
+  planValidUntil: '',
   status: 'pending',
   availability: 'available_today',
   isVisible: true,
@@ -704,6 +752,42 @@ const blankJobApplicationFilters: JobApplicationFilters = { search: '', status: 
 const blankSavedJobFilters: SavedJobFilters = { search: '', companyId: '', jobPostId: '' }
 const blankWorkerNotificationFilters: WorkerNotificationFilters = { search: '', workerId: '', type: 'all', priority: 'all', readState: 'all' }
 const blankWalletFilters: WalletFilters = { search: '', audience: 'all', transactionType: 'all', status: 'all' }
+const blankWorkerRechargeHistoryFilters: WorkerRechargeHistoryFilters = {
+  search: '',
+  dateFrom: '',
+  dateTo: '',
+  city: '',
+  transactionType: 'all',
+  direction: 'all',
+  status: 'all',
+  planId: '',
+  amountMin: '',
+  amountMax: ''
+}
+const blankJobPostPaymentHistoryFilters: JobPostPaymentHistoryFilters = {
+  dateFrom: '',
+  dateTo: '',
+  companySearch: '',
+  mobileSearch: '',
+  city: '',
+  categoryId: '',
+  paymentType: 'all',
+  status: 'all',
+  planId: '',
+  amountMin: '',
+  amountMax: ''
+}
+const blankCompanyBillingHistoryFilters: CompanyBillingHistoryFilters = {
+  dateFrom: '',
+  dateTo: '',
+  companySearch: '',
+  mobileSearch: '',
+  billingType: 'all',
+  paymentStatus: 'all',
+  planId: '',
+  amountMin: '',
+  amountMax: ''
+}
 const blankRechargeFilters: RechargeFilters = { search: '', priority: 'all', type: 'all', status: 'all' }
 const blankAuditFilters: AuditFilters = { search: '', entityType: 'all' }
 
@@ -718,6 +802,9 @@ const sectionLabels: Record<LabourSection, string> = {
   workerNotifications: 'Worker Notifications',
   plans: 'Plans',
   walletTransactions: 'Wallet Transactions',
+  workerRechargeHistory: 'Worker Recharge & Deduction History',
+  jobPostPaymentHistory: 'Job Post Recharge & Payment History',
+  companyBillingHistory: 'Company Billing History',
   rechargeRequests: 'Recharge Requests',
   supportRequests: 'Support Requests',
   reports: 'Reports',
@@ -737,6 +824,42 @@ const formatDate = (value: string) => {
   if (!value) return '-'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString()
+}
+
+const formatOptionalValue = (value: string | number | null | undefined) => {
+  if (value === null || value === undefined) return '-'
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '-'
+  return value.trim() ? value : '-'
+}
+
+const toDateOnlyValue = (value: string) => {
+  if (!value) return ''
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value.slice(0, 10) : date.toISOString().slice(0, 10)
+}
+
+const isDateOnlyExpired = (value: string) => {
+  const normalized = toDateOnlyValue(value)
+  if (!normalized) return false
+  return normalized < new Date().toISOString().slice(0, 10)
+}
+
+const matchesDateRange = (value: string, dateFrom: string, dateTo: string) => {
+  if (!dateFrom && !dateTo) return true
+  const normalized = toDateOnlyValue(value)
+  if (!normalized) return false
+  if (dateFrom && normalized < dateFrom) return false
+  if (dateTo && normalized > dateTo) return false
+  return true
+}
+
+const matchesAmountRange = (amount: number | null | undefined, amountMin: string, amountMax: string) => {
+  const numericAmount = Number(amount ?? 0)
+  const parsedMin = amountMin.trim() ? Number(amountMin) : null
+  const parsedMax = amountMax.trim() ? Number(amountMax) : null
+  if (parsedMin !== null && !Number.isNaN(parsedMin) && numericAmount < parsedMin) return false
+  if (parsedMax !== null && !Number.isNaN(parsedMax) && numericAmount > parsedMax) return false
+  return true
 }
 
 const slugify = (value: string) =>
@@ -929,6 +1052,9 @@ export default function LabourExchangeAdminPage() {
   const [savedJobFilters, setSavedJobFilters] = useState<SavedJobFilters>(blankSavedJobFilters)
   const [workerNotificationFilters, setWorkerNotificationFilters] = useState<WorkerNotificationFilters>(blankWorkerNotificationFilters)
   const [walletFilters, setWalletFilters] = useState<WalletFilters>(blankWalletFilters)
+  const [workerRechargeHistoryFilters, setWorkerRechargeHistoryFilters] = useState<WorkerRechargeHistoryFilters>(blankWorkerRechargeHistoryFilters)
+  const [jobPostPaymentHistoryFilters, setJobPostPaymentHistoryFilters] = useState<JobPostPaymentHistoryFilters>(blankJobPostPaymentHistoryFilters)
+  const [companyBillingHistoryFilters, setCompanyBillingHistoryFilters] = useState<CompanyBillingHistoryFilters>(blankCompanyBillingHistoryFilters)
   const [rechargeFilters, setRechargeFilters] = useState<RechargeFilters>(blankRechargeFilters)
   const [auditFilters, setAuditFilters] = useState<AuditFilters>(blankAuditFilters)
 
@@ -980,6 +1106,29 @@ export default function LabourExchangeAdminPage() {
     borderRadius: '10px',
     cursor: 'pointer',
     fontWeight: '700' as const
+  }
+
+  const summaryCardStyle = {
+    border: '1px solid #e2e8f0',
+    borderRadius: '14px',
+    padding: '14px 16px',
+    background: '#f8fafc'
+  }
+
+  const tableHeaderCellStyle = {
+    padding: '11px 12px',
+    fontSize: '11px',
+    color: '#64748b',
+    fontWeight: '700' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.08em'
+  }
+
+  const tableCellStyle = {
+    padding: '12px',
+    fontSize: '12px',
+    color: '#0f172a',
+    borderTop: '1px solid #e2e8f0'
   }
 
   const fetchSnapshot = async () => {
@@ -1301,6 +1450,51 @@ export default function LabourExchangeAdminPage() {
   const getEntityStatusLabel = (entityType: WalletEntityType, entityId: string) =>
     entityType === 'worker' ? getWorkerById(entityId)?.status || '' : getCompanyById(entityId)?.status || ''
 
+  const getWalletTransactionTypeLabel = (transactionType: WalletTransaction['transactionType']) => {
+    if (transactionType === 'wallet_recharge') return 'Wallet Recharge'
+    if (transactionType === 'wallet_deduction') return 'Deduction'
+    if (transactionType === 'registration_fee') return 'Registration Fee'
+    if (transactionType === 'plan_purchase') return 'Plan Purchase'
+    return 'Manual Adjustment'
+  }
+
+  const getDirectionLabel = (direction: WalletTransaction['direction']) => (direction === 'credit' ? 'Credit' : 'Debit')
+  const getStatusLabel = (status: WalletTransaction['status']) => titleCase(status)
+  const getBillingTypeLabel = (transactionType: WalletTransaction['transactionType']) => {
+    if (transactionType === 'plan_purchase') return 'Plan Purchase'
+    if (transactionType === 'registration_fee') return 'Registration Fee'
+    if (transactionType === 'wallet_recharge') return 'Wallet Recharge'
+    if (transactionType === 'wallet_deduction') return 'Wallet Deduction'
+    return 'Manual Adjustment'
+  }
+  const getPlanWindow = (planId: string, startValue: string) => {
+    const plan = getPlanById(planId)
+    const validFrom = toDateOnlyValue(startValue)
+    const validUntil = plan && validFrom ? addDays(validFrom, plan.validityDays) : ''
+    return { plan, validFrom, validUntil }
+  }
+  const getCompanyCompletedPlanTransactions = (companyId: string) =>
+    snapshot.walletTransactions
+      .filter(transaction =>
+        transaction.entityType === 'company' &&
+        transaction.entityId === companyId &&
+        transaction.transactionType === 'plan_purchase' &&
+        transaction.status === 'completed'
+      )
+      .slice()
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+  const getCompanyMappedPlanTransaction = (companyId: string) => {
+    const company = getCompanyById(companyId)
+    const transactions = getCompanyCompletedPlanTransactions(companyId)
+    if (!company) return transactions[0] || null
+    return transactions.find(transaction => company.activePlan && transaction.reference === company.activePlan) || transactions[0] || null
+  }
+  const getLatestCompanyJobPost = (companyId: string) =>
+    snapshot.jobPosts
+      .filter(jobPost => jobPost.companyId === companyId)
+      .slice()
+      .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt))[0] || null
+
   const activeWorkerPlan =
     snapshot.plans.find(plan => plan.audience === 'worker' && plan.isActive) ||
     snapshot.plans.find(plan => plan.audience === 'worker') ||
@@ -1324,6 +1518,100 @@ export default function LabourExchangeAdminPage() {
 
   const registrationRevenue = workerRegistrationRevenue + companyRegistrationRevenue
   const walletRevenue = workerWalletRevenue + companyPlanRevenue
+
+  const workerRechargeHistoryRows = snapshot.walletTransactions
+    .filter(transaction => transaction.entityType === 'worker')
+    .map(transaction => {
+      const worker = getWorkerById(transaction.entityId)
+      const planId = worker?.activePlan || ''
+      const planWindow = getPlanWindow(planId, worker?.planValidFrom || '')
+      return {
+        id: transaction.id,
+        createdAt: transaction.createdAt,
+        workerId: worker?.id || transaction.entityId,
+        workerName: worker?.fullName || transaction.entityName || '-',
+        mobile: worker?.mobile || '-',
+        city: transaction.city || worker?.city || '-',
+        transactionType: transaction.transactionType,
+        transactionTypeLabel: getWalletTransactionTypeLabel(transaction.transactionType),
+        amount: transaction.amount,
+        direction: transaction.direction,
+        directionLabel: getDirectionLabel(transaction.direction),
+        balanceAfter: '-',
+        planId,
+        planName: planId ? getPlanName(planId) : '-',
+        planValidFrom: planWindow.validFrom,
+        planValidUntil: planWindow.validUntil || worker?.planValidUntil || '',
+        reference: transaction.reference || '-',
+        note: transaction.note || '-',
+        status: transaction.status,
+        statusLabel: getStatusLabel(transaction.status),
+        workerStatus: worker?.status || 'pending'
+      }
+    })
+
+  const jobPostPaymentHistoryRows = snapshot.jobPosts.map(jobPost => {
+    const company = getCompanyById(jobPost.companyId)
+    const categoryName = getCategoryName(jobPost.categoryId)
+    const paymentTransaction = getCompanyMappedPlanTransaction(jobPost.companyId)
+    const planId = paymentTransaction?.reference || company?.activePlan || ''
+    const planWindow = getPlanWindow(planId, paymentTransaction?.createdAt || '')
+    return {
+      id: jobPost.id,
+      createdAt: paymentTransaction?.createdAt || jobPost.publishedAt,
+      companyId: company?.id || jobPost.companyId,
+      companyName: company?.companyName || '-',
+      contactPerson: company?.contactPerson || '-',
+      mobile: company?.mobile || company?.contactMobile || '-',
+      jobTitle: jobPost.title,
+      categoryId: jobPost.categoryId,
+      categoryName,
+      city: jobPost.city || company?.city || '-',
+      paymentType: paymentTransaction?.transactionType || '',
+      paymentTypeLabel: paymentTransaction ? getWalletTransactionTypeLabel(paymentTransaction.transactionType) : '-',
+      amount: paymentTransaction?.amount ?? null,
+      planId,
+      planName: planId ? getPlanName(planId) : '-',
+      jobPostId: jobPost.id,
+      paymentReference: paymentTransaction?.reference || '-',
+      status: paymentTransaction?.status || '',
+      statusLabel: paymentTransaction ? getStatusLabel(paymentTransaction.status) : '-',
+      validFrom: planWindow.validFrom,
+      validUntil: planWindow.validUntil,
+      note: paymentTransaction?.note || '-',
+      transactionId: paymentTransaction?.id || ''
+    }
+  })
+
+  const companyBillingHistoryRows = snapshot.walletTransactions
+    .filter(transaction => transaction.entityType === 'company')
+    .map(transaction => {
+      const company = getCompanyById(transaction.entityId)
+      const latestJobPost = getLatestCompanyJobPost(transaction.entityId)
+      const planId = transaction.transactionType === 'plan_purchase'
+        ? (transaction.reference || company?.activePlan || '')
+        : (company?.activePlan || '')
+      const planWindow = getPlanWindow(planId, transaction.transactionType === 'plan_purchase' ? transaction.createdAt : '')
+      return {
+        id: transaction.id,
+        createdAt: transaction.createdAt,
+        companyName: company?.companyName || transaction.entityName || '-',
+        contactPerson: company?.contactPerson || '-',
+        mobile: company?.mobile || company?.contactMobile || '-',
+        billingType: transaction.transactionType,
+        billingTypeLabel: getBillingTypeLabel(transaction.transactionType),
+        planId,
+        planName: planId ? getPlanName(planId) : '-',
+        amount: transaction.amount,
+        paymentStatus: transaction.status,
+        paymentStatusLabel: getStatusLabel(transaction.status),
+        reference: transaction.reference || '-',
+        validFrom: planWindow.validFrom,
+        validUntil: planWindow.validUntil,
+        relatedJobPost: latestJobPost ? latestJobPost.title : '-',
+        note: transaction.note || '-'
+      }
+    })
 
   const categoryDemandRows = snapshot.categories
     .map(category => {
@@ -1620,6 +1908,104 @@ export default function LabourExchangeAdminPage() {
       transaction.entityType
     ])
   })
+
+  const filteredWorkerRechargeHistoryRows = workerRechargeHistoryRows.filter(row => {
+    if (!matchesDateRange(row.createdAt, workerRechargeHistoryFilters.dateFrom, workerRechargeHistoryFilters.dateTo)) return false
+    if (workerRechargeHistoryFilters.city && row.city.toLowerCase() !== workerRechargeHistoryFilters.city.toLowerCase()) return false
+    if (workerRechargeHistoryFilters.transactionType !== 'all' && row.transactionType !== workerRechargeHistoryFilters.transactionType) return false
+    if (workerRechargeHistoryFilters.direction !== 'all' && row.direction !== workerRechargeHistoryFilters.direction) return false
+    if (workerRechargeHistoryFilters.status !== 'all' && row.status !== workerRechargeHistoryFilters.status) return false
+    if (workerRechargeHistoryFilters.planId && row.planId !== workerRechargeHistoryFilters.planId) return false
+    if (!matchesAmountRange(row.amount, workerRechargeHistoryFilters.amountMin, workerRechargeHistoryFilters.amountMax)) return false
+
+    return matchesSearch(workerRechargeHistoryFilters.search, [
+      row.workerName,
+      row.mobile,
+      row.city,
+      row.transactionTypeLabel,
+      row.reference,
+      row.note,
+      row.statusLabel
+    ])
+  })
+
+  const filteredJobPostPaymentHistoryRows = jobPostPaymentHistoryRows.filter(row => {
+    if (!matchesDateRange(row.createdAt, jobPostPaymentHistoryFilters.dateFrom, jobPostPaymentHistoryFilters.dateTo)) return false
+    if (jobPostPaymentHistoryFilters.city && row.city.toLowerCase() !== jobPostPaymentHistoryFilters.city.toLowerCase()) return false
+    if (jobPostPaymentHistoryFilters.categoryId && row.categoryId !== jobPostPaymentHistoryFilters.categoryId) return false
+    if (jobPostPaymentHistoryFilters.paymentType !== 'all' && row.paymentType !== jobPostPaymentHistoryFilters.paymentType) return false
+    if (jobPostPaymentHistoryFilters.status !== 'all' && row.status !== jobPostPaymentHistoryFilters.status) return false
+    if (jobPostPaymentHistoryFilters.planId && row.planId !== jobPostPaymentHistoryFilters.planId) return false
+    if (!matchesAmountRange(row.amount, jobPostPaymentHistoryFilters.amountMin, jobPostPaymentHistoryFilters.amountMax)) return false
+    if (!matchesSearch(jobPostPaymentHistoryFilters.companySearch, [row.companyName, row.contactPerson])) return false
+    if (!matchesSearch(jobPostPaymentHistoryFilters.mobileSearch, [row.mobile])) return false
+
+    return matchesSearch('', [row.companyName, row.jobTitle, row.categoryName, row.paymentReference])
+  })
+
+  const filteredCompanyBillingHistoryRows = companyBillingHistoryRows.filter(row => {
+    if (!matchesDateRange(row.createdAt, companyBillingHistoryFilters.dateFrom, companyBillingHistoryFilters.dateTo)) return false
+    if (companyBillingHistoryFilters.billingType !== 'all' && row.billingType !== companyBillingHistoryFilters.billingType) return false
+    if (companyBillingHistoryFilters.paymentStatus !== 'all' && row.paymentStatus !== companyBillingHistoryFilters.paymentStatus) return false
+    if (companyBillingHistoryFilters.planId && row.planId !== companyBillingHistoryFilters.planId) return false
+    if (!matchesAmountRange(row.amount, companyBillingHistoryFilters.amountMin, companyBillingHistoryFilters.amountMax)) return false
+    if (!matchesSearch(companyBillingHistoryFilters.companySearch, [row.companyName, row.contactPerson])) return false
+    if (!matchesSearch(companyBillingHistoryFilters.mobileSearch, [row.mobile])) return false
+    return true
+  })
+
+  const distinctJobPaymentRows = Array.from(
+    new Map(
+      filteredJobPostPaymentHistoryRows
+        .filter(row => row.transactionId)
+        .map(row => [row.transactionId, row])
+    ).values()
+  )
+
+  const workerRechargeSummary = {
+    totalRechargeAmount: filteredWorkerRechargeHistoryRows
+      .filter(row => row.direction === 'credit')
+      .reduce((sum, row) => sum + row.amount, 0),
+    totalDeductionAmount: filteredWorkerRechargeHistoryRows
+      .filter(row => row.direction === 'debit')
+      .reduce((sum, row) => sum + row.amount, 0),
+    netWalletMovement: filteredWorkerRechargeHistoryRows
+      .reduce((sum, row) => sum + (row.direction === 'credit' ? row.amount : -row.amount), 0),
+    totalTransactions: filteredWorkerRechargeHistoryRows.length,
+    activeWorkersWithRecharge: new Set(
+      filteredWorkerRechargeHistoryRows
+        .filter(row => row.transactionType === 'wallet_recharge' && row.workerStatus === 'active')
+        .map(row => row.workerId)
+    ).size,
+    expiredWorkers: new Set(
+      filteredWorkerRechargeHistoryRows
+        .filter(row => row.workerStatus === 'inactive_subscription_expired' || isDateOnlyExpired(row.planValidUntil))
+        .map(row => row.workerId)
+    ).size
+  }
+
+  const jobPostPaymentSummary = {
+    totalCompanyPayments: distinctJobPaymentRows.reduce((sum, row) => sum + (row.amount ?? 0), 0),
+    totalActiveJobPlans: distinctJobPaymentRows.filter(row => row.validUntil && !isDateOnlyExpired(row.validUntil)).length,
+    totalExpiredJobPlans: distinctJobPaymentRows.filter(row => row.validUntil && isDateOnlyExpired(row.validUntil)).length,
+    totalJobPaymentsCount: distinctJobPaymentRows.length
+  }
+
+  const companyBillingSummary = {
+    totalBillingAmount: filteredCompanyBillingHistoryRows.reduce((sum, row) => sum + row.amount, 0),
+    paidAmount: filteredCompanyBillingHistoryRows.filter(row => row.paymentStatus === 'completed').reduce((sum, row) => sum + row.amount, 0),
+    pendingAmount: filteredCompanyBillingHistoryRows
+      .filter(row => row.paymentStatus === 'pending' || row.paymentStatus === 'attention')
+      .reduce((sum, row) => sum + row.amount, 0),
+    failedAmount: filteredCompanyBillingHistoryRows.filter(row => row.paymentStatus === 'failed').reduce((sum, row) => sum + row.amount, 0),
+    billingCount: filteredCompanyBillingHistoryRows.length
+  }
+
+  const workerHistoryCityOptions = Array.from(new Set(workerRechargeHistoryRows.map(row => row.city).filter(city => city && city !== '-'))).sort((left, right) => left.localeCompare(right))
+  const workerHistoryPlanOptions = Array.from(new Set(workerRechargeHistoryRows.filter(row => row.planId).map(row => row.planId)))
+  const jobPostPaymentCityOptions = Array.from(new Set(jobPostPaymentHistoryRows.map(row => row.city).filter(city => city && city !== '-'))).sort((left, right) => left.localeCompare(right))
+  const jobPostPaymentPlanOptions = Array.from(new Set(jobPostPaymentHistoryRows.filter(row => row.planId).map(row => row.planId)))
+  const companyBillingPlanOptions = Array.from(new Set(companyBillingHistoryRows.filter(row => row.planId).map(row => row.planId)))
 
   const filteredRechargeRequests = rechargeRequests.filter(request => {
     if (request.requestType === 'worker_support') return false
@@ -4360,6 +4746,274 @@ export default function LabourExchangeAdminPage() {
           </div>
         )}
 
+        {activeSection === 'workerRechargeHistory' && (
+          <div style={{ display: 'grid', gap: '20px' }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                <div>
+                  <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Worker Recharge & Deduction History</h2>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                    Review live worker wallet credits and debits from the wallet ledger. Balance-after transaction is not stored yet, so this column shows &quot;-&quot;.
+                  </p>
+                </div>
+                <button onClick={() => setWorkerRechargeHistoryFilters(blankWorkerRechargeHistoryFilters)} style={subtleButtonStyle}>Clear Filters</button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px', marginBottom: '18px' }}>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Recharge Amount</p><p style={{ margin: 0, color: '#0f172a', fontSize: '24px', fontWeight: '800' }}>{formatCurrency(workerRechargeSummary.totalRechargeAmount)}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Deduction Amount</p><p style={{ margin: 0, color: '#b45309', fontSize: '24px', fontWeight: '800' }}>{formatCurrency(workerRechargeSummary.totalDeductionAmount)}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Net Wallet Movement</p><p style={{ margin: 0, color: '#059669', fontSize: '24px', fontWeight: '800' }}>{formatCurrency(workerRechargeSummary.netWalletMovement)}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Transactions</p><p style={{ margin: 0, color: '#2563eb', fontSize: '24px', fontWeight: '800' }}>{workerRechargeSummary.totalTransactions}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Active Workers with Recharge</p><p style={{ margin: 0, color: '#0f766e', fontSize: '24px', fontWeight: '800' }}>{workerRechargeSummary.activeWorkersWithRecharge}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Expired Workers</p><p style={{ margin: 0, color: '#dc2626', fontSize: '24px', fontWeight: '800' }}>{workerRechargeSummary.expiredWorkers}</p></div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '10px', marginBottom: '18px' }}>
+                <input placeholder="Worker name / mobile" value={workerRechargeHistoryFilters.search} onChange={event => setWorkerRechargeHistoryFilters(current => ({ ...current, search: event.target.value }))} style={inputStyle} />
+                <input type="date" value={workerRechargeHistoryFilters.dateFrom} onChange={event => setWorkerRechargeHistoryFilters(current => ({ ...current, dateFrom: event.target.value }))} style={inputStyle} />
+                <input type="date" value={workerRechargeHistoryFilters.dateTo} onChange={event => setWorkerRechargeHistoryFilters(current => ({ ...current, dateTo: event.target.value }))} style={inputStyle} />
+                <select value={workerRechargeHistoryFilters.city} onChange={event => setWorkerRechargeHistoryFilters(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
+                  <option value="">All Cities</option>
+                  {workerHistoryCityOptions.map(city => <option key={city} value={city}>{city}</option>)}
+                </select>
+                <select value={workerRechargeHistoryFilters.transactionType} onChange={event => setWorkerRechargeHistoryFilters(current => ({ ...current, transactionType: event.target.value as WorkerRechargeHistoryFilters['transactionType'] }))} style={inputStyle}>
+                  <option value="all">All Transaction Types</option>
+                  <option value="registration_fee">Registration Fee</option>
+                  <option value="wallet_deduction">Wallet Deduction</option>
+                  <option value="plan_purchase">Plan Purchase</option>
+                  <option value="wallet_recharge">Wallet Recharge</option>
+                  <option value="manual_adjustment">Manual Adjustment</option>
+                </select>
+                <select value={workerRechargeHistoryFilters.direction} onChange={event => setWorkerRechargeHistoryFilters(current => ({ ...current, direction: event.target.value as WorkerRechargeHistoryFilters['direction'] }))} style={inputStyle}>
+                  <option value="all">All Directions</option>
+                  <option value="credit">Credit</option>
+                  <option value="debit">Debit</option>
+                </select>
+                <select value={workerRechargeHistoryFilters.status} onChange={event => setWorkerRechargeHistoryFilters(current => ({ ...current, status: event.target.value as WorkerRechargeHistoryFilters['status'] }))} style={inputStyle}>
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="attention">Attention</option>
+                  <option value="failed">Failed</option>
+                </select>
+                <select value={workerRechargeHistoryFilters.planId} onChange={event => setWorkerRechargeHistoryFilters(current => ({ ...current, planId: event.target.value }))} style={inputStyle}>
+                  <option value="">All Plans</option>
+                  {workerHistoryPlanOptions.map(planId => <option key={planId} value={planId}>{getPlanName(planId)}</option>)}
+                </select>
+                <input placeholder="Amount Min" value={workerRechargeHistoryFilters.amountMin} onChange={event => setWorkerRechargeHistoryFilters(current => ({ ...current, amountMin: event.target.value }))} style={inputStyle} />
+                <input placeholder="Amount Max" value={workerRechargeHistoryFilters.amountMax} onChange={event => setWorkerRechargeHistoryFilters(current => ({ ...current, amountMax: event.target.value }))} style={inputStyle} />
+              </div>
+
+              {filteredWorkerRechargeHistoryRows.length === 0 ? (
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No records available.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ minWidth: '1800px', border: '1px solid #e2e8f0', borderRadius: '16px', overflow: 'hidden' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '140px 180px 120px 110px 150px 110px 90px 120px 130px 120px 120px 170px 180px 110px', background: '#f8fafc' }}>
+                      {['Date / Time', 'Worker Name', 'Mobile', 'City', 'Transaction Type', 'Amount', 'Direction', 'Balance After', 'Plan Name', 'Plan Valid From', 'Plan Valid Until', 'Reference / Transaction ID', 'Note', 'Status'].map(label => (
+                        <div key={label} style={tableHeaderCellStyle}>{label}</div>
+                      ))}
+                    </div>
+                    {filteredWorkerRechargeHistoryRows.map(row => (
+                      <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '140px 180px 120px 110px 150px 110px 90px 120px 130px 120px 120px 170px 180px 110px' }}>
+                        <div style={tableCellStyle}>{formatDateTime(row.createdAt)}</div>
+                        <div style={tableCellStyle}>{row.workerName}</div>
+                        <div style={tableCellStyle}>{row.mobile}</div>
+                        <div style={tableCellStyle}>{row.city}</div>
+                        <div style={tableCellStyle}>{row.transactionTypeLabel}</div>
+                        <div style={tableCellStyle}>{formatCurrency(row.amount)}</div>
+                        <div style={tableCellStyle}>{row.directionLabel}</div>
+                        <div style={tableCellStyle}>{row.balanceAfter}</div>
+                        <div style={tableCellStyle}>{row.planName}</div>
+                        <div style={tableCellStyle}>{formatDate(row.planValidFrom)}</div>
+                        <div style={tableCellStyle}>{formatDate(row.planValidUntil)}</div>
+                        <div style={tableCellStyle}>{row.reference}</div>
+                        <div style={tableCellStyle}>{row.note}</div>
+                        <div style={tableCellStyle}>{row.statusLabel}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'jobPostPaymentHistory' && (
+          <div style={{ display: 'grid', gap: '20px' }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                <div>
+                  <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Job Post Recharge & Payment History</h2>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                    Maps job posts to the owning company&apos;s actual completed plan purchase transactions. There is no dedicated job-post payment table yet, so plan coverage is joined through company ownership.
+                  </p>
+                </div>
+                <button onClick={() => setJobPostPaymentHistoryFilters(blankJobPostPaymentHistoryFilters)} style={subtleButtonStyle}>Clear Filters</button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px', marginBottom: '18px' }}>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Company Payments</p><p style={{ margin: 0, color: '#0f172a', fontSize: '24px', fontWeight: '800' }}>{formatCurrency(jobPostPaymentSummary.totalCompanyPayments)}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Active Job Plans</p><p style={{ margin: 0, color: '#059669', fontSize: '24px', fontWeight: '800' }}>{jobPostPaymentSummary.totalActiveJobPlans}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Expired Job Plans</p><p style={{ margin: 0, color: '#dc2626', fontSize: '24px', fontWeight: '800' }}>{jobPostPaymentSummary.totalExpiredJobPlans}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Job Payments Count</p><p style={{ margin: 0, color: '#2563eb', fontSize: '24px', fontWeight: '800' }}>{jobPostPaymentSummary.totalJobPaymentsCount}</p></div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '10px', marginBottom: '18px' }}>
+                <input type="date" value={jobPostPaymentHistoryFilters.dateFrom} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, dateFrom: event.target.value }))} style={inputStyle} />
+                <input type="date" value={jobPostPaymentHistoryFilters.dateTo} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, dateTo: event.target.value }))} style={inputStyle} />
+                <input placeholder="Company search" value={jobPostPaymentHistoryFilters.companySearch} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, companySearch: event.target.value }))} style={inputStyle} />
+                <input placeholder="Mobile search" value={jobPostPaymentHistoryFilters.mobileSearch} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, mobileSearch: event.target.value }))} style={inputStyle} />
+                <select value={jobPostPaymentHistoryFilters.city} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
+                  <option value="">All Cities</option>
+                  {jobPostPaymentCityOptions.map(city => <option key={city} value={city}>{city}</option>)}
+                </select>
+                <select value={jobPostPaymentHistoryFilters.categoryId} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, categoryId: event.target.value }))} style={inputStyle}>
+                  <option value="">All Job Categories</option>
+                  {snapshot.categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+                <select value={jobPostPaymentHistoryFilters.paymentType} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, paymentType: event.target.value as JobPostPaymentHistoryFilters['paymentType'] }))} style={inputStyle}>
+                  <option value="all">All Payment Types</option>
+                  <option value="plan_purchase">Plan Purchase</option>
+                  <option value="registration_fee">Registration Fee</option>
+                  <option value="wallet_recharge">Wallet Recharge</option>
+                  <option value="wallet_deduction">Wallet Deduction</option>
+                  <option value="manual_adjustment">Manual Adjustment</option>
+                </select>
+                <select value={jobPostPaymentHistoryFilters.status} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, status: event.target.value as JobPostPaymentHistoryFilters['status'] }))} style={inputStyle}>
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="attention">Attention</option>
+                  <option value="failed">Failed</option>
+                </select>
+                <select value={jobPostPaymentHistoryFilters.planId} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, planId: event.target.value }))} style={inputStyle}>
+                  <option value="">All Plans / Packages</option>
+                  {jobPostPaymentPlanOptions.map(planId => <option key={planId} value={planId}>{getPlanName(planId)}</option>)}
+                </select>
+                <input placeholder="Amount Min" value={jobPostPaymentHistoryFilters.amountMin} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, amountMin: event.target.value }))} style={inputStyle} />
+                <input placeholder="Amount Max" value={jobPostPaymentHistoryFilters.amountMax} onChange={event => setJobPostPaymentHistoryFilters(current => ({ ...current, amountMax: event.target.value }))} style={inputStyle} />
+              </div>
+
+              {filteredJobPostPaymentHistoryRows.length === 0 ? (
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No records available.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ minWidth: '1840px', border: '1px solid #e2e8f0', borderRadius: '16px', overflow: 'hidden' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '140px 160px 140px 110px 180px 130px 110px 120px 140px 140px 150px 120px 120px 120px 160px', background: '#f8fafc' }}>
+                      {['Date / Time', 'Company Name', 'Contact Person', 'Mobile', 'Job Title / Category', 'City', 'Payment Type', 'Amount', 'Plan / Package', 'Job Post ID', 'Payment Reference', 'Status', 'Valid From', 'Valid Until', 'Note'].map(label => (
+                        <div key={label} style={tableHeaderCellStyle}>{label}</div>
+                      ))}
+                    </div>
+                    {filteredJobPostPaymentHistoryRows.map(row => (
+                      <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '140px 160px 140px 110px 180px 130px 110px 120px 140px 140px 150px 120px 120px 120px 160px' }}>
+                        <div style={tableCellStyle}>{formatDateTime(row.createdAt)}</div>
+                        <div style={tableCellStyle}>{row.companyName}</div>
+                        <div style={tableCellStyle}>{row.contactPerson}</div>
+                        <div style={tableCellStyle}>{row.mobile}</div>
+                        <div style={tableCellStyle}>{row.jobTitle} / {row.categoryName}</div>
+                        <div style={tableCellStyle}>{row.city}</div>
+                        <div style={tableCellStyle}>{row.paymentTypeLabel}</div>
+                        <div style={tableCellStyle}>{row.amount === null ? '-' : formatCurrency(row.amount)}</div>
+                        <div style={tableCellStyle}>{row.planName}</div>
+                        <div style={tableCellStyle}>{row.jobPostId}</div>
+                        <div style={tableCellStyle}>{row.paymentReference}</div>
+                        <div style={tableCellStyle}>{row.statusLabel}</div>
+                        <div style={tableCellStyle}>{formatDate(row.validFrom)}</div>
+                        <div style={tableCellStyle}>{formatDate(row.validUntil)}</div>
+                        <div style={tableCellStyle}>{row.note}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'companyBillingHistory' && (
+          <div style={{ display: 'grid', gap: '20px' }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                <div>
+                  <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>Company Billing History</h2>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                    Reads actual company billing entries from the live company wallet ledger. There is no direct invoice-to-job-post relation yet, so related job post shows the latest company job when available.
+                  </p>
+                </div>
+                <button onClick={() => setCompanyBillingHistoryFilters(blankCompanyBillingHistoryFilters)} style={subtleButtonStyle}>Clear Filters</button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '12px', marginBottom: '18px' }}>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Billing Amount</p><p style={{ margin: 0, color: '#0f172a', fontSize: '24px', fontWeight: '800' }}>{formatCurrency(companyBillingSummary.totalBillingAmount)}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Paid Amount</p><p style={{ margin: 0, color: '#059669', fontSize: '24px', fontWeight: '800' }}>{formatCurrency(companyBillingSummary.paidAmount)}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pending Amount</p><p style={{ margin: 0, color: '#b45309', fontSize: '24px', fontWeight: '800' }}>{formatCurrency(companyBillingSummary.pendingAmount)}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Failed Amount</p><p style={{ margin: 0, color: '#dc2626', fontSize: '24px', fontWeight: '800' }}>{formatCurrency(companyBillingSummary.failedAmount)}</p></div>
+                <div style={summaryCardStyle}><p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Billing Count</p><p style={{ margin: 0, color: '#2563eb', fontSize: '24px', fontWeight: '800' }}>{companyBillingSummary.billingCount}</p></div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '10px', marginBottom: '18px' }}>
+                <input type="date" value={companyBillingHistoryFilters.dateFrom} onChange={event => setCompanyBillingHistoryFilters(current => ({ ...current, dateFrom: event.target.value }))} style={inputStyle} />
+                <input type="date" value={companyBillingHistoryFilters.dateTo} onChange={event => setCompanyBillingHistoryFilters(current => ({ ...current, dateTo: event.target.value }))} style={inputStyle} />
+                <input placeholder="Company name" value={companyBillingHistoryFilters.companySearch} onChange={event => setCompanyBillingHistoryFilters(current => ({ ...current, companySearch: event.target.value }))} style={inputStyle} />
+                <input placeholder="Mobile search" value={companyBillingHistoryFilters.mobileSearch} onChange={event => setCompanyBillingHistoryFilters(current => ({ ...current, mobileSearch: event.target.value }))} style={inputStyle} />
+                <select value={companyBillingHistoryFilters.billingType} onChange={event => setCompanyBillingHistoryFilters(current => ({ ...current, billingType: event.target.value as CompanyBillingHistoryFilters['billingType'] }))} style={inputStyle}>
+                  <option value="all">All Billing Types</option>
+                  <option value="plan_purchase">Plan Purchase</option>
+                  <option value="registration_fee">Registration Fee</option>
+                  <option value="wallet_recharge">Wallet Recharge</option>
+                  <option value="wallet_deduction">Wallet Deduction</option>
+                  <option value="manual_adjustment">Manual Adjustment</option>
+                </select>
+                <select value={companyBillingHistoryFilters.paymentStatus} onChange={event => setCompanyBillingHistoryFilters(current => ({ ...current, paymentStatus: event.target.value as CompanyBillingHistoryFilters['paymentStatus'] }))} style={inputStyle}>
+                  <option value="all">All Payment Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="attention">Attention</option>
+                  <option value="failed">Failed</option>
+                </select>
+                <select value={companyBillingHistoryFilters.planId} onChange={event => setCompanyBillingHistoryFilters(current => ({ ...current, planId: event.target.value }))} style={inputStyle}>
+                  <option value="">All Plans / Packages</option>
+                  {companyBillingPlanOptions.map(planId => <option key={planId} value={planId}>{getPlanName(planId)}</option>)}
+                </select>
+                <input placeholder="Amount Min" value={companyBillingHistoryFilters.amountMin} onChange={event => setCompanyBillingHistoryFilters(current => ({ ...current, amountMin: event.target.value }))} style={inputStyle} />
+                <input placeholder="Amount Max" value={companyBillingHistoryFilters.amountMax} onChange={event => setCompanyBillingHistoryFilters(current => ({ ...current, amountMax: event.target.value }))} style={inputStyle} />
+              </div>
+
+              {filteredCompanyBillingHistoryRows.length === 0 ? (
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No records available.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ minWidth: '1760px', border: '1px solid #e2e8f0', borderRadius: '16px', overflow: 'hidden' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '140px 170px 140px 110px 130px 140px 110px 120px 160px 120px 120px 160px 170px', background: '#f8fafc' }}>
+                      {['Date / Time', 'Company Name', 'Contact Person', 'Mobile', 'Billing Type', 'Plan / Package', 'Amount', 'Payment Status', 'Invoice / Reference ID', 'Valid From', 'Valid Until', 'Related Job Post', 'Notes'].map(label => (
+                        <div key={label} style={tableHeaderCellStyle}>{label}</div>
+                      ))}
+                    </div>
+                    {filteredCompanyBillingHistoryRows.map(row => (
+                      <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '140px 170px 140px 110px 130px 140px 110px 120px 160px 120px 120px 160px 170px' }}>
+                        <div style={tableCellStyle}>{formatDateTime(row.createdAt)}</div>
+                        <div style={tableCellStyle}>{row.companyName}</div>
+                        <div style={tableCellStyle}>{row.contactPerson}</div>
+                        <div style={tableCellStyle}>{row.mobile}</div>
+                        <div style={tableCellStyle}>{row.billingTypeLabel}</div>
+                        <div style={tableCellStyle}>{row.planName}</div>
+                        <div style={tableCellStyle}>{formatCurrency(row.amount)}</div>
+                        <div style={tableCellStyle}>{row.paymentStatusLabel}</div>
+                        <div style={tableCellStyle}>{row.reference}</div>
+                        <div style={tableCellStyle}>{formatDate(row.validFrom)}</div>
+                        <div style={tableCellStyle}>{formatDate(row.validUntil)}</div>
+                        <div style={tableCellStyle}>{row.relatedJobPost}</div>
+                        <div style={tableCellStyle}>{row.note}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeSection === 'rechargeRequests' && (
           <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
             <div style={cardStyle}>
@@ -5176,7 +5830,7 @@ export default function LabourExchangeAdminPage() {
               <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation and linked tools</h3>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'supportRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'workerRechargeHistory', 'jobPostPaymentHistory', 'companyBillingHistory', 'rechargeRequests', 'supportRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
                     <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
                       Open {sectionLabels[section]}
                     </button>

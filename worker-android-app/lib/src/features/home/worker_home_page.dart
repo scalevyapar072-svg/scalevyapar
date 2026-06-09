@@ -71,6 +71,295 @@ enum _FeedViewTab {
 }
 
 const double _minimumWalletRechargeAmount = 50;
+const String _categoryLockedApplyMessage =
+    'This job is not available for your selected job category.';
+const Map<String, String> _commonHindiCategoryLabels = {
+  'adda work karighar': 'अड्डा वर्क कारीगर',
+  'carpenter': 'कारपेंटर',
+  'stitching karighar': 'सिलाई कारीगर',
+  'delivery boy': 'डिलीवरी बॉय',
+  'dispatch worker': 'डिस्पैच वर्कर',
+  'driver': 'ड्राइवर',
+  'electrician': 'इलेक्ट्रीशियन',
+  'embroidery worker': 'कढ़ाई कारीगर',
+  'furniture installer': 'फर्नीचर इंस्टॉलर',
+  'production manager': 'प्रोडक्शन मैनेजर',
+  'printer labour': 'प्रिंटिंग मजदूर',
+  'housekeeping staff': 'हाउसकीपिंग स्टाफ',
+  'helper': 'हेल्पर',
+  'interior carpenter': 'इंटीरियर कारपेंटर',
+  'loader': 'लोडर',
+  'mason': 'मिस्त्री',
+  'cutting master': 'कटिंग मास्टर',
+  'picker / packer': 'पिकर / पैकर',
+  'picker/packer': 'पिकर / पैकर',
+  'picker packer': 'पिकर / पैकर',
+  'painter': 'पेंटर',
+  'plumber': 'प्लंबर',
+  'quality checker': 'क्वालिटी चेकर',
+  'sampling master': 'सैंपलिंग मास्टर',
+  'salesman': 'सेल्समैन',
+  'security guard': 'सिक्योरिटी गार्ड',
+  'supervisor': 'सुपरवाइजर',
+  'tailor': 'टेलर',
+  'machine operator': 'मशीन ऑपरेटर',
+  'packing worker': 'पैकिंग वर्कर',
+  'welder': 'वेल्डर',
+  'zari work karighar': 'जरी वर्क कारीगर',
+};
+
+String _replaceIgnoreCase(String input, String pattern, String replacement) {
+  return input.replaceAll(
+    RegExp(RegExp.escape(pattern), caseSensitive: false),
+    replacement,
+  );
+}
+
+String _localizeCommonJobText(WorkerLocalizations l10n, String value) {
+  if (!l10n.isHindi) {
+    return value;
+  }
+
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return value;
+  }
+
+  final normalized = trimmed.toLowerCase();
+  const directLabels = {
+    'category locked': 'कैटेगरी लॉक्ड',
+    'distance unavailable': 'दूरी उपलब्ध नहीं है',
+    'daily wage': 'दैनिक मजदूरी',
+    'monthly salary': 'मासिक वेतन',
+    'weekly payment': 'साप्ताहिक भुगतान',
+    'contract payment': 'कॉन्ट्रैक्ट भुगतान',
+    'piece rate': 'पीस रेट',
+    'permanent': 'स्थायी',
+    'day shift': 'दिन की शिफ्ट',
+    'night shift': 'रात की शिफ्ट',
+    'evening shift': 'शाम की शिफ्ट',
+    'afternoon shift': 'दोपहर की शिफ्ट',
+    'as per roster': 'रोस्टर के अनुसार',
+    'any': 'कोई भी',
+    'pending': 'लंबित',
+    'live': 'लाइव',
+    'expired': 'समाप्त',
+    'available': 'उपलब्ध',
+    'yes': 'हाँ',
+    'no': 'नहीं',
+    'sunday': 'रविवार',
+  };
+  final directLabel = directLabels[normalized];
+  if (directLabel != null) {
+    return directLabel;
+  }
+
+  var localized = trimmed;
+  localized = _replaceIgnoreCase(localized, 'Daily Wage', 'दैनिक मजदूरी');
+  localized = _replaceIgnoreCase(localized, 'Monthly Salary', 'मासिक वेतन');
+  localized = _replaceIgnoreCase(localized, 'Weekly Payment', 'साप्ताहिक भुगतान');
+  localized = _replaceIgnoreCase(
+    localized,
+    'Contract Payment',
+    'कॉन्ट्रैक्ट भुगतान',
+  );
+  localized = _replaceIgnoreCase(localized, 'Piece Rate', 'पीस रेट');
+  localized = _replaceIgnoreCase(localized, 'Day Shift', 'दिन की शिफ्ट');
+  localized = _replaceIgnoreCase(localized, 'Night Shift', 'रात की शिफ्ट');
+  localized = _replaceIgnoreCase(localized, 'Evening Shift', 'शाम की शिफ्ट');
+  localized = _replaceIgnoreCase(localized, 'Afternoon Shift', 'दोपहर की शिफ्ट');
+  localized = _replaceIgnoreCase(localized, 'As Per Roster', 'रोस्टर के अनुसार');
+  localized = _replaceIgnoreCase(localized, 'Permanent', 'स्थायी');
+  localized = _replaceIgnoreCase(localized, 'Pending', 'लंबित');
+  localized = _replaceIgnoreCase(localized, 'Live', 'लाइव');
+  localized = _replaceIgnoreCase(localized, 'Distance unavailable', 'दूरी उपलब्ध नहीं है');
+  localized = _replaceIgnoreCase(localized, 'Any', 'कोई भी');
+  localized = _replaceIgnoreCase(localized, 'Available', 'उपलब्ध');
+  localized = _replaceIgnoreCase(localized, 'Sunday', 'रविवार');
+  localized = localized.replaceAll(
+    RegExp(r'\bYears?\b', caseSensitive: false),
+    'वर्ष',
+  );
+  return localized;
+}
+
+String _localizedCategoryLabel(WorkerLocalizations l10n, String value) {
+  if (!l10n.isHindi) {
+    return value;
+  }
+
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return value;
+  }
+
+  return _commonHindiCategoryLabels[trimmed.toLowerCase()] ??
+      _localizeCommonJobText(l10n, trimmed);
+}
+
+String _lockedCategoryBadgeLabel(bool isHindi) {
+  return isHindi ? 'कैटेगरी लॉक्ड' : 'Category Locked';
+}
+
+String _categoryLockedDialogTitle(WorkerLocalizations l10n) {
+  return l10n.isHindi ? 'श्रेणी लॉक है' : 'Category Locked';
+}
+
+String _categoryLockedDialogMessage(WorkerLocalizations l10n) {
+  return l10n.isHindi
+      ? 'यह नौकरी आपकी चुनी हुई नौकरी श्रेणी के लिए उपलब्ध नहीं है।'
+      : _categoryLockedApplyMessage;
+}
+
+Future<void> _showCategoryLockedMessageDialog(BuildContext context) async {
+  final l10n = WorkerLocalizations.of(context);
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(_categoryLockedDialogTitle(l10n)),
+        content: Text(_categoryLockedDialogMessage(l10n)),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.isHindi ? 'ठीक है' : 'OK'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<void> _showWorkerInactiveRechargeDialog(
+  BuildContext context, {
+  required VoidCallback onRecharge,
+}) async {
+  final l10n = WorkerLocalizations.of(context);
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(l10n.isHindi ? 'वॉलेट रिचार्ज करें' : 'Recharge your Wallet'),
+        content: Text(
+          l10n.isHindi
+              ? 'आपका वर्कर एक्सेस निष्क्रिय है। जॉब्स के लिए अप्लाई जारी रखने के लिए रिचार्ज करें।'
+              : 'Your worker access is inactive. Recharge to continue applying for jobs.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.isHindi ? 'अभी नहीं' : 'Not now'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              onRecharge();
+            },
+            child: Text(l10n.isHindi ? 'रिचार्ज करें' : 'Recharge'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+String _daysRemainingLabel(WorkerLocalizations l10n, int daysRemaining) {
+  if (l10n.isHindi) {
+    return daysRemaining == 1 ? '1 दिन बाकी' : '$daysRemaining दिन बाकी';
+  }
+  return daysRemaining == 1 ? '1 day left' : '$daysRemaining days left';
+}
+
+String _validTillText(WorkerLocalizations l10n, String value) {
+  return l10n.isHindi ? 'वैधता $value तक' : 'Valid till $value';
+}
+
+String _formatCurrencyValue(double amount) {
+  return amount % 1 == 0 ? amount.toStringAsFixed(0) : amount.toStringAsFixed(2);
+}
+
+String _dailyDeductionAmountText(WorkerLocalizations l10n, double amount) {
+  final suffix = l10n.isHindi ? 'दिन' : 'day';
+  return 'Rs ${_formatCurrencyValue(amount)} / $suffix';
+}
+
+DateTime _todayDateOnly() {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+}
+
+DateTime? _parseDateOnly(String? value) {
+  final normalized = value?.trim() ?? '';
+  if (normalized.isEmpty) {
+    return null;
+  }
+
+  try {
+    final parsed = DateTime.parse(normalized);
+    return DateTime(parsed.year, parsed.month, parsed.day);
+  } catch (_) {
+    return null;
+  }
+}
+
+bool _isPastDate(String? value) {
+  final parsed = _parseDateOnly(value);
+  if (parsed == null) {
+    return false;
+  }
+
+  return parsed.isBefore(_todayDateOnly());
+}
+
+String? _formatShortDate(String? value) {
+  final parsed = _parseDateOnly(value);
+  if (parsed == null) {
+    return null;
+  }
+
+  return '${parsed.month}/${parsed.day}/${parsed.year}';
+}
+
+int? _calendarDaysRemaining(String? value) {
+  final parsed = _parseDateOnly(value);
+  if (parsed == null) {
+    return null;
+  }
+
+  final today = _todayDateOnly();
+  if (parsed.isBefore(today)) {
+    return 0;
+  }
+
+  return parsed.difference(today).inDays + 1;
+}
+
+bool _hasZeroChargePlan(WorkerDashboardModel dashboard) {
+  final planCharge = dashboard.workerPlan?.dailyCharge;
+  if (planCharge != null) {
+    return planCharge <= 0;
+  }
+
+  return dashboard.wallet.dailyCharge <= 0;
+}
+
+bool _hasActiveFreePlan(WorkerDashboardModel dashboard) {
+  if (!dashboard.activation.isActive || !_hasZeroChargePlan(dashboard)) {
+    return false;
+  }
+
+  return !_isPastDate(dashboard.workerPlan?.planEndDate);
+}
+
+int _resolvedDaysRemaining(WorkerDashboardModel dashboard) {
+  final freePlanDays =
+      _calendarDaysRemaining(dashboard.workerPlan?.planEndDate);
+  if (_hasActiveFreePlan(dashboard) && freePlanDays != null) {
+    return freePlanDays;
+  }
+
+  return math.max(dashboard.wallet.estimatedDaysRemaining, 0);
+}
 
 String _normalizeJobRankKey(String value) {
   return value
@@ -90,6 +379,16 @@ Set<String> _normalizedJobRankSet(Iterable<String?> values) {
 
 bool _jobRankSetsIntersect(Set<String> left, Set<String> right) {
   return left.any(right.contains);
+}
+
+bool _isJobCategoryLockedForWorker(
+  WorkerProfileModel profile,
+  WorkerFeedItemModel item,
+) {
+  return !_jobRankSetsIntersect(
+    _workerCategoryKeys(profile),
+    _jobCategoryKeys(item),
+  );
 }
 
 String _resolveWorkerCurrentCity(
@@ -278,8 +577,8 @@ List<WorkerFeedItemModel> _rankWorkerFeedItems({
       workerCategoryKeys,
       _jobCategoryKeys(rightItem),
     );
-    final categoryCompare = (rightCategoryMatch ? 1 : 0) -
-        (leftCategoryMatch ? 1 : 0);
+    final categoryCompare =
+        (rightCategoryMatch ? 1 : 0) - (leftCategoryMatch ? 1 : 0);
     if (categoryCompare != 0) {
       return categoryCompare;
     }
@@ -299,32 +598,30 @@ List<WorkerFeedItemModel> _rankWorkerFeedItems({
       return cityCompare;
     }
 
-    final leftIndustryBusinessScore =
+    final leftIndustryBusinessScore = (_jobRankSetsIntersect(
+          workerIndustryKeys,
+          _jobIndustryKeys(dashboard, leftItem),
+        )
+            ? 1
+            : 0) +
         (_jobRankSetsIntersect(
-                  workerIndustryKeys,
-                  _jobIndustryKeys(dashboard, leftItem),
-                )
-                ? 1
-                : 0) +
-            (_jobRankSetsIntersect(
-                  workerBusinessKeys,
-                  _jobBusinessTypeKeys(dashboard, leftItem),
-                )
-                ? 1
-                : 0);
-    final rightIndustryBusinessScore =
+          workerBusinessKeys,
+          _jobBusinessTypeKeys(dashboard, leftItem),
+        )
+            ? 1
+            : 0);
+    final rightIndustryBusinessScore = (_jobRankSetsIntersect(
+          workerIndustryKeys,
+          _jobIndustryKeys(dashboard, rightItem),
+        )
+            ? 1
+            : 0) +
         (_jobRankSetsIntersect(
-                  workerIndustryKeys,
-                  _jobIndustryKeys(dashboard, rightItem),
-                )
-                ? 1
-                : 0) +
-            (_jobRankSetsIntersect(
-                  workerBusinessKeys,
-                  _jobBusinessTypeKeys(dashboard, rightItem),
-                )
-                ? 1
-                : 0);
+          workerBusinessKeys,
+          _jobBusinessTypeKeys(dashboard, rightItem),
+        )
+            ? 1
+            : 0);
     final industryBusinessCompare =
         rightIndustryBusinessScore.compareTo(leftIndustryBusinessScore);
     if (industryBusinessCompare != 0) {
@@ -584,12 +881,13 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     // Job/company coordinates should come directly from the feed.
   }
 
-  _DerivedJobCoordinates? _resolveJobCoordinatesForItem(WorkerFeedItemModel item) {
+  _DerivedJobCoordinates? _resolveJobCoordinatesForItem(
+      WorkerFeedItemModel item) {
     if (item.latitude != null && item.longitude != null) {
       return _DerivedJobCoordinates(
         latitude: item.latitude!,
         longitude: item.longitude!,
-          source: item.coordinateSource.isEmpty ? 'feed' : item.coordinateSource,
+        source: item.coordinateSource.isEmpty ? 'feed' : item.coordinateSource,
       );
     }
     if (item.companyLatitude != null && item.companyLongitude != null) {
@@ -698,7 +996,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤µà¤¿à¤•à¤²à¥à¤ª à¤…à¤­à¥€ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¤‚à¥¤'
+                ? 'सपोर्ट विकल्प अभी उपलब्ध नहीं हैं।'
                 : 'Support options are not available right now.',
           ),
         ),
@@ -712,7 +1010,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       builder: (sheetContext) {
         final title = support.title.trim().isNotEmpty
             ? support.title.trim()
-            : (l10n.isHindi ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ' : 'Support');
+            : (l10n.isHindi ? 'सपोर्ट' : 'Support');
         final subtitle = support.subtitle.trim();
 
         return SafeArea(
@@ -741,8 +1039,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.chat_rounded,
                         color: Color(0xFF16A34A)),
-                    title: Text(
-                        l10n.isHindi ? 'à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ' : 'WhatsApp support'),
+                    title: Text(l10n.isHindi
+                        ? 'व्हाट्सएप सपोर्ट'
+                        : 'WhatsApp support'),
                     subtitle: Text(support.whatsappNumber.trim()),
                     onTap: () async {
                       Navigator.of(sheetContext).pop();
@@ -754,7 +1053,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.support_agent_rounded,
                         color: Color(0xFF173C77)),
-                    title: Text(l10n.isHindi ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤²à¤¿à¤‚à¤•' : 'Support link'),
+                    title: Text(l10n.isHindi
+                        ? 'सपोर्ट लिंक'
+                        : 'Support link'),
                     subtitle: Text(chatbotUrl),
                     onTap: () async {
                       Navigator.of(sheetContext).pop();
@@ -789,7 +1090,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤'
+                ? 'व्हाट्सएप सपोर्ट उपलब्ध नहीं है।'
                 : 'WhatsApp support is not available.',
           ),
         ),
@@ -800,7 +1101,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     final message = support.prefilledMessage.trim().isNotEmpty
         ? support.prefilledMessage.trim()
         : (l10n.isHindi
-            ? 'à¤¨à¤®à¤¸à¥à¤¤à¥‡ à¤Ÿà¥€à¤®, à¤®à¥à¤à¥‡ Rozgar worker app à¤®à¥‡à¤‚ à¤®à¤¦à¤¦ à¤šà¤¾à¤¹à¤¿à¤à¥¤'
+            ? 'नमस्ते टीम, मुझे Rozgar worker app में मदद चाहिए।'
             : 'Hello Team, I need help with the Rozgar worker app.');
 
     final uri =
@@ -811,7 +1112,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤–à¥‹à¤²à¤¾ à¤¨à¤¹à¥€à¤‚ à¤œà¤¾ à¤¸à¤•à¤¾à¥¤'
+                ? 'व्हाट्सएप खोला नहीं जा सका।'
                 : 'Could not open WhatsApp.',
           ),
         ),
@@ -827,7 +1128,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤²à¤¿à¤‚à¤• à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤'
+                ? 'सपोर्ट लिंक उपलब्ध नहीं है।'
                 : 'Support link is not available.',
           ),
         ),
@@ -845,7 +1146,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤²à¤¿à¤‚à¤• à¤…à¤®à¤¾à¤¨à¥à¤¯ à¤¹à¥ˆà¥¤'
+                ? 'सपोर्ट लिंक अमान्य है।'
                 : 'Support link is invalid.',
           ),
         ),
@@ -859,7 +1160,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ à¤²à¤¿à¤‚à¤• à¤–à¥‹à¤²à¤¾ à¤¨à¤¹à¥€à¤‚ à¤œà¤¾ à¤¸à¤•à¤¾à¥¤'
+                ? 'सपोर्ट लिंक खोला नहीं जा सका।'
                 : 'Could not open the support link.',
           ),
         ),
@@ -1022,8 +1323,28 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   Future<void> _applyToJob(String jobPostId) async {
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      return;
+    }
+    final selectedItem = dashboard.feed.cast<WorkerFeedItemModel?>().firstWhere(
+          (item) => item?.id == jobPostId,
+          orElse: () => null,
+        );
+    if (selectedItem != null &&
+        _isJobCategoryLockedForWorker(dashboard.profile, selectedItem)) {
+      await _showCategoryLockedMessageDialog(context);
+      return;
+    }
     if (!_isWorkerActive()) {
-      await _showRechargeWalletDialog();
+      await _showWorkerInactiveRechargeDialog(
+        context,
+        onRecharge: () {
+          if (mounted) {
+            setState(() => _selectedIndex = 1);
+          }
+        },
+      );
       return;
     }
     final l10n = WorkerLocalizations.of(context);
@@ -1063,30 +1384,12 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   Future<void> _showRechargeWalletDialog() async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Recharge your Wallet'),
-          content: const Text(
-            'Your worker access is inactive. Recharge to continue applying for jobs.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Not now'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                if (mounted) {
-                  setState(() => _selectedIndex = 1);
-                }
-              },
-              child: const Text('Recharge'),
-            ),
-          ],
-        );
+    await _showWorkerInactiveRechargeDialog(
+      context,
+      onRecharge: () {
+        if (mounted) {
+          setState(() => _selectedIndex = 1);
+        }
       },
     );
   }
@@ -1346,30 +1649,29 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
             allowedKeys.contains(_normalizeFilterKey(option.name));
       });
       if (options.isEmpty) {
-        final fallback = filteredDependencyCategories
-            .map((dependency) {
-              final match = categoriesByKey[
-                      _normalizeFilterKey(dependency.categoryId)] ??
+        final fallback = filteredDependencyCategories.map((dependency) {
+          final match =
+              categoriesByKey[_normalizeFilterKey(dependency.categoryId)] ??
                   categoriesByKey[_normalizeFilterKey(dependency.categoryName)];
-              return match ??
-                  WorkerCategoryOption(
-                    id: dependency.categoryId,
-                    name: dependency.categoryName,
-                    description: '',
-                    imageUrl: '',
-                    showOnHome: false,
-                    homeOrder: 0,
-                    isActive: true,
-                  );
-            })
-            .toList();
+          return match ??
+              WorkerCategoryOption(
+                id: dependency.categoryId,
+                name: dependency.categoryName,
+                description: '',
+                imageUrl: '',
+                showOnHome: false,
+                homeOrder: 0,
+                isActive: true,
+              );
+        }).toList();
         options = fallback;
       }
     }
 
     final deduped = <String, WorkerCategoryOption>{};
     for (final option in options) {
-      final key = _normalizeFilterKey(option.id.isNotEmpty ? option.id : option.name);
+      final key =
+          _normalizeFilterKey(option.id.isNotEmpty ? option.id : option.name);
       if (key.isNotEmpty) {
         deduped[key] = option;
       }
@@ -1523,36 +1825,35 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     }
     Navigator.of(context)
         .push(
-          MaterialPageRoute(
-            builder: (_) => _AllJobsPage(
-              token: _token,
-              initialDashboard: dashboard,
-              initialIsWorkerActive: _isWorkerActive(),
-              initialLiveLocation: _liveLocationSnapshot(dashboard.profile),
-              initialQuery: _feedQuery,
-              initialFeedTab: overrideFeedTab ?? _selectedFeedTab,
-              initialShowUnlockedOnly: _showUnlockedOnly,
-              initialShowSavedOnly: _showSavedOnly,
-              initialShowAppliedOnly: _showAppliedOnly,
-              initialSelectedIndustryFilter:
-                  overrideIndustryFilter ?? _selectedIndustryFilter,
-              initialSelectedBusinessTypeFilter:
-                  overrideBusinessTypeFilter ?? _selectedBusinessTypeFilter,
-              initialSelectedCategoryFilters:
-                  overrideCategoryFilters ?? _selectedCategoryFilters,
-              initialSelectedCityFilter:
-                  overrideCityFilter ?? _selectedCityFilter,
-              initialSelectedWageBand: _selectedWageBand,
-              resolveJobCoordinatesForItem: _resolveJobCoordinatesForItem,
-              onOpenWallet: () => setState(() => _selectedIndex = 1),
-            ),
-          ),
-        )
+      MaterialPageRoute(
+        builder: (_) => _AllJobsPage(
+          token: _token,
+          initialDashboard: dashboard,
+          initialIsWorkerActive: _isWorkerActive(),
+          initialLiveLocation: _liveLocationSnapshot(dashboard.profile),
+          initialQuery: _feedQuery,
+          initialFeedTab: overrideFeedTab ?? _selectedFeedTab,
+          initialShowUnlockedOnly: _showUnlockedOnly,
+          initialShowSavedOnly: _showSavedOnly,
+          initialShowAppliedOnly: _showAppliedOnly,
+          initialSelectedIndustryFilter:
+              overrideIndustryFilter ?? _selectedIndustryFilter,
+          initialSelectedBusinessTypeFilter:
+              overrideBusinessTypeFilter ?? _selectedBusinessTypeFilter,
+          initialSelectedCategoryFilters:
+              overrideCategoryFilters ?? _selectedCategoryFilters,
+          initialSelectedCityFilter: overrideCityFilter ?? _selectedCityFilter,
+          initialSelectedWageBand: _selectedWageBand,
+          resolveJobCoordinatesForItem: _resolveJobCoordinatesForItem,
+          onOpenWallet: () => setState(() => _selectedIndex = 1),
+        ),
+      ),
+    )
         .then((_) {
-          if (mounted) {
-            _loadDashboard();
-          }
-        });
+      if (mounted) {
+        _loadDashboard();
+      }
+    });
   }
 
   Future<void> _openFavouriteCitiesPicker() async {
@@ -1627,8 +1928,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   Map<String, int> _jobCountByCity(WorkerDashboardModel dashboard) {
     final counts = <String, int>{};
     for (final item in dashboard.feed) {
-      final city = (item.city.trim().isNotEmpty ? item.city : item.companyCity)
-          .trim();
+      final city =
+          (item.city.trim().isNotEmpty ? item.city : item.companyCity).trim();
       final key = _normalizeCityKey(city);
       if (key.isEmpty) {
         continue;
@@ -1647,8 +1948,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       baseCities.isNotEmpty ? baseCities : _availableCityOptions(dashboard),
     );
     options.sort((left, right) {
-      final countCompare =
-          (counts[_normalizeCityKey(right)] ?? 0).compareTo(
+      final countCompare = (counts[_normalizeCityKey(right)] ?? 0).compareTo(
         counts[_normalizeCityKey(left)] ?? 0,
       );
       if (countCompare != 0) {
@@ -1701,7 +2001,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     return suggestions.take(3).toList(growable: false);
   }
 
-  List<WorkerCategoryOption> _popularCategories(WorkerDashboardModel dashboard) {
+  List<WorkerCategoryOption> _popularCategories(
+      WorkerDashboardModel dashboard) {
     final categories = List<WorkerCategoryOption>.from(
       dashboard.availableCategories.where((item) => item.isActive),
     );
@@ -1736,10 +2037,12 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
             .toList(growable: false);
     return [
       _FavouriteCitiesSection(
-        title: 'Jobs in your favourite cities',
-        changeLabel: 'Change',
-        addMoreLabel: 'Add more',
-        clearLabel: 'Clear',
+        title: WorkerLocalizations.of(context).favouriteCitiesJobsHeading,
+        changeLabel: WorkerLocalizations.of(context).isHindi ? 'बदलें' : 'Change',
+        addMoreLabel: WorkerLocalizations.of(context).isHindi
+            ? 'और जोड़ें'
+            : 'Add more',
+        clearLabel: WorkerLocalizations.of(context).clearAction,
         visibleCities: suggestedCities,
         cityJobCounts: _jobCountByCity(dashboard),
         onChange: _openFavouriteCitiesPicker,
@@ -1748,7 +2051,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       ),
       const SizedBox(height: 16),
       _PopularCategoriesSection(
-        title: 'Popular Job Categories',
+        title: WorkerLocalizations.of(context).popularJobCategoriesHeading,
         options: visibleCategories,
         onCategoryTap: _openCategoryJobs,
         canExpand: popularCategories.length > _collapsedPopularCategoryCount,
@@ -1776,7 +2079,10 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     final resolvedCoordinates = _resolveJobCoordinatesForItem(item);
     final jobLat = resolvedCoordinates?.latitude ?? item.latitude;
     final jobLng = resolvedCoordinates?.longitude ?? item.longitude;
-    if (workerLat != null && workerLng != null && jobLat != null && jobLng != null) {
+    if (workerLat != null &&
+        workerLng != null &&
+        jobLat != null &&
+        jobLng != null) {
       return _haversineKm(workerLat, workerLng, jobLat, jobLng) <= 10;
     }
     final currentCity = _resolveCurrentCity(_dashboard!.profile);
@@ -1859,7 +2165,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         _FeedViewTab.all => true,
         _FeedViewTab.saved => item.isSaved,
         _FeedViewTab.applied => item.hasApplied,
-        _FeedViewTab.otherCities => _itemMatchesOtherCities(item, dashboard.profile),
+        _FeedViewTab.otherCities =>
+          _itemMatchesOtherCities(item, dashboard.profile),
         _FeedViewTab.nearby => _itemMatchesNearby(item),
       };
       return matchesQuery &&
@@ -1977,7 +2284,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                     ),
                 ],
               ),
-              tooltip: l10n.isHindi ? 'à¤¸à¥‡à¤µà¥à¤¡ à¤œà¥‰à¤¬à¥à¤¸' : 'Saved jobs',
+              tooltip: l10n.isHindi
+                  ? 'सेव्ड जॉब्स'
+                  : 'Saved jobs',
             ),
           if (dashboard != null)
             IconButton(
@@ -2016,7 +2325,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
             IconButton(
               onPressed: _openSupport,
               icon: const Icon(Icons.support_agent_rounded),
-              tooltip: l10n.isHindi ? 'à¤¸à¤ªà¥‹à¤°à¥à¤Ÿ' : 'Support',
+              tooltip: l10n.isHindi ? 'सपोर्ट' : 'Support',
             ),
         ],
       ),
@@ -2091,7 +2400,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                           showSavedOnly: _showSavedOnly,
                           showAppliedOnly: _showAppliedOnly,
                           selectedIndustryFilter: _selectedIndustryFilter,
-                          selectedBusinessTypeFilter: _selectedBusinessTypeFilter,
+                          selectedBusinessTypeFilter:
+                              _selectedBusinessTypeFilter,
                           selectedCategoryFilters: _selectedCategoryFilters,
                           selectedCityFilter: _selectedCityFilter,
                           selectedWageBand: _selectedWageBand,
@@ -2118,7 +2428,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                           onIndustryFilterChanged: (value) => setState(() {
                             _selectedIndustryFilter = value;
                             _selectedBusinessTypeFilter = 'all';
-                            final availableCategories = _availableCategoryOptions(
+                            final availableCategories =
+                                _availableCategoryOptions(
                               dashboard,
                             );
                             final allowedKeys = availableCategories
@@ -2127,13 +2438,14 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                                 .where((item) => item.isNotEmpty)
                                 .toSet();
                             _selectedCategoryFilters = _selectedCategoryFilters
-                                .where((item) =>
-                                    allowedKeys.contains(_normalizeFilterKey(item)))
+                                .where((item) => allowedKeys
+                                    .contains(_normalizeFilterKey(item)))
                                 .toList(growable: false);
                           }),
                           onBusinessTypeFilterChanged: (value) => setState(() {
                             _selectedBusinessTypeFilter = value;
-                            final availableCategories = _availableCategoryOptions(
+                            final availableCategories =
+                                _availableCategoryOptions(
                               dashboard,
                             );
                             final allowedKeys = availableCategories
@@ -2142,8 +2454,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                                 .where((item) => item.isNotEmpty)
                                 .toSet();
                             _selectedCategoryFilters = _selectedCategoryFilters
-                                .where((item) =>
-                                    allowedKeys.contains(_normalizeFilterKey(item)))
+                                .where((item) => allowedKeys
+                                    .contains(_normalizeFilterKey(item)))
                                 .toList(growable: false);
                           }),
                           onCategoryFiltersChanged: (value) => setState(() =>
@@ -2211,7 +2523,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           NavigationDestination(
             icon: Icon(Icons.work_outline_rounded),
             selectedIcon: Icon(Icons.work_rounded),
-            label: l10n.isHindi ? 'à¤¹à¥‹à¤®' : 'Home',
+            label: l10n.isHindi ? 'होम' : 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
@@ -2258,7 +2570,7 @@ class _TopSummarySection extends StatelessWidget {
     final jobsValue = '$visibleJobsCount';
     final wageValue = profile.expectedDailyWage > 0
         ? 'Rs ${profile.expectedDailyWage.toStringAsFixed(profile.expectedDailyWage % 1 == 0 ? 0 : 1)}'
-        : 'â€”';
+        : '—';
 
     return Container(
       width: double.infinity,
@@ -2563,7 +2875,12 @@ class _FeedTab extends StatelessWidget {
         l10n.filterLabel(
           l10n.category,
           selectedCategoryFilters
-              .map((item) => categoryNameByKey[item] ?? item)
+              .map(
+                (item) => _localizedCategoryLabel(
+                  l10n,
+                  categoryNameByKey[item] ?? item,
+                ),
+              )
               .join(', '),
         ),
       if (selectedCityFilter != 'all')
@@ -2578,14 +2895,18 @@ class _FeedTab extends StatelessWidget {
     final selectedCategorySummary = selectedCategoryFilters.isEmpty
         ? l10n.searchForSkills
         : selectedCategoryFilters
-            .map((item) => categoryNameByKey[item] ?? item)
+            .map(
+              (item) => _localizedCategoryLabel(
+                l10n,
+                categoryNameByKey[item] ?? item,
+              ),
+            )
             .join(', ');
-    final selectedCategoryDropdownValue =
-        selectedCategoryFilters.length == 1 &&
-                categoryOptions
-                    .any((option) => option.id == selectedCategoryFilters.first)
-            ? selectedCategoryFilters.first
-            : 'all';
+    final selectedCategoryDropdownValue = selectedCategoryFilters.length == 1 &&
+            categoryOptions
+                .any((option) => option.id == selectedCategoryFilters.first)
+        ? selectedCategoryFilters.first
+        : 'all';
 
     return RefreshIndicator.adaptive(
       onRefresh: onRefresh,
@@ -2665,7 +2986,8 @@ class _FeedTab extends StatelessWidget {
                         _FeedFilterTabChip(
                           label: l10n.otherCities,
                           selected: selectedFeedTab == _FeedViewTab.otherCities,
-                          onTap: () => onFeedTabChanged(_FeedViewTab.otherCities),
+                          onTap: () =>
+                              onFeedTabChanged(_FeedViewTab.otherCities),
                         ),
                         const SizedBox(width: 10),
                         _FeedFilterTabChip(
@@ -2725,7 +3047,12 @@ class _FeedTab extends StatelessWidget {
                             (category) => Chip(
                               avatar: const Icon(Icons.check_circle_rounded,
                                   size: 18),
-                              label: Text(categoryNameByKey[category] ?? category),
+                              label: Text(
+                                _localizedCategoryLabel(
+                                  l10n,
+                                  categoryNameByKey[category] ?? category,
+                                ),
+                              ),
                               onDeleted: () {
                                 onCategoryFiltersChanged(
                                   selectedCategoryFilters
@@ -2843,12 +3170,14 @@ class _FeedTab extends StatelessWidget {
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,
                           value: selectedCategoryDropdownValue,
-                          selectedItemBuilder: (context) => [
-                            _compactDropdownText(l10n.allCategories),
-                            ...categoryOptions.map(
-                              (option) => _compactDropdownText(option.name),
-                            ),
-                          ],
+                            selectedItemBuilder: (context) => [
+                              _compactDropdownText(l10n.allCategories),
+                              ...categoryOptions.map(
+                                (option) => _compactDropdownText(
+                                  _localizedCategoryLabel(l10n, option.name),
+                                ),
+                              ),
+                            ],
                           items: [
                             DropdownMenuItem(
                               value: 'all',
@@ -2862,7 +3191,7 @@ class _FeedTab extends StatelessWidget {
                               (option) => DropdownMenuItem(
                                 value: option.id,
                                 child: Text(
-                                  option.name,
+                                  _localizedCategoryLabel(l10n, option.name),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -3114,9 +3443,10 @@ class _FeedTab extends StatelessWidget {
                                   duration: const Duration(milliseconds: 850),
                                   curve: Curves.easeOutCubic,
                                   builder: (context, value, child) {
-                                    final shake = math.sin(value * math.pi * 4) *
-                                        1.8 *
-                                        (1 - value);
+                                    final shake =
+                                        math.sin(value * math.pi * 4) *
+                                            1.8 *
+                                            (1 - value);
                                     final scale = 0.98 + (0.02 * value);
                                     return Transform.scale(
                                       scale: scale,
@@ -3130,8 +3460,8 @@ class _FeedTab extends StatelessWidget {
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 8,
-                                     ),
-                                     decoration: BoxDecoration(
+                                    ),
+                                    decoration: BoxDecoration(
                                       color: showLockedState
                                           ? const Color(0xFFFFF8EE)
                                           : const Color(0xFFE8F7EF),
@@ -3143,7 +3473,10 @@ class _FeedTab extends StatelessWidget {
                                       ),
                                     ),
                                     child: Text(
-                                      item.categoryName,
+                                      _localizedCategoryLabel(
+                                        l10n,
+                                        item.categoryName,
+                                      ),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
@@ -3213,7 +3546,8 @@ class _FeedTab extends StatelessWidget {
                                       ),
                                     ),
                                     if (item.title.trim().isNotEmpty &&
-                                        item.title.trim() != item.categoryName.trim()) ...[
+                                        item.title.trim() !=
+                                            item.categoryName.trim()) ...[
                                       const SizedBox(height: 2),
                                       Text(
                                         item.title.trim(),
@@ -3244,7 +3578,7 @@ class _FeedTab extends StatelessWidget {
                                     ),
                                   ),
                                   child: Text(
-                                    _wageLabel(item),
+                                    _wageLabel(l10n, item),
                                     textAlign: TextAlign.right,
                                     style: const TextStyle(
                                       color: Color(0xFF173C77),
@@ -3259,7 +3593,7 @@ class _FeedTab extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '${l10n.isHindi ? 'Worker Required' : 'Worker Required'}: ${item.workersNeeded}',
+                            '${l10n.isHindi ? 'आवश्यक वर्कर' : 'Workers Needed'}: ${item.workersNeeded}',
                             style: const TextStyle(
                               color: Color(0xFF334155),
                               fontSize: 12.5,
@@ -3273,7 +3607,7 @@ class _FeedTab extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    '${l10n.isHindi ? 'Contact Person' : 'Contact Person'}: $companyPerson',
+                                    '${l10n.isHindi ? 'संपर्क व्यक्ति' : 'Contact Person'}: $companyPerson',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -3296,12 +3630,14 @@ class _FeedTab extends StatelessWidget {
                                       ),
                                       style: OutlinedButton.styleFrom(
                                         padding: EdgeInsets.zero,
-                                        backgroundColor: const Color(0xFFEFFAF3),
+                                        backgroundColor:
+                                            const Color(0xFFEFFAF3),
                                         side: const BorderSide(
                                           color: Color(0xFFB7E8C6),
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
                                         ),
                                       ),
                                       child: Image.asset(
@@ -3317,15 +3653,18 @@ class _FeedTab extends StatelessWidget {
                                     width: 42,
                                     height: 42,
                                     child: OutlinedButton(
-                                      onPressed: () => _callJobCompany(context, item),
+                                      onPressed: () =>
+                                          _callJobCompany(context, item),
                                       style: OutlinedButton.styleFrom(
                                         padding: EdgeInsets.zero,
-                                        backgroundColor: const Color(0xFFF8FAFC),
+                                        backgroundColor:
+                                            const Color(0xFFF8FAFC),
                                         side: const BorderSide(
                                           color: Color(0xFFD7E2EE),
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
                                         ),
                                       ),
                                       child: const Icon(
@@ -3405,7 +3744,7 @@ class _FeedTab extends StatelessWidget {
                                   child: Text(
                                     l10n.isHindi
                                         ? 'विवरण देखें'
-                                        : 'View Details',
+                                        : 'View details',
                                     style: const TextStyle(
                                       color: Color(0xFF173C77),
                                       fontWeight: FontWeight.w800,
@@ -3418,7 +3757,11 @@ class _FeedTab extends StatelessWidget {
                                 child: FilledButton(
                                   onPressed: item.hasApplied || actionLoading
                                       ? null
-                                      : () => onApply(item.id),
+                                      : showLockedState
+                                          ? () => _showCategoryLockedMessageDialog(
+                                                context,
+                                              )
+                                          : () => onApply(item.id),
                                   style: FilledButton.styleFrom(
                                     backgroundColor: const Color(0xFF173C77),
                                     padding: const EdgeInsets.symmetric(
@@ -3464,7 +3807,7 @@ class _FeedTab extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  l10n.isHindi ? 'View More Jobs' : 'View More Jobs',
+                  l10n.viewMoreJobs,
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
@@ -3479,31 +3822,37 @@ class _FeedTab extends StatelessWidget {
     );
   }
 
-  static String _salaryTypeLabel(WorkerFeedItemModel item) {
+  static String _salaryTypeLabel(
+    WorkerLocalizations l10n,
+    WorkerFeedItemModel item,
+  ) {
     final normalized = (item.shiftType ?? '').trim().toLowerCase();
     if (normalized.contains('month')) {
-      return 'Monthly Salary';
+      return _localizeCommonJobText(l10n, 'Monthly Salary');
     }
     if (normalized.contains('week')) {
-      return 'Weekly Payment';
+      return _localizeCommonJobText(l10n, 'Weekly Payment');
     }
     if (normalized.contains('contract')) {
-      return 'Contract Payment';
+      return _localizeCommonJobText(l10n, 'Contract Payment');
     }
     if (normalized.contains('piece')) {
-      return 'Piece Rate';
+      return _localizeCommonJobText(l10n, 'Piece Rate');
     }
     if (normalized.contains('daily')) {
-      return 'Daily Wage';
+      return _localizeCommonJobText(l10n, 'Daily Wage');
     }
     return '';
   }
 
-  static String _wageLabel(WorkerFeedItemModel item) {
+  static String _wageLabel(
+    WorkerLocalizations l10n,
+    WorkerFeedItemModel item,
+  ) {
     final amount = item.wageAmount % 1 == 0
         ? item.wageAmount.toStringAsFixed(0)
         : item.wageAmount.toStringAsFixed(1);
-    final salaryType = _salaryTypeLabel(item);
+    final salaryType = _salaryTypeLabel(l10n, item);
     return salaryType.isEmpty ? 'Rs $amount' : 'Rs $amount $salaryType';
   }
 
@@ -3534,17 +3883,13 @@ class _FeedTab extends StatelessWidget {
     required bool locked,
     required bool isHindi,
   }) {
-    final background = locked
-        ? const Color(0xFFFFF4E5)
-        : const Color(0xFFE8F7EF);
-    final border = locked
-        ? const Color(0xFFF5C98B)
-        : const Color(0xFF9DD7B6);
-    final textColor = locked
-        ? const Color(0xFF9A5B13)
-        : const Color(0xFF166534);
+    final background =
+        locked ? const Color(0xFFFFF4E5) : const Color(0xFFE8F7EF);
+    final border = locked ? const Color(0xFFF5C98B) : const Color(0xFF9DD7B6);
+    final textColor =
+        locked ? const Color(0xFF9A5B13) : const Color(0xFF166534);
     final label = locked
-        ? (isHindi ? 'कैटेगरी लॉक्ड' : 'Category Locked')
+        ? _lockedCategoryBadgeLabel(isHindi)
         : (isHindi ? 'मैचिंग' : 'Matching');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -3784,7 +4129,8 @@ class _AllJobsPageState extends State<_AllJobsPage> {
 
     Iterable<WorkerCategoryOption> options = _dashboard.availableCategories;
     if (_selectedIndustryFilter != 'all') {
-      final filteredDependencyCategories = _dashboard.categoryDependencies.where(
+      final filteredDependencyCategories =
+          _dashboard.categoryDependencies.where(
         (dependency) {
           final matchesIndustry = _matchesNormalizedValue(
             _selectedIndustryFilter,
@@ -3829,8 +4175,7 @@ class _AllJobsPageState extends State<_AllJobsPage> {
         options = filteredDependencyCategories.map((dependency) {
           final match =
               categoriesByKey[_normalizeFilterKey(dependency.categoryId)] ??
-                  categoriesByKey[
-                      _normalizeFilterKey(dependency.categoryName)];
+                  categoriesByKey[_normalizeFilterKey(dependency.categoryName)];
           return match ??
               WorkerCategoryOption(
                 id: dependency.categoryId,
@@ -4119,30 +4464,22 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   }
 
   Future<void> _handleApply(String jobPostId) async {
+    final selectedItem =
+        _dashboard.feed.cast<WorkerFeedItemModel?>().firstWhere(
+              (item) => item?.id == jobPostId,
+              orElse: () => null,
+            );
+    if (selectedItem != null &&
+        _isJobCategoryLockedForWorker(_dashboard.profile, selectedItem)) {
+      await _showCategoryLockedMessageDialog(context);
+      return;
+    }
     if (!_isWorkerActive) {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: const Text('Recharge your Wallet'),
-            content: const Text(
-              'Your worker access is inactive. Recharge to continue applying for jobs.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Not now'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  widget.onOpenWallet();
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Recharge'),
-              ),
-            ],
-          );
+      await _showWorkerInactiveRechargeDialog(
+        context,
+        onRecharge: () {
+          widget.onOpenWallet();
+          Navigator.of(context).pop();
         },
       );
       return;
@@ -4234,9 +4571,7 @@ class _AllJobsPageState extends State<_AllJobsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          WorkerLocalizations.of(context).isHindi
-              ? 'View More Jobs'
-              : 'View More Jobs',
+          WorkerLocalizations.of(context).viewMoreJobs,
         ),
       ),
       body: SafeArea(
@@ -4264,13 +4599,12 @@ class _AllJobsPageState extends State<_AllJobsPage> {
                 selectedCategoryFilters: _selectedCategoryFilters,
                 selectedCityFilter: _selectedCityFilter,
                 selectedWageBand: _selectedWageBand,
-                industryOptions:
-                    List<WorkerMasterOption>.from(
-                      dashboard.availableIndustryCategories,
-                    )..sort(
-                      (a, b) =>
-                          a.label.toLowerCase().compareTo(b.label.toLowerCase()),
-                    ),
+                industryOptions: List<WorkerMasterOption>.from(
+                  dashboard.availableIndustryCategories,
+                )..sort(
+                    (a, b) =>
+                        a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+                  ),
                 businessTypeOptions: _availableBusinessTypeOptions(),
                 categoryOptions: _availableCategoryOptions(),
                 cityOptions: _availableCityOptions(),
@@ -4422,10 +4756,12 @@ class _FavouriteCitiesSection extends StatelessWidget {
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
-            final maxCardsInViewport = visibleCardCount >= 4 ? 4 : visibleCardCount;
+            final maxCardsInViewport =
+                visibleCardCount >= 4 ? 4 : visibleCardCount;
             final totalSpacing = 8.0 * (maxCardsInViewport - 1);
-            final cardWidth = ((constraints.maxWidth - totalSpacing) / maxCardsInViewport)
-                .clamp(84.0, 104.0);
+            final cardWidth =
+                ((constraints.maxWidth - totalSpacing) / maxCardsInViewport)
+                    .clamp(84.0, 104.0);
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -4657,14 +4993,19 @@ class _PopularCategoriesSection extends StatelessWidget {
                       : Icons.keyboard_arrow_down_rounded,
                   size: 20,
                 ),
-                label: Text(expanded ? 'Show less' : 'Show more'),
+                label: Text(
+                  expanded
+                      ? WorkerLocalizations.of(context).showLess
+                      : WorkerLocalizations.of(context).showMore,
+                ),
               ),
           ],
         ),
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
-            final cardWidth = ((constraints.maxWidth - 24) / 4).clamp(78.0, 92.0);
+            final cardWidth =
+                ((constraints.maxWidth - 24) / 4).clamp(78.0, 92.0);
             return Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -4693,7 +5034,10 @@ class _PopularCategoriesSection extends StatelessWidget {
                             child: Align(
                               alignment: Alignment.topCenter,
                               child: Text(
-                                option.name,
+                                _localizedCategoryLabel(
+                                  WorkerLocalizations.of(context),
+                                  option.name,
+                                ),
                                 maxLines: 2,
                                 overflow: TextOverflow.fade,
                                 textAlign: TextAlign.center,
@@ -4921,7 +5265,8 @@ class _FavouriteCitiesPageState extends State<_FavouriteCitiesPage> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(const <String>[]),
+                      onPressed: () =>
+                          Navigator.of(context).pop(const <String>[]),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
@@ -4934,7 +5279,8 @@ class _FavouriteCitiesPageState extends State<_FavouriteCitiesPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      onPressed: () => Navigator.of(context).pop(_selectedCities),
+                      onPressed: () =>
+                          Navigator.of(context).pop(_selectedCities),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
@@ -5081,7 +5427,10 @@ class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            option.name,
+                                            _localizedCategoryLabel(
+                                              WorkerLocalizations.of(context),
+                                              option.name,
+                                            ),
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
@@ -5276,49 +5625,15 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
   }
 
   Future<void> _showCategoryLockedDialog() async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Category Locked'),
-          content: const Text(
-            'This job is not available for your selected job category.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
+    await _showCategoryLockedMessageDialog(context);
   }
 
   Future<void> _showRechargeWalletDialog() async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Recharge your Wallet'),
-          content: const Text(
-            'Your worker access is inactive. Recharge to continue applying for jobs.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Not now'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                widget.onOpenWallet();
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-              child: const Text('Recharge'),
-            ),
-          ],
-        );
+    await _showWorkerInactiveRechargeDialog(
+      context,
+      onRecharge: () {
+        widget.onOpenWallet();
+        Navigator.of(context).popUntil((route) => route.isFirst);
       },
     );
   }
@@ -5332,7 +5647,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤•à¤¾ à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤¨à¤‚à¤¬à¤° à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤'
+                ? 'कंपनी का व्हाट्सएप नंबर उपलब्ध नहीं है।'
                 : 'Company WhatsApp number is not available.',
           ),
         ),
@@ -5355,7 +5670,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
         SnackBar(
           content: Text(
             l10n.isHindi
-                ? 'à¤µà¥à¤¹à¤¾à¤Ÿà¥à¤¸à¤à¤ª à¤–à¥‹à¤²à¤¾ à¤¨à¤¹à¥€à¤‚ à¤œà¤¾ à¤¸à¤•à¤¾à¥¤'
+                ? 'व्हाट्सएप खोला नहीं जा सका।'
                 : 'Could not open WhatsApp.',
           ),
         ),
@@ -5378,7 +5693,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
       item.companyArea,
       item.companyCity,
     ]);
-    final wageLabel = _FeedTab._wageLabel(item);
+    final wageLabel = _FeedTab._wageLabel(l10n, item);
     final parsedDetails = _extractJobDescriptionDetails(item.description);
     final descriptionNotes = _descriptionNotes(
       item.description,
@@ -5393,120 +5708,137 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
     final canRevealCompanyContact = widget.isWorkerActive && !showLockedState;
     final requirementFields = <_JobDetailFieldData>[
       _JobDetailFieldData(
-        label: 'Worker Required',
+        label: l10n.isHindi ? 'आवश्यक वर्कर' : 'Workers Needed',
         value: item.workersNeeded.toString(),
       ),
       if ((parsedDetails['experience required'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Experience Required',
-          value: parsedDetails['experience required']!,
+          label: l10n.isHindi ? 'अनुभव आवश्यक' : 'Experience Required',
+          value: _localizeCommonJobText(
+            l10n,
+            parsedDetails['experience required']!,
+          ),
         ),
       if ((parsedDetails['worker category'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Worker Category',
-          value: parsedDetails['worker category']!,
+          label: l10n.isHindi ? 'वर्कर कैटेगरी' : 'Worker Category',
+          value: _localizedCategoryLabel(
+            l10n,
+            parsedDetails['worker category']!,
+          ),
         ),
       if ((parsedDetails['gender preference'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Gender Preference',
-          value: parsedDetails['gender preference']!,
+          label: l10n.isHindi ? 'लिंग प्राथमिकता' : 'Gender Preference',
+          value: _localizeCommonJobText(
+            l10n,
+            parsedDetails['gender preference']!,
+          ),
         ),
       if ((parsedDetails['required skills'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Required Skills',
+          label: l10n.isHindi ? 'आवश्यक कौशल' : 'Required Skills',
           value: parsedDetails['required skills']!,
         ),
     ];
     final workDetailFields = <_JobDetailFieldData>[
       if ((parsedDetails['shift type'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Shift Type',
-          value: parsedDetails['shift type']!,
+          label: l10n.isHindi ? 'शिफ्ट प्रकार' : 'Shift Type',
+          value: _localizeCommonJobText(l10n, parsedDetails['shift type']!),
         ),
       if ((parsedDetails['duty hours'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Duty Hours',
+          label: l10n.isHindi ? 'ड्यूटी घंटे' : 'Duty Hours',
           value: parsedDetails['duty hours']!,
         ),
       if ((parsedDetails['weekly off'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Weekly Off',
-          value: parsedDetails['weekly off']!,
+          label: l10n.isHindi ? 'साप्ताहिक छुट्टी' : 'Weekly Off',
+          value: _localizeCommonJobText(l10n, parsedDetails['weekly off']!),
         ),
       if ((parsedDetails['job duration'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Job Duration',
-          value: parsedDetails['job duration']!,
+          label: l10n.isHindi ? 'जॉब अवधि' : 'Job Duration',
+          value: _localizeCommonJobText(l10n, parsedDetails['job duration']!),
         ),
       if ((parsedDetails['job location'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Job Location',
+          label: l10n.isHindi ? 'जॉब लोकेशन' : 'Job Location',
           value: parsedDetails['job location']!,
         ),
       if (companyLocationLine.isNotEmpty)
         _JobDetailFieldData(
-          label: 'City / Area',
+          label: l10n.isHindi ? 'शहर / क्षेत्र' : 'City / Area',
           value: companyLocationLine,
         ),
       _JobDetailFieldData(
-        label: 'Distance',
+        label: l10n.isHindi ? 'दूरी' : 'Distance',
         value: distanceLabel,
       ),
     ];
     final salaryFacilitiesFields = <_JobDetailFieldData>[
       _JobDetailFieldData(
-        label: 'Salary',
+        label: l10n.isHindi ? 'वेतन' : 'Salary',
         value: wageLabel,
       ),
       if ((parsedDetails['overtime available'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Overtime Available',
-          value: parsedDetails['overtime available']!,
+          label: l10n.isHindi ? 'ओवरटाइम उपलब्ध' : 'Overtime Available',
+          value: _localizeCommonJobText(
+            l10n,
+            parsedDetails['overtime available']!,
+          ),
         ),
       if ((parsedDetails['food facility'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Food Facility',
-          value: parsedDetails['food facility']!,
+          label: l10n.isHindi ? 'भोजन सुविधा' : 'Food Facility',
+          value: _localizeCommonJobText(l10n, parsedDetails['food facility']!),
         ),
       if ((parsedDetails['accommodation'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Accommodation',
-          value: parsedDetails['accommodation']!,
+          label: l10n.isHindi ? 'रहने की सुविधा' : 'Accommodation',
+          value: _localizeCommonJobText(l10n, parsedDetails['accommodation']!),
         ),
       if ((parsedDetails['transport facility'] ?? '').isNotEmpty)
         _JobDetailFieldData(
-          label: 'Transport Facility',
-          value: parsedDetails['transport facility']!,
+          label: l10n.isHindi ? 'यातायात सुविधा' : 'Transport Facility',
+          value: _localizeCommonJobText(
+            l10n,
+            parsedDetails['transport facility']!,
+          ),
         ),
     ];
     final jobActivityFields = <_JobDetailFieldData>[
       _JobDetailFieldData(
-        label: 'Posted Date',
+        label: l10n.isHindi ? 'पोस्ट की तारीख' : 'Posted Date',
         value: _shortDate(context, item.publishedAt),
       ),
       _JobDetailFieldData(
-        label: 'Expiry Date',
+        label: l10n.isHindi ? 'अंतिम तारीख' : 'Expiry Date',
         value: _shortDate(context, item.expiresAt),
       ),
       _JobDetailFieldData(
-        label: 'Job Status',
-        value: _jobStatusLabel(item),
+        label: l10n.isHindi ? 'स्थिति' : 'Status',
+        value: _jobStatusLabel(l10n, item),
       ),
       _JobDetailFieldData(
-        label: 'Applied Status',
+        label: l10n.isHindi ? 'आवेदन स्थिति' : 'Applied Status',
         value: _hasApplied
             ? (_applicationStatus == null
                 ? l10n.appliedWithoutStatus
                 : l10n.appliedStatusLabel(_applicationStatus!))
-            : 'Not applied',
+            : (l10n.isHindi ? 'अप्लाई नहीं किया' : 'Not applied'),
       ),
       _JobDetailFieldData(
-        label: 'Saved Status',
-        value: _isSaved ? l10n.saved : 'Not saved',
+        label: l10n.isHindi ? 'सेव्ड स्थिति' : 'Saved Status',
+        value: _isSaved ? l10n.saved : (l10n.isHindi ? 'सेव नहीं किया' : 'Not saved'),
       ),
       _JobDetailFieldData(
-        label: 'Category Status',
-        value: showLockedState ? 'Category Locked' : 'Matching',
+        label: l10n.isHindi ? 'कैटेगरी स्थिति' : 'Category Status',
+        value: showLockedState
+            ? _lockedCategoryBadgeLabel(l10n.isHindi)
+            : (l10n.isHindi ? 'मैचिंग' : 'Matching'),
       ),
     ];
     final specialInstructions = parsedDetails['special instructions'] ?? '';
@@ -5522,7 +5854,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
       appBar: AppBar(
         surfaceTintColor: Colors.white,
         backgroundColor: Colors.white,
-        title: const Text('Job details'),
+        title: Text(l10n.isHindi ? 'जॉब विवरण' : 'Job details'),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -5574,7 +5906,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                               ),
                             ),
                             child: Text(
-                              item.categoryName,
+                              _localizedCategoryLabel(l10n, item.categoryName),
                               style: TextStyle(
                                 color: showLockedState
                                     ? const Color(0xFF9A5B13)
@@ -5650,7 +5982,8 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                     ),
                     _JobDetailHighlightChip(
                       icon: Icons.groups_rounded,
-                      label: 'Worker Required: ${item.workersNeeded}',
+                      label:
+                          '${l10n.isHindi ? 'आवश्यक वर्कर' : 'Workers Needed'}: ${item.workersNeeded}',
                       fill: statusFill,
                       border: statusBorder,
                       textColor: const Color(0xFF166534),
@@ -5703,7 +6036,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
           ),
           const SizedBox(height: 16),
           _JobDetailSectionCard(
-            title: 'Company Details',
+            title: l10n.isHindi ? 'कंपनी विवरण' : 'Company Details',
             child: Column(
               children: [
                 if (showLockedState)
@@ -5716,7 +6049,9 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       border: Border.all(color: const Color(0xFFF7D8A5)),
                     ),
                     child: Text(
-                      'Company details are locked.',
+                      l10n.isHindi
+                          ? 'कंपनी विवरण लॉक है।'
+                          : 'Company details are locked.',
                       style: const TextStyle(
                         color: Color(0xFF92400E),
                         fontWeight: FontWeight.w700,
@@ -5734,8 +6069,10 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       color: const Color(0xFFEEF4FF),
                       border: Border.all(color: const Color(0xFFD6E4FF)),
                     ),
-                    child: const Text(
-                      'Recharge your wallet to unlock company contact details.',
+                    child: Text(
+                      l10n.isHindi
+                          ? 'कंपनी संपर्क डिटेल्स खोलने के लिए अपना वॉलेट रिचार्ज करें।'
+                          : 'Recharge your wallet to unlock company contact details.',
                       style: TextStyle(
                         color: Color(0xFF173C77),
                         fontWeight: FontWeight.w700,
@@ -5746,20 +6083,20 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                   const SizedBox(height: 12),
                 ],
                 _JobDetailInfoRow(
-                  label: 'Company Name',
+                  label: l10n.isHindi ? 'कंपनी का नाम' : 'Company Name',
                   value: item.companyName,
                 ),
                 if (canRevealCompanyContact &&
                     (item.contactPerson?.trim().isNotEmpty ?? false)) ...[
                   const SizedBox(height: 10),
                   _JobDetailInfoRow(
-                    label: 'Contact Person',
+                    label: l10n.isHindi ? 'संपर्क व्यक्ति' : 'Contact Person',
                     value: item.contactPerson!.trim(),
                   ),
                 ],
                 const SizedBox(height: 10),
                 _JobDetailInfoRow(
-                  label: 'City / Area',
+                  label: l10n.isHindi ? 'शहर / क्षेत्र' : 'City / Area',
                   value: companyLocationLine.isEmpty
                       ? (item.city.trim().isEmpty ? '-' : item.city.trim())
                       : companyLocationLine,
@@ -5770,7 +6107,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                     children: [
                       Expanded(
                         child: _JobDetailActionButton(
-                          label: 'WhatsApp',
+                          label: l10n.isHindi ? 'व्हाट्सऐप' : 'WhatsApp',
                           backgroundColor: const Color(0xFFEFFAF3),
                           borderColor: const Color(0xFFB7E8C6),
                           onPressed: _openWhatsApp,
@@ -5785,7 +6122,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _JobDetailActionButton(
-                          label: 'Call',
+                          label: l10n.isHindi ? 'कॉल' : 'Call',
                           backgroundColor: const Color(0xFFF8FAFC),
                           borderColor: const Color(0xFFD7E2EE),
                           onPressed: () => _callJobCompany(context, item),
@@ -5806,42 +6143,53 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
           _JobDetailCardGrid(
             cards: [
               _JobDetailSectionCard(
-                title: 'Job Requirement',
+                title:
+                    l10n.isHindi ? 'जॉब आवश्यकता विवरण' : 'Job Requirement Details',
                 compact: true,
                 child: _JobDetailFieldList(
                   fields: requirementFields,
-                  emptyLabel: 'Requirement details are not available yet.',
+                  emptyLabel: l10n.isHindi
+                      ? 'जॉब आवश्यकता विवरण अभी उपलब्ध नहीं है।'
+                      : 'Requirement details are not available yet.',
                 ),
               ),
               _JobDetailSectionCard(
-                title: 'Work Detail',
+                title: l10n.isHindi ? 'काम का विवरण' : 'Work Details',
                 compact: true,
                 child: _JobDetailFieldList(
                   fields: workDetailFields,
-                  emptyLabel: 'Work timing and location details are not available yet.',
+                  emptyLabel: l10n.isHindi
+                      ? 'काम का विवरण अभी उपलब्ध नहीं है।'
+                      : 'Work timing and location details are not available yet.',
                 ),
               ),
               _JobDetailSectionCard(
-                title: 'Salary Facilities',
+                title: l10n.isHindi
+                    ? 'वेतन और सुविधाएं'
+                    : 'Salary & Facilities',
                 compact: true,
                 child: _JobDetailFieldList(
                   fields: salaryFacilitiesFields,
-                  emptyLabel: 'Salary and facility details are not available yet.',
+                  emptyLabel: l10n.isHindi
+                      ? 'वेतन और सुविधा विवरण अभी उपलब्ध नहीं है।'
+                      : 'Salary and facility details are not available yet.',
                 ),
               ),
               _JobDetailSectionCard(
-                title: 'Job Activity',
+                title: l10n.isHindi ? 'स्थिति' : 'Job Activity',
                 compact: true,
                 child: _JobDetailFieldList(
                   fields: jobActivityFields,
-                  emptyLabel: 'Job activity is not available yet.',
+                  emptyLabel: l10n.isHindi
+                      ? 'जॉब गतिविधि अभी उपलब्ध नहीं है।'
+                      : 'Job activity is not available yet.',
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           _JobDetailSectionCard(
-            title: 'Job Description',
+            title: l10n.isHindi ? 'जॉब विवरण' : 'Job Description',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -5879,7 +6227,9 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                   )
                 else
                   Text(
-                    'No additional instructions provided.',
+                    l10n.isHindi
+                        ? 'कोई अतिरिक्त निर्देश उपलब्ध नहीं हैं।'
+                        : 'No additional instructions provided.',
                     style: const TextStyle(
                       color: Color(0xFF334155),
                       fontSize: 13.5,
@@ -5890,14 +6240,16 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                     !descriptionNotes.contains(specialInstructions.trim())) ...[
                   const SizedBox(height: 12),
                   _JobDetailInfoRow(
-                    label: 'Special Instructions',
+                    label: l10n.isHindi
+                        ? 'विशेष निर्देश'
+                        : 'Special Instructions',
                     value: specialInstructions,
                   ),
                 ],
                 if (languagesPreferred.trim().isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
-                    'Languages Preferred',
+                    l10n.isHindi ? 'पसंदीदा भाषाएं' : 'Languages Preferred',
                     style: const TextStyle(
                       color: Color(0xFF475569),
                       fontSize: 12.5,
@@ -6348,11 +6700,11 @@ const List<String> _jobDescriptionExcludedPrefixes = [
 ];
 
 Map<String, String> _extractJobDescriptionDetails(String description) {
-  final normalized = description.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  final normalized =
+      description.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   final details = <String, String>{};
-  final allLabelsPattern = _jobDescriptionFieldLabels
-      .map(RegExp.escape)
-      .join('|');
+  final allLabelsPattern =
+      _jobDescriptionFieldLabels.map(RegExp.escape).join('|');
 
   for (final line in normalized.split('\n')) {
     final trimmed = line.trim();
@@ -6411,12 +6763,12 @@ String _joinJobDetailParts(List<String?> values) {
       .join(', ');
 }
 
-String _jobStatusLabel(WorkerFeedItemModel item) {
+String _jobStatusLabel(WorkerLocalizations l10n, WorkerFeedItemModel item) {
   final expiresAt = DateTime.tryParse(item.expiresAt);
   if (expiresAt != null && expiresAt.isBefore(DateTime.now())) {
-    return 'Expired';
+    return _localizeCommonJobText(l10n, 'Expired');
   }
-  return 'Active';
+  return _localizeCommonJobText(l10n, 'Live');
 }
 
 class _SavedJobsPage extends StatefulWidget {
@@ -6451,30 +6803,21 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
   }
 
   Future<void> _handleApply(String jobPostId) async {
+    final selectedItem = _items.cast<WorkerFeedItemModel?>().firstWhere(
+          (item) => item?.id == jobPostId,
+          orElse: () => null,
+        );
+    if (selectedItem != null &&
+        _isJobCategoryLockedForWorker(widget.profile, selectedItem)) {
+      await _showCategoryLockedMessageDialog(context);
+      return;
+    }
     if (!widget.isWorkerActive) {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: const Text('Recharge your Wallet'),
-            content: const Text(
-              'Your worker access is inactive. Recharge to continue applying for jobs.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Not now'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  widget.onOpenWallet();
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Recharge'),
-              ),
-            ],
-          );
+      await _showWorkerInactiveRechargeDialog(
+        context,
+        onRecharge: () {
+          widget.onOpenWallet();
+          Navigator.of(context).pop();
         },
       );
       return;
@@ -6577,12 +6920,12 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                       : item.coordinateSource,
                 )
               : (item.companyLatitude != null && item.companyLongitude != null
-                    ? _DerivedJobCoordinates(
-                        latitude: item.companyLatitude!,
-                        longitude: item.companyLongitude!,
-                        source: 'company',
-                      )
-                    : null),
+                  ? _DerivedJobCoordinates(
+                      latitude: item.companyLatitude!,
+                      longitude: item.companyLongitude!,
+                      source: 'company',
+                    )
+                  : null),
           onApply: _handleApply,
           onToggleSaved: _handleToggleSaved,
           onOpenWallet: widget.onOpenWallet,
@@ -6598,7 +6941,8 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.isHindi ? 'à¤¸à¥‡à¤µà¥à¤¡ à¤œà¥‰à¤¬à¥à¤¸' : 'Saved jobs'),
+        title: Text(
+            l10n.isHindi ? 'सेव्ड जॉब्स' : 'Saved jobs'),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -6628,7 +6972,9 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  l10n.isHindi ? 'à¤†à¤ªà¤•à¥€ à¤¶à¥‰à¤°à¥à¤Ÿà¤²à¤¿à¤¸à¥à¤Ÿ' : 'Your shortlist',
+                  l10n.isHindi
+                      ? 'आपकी शॉर्टलिस्ट'
+                      : 'Your shortlist',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -6638,7 +6984,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                 const SizedBox(height: 10),
                 Text(
                   l10n.isHindi
-                      ? 'à¤¸à¥‡à¤µ à¤•à¥€ à¤—à¤ˆ à¤œà¥‰à¤¬à¥à¤¸ à¤•à¥‹ à¤à¤• à¤œà¤—à¤¹ à¤¸à¥‡ à¤¦à¥‡à¤–à¥‡à¤‚, à¤¤à¥à¤²à¤¨à¤¾ à¤•à¤°à¥‡à¤‚ à¤”à¤° à¤¸à¤¹à¥€ à¤¸à¤®à¤¯ à¤ªà¤° à¤…à¤ªà¥à¤²à¤¾à¤ˆ à¤•à¤°à¥‡à¤‚à¥¤'
+                      ? 'सेव की गई जॉब्स को एक जगह से देखें, तुलना करें और सही समय पर अप्लाई करें।'
                       : 'Review your saved jobs in one place, compare them, and apply when you are ready.',
                   style: const TextStyle(
                     color: Color(0xFFE6EEFF),
@@ -6655,11 +7001,11 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                       value: '${_items.length}',
                     ),
                     _SummaryChip(
-                      label: l10n.isHindi ? 'à¤…à¤¨à¤²à¥‰à¤•' : 'Unlocked',
+                      label: l10n.isHindi ? 'अनलॉक' : 'Unlocked',
                       value: '$unlockedCount',
                     ),
                     _SummaryChip(
-                      label: l10n.isHindi ? 'à¤…à¤ªà¥à¤²à¤¾à¤‡à¤¡' : 'Applied',
+                      label: l10n.isHindi ? 'अप्लाइड' : 'Applied',
                       value:
                           '${_items.where((item) => item.hasApplied).length}',
                     ),
@@ -6675,7 +7021,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                 padding: const EdgeInsets.all(22),
                 child: Text(
                   l10n.isHindi
-                      ? 'à¤…à¤­à¥€ à¤•à¥‹à¤ˆ à¤¸à¥‡à¤µà¥à¤¡ à¤œà¥‰à¤¬ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤ à¤«à¥€à¤¡ à¤¸à¥‡ à¤œà¥‰à¤¬ à¤¸à¥‡à¤µ à¤•à¤°à¥‡à¤‚ à¤”à¤° à¤µà¤¹ à¤¯à¤¹à¤¾à¤ à¤¦à¤¿à¤–à¤¾à¤ˆ à¤¦à¥‡à¤—à¥€à¥¤'
+                      ? 'अभी कोई सेव्ड जॉब नहीं है। फीड से जॉब सेव करें और वह यहाँ दिखाई देगी।'
                       : 'No saved jobs yet. Save jobs from the feed and they will appear here.',
                   style: const TextStyle(color: Color(0xFF475569), height: 1.6),
                 ),
@@ -6685,6 +7031,10 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
             ..._items.map(
               (item) {
                 final actionLoading = _actionJobId == item.id;
+                final categoryLocked = _isJobCategoryLockedForWorker(
+                  widget.profile,
+                  item,
+                );
                 return Card(
                   margin: const EdgeInsets.only(bottom: 14),
                   child: Padding(
@@ -6707,7 +7057,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    '${item.city} | ${item.categoryName}',
+                                    '${item.city} | ${_localizedCategoryLabel(l10n, item.categoryName)}',
                                     style: const TextStyle(
                                         color: Color(0xFF64748B)),
                                   ),
@@ -6752,10 +7102,10 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                             _FeedTab._chip(
                               item.companyLocked
                                   ? (l10n.isHindi
-                                      ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤²à¥‰à¤•'
+                                      ? 'कंपनी लॉक'
                                       : 'Company locked')
                                   : (l10n.isHindi
-                                      ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤–à¥à¤²à¥€'
+                                      ? 'कंपनी खुली'
                                       : 'Company unlocked'),
                             ),
                             if (item.hasApplied)
@@ -6779,7 +7129,7 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 12),
                                   child: Text(l10n.isHindi
-                                      ? 'à¤ªà¥‚à¤°à¤¾ à¤µà¤¿à¤µà¤°à¤£'
+                                      ? 'विवरण देखें'
                                       : 'View details'),
                                 ),
                               ),
@@ -6789,7 +7139,11 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                               child: FilledButton(
                                 onPressed: item.hasApplied || actionLoading
                                     ? null
-                                    : () => _handleApply(item.id),
+                                    : categoryLocked
+                                        ? () => _showCategoryLockedMessageDialog(
+                                              context,
+                                            )
+                                        : () => _handleApply(item.id),
                                 child: Padding(
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 12),
@@ -6935,7 +7289,7 @@ class _NotificationsTab extends StatelessWidget {
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      '${l10n.localizeNotificationMessage(type: notification.type, message: notification.message)}\n${_shortDate(context, notification.createdAt)} - ${_prettyText(context, notification.priority)} ${l10n.isHindi ? 'à¤ªà¥à¤°à¤¾à¤¥à¤®à¤¿à¤•à¤¤à¤¾' : 'priority'}',
+                      '${l10n.localizeNotificationMessage(type: notification.type, message: notification.message)}\n${_shortDate(context, notification.createdAt)} - ${_prettyText(context, notification.priority)} ${l10n.isHindi ? 'प्राथमिकता' : 'priority'}',
                       style: const TextStyle(height: 1.5),
                     ),
                   ),
@@ -6977,16 +7331,29 @@ class _WalletTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
     final isActive = _dashboardWorkerActive(dashboard);
-    final daysRemaining = math.max(dashboard.wallet.estimatedDaysRemaining, 0);
-    final daysLabel = daysRemaining == 1 ? '1 day left' : '$daysRemaining days left';
+    final hasActiveFreePlan = _hasActiveFreePlan(dashboard);
+    final daysRemaining = _resolvedDaysRemaining(dashboard);
+    final daysLabel = _daysRemainingLabel(l10n, daysRemaining);
+    final validTillLabel = _formatShortDate(dashboard.workerPlan?.planEndDate);
+    final validTillText =
+        validTillLabel == null ? null : _validTillText(l10n, validTillLabel);
     final planName = (dashboard.workerPlan?.name.trim().isNotEmpty ?? false)
         ? dashboard.workerPlan!.name.trim()
         : 'Starter Plan';
-    final planHeadline =
-        isActive ? '$planName Active' : 'Plan Expired';
-    final planSubtitle =
-        isActive ? daysLabel : 'Recharge Required';
-    final activationLabel = isActive ? 'Active' : 'Inactive';
+    final planHeadline = isActive
+        ? (hasActiveFreePlan
+            ? planName
+            : (l10n.isHindi ? '$planName सक्रिय' : '$planName Active'))
+        : (l10n.isHindi ? 'प्लान समाप्त' : 'Plan Expired');
+    final planSubtitle = isActive
+        ? (hasActiveFreePlan && validTillText != null
+            ? validTillText
+            : daysLabel)
+        : (l10n.isHindi ? 'रिचार्ज जरूरी' : 'Recharge Required');
+    final activationLabel =
+        isActive ? (l10n.isHindi ? 'सक्रिय' : 'Active') : (l10n.isHindi ? 'निष्क्रिय' : 'Inactive');
+    final dailyDeductionAmount =
+        dashboard.workerPlan?.dailyCharge ?? dashboard.wallet.dailyCharge;
     final historyItems = dashboard.wallet.transactions;
 
     return RefreshIndicator.adaptive(
@@ -7000,7 +7367,7 @@ class _WalletTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Wallet & activation',
+                  l10n.walletActivation,
                   style: const TextStyle(
                     color: Color(0xFF0F172A),
                     fontSize: 18,
@@ -7035,8 +7402,8 @@ class _WalletTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Current Balance',
+                      Text(
+                        l10n.currentBalance,
                         style: TextStyle(
                           color: Color(0xFFD7E4FF),
                           fontWeight: FontWeight.w700,
@@ -7057,9 +7424,16 @@ class _WalletTab extends StatelessWidget {
                         runSpacing: 10,
                         children: [
                           _WalletAccentPill(
-                            label: 'Plan Status: $activationLabel',
+                            label:
+                                '${l10n.isHindi ? 'प्लान स्थिति' : 'Plan Status'}: $activationLabel',
                           ),
-                          _WalletAccentPill(label: 'Days Remaining: $daysRemaining'),
+                          _WalletAccentPill(
+                            label: hasActiveFreePlan
+                                ? (l10n.isHindi ? 'फ्री प्लान सक्रिय' : 'Free plan active')
+                                : (l10n.isHindi
+                                    ? 'बाकी दिन: $daysRemaining'
+                                    : 'Days Remaining: $daysRemaining'),
+                          ),
                         ],
                       ),
                     ],
@@ -7067,20 +7441,32 @@ class _WalletTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _WalletDetailCard(
-                  title: 'Plan Status',
+                  title: l10n.isHindi ? 'प्लान स्थिति' : 'Plan Status',
                   value: planHeadline,
                   subtitle: planSubtitle,
                   highlight: !isActive,
                 ),
                 const SizedBox(height: 12),
                 _WalletDetailCard(
-                  title: 'Estimated Active Days',
+                  title: l10n.estimatedActiveDays,
                   value: daysLabel,
+                  subtitle: validTillText,
                 ),
                 const SizedBox(height: 12),
                 _WalletDetailCard(
-                  title: 'Minimum Recharge',
-                  value: 'Rs ${_minimumWalletRechargeAmount.toStringAsFixed(0)}',
+                  title: l10n.isHindi ? 'दैनिक कटौती राशि' : 'Daily Deduction Amount',
+                  value: _dailyDeductionAmountText(l10n, dailyDeductionAmount),
+                  subtitle: hasActiveFreePlan
+                      ? (l10n.isHindi
+                          ? 'फ्री प्लान में कोई दैनिक कटौती नहीं है।'
+                          : 'No daily deduction applies during the free plan.')
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                _WalletDetailCard(
+                  title: l10n.isHindi ? 'न्यूनतम रिचार्ज' : 'Minimum Recharge',
+                  value:
+                      'Rs ${_minimumWalletRechargeAmount.toStringAsFixed(0)}',
                 ),
                 const SizedBox(height: 16),
                 Container(
@@ -7094,8 +7480,8 @@ class _WalletTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Recharge Section',
+                      Text(
+                        l10n.isHindi ? 'रिचार्ज सेक्शन' : 'Recharge Section',
                         style: TextStyle(
                           color: Color(0xFF0F172A),
                           fontWeight: FontWeight.w900,
@@ -7106,18 +7492,25 @@ class _WalletTab extends StatelessWidget {
                       TextField(
                         controller: rechargeAmountController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Recharge Amount',
-                          hintText: 'Enter recharge amount',
+                        decoration: InputDecoration(
+                          labelText:
+                              l10n.isHindi ? 'रिचार्ज राशि' : 'Recharge Amount',
+                          hintText: l10n.isHindi
+                              ? 'रिचार्ज राशि दर्ज करें'
+                              : 'Enter recharge amount',
                           prefixIcon: Icon(Icons.currency_rupee_rounded),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: rechargeNoteController,
-                        decoration: const InputDecoration(
-                          labelText: 'Recharge Note',
-                          hintText: 'Recharge note (optional)',
+                        decoration: InputDecoration(
+                          labelText: l10n.isHindi
+                              ? 'रिचार्ज नोट'
+                              : 'Recharge Note',
+                          hintText: l10n.isHindi
+                              ? 'रिचार्ज नोट (वैकल्पिक)'
+                              : 'Recharge note (optional)',
                           prefixIcon: Icon(Icons.edit_note_rounded),
                         ),
                       ),
@@ -7134,7 +7527,13 @@ class _WalletTab extends StatelessWidget {
                             ),
                           ),
                           child: Text(
-                            loading ? 'Opening payment...' : 'Recharge Now',
+                            loading
+                                ? (l10n.isHindi
+                                    ? 'पेमेंट खुल रहा है...'
+                                    : 'Opening payment...')
+                                : (l10n.isHindi
+                                    ? 'अभी रिचार्ज करें'
+                                    : 'Recharge Now'),
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -7147,7 +7546,7 @@ class _WalletTab extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Recharge & deduction history',
+            l10n.rechargeHistory,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
@@ -7213,7 +7612,8 @@ class _WalletTab extends StatelessWidget {
                       runSpacing: 8,
                       children: [
                         _WalletHistoryPill(
-                          label: 'Date: ${_shortDate(context, transaction.createdAt)}',
+                          label:
+                              'Date: ${_shortDate(context, transaction.createdAt)}',
                         ),
                         _WalletHistoryPill(
                           label:
@@ -7431,8 +7831,9 @@ class _ProfileTabState extends State<_ProfileTab> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _ProfileInfoTile(
-                        label: 'Status',
-                        value: isActive ? 'Active' : 'Inactive',
+                        label: l10n.isHindi ? 'स्थिति' : 'Status',
+                        value:
+                            isActive ? (l10n.isHindi ? 'सक्रिय' : 'Active') : (l10n.isHindi ? 'निष्क्रिय' : 'Inactive'),
                       ),
                     ),
                   ],
@@ -7455,9 +7856,11 @@ class _ProfileTabState extends State<_ProfileTab> {
                 ),
                 const SizedBox(height: 12),
                 _ProfileReadOnlyField(
-                  label: 'Address',
+                  label: l10n.isHindi ? 'पता' : 'Address',
                   icon: Icons.home_work_outlined,
-                  value: profile.address.trim().isEmpty ? '-' : profile.address.trim(),
+                  value: profile.address.trim().isEmpty
+                      ? '-'
+                      : profile.address.trim(),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -7468,7 +7871,8 @@ class _ProfileTabState extends State<_ProfileTab> {
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: l10n.experienceYears,
-                          prefixIcon: const Icon(Icons.workspace_premium_outlined),
+                          prefixIcon:
+                              const Icon(Icons.workspace_premium_outlined),
                         ),
                       ),
                     ),
@@ -7497,22 +7901,27 @@ class _ProfileTabState extends State<_ProfileTab> {
                 ),
                 const SizedBox(height: 16),
                 _ProfileReadOnlyField(
-                  label: 'Industry Category',
+                  label: l10n.isHindi ? 'इंडस्ट्री कैटेगरी' : 'Industry Category',
                   icon: Icons.apartment_rounded,
                   value: categoryContext.industryLabel,
                 ),
                 const SizedBox(height: 12),
                 _ProfileReadOnlyField(
-                  label: 'Business Type',
+                  label: l10n.isHindi ? 'बिजनेस टाइप' : 'Business Type',
                   icon: Icons.business_center_rounded,
                   value: categoryContext.businessTypeLabel,
                 ),
                 const SizedBox(height: 12),
                 _ProfileReadOnlyField(
-                  label: 'Job Category',
+                  label: l10n.isHindi ? 'जॉब कैटेगरी' : 'Job Category',
                   icon: Icons.category_outlined,
-                  value: categoryContext.jobCategoryLabel,
-                  helperText: 'Job category is fixed from registration.',
+                  value: _localizedCategoryLabel(
+                    l10n,
+                    categoryContext.jobCategoryLabel,
+                  ),
+                  helperText: l10n.isHindi
+                      ? 'जॉब कैटेगरी रजिस्ट्रेशन से तय है।'
+                      : 'Job category is fixed from registration.',
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -7525,8 +7934,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                         value: 'available_this_week',
                         child: Text(l10n.availableThisWeek)),
                     DropdownMenuItem(
-                        value: 'not_available',
-                        child: Text(l10n.notAvailable)),
+                        value: 'not_available', child: Text(l10n.notAvailable)),
                   ],
                   onChanged: (value) {
                     if (value != null) {
@@ -7570,8 +7978,8 @@ class _ProfileTabState extends State<_ProfileTab> {
                             borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                        label: const Text(
-                          'Log out',
+                        label: Text(
+                          l10n.isHindi ? 'लॉग आउट' : 'Log out',
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -7841,7 +8249,8 @@ class _WalletDetailCard extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              color: highlight ? const Color(0xFF92400E) : const Color(0xFF0F172A),
+              color:
+                  highlight ? const Color(0xFF92400E) : const Color(0xFF0F172A),
               fontSize: 18,
               fontWeight: FontWeight.w900,
             ),
@@ -7851,8 +8260,9 @@ class _WalletDetailCard extends StatelessWidget {
             Text(
               subtitle!,
               style: TextStyle(
-                color:
-                    highlight ? const Color(0xFF92400E) : const Color(0xFF475569),
+                color: highlight
+                    ? const Color(0xFF92400E)
+                    : const Color(0xFF475569),
                 fontSize: 13.5,
                 fontWeight: FontWeight.w600,
               ),
@@ -7977,8 +8387,8 @@ class _CompactStatusPill extends StatelessWidget {
       ),
       child: Text(
         isActive
-            ? (l10n.isHindi ? 'à¤¸à¤•à¥à¤°à¤¿à¤¯' : 'Active')
-            : (l10n.isHindi ? 'à¤¨à¤¿à¤·à¥à¤•à¥à¤°à¤¿à¤¯' : 'Inactive'),
+            ? (l10n.isHindi ? 'सक्रिय' : 'Active')
+            : (l10n.isHindi ? 'निष्क्रिय' : 'Inactive'),
         style: TextStyle(
           color: foreground,
           fontWeight: FontWeight.w800,
@@ -8085,8 +8495,8 @@ class _ProfileReadOnlyField extends StatelessWidget {
           decoration: InputDecoration(
             labelText: label,
             prefixIcon: Icon(icon),
-            suffixIcon:
-                const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF475569)),
+            suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded,
+                color: Color(0xFF475569)),
           ),
           child: Text(
             value.trim().isEmpty ? '-' : value.trim(),
@@ -8133,6 +8543,14 @@ bool _dashboardWorkerActive(WorkerDashboardModel dashboard) {
     return false;
   }
 
+  if (_hasActiveFreePlan(dashboard)) {
+    return true;
+  }
+
+  if (_isPastDate(dashboard.workerPlan?.planEndDate)) {
+    return false;
+  }
+
   return dashboard.wallet.estimatedDaysRemaining > 0;
 }
 
@@ -8151,7 +8569,8 @@ _ResolvedProfileCategoryContext _resolveProfileCategoryContext(
       .firstWhere((item) => item.isNotEmpty, orElse: () => '');
   if (jobCategoryLabel.isEmpty) {
     final matchedCategory = dashboard.availableCategories.firstWhere(
-      (category) => workerKeys.contains(_normalizeJobRankKey(category.id)) ||
+      (category) =>
+          workerKeys.contains(_normalizeJobRankKey(category.id)) ||
           workerKeys.contains(_normalizeJobRankKey(category.name)),
       orElse: () => WorkerCategoryOption(
         id: '',
@@ -8184,7 +8603,8 @@ _ResolvedProfileCategoryContext _resolveProfileCategoryContext(
           : (dependency.businessType!.label.trim().isNotEmpty
               ? dependency.businessType!.label.trim()
               : dependency.businessType!.value.trim()),
-      jobCategoryLabel: jobCategoryLabel.isEmpty ? dependency.categoryName : jobCategoryLabel,
+      jobCategoryLabel:
+          jobCategoryLabel.isEmpty ? dependency.categoryName : jobCategoryLabel,
     );
   }
 
@@ -8230,17 +8650,17 @@ String _buildWhatsAppMessage({
       : profile.expectedDailyWage.toStringAsFixed(1);
 
   if (isHindi) {
-    return 'à¤¨à¤®à¤¸à¥à¤¤à¥‡ $contactName,\n\n'
-        'à¤®à¥‡à¤°à¤¾ à¤¨à¤¾à¤® ${profile.fullName} à¤¹à¥ˆà¥¤ à¤®à¥à¤à¥‡ à¤†à¤ªà¤•à¥€ à¤œà¥‰à¤¬ "${item.title}" à¤®à¥‡à¤‚ à¤°à¥à¤šà¤¿ à¤¹à¥ˆà¥¤\n\n'
-        'à¤®à¥‡à¤°à¥€ à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤²:\n'
-        'à¤¨à¤¾à¤®: ${profile.fullName}\n'
-        'à¤®à¥‹à¤¬à¤¾à¤‡à¤²: ${profile.mobile}\n'
-        'à¤¶à¤¹à¤°: ${profile.city}\n'
-        'à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€: ${categories.isEmpty ? '-' : categories}\n'
-        'à¤¸à¥à¤•à¤¿à¤²à¥à¤¸: ${skills.isEmpty ? '-' : skills}\n'
-        'à¤…à¤¨à¥à¤­à¤µ: $experience à¤µà¤°à¥à¤·\n'
-        'à¤…à¤ªà¥‡à¤•à¥à¤·à¤¿à¤¤ à¤¦à¤¿à¤¹à¤¾à¤¡à¤¼à¥€: Rs $wage\n\n'
-        'à¤•à¥ƒà¤ªà¤¯à¤¾ à¤¬à¤¤à¤¾à¤‡à¤ à¤…à¤—à¤° à¤¯à¤¹ à¤œà¥‰à¤¬ à¤…à¤­à¥€ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¹à¥ˆà¥¤';
+    return 'नमस्ते $contactName,\n\n'
+        'मेरा नाम ${profile.fullName} है। मुझे आपकी जॉब "${item.title}" में रुचि है।\n\n'
+        'मेरी प्रोफाइल:\n'
+        'नाम: ${profile.fullName}\n'
+        'मोबाइल: ${profile.mobile}\n'
+        'शहर: ${profile.city}\n'
+        'कैटेगरी: ${categories.isEmpty ? '-' : categories}\n'
+        'स्किल्स: ${skills.isEmpty ? '-' : skills}\n'
+        'अनुभव: $experience वर्ष\n'
+        'अपेक्षित दिहाड़ी: Rs $wage\n\n'
+        'कृपया बताइए अगर यह जॉब अभी उपलब्ध है।';
   }
 
   return 'Hello $contactName,\n\n'
@@ -8261,25 +8681,37 @@ Future<void> _openJobWhatsApp(
   WorkerFeedItemModel item,
   WorkerProfileModel profile,
 ) async {
+  final l10n = WorkerLocalizations.of(context);
   final phone = _normalizeWhatsappPhone(item.companyMobile?.trim() ?? '');
   if (phone.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Company WhatsApp number is not available.')),
+      SnackBar(
+        content: Text(
+          l10n.isHindi
+              ? 'कंपनी का व्हाट्सऐप नंबर उपलब्ध नहीं है।'
+              : 'Company WhatsApp number is not available.',
+        ),
+      ),
     );
     return;
   }
   final message = _buildWhatsAppMessage(
     item: item,
     profile: profile,
-    isHindi: WorkerLocalizations.of(context).isHindi,
+    isHindi: l10n.isHindi,
   );
   final uri =
       Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
   final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
   if (!launched && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Could not open WhatsApp.')),
+      SnackBar(
+        content: Text(
+          l10n.isHindi
+              ? 'व्हाट्सऐप खोला नहीं जा सका।'
+              : 'Could not open WhatsApp.',
+        ),
+      ),
     );
   }
 }
@@ -8302,21 +8734,17 @@ Future<void> _callJobCompany(
   }
 }
 
-String _distanceLabel(
-  BuildContext context,
-  _LiveLocationSnapshot liveLocation,
-  WorkerFeedItemModel item,
-  {_DerivedJobCoordinates? resolvedCoordinates}
-) {
+String _distanceLabel(BuildContext context, _LiveLocationSnapshot liveLocation,
+    WorkerFeedItemModel item,
+    {_DerivedJobCoordinates? resolvedCoordinates}) {
   final l10n = WorkerLocalizations.of(context);
   final workerLat = liveLocation.latitude;
   final workerLng = liveLocation.longitude;
   final jobLat = resolvedCoordinates?.latitude ?? item.latitude;
   final jobLng = resolvedCoordinates?.longitude ?? item.longitude;
-  final coordinateSource =
-      resolvedCoordinates?.source.isNotEmpty == true
-          ? resolvedCoordinates!.source
-          : item.coordinateSource;
+  final coordinateSource = resolvedCoordinates?.source.isNotEmpty == true
+      ? resolvedCoordinates!.source
+      : item.coordinateSource;
   if (workerLat == null || workerLng == null) {
     if (kDebugMode || kProfileMode) {
       debugPrint(
@@ -8438,7 +8866,9 @@ String _resolvePrimaryLiveLocation(
   if (homeCity.isNotEmpty) {
     return homeCity;
   }
-  return l10n.isHindi ? 'à¤…à¤ªà¤¨à¤¾ à¤¶à¤¹à¤° à¤œà¥‹à¤¡à¤¼à¥‡à¤‚' : 'Set your city';
+  return l10n.isHindi
+      ? 'अपना शहर जोड़ें'
+      : 'Set your city';
 }
 
 String _resolveSecondaryLiveLocation(
@@ -8478,12 +8908,15 @@ String _activationHeadline(
   }
 
   return switch (activation.status) {
-    'active' => 'à¤µà¤°à¥à¤•à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¹à¥ˆ',
-    'inactive_wallet_empty' => 'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤•à¥€ à¤œà¤°à¥‚à¤°à¤¤ à¤¹à¥ˆ',
-    'inactive_subscription_expired' => 'à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¦à¥‹à¤¬à¤¾à¤°à¤¾ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤•à¤°à¥‡à¤‚',
-    'blocked' => 'à¤µà¤°à¥à¤•à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¬à¥à¤²à¥‰à¤• à¤¹à¥ˆ',
-    'rejected' => 'à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤…à¤¸à¥à¤µà¥€à¤•à¥ƒà¤¤ à¤¹à¥ˆ',
-    _ => 'à¤µà¤°à¥à¤•à¤° à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤•à¤°à¥‡à¤‚',
+    'active' => 'वर्कर एक्सेस सक्रिय है',
+    'inactive_wallet_empty' =>
+      'वॉलेट रिचार्ज की जरूरत है',
+    'inactive_subscription_expired' =>
+      'एक्सेस दोबारा सक्रिय करें',
+    'blocked' => 'वर्कर एक्सेस ब्लॉक है',
+    'rejected' => 'प्रोफ़ाइल अस्वीकृत है',
+    _ =>
+      'वर्कर प्रोफ़ाइल अपडेट करें',
   };
 }
 
@@ -8495,27 +8928,42 @@ String _activationDescription(
 
   return switch (activation.status) {
     'active' =>
-      'à¤†à¤ªà¤•à¤¾ à¤µà¥‰à¤²à¥‡à¤Ÿ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¹à¥ˆà¥¤ à¤¦à¥ˆà¤¨à¤¿à¤• à¤•à¤Ÿà¥Œà¤¤à¥€ à¤•à¥‡ à¤¬à¤¾à¤¦ à¤­à¥€ à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤–à¥à¤²à¥€ à¤°à¤¹à¥‡à¤‚à¤—à¥€à¥¤',
+      'आपका वॉलेट सक्रिय है। दैनिक कटौती के बाद भी कंपनी डिटेल्स खुली रहेंगी।',
     'inactive_wallet_empty' =>
-      'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤¬à¥ˆà¤²à¥‡à¤‚à¤¸ à¤•à¤® à¤¹à¥ˆà¥¤ à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤•à¤°à¤•à¥‡ à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤”à¤° à¤µà¤¿à¤œà¤¿à¤¬à¤¿à¤²à¤¿à¤Ÿà¥€ à¤«à¤¿à¤° à¤¸à¥‡ à¤šà¤¾à¤²à¥‚ à¤•à¤°à¥‡à¤‚à¥¤',
+      'वॉलेट बैलेंस कम है। रिचार्ज करके कंपनी डिटेल्स और विजिबिलिटी फिर से चालू करें।',
     'inactive_subscription_expired' =>
-      'à¤à¤•à¥à¤¸à¥‡à¤¸ à¤…à¤µà¤§à¤¿ à¤–à¤¤à¥à¤® à¤¹à¥‹ à¤—à¤ˆ à¤¹à¥ˆà¥¤ à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤•à¤°à¤•à¥‡ à¤¦à¥‹à¤¬à¤¾à¤°à¤¾ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤•à¤°à¥‡à¤‚à¥¤',
+      'एक्सेस अवधि खत्म हो गई है। रिचार्ज करके दोबारा सक्रिय करें।',
     'blocked' =>
-      'à¤à¤¡à¤®à¤¿à¤¨ à¤¨à¥‡ à¤‡à¤¸ à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤•à¥‹ à¤°à¥‹à¤•à¤¾ à¤¹à¥ˆà¥¤ à¤¸à¤¹à¤¾à¤¯à¤¤à¤¾ à¤•à¥‡ à¤²à¤¿à¤ à¤à¤¡à¤®à¤¿à¤¨ à¤¸à¥‡ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤•à¤°à¥‡à¤‚à¥¤',
+      'एडमिन ने इस प्रोफ़ाइल को रोका है। सहायता के लिए एडमिन से संपर्क करें।',
     'rejected' =>
-      'à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤•à¥‹ à¤¸à¤®à¥€à¤•à¥à¤·à¤¾ à¤•à¥‡ à¤¬à¤¾à¤¦ à¤¸à¥à¤µà¥€à¤•à¤¾à¤° à¤¨à¤¹à¥€à¤‚ à¤•à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾à¥¤ à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€ à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤•à¤°à¥‡à¤‚à¥¤',
-    _ => 'à¤¬à¥‡à¤¹à¤¤à¤° à¤®à¥ˆà¤š à¤ªà¤¾à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤…à¤ªà¤¨à¥€ à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€ à¤”à¤° à¤µà¥‰à¤²à¥‡à¤Ÿ à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤°à¤–à¥‡à¤‚à¥¤',
+      'प्रोफ़ाइल को समीक्षा के बाद स्वीकार नहीं किया गया। जानकारी अपडेट करें।',
+    _ =>
+      'बेहतर मैच पाने के लिए अपनी जानकारी और वॉलेट स्थिति अपडेट रखें।',
   };
 }
 
 String _walletVisibilityRule(
     WorkerLocalizations l10n, WorkerDashboardModel dashboard) {
-  if (dashboard.wallet.estimatedDaysRemaining <= 0) {
+  if (_hasActiveFreePlan(dashboard)) {
+    final validTillLabel = _formatShortDate(dashboard.workerPlan?.planEndDate);
+    if (!l10n.isHindi) {
+      return validTillLabel == null
+          ? 'Your free worker plan is active. No daily deduction is required during this plan.'
+          : 'Your free worker plan is active. Valid till $validTillLabel. No daily deduction is required during this plan.';
+    }
+
+    return validTillLabel == null
+        ? 'आपका फ्री वर्कर प्लान अभी सक्रिय है। इस प्लान के दौरान कोई दैनिक कटौती नहीं होगी।'
+        : 'आपका फ्री वर्कर प्लान अभी सक्रिय है। वैधता $validTillLabel तक है और इस प्लान के दौरान कोई दैनिक कटौती नहीं होगी।';
+  }
+
+  if (!dashboard.activation.isActive ||
+      dashboard.wallet.estimatedDaysRemaining <= 0) {
     if (!l10n.isHindi) {
       return 'Plan expired. Recharge to restore worker access and company details.';
     }
 
-    return 'à¤¯à¥‹à¤œà¤¨à¤¾ à¤¸à¤®à¤¾à¤ªà¥à¤¤ à¤¹à¥‹ à¤šà¥à¤•à¥€ à¤¹à¥ˆà¥¤ à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤”à¤° à¤µà¤°à¥à¤•à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤«à¤¿à¤° à¤¸à¥‡ à¤šà¤¾à¤²à¥‚ à¤•à¤°à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤°à¥€à¤šà¤¾à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚à¥¤';
+    return 'योजना समाप्त हो चुकी है। कंपनी डिटेल्स और वर्कर एक्सेस फिर से चालू करने के लिए रीचार्ज करें।';
   }
 
   if (!l10n.isHindi) {
@@ -8523,8 +8971,8 @@ String _walletVisibilityRule(
   }
 
   if (_dashboardWorkerActive(dashboard)) {
-    return 'à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤°à¤¹à¤¨à¥‡ à¤¤à¤• à¤†à¤ªà¤•à¥€ à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤¦à¤¿à¤–à¤¾à¤ˆ à¤¦à¥‡à¤—à¥€ à¤”à¤° à¤•à¤‚à¤ªà¤¨à¥€ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤°à¤¹à¥‡à¤‚à¤—à¥‡à¥¤';
+    return 'एक्सेस सक्रिय रहने तक आपकी प्रोफ़ाइल दिखाई देगी और कंपनी संपर्क उपलब्ध रहेंगे।';
   }
 
-  return 'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤¬à¥ˆà¤²à¥‡à¤‚à¤¸ à¤”à¤° à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤•à¥‡ à¤†à¤§à¤¾à¤° à¤ªà¤° à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤”à¤° à¤µà¤¿à¤œà¤¿à¤¬à¤¿à¤²à¤¿à¤Ÿà¥€ à¤¨à¤¿à¤¯à¤‚à¤¤à¥à¤°à¤¿à¤¤ à¤¹à¥‹à¤¤à¥€ à¤¹à¥ˆà¥¤';
+  return 'वॉलेट बैलेंस और सक्रिय स्थिति के आधार पर कंपनी डिटेल्स और विजिबिलिटी नियंत्रित होती है।';
 }

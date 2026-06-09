@@ -448,8 +448,7 @@ class WorkerFeedItemModel {
       companyPincode: (json['companyPincode'] ??
               json['pincode'] ??
               json['postalCode'] ??
-              json['zip'])
-          as String? ??
+              json['zip']) as String? ??
           '',
       companyLatitude: _readCoordinate(json, const [
         'companyLatitude',
@@ -487,10 +486,12 @@ class WorkerFeedItemModel {
 }
 
 String? _readSalaryType(Map<String, dynamic> json) {
-  final directValue =
-      (json['salaryType'] ?? json['shiftType'] ?? json['shift'] ?? json['workShift'])
-          ?.toString()
-          .trim();
+  final directValue = (json['salaryType'] ??
+          json['shiftType'] ??
+          json['shift'] ??
+          json['workShift'])
+      ?.toString()
+      .trim();
   if (directValue != null && directValue.isNotEmpty) {
     return directValue;
   }
@@ -588,6 +589,8 @@ class WorkerPlanModel {
   final String id;
   final String name;
   final int validityDays;
+  final String? planStartDate;
+  final String? planEndDate;
   final double dailyCharge;
   final double registrationFee;
   final double walletCredit;
@@ -596,6 +599,8 @@ class WorkerPlanModel {
     required this.id,
     required this.name,
     required this.validityDays,
+    required this.planStartDate,
+    required this.planEndDate,
     required this.dailyCharge,
     required this.registrationFee,
     required this.walletCredit,
@@ -606,6 +611,8 @@ class WorkerPlanModel {
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       validityDays: json['validityDays'] as int? ?? 0,
+      planStartDate: json['planStartDate'] as String?,
+      planEndDate: json['planEndDate'] as String?,
       dailyCharge: (json['dailyCharge'] as num?)?.toDouble() ?? 0,
       registrationFee: (json['registrationFee'] as num?)?.toDouble() ?? 0,
       walletCredit: (json['walletCredit'] as num?)?.toDouble() ?? 0,

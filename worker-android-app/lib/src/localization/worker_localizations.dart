@@ -133,6 +133,15 @@ class WorkerLocalizations {
   String get applicationSent =>
       isHindi ? 'आवेदन भेज दिया गया' : 'Application sent';
   String get applyToJob => isHindi ? 'जॉब के लिए आवेदन करें' : 'Apply to job';
+  String get favouriteCitiesJobsHeading => isHindi
+      ? 'आपके पसंदीदा शहरों में नौकरियां'
+      : 'Jobs in your favourite cities';
+  String get popularJobCategoriesHeading =>
+      isHindi ? 'लोकप्रिय नौकरी श्रेणियां' : 'Popular job categories';
+  String get viewMoreJobs =>
+      isHindi ? 'और नौकरियां देखें' : 'View More Jobs';
+  String get showMore => isHindi ? 'और देखें' : 'Show more';
+  String get showLess => isHindi ? 'कम दिखाएं' : 'Show less';
   String get removeFromShortlist =>
       isHindi ? 'शॉर्टलिस्ट से हटाएं' : 'Remove from shortlist';
   String get saveJob => isHindi ? 'जॉब सेव करें' : 'Save job';
@@ -146,8 +155,8 @@ class WorkerLocalizations {
   String companyCity(String city) =>
       isHindi ? 'कंपनी शहर: $city' : 'Company city: $city';
 
-  String get allJobs => isHindi ? 'सभी जॉब्स' : 'All Jobs';
-  String get jobsNearYou => isHindi ? 'पास की जॉब्स' : 'Jobs Near You';
+  String get allJobs => isHindi ? 'सभी नौकरियां' : 'All Jobs';
+  String get jobsNearYou => isHindi ? 'नजदीकी नौकरियां' : 'Jobs Near You';
   String get otherCities => isHindi ? 'अन्य शहर' : 'Other Cities';
   String get advancedFilters => isHindi ? 'एडवांस फ़िल्टर' : 'Advanced filters';
   String get clearAction => isHindi ? 'साफ़ करें' : 'Clear';
@@ -158,18 +167,18 @@ class WorkerLocalizations {
       : '$count jobs available for selected filters';
   String get industryCategory => isHindi ? 'इंडस्ट्री कैटेगरी' : 'Industry Category';
   String get allIndustryCategories =>
-      isHindi ? 'सभी इंडस्ट्री' : 'All Industry';
+      isHindi ? 'सभी उद्योग' : 'All Industry';
   String get businessType => isHindi ? 'बिज़नेस टाइप' : 'Business Type';
   String get allBusinessTypes =>
-      isHindi ? 'सभी बिज़नेस टाइप चुनें' : 'Select all business type';
+      isHindi ? 'सभी बिजनेस प्रकार चुनें' : 'Select all business type';
   String get selectIndustryFirst =>
-      isHindi ? 'सभी बिज़नेस टाइप चुनें' : 'Select all business type';
+      isHindi ? 'सभी बिजनेस प्रकार चुनें' : 'Select all business type';
   String get category => isHindi ? 'कैटेगरी' : 'Category';
-  String get allCategories => isHindi ? 'सभी कैटेगरी' : 'All Category';
+  String get allCategories => isHindi ? 'सभी श्रेणियां' : 'All Category';
   String get cityFilter => isHindi ? 'शहर फ़िल्टर' : 'City Filter';
   String get allCities => isHindi ? 'सभी शहर' : 'All Cities';
   String get wageFilter => isHindi ? 'वेतन फ़िल्टर' : 'Wage filter';
-  String get allWages => isHindi ? 'सभी वेतन' : 'All Wages';
+  String get allWages => isHindi ? 'सभी मजदूरी' : 'All Wages';
   String get savedOnly => isHindi ? 'सिर्फ़ सेव्ड' : 'Saved only';
   String get appliedOnly => isHindi ? 'सिर्फ़ अप्लाइड' : 'Applied only';
   String get unlockedOnly => isHindi ? 'सिर्फ़ अनलॉक' : 'Unlocked only';
@@ -245,7 +254,7 @@ class WorkerLocalizations {
   String mAway(String distance) =>
       isHindi ? '$distance मीटर दूर' : '$distance m away';
   String get distanceUnavailable =>
-      isHindi ? 'दूरी उपलब्ध नहीं' : 'Distance unavailable';
+      isHindi ? 'दूरी उपलब्ध नहीं है' : 'Distance unavailable';
   String get enableLocationToSeeDistance => isHindi
       ? 'दूरी देखने के लिए लोकेशन चालू करें'
       : 'Enable location to see distance';

@@ -646,6 +646,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   final _rechargeAmountController = TextEditingController(text: '50');
   final _rechargeNoteController = TextEditingController();
   late final Razorpay _razorpay;
+  Timer? _filterUpdateDebounce;
 
   late String _token;
   StreamSubscription<RemoteMessage>? _pushMessagesSubscription;
@@ -674,6 +675,12 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   bool _locationUnavailable = false;
   List<String> _favouriteCities = const [];
   bool _popularCategoriesExpanded = false;
+  bool _filtersUpdating = false;
+  bool _tabSwitching = false;
+  String _filteredFeedCacheKey = '';
+  List<WorkerFeedItemModel> _filteredFeedCache = const [];
+  String _sortedIndustryOptionsCacheKey = '';
+  List<WorkerMasterOption> _sortedIndustryOptionsCache = const [];
   static const int _collapsedPopularCategoryCount = 8;
 
   @override
@@ -699,6 +706,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   @override
   void dispose() {
     _pushMessagesSubscription?.cancel();
+    _filterUpdateDebounce?.cancel();
     _razorpay.clear();
     _rechargeAmountController.dispose();
     _rechargeNoteController.dispose();
@@ -849,6 +857,139 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
 
   String _cleanError(Object error) =>
       error.toString().replaceFirst('Exception: ', '');
+
+  void _scheduleFilterUpdate(
+    VoidCallback update, {
+    Duration delay = const Duration(milliseconds: 140),
+  }) {
+    _filterUpdateDebounce?.cancel();
+    if (!_filtersUpdating && mounted) {
+      setState(() => _filtersUpdating = true);
+    }
+    _filterUpdateDebounce = Timer(delay, () {
+      if (!mounted) return;
+      setState(() {
+        update();
+        _filtersUpdating = false;
+      });
+    });
+  }
+
+  Future<void> _selectTab(int index) async {
+    if (index == _selectedIndex) {
+      return;
+    }
+    setState(() => _tabSwitching = true);
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _selectedIndex = index);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _tabSwitching = false);
+    });
+  }
+
+  String _filteredFeedSignature(WorkerDashboardModel dashboard) {
+    final liveLocation = _liveLocationSnapshot(dashboard.profile);
+    return [
+      identityHashCode(dashboard),
+      _feedQuery.trim().toLowerCase(),
+      _selectedFeedTab.name,
+      _showUnlockedOnly,
+      _showSavedOnly,
+      _showAppliedOnly,
+      _normalizeFilterKey(_selectedIndustryFilter),
+      _normalizeFilterKey(_selectedBusinessTypeFilter),
+      _selectedCategoryFilters.map(_normalizeFilterKey).join(','),
+      _normalizeFilterKey(_selectedCityFilter),
+      _selectedWageBand,
+      _normalizeFilterKey(liveLocation.city),
+      _normalizeFilterKey(liveLocation.area),
+      liveLocation.latitude?.toStringAsFixed(5) ?? '',
+      liveLocation.longitude?.toStringAsFixed(5) ?? '',
+    ].join('|');
+  }
+
+  // TODO: Move large-feed filtering and pagination to the backend before job volume grows significantly.
+  List<WorkerFeedItemModel> _computeFilteredFeed(
+    WorkerDashboardModel dashboard,
+  ) {
+    final filtered = dashboard.feed.where((item) {
+      final matchesQuery = _feedQuery.isEmpty ||
+          item.title.toLowerCase().contains(_feedQuery.toLowerCase()) ||
+          item.city.toLowerCase().contains(_feedQuery.toLowerCase()) ||
+          item.categoryName.toLowerCase().contains(_feedQuery.toLowerCase());
+      final matchesLock = !_showUnlockedOnly || !item.companyLocked;
+      final matchesSaved =
+          (_selectedFeedTab != _FeedViewTab.saved && !_showSavedOnly) ||
+              item.isSaved;
+      final matchesApplied =
+          (_selectedFeedTab != _FeedViewTab.applied && !_showAppliedOnly) ||
+              item.hasApplied;
+      final matchesIndustry = _itemMatchesIndustry(item, dashboard);
+      final matchesBusinessType = _itemMatchesBusinessType(item, dashboard);
+      final matchesCategory = _itemMatchesSelectedCategories(item);
+      final matchesCity = _itemMatchesCity(item);
+      final matchesWage = _matchesWageBand(item.wageAmount, _selectedWageBand);
+      final matchesTab = switch (_selectedFeedTab) {
+        _FeedViewTab.all => true,
+        _FeedViewTab.saved => item.isSaved,
+        _FeedViewTab.applied => item.hasApplied,
+        _FeedViewTab.otherCities =>
+          _itemMatchesOtherCities(item, dashboard.profile),
+        _FeedViewTab.nearby => _itemMatchesNearby(item),
+      };
+      return matchesQuery &&
+          matchesLock &&
+          matchesSaved &&
+          matchesApplied &&
+          matchesIndustry &&
+          matchesBusinessType &&
+          matchesCategory &&
+          matchesCity &&
+          matchesWage &&
+          matchesTab;
+    }).toList(growable: false);
+
+    return _rankWorkerFeedItems(
+      items: filtered,
+      dashboard: dashboard,
+      profile: dashboard.profile,
+      liveLocation: _liveLocationSnapshot(dashboard.profile),
+    );
+  }
+
+  List<WorkerFeedItemModel> _resolvedFilteredFeed(
+    WorkerDashboardModel dashboard,
+  ) {
+    final signature = _filteredFeedSignature(dashboard);
+    if (_filteredFeedCacheKey == signature) {
+      return _filteredFeedCache;
+    }
+    final filteredFeed = _computeFilteredFeed(dashboard);
+    _filteredFeedCacheKey = signature;
+    _filteredFeedCache = filteredFeed;
+    return filteredFeed;
+  }
+
+  List<WorkerMasterOption> _sortedIndustryOptions(
+    WorkerDashboardModel dashboard,
+  ) {
+    final signature = '${identityHashCode(dashboard)}|industry-options';
+    if (_sortedIndustryOptionsCacheKey == signature) {
+      return _sortedIndustryOptionsCache;
+    }
+    final options = List<WorkerMasterOption>.from(
+      dashboard.availableIndustryCategories,
+    )..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    _sortedIndustryOptionsCacheKey = signature;
+    _sortedIndustryOptionsCache = options;
+    return options;
+  }
 
   bool _isConnectivityError(String message) {
     final normalized = message.toLowerCase();
@@ -2143,50 +2284,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   List<WorkerFeedItemModel> get _filteredFeed {
     final dashboard = _dashboard;
     if (dashboard == null) return const [];
-
-    final filtered = dashboard.feed.where((item) {
-      final matchesQuery = _feedQuery.isEmpty ||
-          item.title.toLowerCase().contains(_feedQuery.toLowerCase()) ||
-          item.city.toLowerCase().contains(_feedQuery.toLowerCase()) ||
-          item.categoryName.toLowerCase().contains(_feedQuery.toLowerCase());
-      final matchesLock = !_showUnlockedOnly || !item.companyLocked;
-      final matchesSaved =
-          (_selectedFeedTab != _FeedViewTab.saved && !_showSavedOnly) ||
-              item.isSaved;
-      final matchesApplied =
-          (_selectedFeedTab != _FeedViewTab.applied && !_showAppliedOnly) ||
-              item.hasApplied;
-      final matchesIndustry = _itemMatchesIndustry(item, dashboard);
-      final matchesBusinessType = _itemMatchesBusinessType(item, dashboard);
-      final matchesCategory = _itemMatchesSelectedCategories(item);
-      final matchesCity = _itemMatchesCity(item);
-      final matchesWage = _matchesWageBand(item.wageAmount, _selectedWageBand);
-      final matchesTab = switch (_selectedFeedTab) {
-        _FeedViewTab.all => true,
-        _FeedViewTab.saved => item.isSaved,
-        _FeedViewTab.applied => item.hasApplied,
-        _FeedViewTab.otherCities =>
-          _itemMatchesOtherCities(item, dashboard.profile),
-        _FeedViewTab.nearby => _itemMatchesNearby(item),
-      };
-      return matchesQuery &&
-          matchesLock &&
-          matchesSaved &&
-          matchesApplied &&
-          matchesIndustry &&
-          matchesBusinessType &&
-          matchesCategory &&
-          matchesCity &&
-          matchesWage &&
-          matchesTab;
-    }).toList(growable: false);
-
-    return _rankWorkerFeedItems(
-      items: filtered,
-      dashboard: dashboard,
-      profile: dashboard.profile,
-      liveLocation: _liveLocationSnapshot(dashboard.profile),
-    );
+    return _resolvedFilteredFeed(dashboard);
   }
 
   @override
@@ -2221,6 +2319,20 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     final syncIssueBannerDescription = l10n.isHindi
         ? 'App abhi saved data dikha rahi hai. Dobara refresh karke latest data layen.'
         : 'The app is still usable with saved data. Refresh once more to fetch the newest updates.';
+    final filteredFeed =
+        dashboard == null ? const <WorkerFeedItemModel>[] : _filteredFeed;
+    final visibleHomeFeed = filteredFeed.take(8).toList(growable: false);
+    final sortedIndustryOptions = dashboard == null
+        ? const <WorkerMasterOption>[]
+        : _sortedIndustryOptions(dashboard);
+    final businessTypeOptions = dashboard == null
+        ? const <WorkerMasterOption>[]
+        : _availableBusinessTypeOptions(dashboard);
+    final categoryOptions = dashboard == null
+        ? const <WorkerCategoryOption>[]
+        : _availableCategoryOptions(dashboard);
+    final cityOptions =
+        dashboard == null ? const <String>[] : _availableCityOptions(dashboard);
 
     return Scaffold(
       appBar: AppBar(
@@ -2232,7 +2344,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           child: InkWell(
             onTap: () {
               if (_selectedIndex != 0) {
-                setState(() => _selectedIndex = 0);
+                unawaited(_selectTab(0));
               }
             },
             borderRadius: BorderRadius.circular(8),
@@ -2290,7 +2402,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
             ),
           if (dashboard != null)
             IconButton(
-              onPressed: () => setState(() => _selectedIndex = 3),
+              onPressed: () => unawaited(_selectTab(3)),
               icon: Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -2362,7 +2474,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
               bottom: false,
               child: Column(
                 children: [
-                  if (_loading) const LinearProgressIndicator(minHeight: 2),
+                  if (_loading || _tabSwitching)
+                    const LinearProgressIndicator(minHeight: 2),
                   if (_showSyncIssueBanner)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -2382,134 +2495,151 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                       ),
                     ),
                   Expanded(
-                    child: IndexedStack(
-                      index: _selectedIndex,
-                      children: [
-                        _FeedTab(
-                          dashboard: dashboard,
-                          visibleJobsCount: _filteredFeed.length,
-                          liveLocation:
-                              _liveLocationSnapshot(dashboard.profile),
-                          resolveJobCoordinatesForItem:
-                              _resolveJobCoordinatesForItem,
-                          feed: _filteredFeed.take(8).toList(growable: false),
-                          emptyStateMessage: _feedEmptyMessage(dashboard),
-                          query: _feedQuery,
-                          selectedFeedTab: _selectedFeedTab,
-                          showUnlockedOnly: _showUnlockedOnly,
-                          showSavedOnly: _showSavedOnly,
-                          showAppliedOnly: _showAppliedOnly,
-                          selectedIndustryFilter: _selectedIndustryFilter,
-                          selectedBusinessTypeFilter:
-                              _selectedBusinessTypeFilter,
-                          selectedCategoryFilters: _selectedCategoryFilters,
-                          selectedCityFilter: _selectedCityFilter,
-                          selectedWageBand: _selectedWageBand,
-                          industryOptions: dashboard.availableIndustryCategories
-                            ..sort((a, b) => a.label
-                                .toLowerCase()
-                                .compareTo(b.label.toLowerCase())),
-                          businessTypeOptions:
-                              _availableBusinessTypeOptions(dashboard),
-                          categoryOptions: _availableCategoryOptions(dashboard),
-                          cityOptions: _availableCityOptions(dashboard),
-                          activeJobActionId: _jobActionId,
-                          onRefresh: _loadDashboard,
-                          onFeedTabChanged: (value) =>
-                              setState(() => _selectedFeedTab = value),
-                          onQueryChanged: (value) =>
-                              setState(() => _feedQuery = value),
-                          onToggleUnlockedOnly: (value) =>
-                              setState(() => _showUnlockedOnly = value),
-                          onToggleSavedOnly: (value) =>
-                              setState(() => _showSavedOnly = value),
-                          onToggleAppliedOnly: (value) =>
-                              setState(() => _showAppliedOnly = value),
-                          onIndustryFilterChanged: (value) => setState(() {
-                            _selectedIndustryFilter = value;
-                            _selectedBusinessTypeFilter = 'all';
-                            final availableCategories =
-                                _availableCategoryOptions(
-                              dashboard,
-                            );
-                            final allowedKeys = availableCategories
-                                .expand((item) => [item.id, item.name])
-                                .map(_normalizeFilterKey)
-                                .where((item) => item.isNotEmpty)
-                                .toSet();
-                            _selectedCategoryFilters = _selectedCategoryFilters
-                                .where((item) => allowedKeys
-                                    .contains(_normalizeFilterKey(item)))
-                                .toList(growable: false);
-                          }),
-                          onBusinessTypeFilterChanged: (value) => setState(() {
-                            _selectedBusinessTypeFilter = value;
-                            final availableCategories =
-                                _availableCategoryOptions(
-                              dashboard,
-                            );
-                            final allowedKeys = availableCategories
-                                .expand((item) => [item.id, item.name])
-                                .map(_normalizeFilterKey)
-                                .where((item) => item.isNotEmpty)
-                                .toSet();
-                            _selectedCategoryFilters = _selectedCategoryFilters
-                                .where((item) => allowedKeys
-                                    .contains(_normalizeFilterKey(item)))
-                                .toList(growable: false);
-                          }),
-                          onCategoryFiltersChanged: (value) => setState(() =>
-                              _selectedCategoryFilters =
-                                  List.unmodifiable(value)),
-                          onCityFilterChanged: (value) =>
-                              setState(() => _selectedCityFilter = value),
-                          onWageBandChanged: (value) =>
-                              setState(() => _selectedWageBand = value),
-                          onClearFilters: () => setState(() {
-                            _feedQuery = '';
-                            _selectedFeedTab = _FeedViewTab.all;
-                            _showUnlockedOnly = false;
-                            _showSavedOnly = false;
-                            _showAppliedOnly = false;
-                            _selectedIndustryFilter = 'all';
-                            _selectedBusinessTypeFilter = 'all';
-                            _selectedCategoryFilters = const [];
-                            _selectedCityFilter = 'all';
-                            _selectedWageBand = 'all';
-                          }),
-                          onApply: _applyToJob,
-                          onToggleSaved: _toggleSavedJob,
-                          onOpenDetails: _openJobDetails,
-                          showViewMoreButton: _filteredFeed.length > 8,
-                          onViewMoreJobs: _openViewMoreJobs,
-                          sectionsAfterJobs: _buildHomeSections(dashboard),
-                        ),
-                        _WalletTab(
-                          dashboard: dashboard,
-                          rechargeAmountController: _rechargeAmountController,
-                          rechargeNoteController: _rechargeNoteController,
-                          onStartWalletRecharge: _startWalletRecharge,
-                          onRefresh: _loadDashboard,
-                          loading: _walletPaymentLoading || _loading,
-                        ),
-                        _ProfileTab(
-                          dashboard: dashboard,
-                          onSave: _saveProfile,
-                          onLogout: _logout,
-                          onRefresh: _loadDashboard,
-                          loading: _loading,
-                        ),
-                        _NotificationsTab(
-                          notifications: dashboard.notifications,
-                          loading: _notificationsLoading,
-                          onRefresh: _loadDashboard,
-                          onMarkAllRead: () => _markNotificationsRead(),
-                          onMarkRead: (notificationId) =>
-                              _markNotificationsRead(
-                            notificationIds: [notificationId],
-                          ),
-                        ),
-                      ],
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: KeyedSubtree(
+                        key: ValueKey<int>(_selectedIndex),
+                        child: switch (_selectedIndex) {
+                          0 => _FeedTab(
+                              dashboard: dashboard,
+                              visibleJobsCount: filteredFeed.length,
+                              liveLocation:
+                                  _liveLocationSnapshot(dashboard.profile),
+                              resolveJobCoordinatesForItem:
+                                  _resolveJobCoordinatesForItem,
+                              feed: visibleHomeFeed,
+                              emptyStateMessage: _feedEmptyMessage(dashboard),
+                              query: _feedQuery,
+                              selectedFeedTab: _selectedFeedTab,
+                              showUnlockedOnly: _showUnlockedOnly,
+                              showSavedOnly: _showSavedOnly,
+                              showAppliedOnly: _showAppliedOnly,
+                              selectedIndustryFilter: _selectedIndustryFilter,
+                              selectedBusinessTypeFilter:
+                                  _selectedBusinessTypeFilter,
+                              selectedCategoryFilters: _selectedCategoryFilters,
+                              selectedCityFilter: _selectedCityFilter,
+                              selectedWageBand: _selectedWageBand,
+                              industryOptions: sortedIndustryOptions,
+                              businessTypeOptions: businessTypeOptions,
+                              categoryOptions: categoryOptions,
+                              cityOptions: cityOptions,
+                              activeJobActionId: _jobActionId,
+                              onRefresh: _loadDashboard,
+                              onFeedTabChanged: (value) => _scheduleFilterUpdate(
+                                () => _selectedFeedTab = value,
+                              ),
+                              onQueryChanged: (value) => _scheduleFilterUpdate(
+                                () => _feedQuery = value,
+                                delay: const Duration(milliseconds: 220),
+                              ),
+                              onToggleUnlockedOnly: (value) =>
+                                  _scheduleFilterUpdate(
+                                () => _showUnlockedOnly = value,
+                              ),
+                              onToggleSavedOnly: (value) => _scheduleFilterUpdate(
+                                () => _showSavedOnly = value,
+                              ),
+                              onToggleAppliedOnly: (value) =>
+                                  _scheduleFilterUpdate(
+                                () => _showAppliedOnly = value,
+                              ),
+                              onIndustryFilterChanged: (value) =>
+                                  _scheduleFilterUpdate(() {
+                                _selectedIndustryFilter = value;
+                                _selectedBusinessTypeFilter = 'all';
+                                final availableCategories =
+                                    _availableCategoryOptions(dashboard);
+                                final allowedKeys = availableCategories
+                                    .expand((item) => [item.id, item.name])
+                                    .map(_normalizeFilterKey)
+                                    .where((item) => item.isNotEmpty)
+                                    .toSet();
+                                _selectedCategoryFilters =
+                                    _selectedCategoryFilters
+                                        .where((item) => allowedKeys.contains(
+                                            _normalizeFilterKey(item)))
+                                        .toList(growable: false);
+                              }),
+                              onBusinessTypeFilterChanged: (value) =>
+                                  _scheduleFilterUpdate(() {
+                                _selectedBusinessTypeFilter = value;
+                                final availableCategories =
+                                    _availableCategoryOptions(dashboard);
+                                final allowedKeys = availableCategories
+                                    .expand((item) => [item.id, item.name])
+                                    .map(_normalizeFilterKey)
+                                    .where((item) => item.isNotEmpty)
+                                    .toSet();
+                                _selectedCategoryFilters =
+                                    _selectedCategoryFilters
+                                        .where((item) => allowedKeys.contains(
+                                            _normalizeFilterKey(item)))
+                                        .toList(growable: false);
+                              }),
+                              onCategoryFiltersChanged: (value) =>
+                                  _scheduleFilterUpdate(
+                                () => _selectedCategoryFilters =
+                                    List.unmodifiable(value),
+                              ),
+                              onCityFilterChanged: (value) =>
+                                  _scheduleFilterUpdate(
+                                () => _selectedCityFilter = value,
+                              ),
+                              onWageBandChanged: (value) =>
+                                  _scheduleFilterUpdate(
+                                () => _selectedWageBand = value,
+                              ),
+                              onClearFilters: () => _scheduleFilterUpdate(() {
+                                _feedQuery = '';
+                                _selectedFeedTab = _FeedViewTab.all;
+                                _showUnlockedOnly = false;
+                                _showSavedOnly = false;
+                                _showAppliedOnly = false;
+                                _selectedIndustryFilter = 'all';
+                                _selectedBusinessTypeFilter = 'all';
+                                _selectedCategoryFilters = const [];
+                                _selectedCityFilter = 'all';
+                                _selectedWageBand = 'all';
+                              }),
+                              onApply: _applyToJob,
+                              onToggleSaved: _toggleSavedJob,
+                              onOpenDetails: _openJobDetails,
+                              showViewMoreButton: filteredFeed.length > 8,
+                              onViewMoreJobs: _openViewMoreJobs,
+                              sectionsAfterJobs: _buildHomeSections(dashboard),
+                              isFilteringJobs: _filtersUpdating,
+                              scrollStorageKey:
+                                  const PageStorageKey<String>('worker-home-feed'),
+                            ),
+                          1 => _WalletTab(
+                              dashboard: dashboard,
+                              rechargeAmountController:
+                                  _rechargeAmountController,
+                              rechargeNoteController: _rechargeNoteController,
+                              onStartWalletRecharge: _startWalletRecharge,
+                              onRefresh: _loadDashboard,
+                              loading: _walletPaymentLoading || _loading,
+                            ),
+                          2 => _ProfileTab(
+                              dashboard: dashboard,
+                              onSave: _saveProfile,
+                              onLogout: _logout,
+                              onRefresh: _loadDashboard,
+                              loading: _loading,
+                            ),
+                          _ => _NotificationsTab(
+                              notifications: dashboard.notifications,
+                              loading: _notificationsLoading,
+                              onRefresh: _loadDashboard,
+                              onMarkAllRead: () => _markNotificationsRead(),
+                              onMarkRead: (notificationId) =>
+                                  _markNotificationsRead(
+                                notificationIds: [notificationId],
+                              ),
+                            ),
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -2518,7 +2648,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) =>
-            setState(() => _selectedIndex = index),
+            unawaited(_selectTab(index)),
         destinations: [
           NavigationDestination(
             icon: Icon(Icons.work_outline_rounded),
@@ -2762,6 +2892,8 @@ class _FeedTab extends StatelessWidget {
   final List<Widget> sectionsAfterJobs;
   final bool showViewMoreButton;
   final VoidCallback? onViewMoreJobs;
+  final bool isFilteringJobs;
+  final Key? scrollStorageKey;
 
   const _FeedTab({
     required this.dashboard,
@@ -2805,6 +2937,8 @@ class _FeedTab extends StatelessWidget {
     this.sectionsAfterJobs = const [],
     this.showViewMoreButton = false,
     this.onViewMoreJobs,
+    this.isFilteringJobs = false,
+    this.scrollStorageKey,
   });
 
   @override
@@ -2911,6 +3045,7 @@ class _FeedTab extends StatelessWidget {
     return RefreshIndicator.adaptive(
       onRefresh: onRefresh,
       child: ListView(
+        key: scrollStorageKey,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
@@ -3379,6 +3514,36 @@ class _FeedTab extends StatelessWidget {
             ...sectionsBeforeJobs,
             const SizedBox(height: 8),
           ],
+          if (isFilteringJobs)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    l10n.isHindi
+                        ? 'नौकरियां लोड हो रही हैं...'
+                        : 'Loading jobs...',
+                    style: const TextStyle(
+                      color: Color(0xFF475569),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (feed.isEmpty)
             Card(
               child: Padding(
@@ -3969,6 +4134,7 @@ class _AllJobsPage extends StatefulWidget {
 
 class _AllJobsPageState extends State<_AllJobsPage> {
   final _apiService = WorkerApiService();
+  Timer? _filterUpdateDebounce;
 
   late WorkerDashboardModel _dashboard;
   late bool _isWorkerActive;
@@ -3984,7 +4150,12 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   late String _selectedWageBand;
 
   bool _loading = false;
+  bool _filtersUpdating = false;
   String _jobActionId = '';
+  String _filteredFeedCacheKey = '';
+  List<WorkerFeedItemModel> _filteredFeedCache = const [];
+  String _sortedIndustryOptionsCacheKey = '';
+  List<WorkerMasterOption> _sortedIndustryOptionsCache = const [];
 
   @override
   void initState() {
@@ -4005,8 +4176,120 @@ class _AllJobsPageState extends State<_AllJobsPage> {
     _selectedWageBand = widget.initialSelectedWageBand;
   }
 
+  @override
+  void dispose() {
+    _filterUpdateDebounce?.cancel();
+    super.dispose();
+  }
+
   String _cleanError(Object error) {
     return error.toString().replaceFirst('Exception: ', '').trim();
+  }
+
+  void _scheduleFilterUpdate(
+    VoidCallback update, {
+    Duration delay = const Duration(milliseconds: 140),
+  }) {
+    _filterUpdateDebounce?.cancel();
+    if (!_filtersUpdating && mounted) {
+      setState(() => _filtersUpdating = true);
+    }
+    _filterUpdateDebounce = Timer(delay, () {
+      if (!mounted) return;
+      setState(() {
+        update();
+        _filtersUpdating = false;
+      });
+    });
+  }
+
+  String _filteredFeedSignature() {
+    return [
+      identityHashCode(_dashboard),
+      _feedQuery.trim().toLowerCase(),
+      _selectedFeedTab.name,
+      _showUnlockedOnly,
+      _showSavedOnly,
+      _showAppliedOnly,
+      _normalizeFilterKey(_selectedIndustryFilter),
+      _normalizeFilterKey(_selectedBusinessTypeFilter),
+      _selectedCategoryFilters.map(_normalizeFilterKey).join(','),
+      _normalizeFilterKey(_selectedCityFilter),
+      _selectedWageBand,
+      _normalizeFilterKey(widget.initialLiveLocation.city),
+      _normalizeFilterKey(widget.initialLiveLocation.area),
+      widget.initialLiveLocation.latitude?.toStringAsFixed(5) ?? '',
+      widget.initialLiveLocation.longitude?.toStringAsFixed(5) ?? '',
+    ].join('|');
+  }
+
+  List<WorkerFeedItemModel> _computeFilteredFeed() {
+    final filtered = _dashboard.feed.where((item) {
+      final matchesQuery = _feedQuery.isEmpty ||
+          item.title.toLowerCase().contains(_feedQuery.toLowerCase()) ||
+          item.city.toLowerCase().contains(_feedQuery.toLowerCase()) ||
+          item.categoryName.toLowerCase().contains(_feedQuery.toLowerCase());
+      final matchesLock = !_showUnlockedOnly || !item.companyLocked;
+      final matchesSaved =
+          (_selectedFeedTab != _FeedViewTab.saved && !_showSavedOnly) ||
+              item.isSaved;
+      final matchesApplied =
+          (_selectedFeedTab != _FeedViewTab.applied && !_showAppliedOnly) ||
+              item.hasApplied;
+      final matchesIndustry = _itemMatchesIndustry(item);
+      final matchesBusinessType = _itemMatchesBusinessType(item);
+      final matchesCategory = _itemMatchesSelectedCategories(item);
+      final matchesCity = _itemMatchesCity(item);
+      final matchesWage = _matchesWageBand(item.wageAmount, _selectedWageBand);
+      final matchesTab = switch (_selectedFeedTab) {
+        _FeedViewTab.all => true,
+        _FeedViewTab.saved => item.isSaved,
+        _FeedViewTab.applied => item.hasApplied,
+        _FeedViewTab.otherCities => _itemMatchesOtherCities(item),
+        _FeedViewTab.nearby => _itemMatchesNearby(item),
+      };
+      return matchesQuery &&
+          matchesLock &&
+          matchesSaved &&
+          matchesApplied &&
+          matchesIndustry &&
+          matchesBusinessType &&
+          matchesCategory &&
+          matchesCity &&
+          matchesWage &&
+          matchesTab;
+    }).toList(growable: false);
+
+    return _rankWorkerFeedItems(
+      items: filtered,
+      dashboard: _dashboard,
+      profile: _dashboard.profile,
+      liveLocation: widget.initialLiveLocation,
+    );
+  }
+
+  List<WorkerFeedItemModel> _resolvedFilteredFeed() {
+    final signature = _filteredFeedSignature();
+    if (_filteredFeedCacheKey == signature) {
+      return _filteredFeedCache;
+    }
+    final filteredFeed = _computeFilteredFeed();
+    _filteredFeedCacheKey = signature;
+    _filteredFeedCache = filteredFeed;
+    return filteredFeed;
+  }
+
+  List<WorkerMasterOption> _sortedIndustryOptions() {
+    final signature = '${identityHashCode(_dashboard)}|industry-options';
+    if (_sortedIndustryOptionsCacheKey == signature) {
+      return _sortedIndustryOptionsCache;
+    }
+    final options = List<WorkerMasterOption>.from(
+      _dashboard.availableIndustryCategories,
+    )..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    _sortedIndustryOptionsCacheKey = signature;
+    _sortedIndustryOptionsCache = options;
+    return options;
   }
 
   String _normalizeFilterKey(String value) {
@@ -4398,48 +4681,7 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   }
 
   List<WorkerFeedItemModel> get _filteredFeed {
-    final filtered = _dashboard.feed.where((item) {
-      final matchesQuery = _feedQuery.isEmpty ||
-          item.title.toLowerCase().contains(_feedQuery.toLowerCase()) ||
-          item.city.toLowerCase().contains(_feedQuery.toLowerCase()) ||
-          item.categoryName.toLowerCase().contains(_feedQuery.toLowerCase());
-      final matchesLock = !_showUnlockedOnly || !item.companyLocked;
-      final matchesSaved =
-          (_selectedFeedTab != _FeedViewTab.saved && !_showSavedOnly) ||
-              item.isSaved;
-      final matchesApplied =
-          (_selectedFeedTab != _FeedViewTab.applied && !_showAppliedOnly) ||
-              item.hasApplied;
-      final matchesIndustry = _itemMatchesIndustry(item);
-      final matchesBusinessType = _itemMatchesBusinessType(item);
-      final matchesCategory = _itemMatchesSelectedCategories(item);
-      final matchesCity = _itemMatchesCity(item);
-      final matchesWage = _matchesWageBand(item.wageAmount, _selectedWageBand);
-      final matchesTab = switch (_selectedFeedTab) {
-        _FeedViewTab.all => true,
-        _FeedViewTab.saved => item.isSaved,
-        _FeedViewTab.applied => item.hasApplied,
-        _FeedViewTab.otherCities => _itemMatchesOtherCities(item),
-        _FeedViewTab.nearby => _itemMatchesNearby(item),
-      };
-      return matchesQuery &&
-          matchesLock &&
-          matchesSaved &&
-          matchesApplied &&
-          matchesIndustry &&
-          matchesBusinessType &&
-          matchesCategory &&
-          matchesCity &&
-          matchesWage &&
-          matchesTab;
-    }).toList(growable: false);
-
-    return _rankWorkerFeedItems(
-      items: filtered,
-      dashboard: _dashboard,
-      profile: _dashboard.profile,
-      liveLocation: widget.initialLiveLocation,
-    );
+    return _resolvedFilteredFeed();
   }
 
   Future<void> _loadDashboard() async {
@@ -4567,6 +4809,11 @@ class _AllJobsPageState extends State<_AllJobsPage> {
   @override
   Widget build(BuildContext context) {
     final dashboard = _dashboard;
+    final filteredFeed = _filteredFeed;
+    final sortedIndustryOptions = _sortedIndustryOptions();
+    final businessTypeOptions = _availableBusinessTypeOptions();
+    final categoryOptions = _availableCategoryOptions();
+    final cityOptions = _availableCityOptions();
 
     return Scaffold(
       appBar: AppBar(
@@ -4583,11 +4830,11 @@ class _AllJobsPageState extends State<_AllJobsPage> {
             Expanded(
               child: _FeedTab(
                 dashboard: dashboard,
-                visibleJobsCount: _filteredFeed.length,
+                visibleJobsCount: filteredFeed.length,
                 liveLocation: widget.initialLiveLocation,
                 resolveJobCoordinatesForItem:
                     widget.resolveJobCoordinatesForItem,
-                feed: _filteredFeed,
+                feed: filteredFeed,
                 emptyStateMessage: _feedEmptyMessage(),
                 query: _feedQuery,
                 selectedFeedTab: _selectedFeedTab,
@@ -4599,27 +4846,25 @@ class _AllJobsPageState extends State<_AllJobsPage> {
                 selectedCategoryFilters: _selectedCategoryFilters,
                 selectedCityFilter: _selectedCityFilter,
                 selectedWageBand: _selectedWageBand,
-                industryOptions: List<WorkerMasterOption>.from(
-                  dashboard.availableIndustryCategories,
-                )..sort(
-                    (a, b) =>
-                        a.label.toLowerCase().compareTo(b.label.toLowerCase()),
-                  ),
-                businessTypeOptions: _availableBusinessTypeOptions(),
-                categoryOptions: _availableCategoryOptions(),
-                cityOptions: _availableCityOptions(),
+                industryOptions: sortedIndustryOptions,
+                businessTypeOptions: businessTypeOptions,
+                categoryOptions: categoryOptions,
+                cityOptions: cityOptions,
                 activeJobActionId: _jobActionId,
                 onRefresh: _loadDashboard,
                 onFeedTabChanged: (value) =>
-                    setState(() => _selectedFeedTab = value),
-                onQueryChanged: (value) => setState(() => _feedQuery = value),
+                    _scheduleFilterUpdate(() => _selectedFeedTab = value),
+                onQueryChanged: (value) => _scheduleFilterUpdate(
+                  () => _feedQuery = value,
+                  delay: const Duration(milliseconds: 220),
+                ),
                 onToggleUnlockedOnly: (value) =>
-                    setState(() => _showUnlockedOnly = value),
+                    _scheduleFilterUpdate(() => _showUnlockedOnly = value),
                 onToggleSavedOnly: (value) =>
-                    setState(() => _showSavedOnly = value),
+                    _scheduleFilterUpdate(() => _showSavedOnly = value),
                 onToggleAppliedOnly: (value) =>
-                    setState(() => _showAppliedOnly = value),
-                onIndustryFilterChanged: (value) => setState(() {
+                    _scheduleFilterUpdate(() => _showAppliedOnly = value),
+                onIndustryFilterChanged: (value) => _scheduleFilterUpdate(() {
                   _selectedIndustryFilter = value;
                   _selectedBusinessTypeFilter = 'all';
                   final availableCategories = _availableCategoryOptions();
@@ -4635,7 +4880,8 @@ class _AllJobsPageState extends State<_AllJobsPage> {
                       )
                       .toList(growable: false);
                 }),
-                onBusinessTypeFilterChanged: (value) => setState(() {
+                onBusinessTypeFilterChanged: (value) =>
+                    _scheduleFilterUpdate(() {
                   _selectedBusinessTypeFilter = value;
                   final availableCategories = _availableCategoryOptions();
                   final allowedKeys = availableCategories
@@ -4650,18 +4896,21 @@ class _AllJobsPageState extends State<_AllJobsPage> {
                       )
                       .toList(growable: false);
                 }),
-                onCategoryFiltersChanged: (value) => setState(
+                onCategoryFiltersChanged: (value) => _scheduleFilterUpdate(
                   () => _selectedCategoryFilters = List.unmodifiable(value),
                 ),
                 onCityFilterChanged: (value) =>
-                    setState(() => _selectedCityFilter = value),
+                    _scheduleFilterUpdate(() => _selectedCityFilter = value),
                 onWageBandChanged: (value) =>
-                    setState(() => _selectedWageBand = value),
+                    _scheduleFilterUpdate(() => _selectedWageBand = value),
                 onClearFilters: _clearFilters,
                 onApply: _handleApply,
                 onToggleSaved: _handleToggleSaved,
                 onOpenDetails: _openJobDetails,
                 showTopSummarySection: false,
+                isFilteringJobs: _filtersUpdating,
+                scrollStorageKey:
+                    const PageStorageKey<String>('worker-all-jobs-feed'),
               ),
             ),
           ],

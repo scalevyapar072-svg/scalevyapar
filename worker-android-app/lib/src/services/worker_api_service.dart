@@ -20,6 +20,7 @@ class WorkerApiService {
   final http.Client _client;
   static const _networkErrorMessage =
       'Could not connect to Rozgar servers. Please check your internet connection and try again.';
+  String? _pendingOtpSessionToken;
 
   WorkerApiService({http.Client? client}) : _client = client ?? http.Client();
 
@@ -330,7 +331,7 @@ class WorkerApiService {
     throw Exception(fallbackError);
   }
 
-  Future<String> requestOtp(String mobile) async {
+  Future<void> requestOtp(String mobile) async {
     final response = await _postAuthJsonWithFallback(
       ApiConfig.resolveWorkerPath('/auth/request-otp', preferRozgarV1: true),
       _workerPath('/auth/request-otp'),
@@ -343,15 +344,28 @@ class WorkerApiService {
       throw Exception(data['error'] ?? 'Failed to request OTP');
     }
 
-    return data['otpCode'] as String? ?? '';
+    final sessionToken = data['otpSessionToken'];
+    _pendingOtpSessionToken =
+        sessionToken is String && sessionToken.trim().isNotEmpty
+            ? sessionToken.trim()
+            : null;
   }
 
   Future<(String, WorkerDashboardModel)> verifyOtp(
       String mobile, String otpCode) async {
+    final requestBody = <String, dynamic>{
+      'mobile': mobile,
+      'otpCode': otpCode,
+    };
+    if (_pendingOtpSessionToken != null &&
+        _pendingOtpSessionToken!.trim().isNotEmpty) {
+      requestBody['otpSessionToken'] = _pendingOtpSessionToken!.trim();
+    }
+
     final response = await _postAuthJsonWithFallback(
       ApiConfig.resolveWorkerPath('/auth/verify-otp', preferRozgarV1: true),
       _workerPath('/auth/verify-otp'),
-      body: jsonEncode({'mobile': mobile, 'otpCode': otpCode}),
+      body: jsonEncode(requestBody),
     );
 
     final data =
@@ -359,6 +373,8 @@ class WorkerApiService {
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to verify OTP');
     }
+
+    _pendingOtpSessionToken = null;
 
     return (
       data['token'] as String? ?? '',

@@ -6,12 +6,32 @@ import 'package:http/http.dart' as http;
 import 'worker_app_config.dart';
 
 class ApiConfig {
-  static const String fallbackOrigin = 'https://rozgar.scalevyapar.in';
+  static const String _defaultOrigin = 'https://rozgar.scalevyapar.in';
+  static const String _debugOriginOverride =
+      String.fromEnvironment('ROZGAR_API_ORIGIN');
   static const String rozgarV1BasePath = '/api/rozgar/v1';
   static const String labourWorkerBasePath = '/api/labour/worker';
   static const String rozgarWorkerBasePath = '$rozgarV1BasePath/worker';
   static const String appConfigPath = '$rozgarV1BasePath/app-config';
   static const bool useRozgarWorkerRoutesByDefault = false;
+
+  static String get fallbackOrigin {
+    final override = _debugOriginOverride.trim();
+    if (override.isEmpty) {
+      return _defaultOrigin;
+    }
+
+    try {
+      final uri = Uri.parse(override);
+      if (uri.hasScheme && uri.host.isNotEmpty) {
+        return uri.origin;
+      }
+    } catch (_) {
+      return _defaultOrigin;
+    }
+
+    return _defaultOrigin;
+  }
 
   static WorkerAppConfig? _remoteConfig;
   static Future<void>? _bootstrapFuture;

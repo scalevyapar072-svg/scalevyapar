@@ -115,6 +115,7 @@ class WorkerProfileModel {
   final String city;
   final String homeCity;
   final String address;
+  final String salaryType;
   final String profilePhotoPath;
   final List<String> categoryIds;
   final List<String> categoryLabels;
@@ -125,6 +126,9 @@ class WorkerProfileModel {
   final double walletBalance;
   final String status;
   final bool isVisible;
+  final bool isPausedByWorker;
+  final String? pausedAt;
+  final String? reactivatedAt;
   final String identityProofType;
   final String identityProofNumber;
   final String identityProofPath;
@@ -140,6 +144,7 @@ class WorkerProfileModel {
     required this.city,
     required this.homeCity,
     required this.address,
+    required this.salaryType,
     required this.profilePhotoPath,
     required this.categoryIds,
     required this.categoryLabels,
@@ -150,6 +155,9 @@ class WorkerProfileModel {
     required this.walletBalance,
     required this.status,
     required this.isVisible,
+    required this.isPausedByWorker,
+    required this.pausedAt,
+    required this.reactivatedAt,
     required this.identityProofType,
     required this.identityProofNumber,
     required this.identityProofPath,
@@ -167,6 +175,7 @@ class WorkerProfileModel {
       city: json['city'] as String? ?? '',
       homeCity: json['homeCity'] as String? ?? '',
       address: json['address'] as String? ?? '',
+      salaryType: _readWorkerSalaryType(json),
       profilePhotoPath: json['profilePhotoPath'] as String? ?? '',
       categoryIds: ((json['categoryIds'] as List?) ?? [])
           .map((item) => item.toString())
@@ -183,6 +192,9 @@ class WorkerProfileModel {
       walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 0,
       status: json['status'] as String? ?? 'pending',
       isVisible: json['isVisible'] as bool? ?? false,
+      isPausedByWorker: json['isPausedByWorker'] as bool? ?? false,
+      pausedAt: json['pausedAt'] as String?,
+      reactivatedAt: json['reactivatedAt'] as String?,
       identityProofType: json['identityProofType'] as String? ?? '',
       identityProofNumber: json['identityProofNumber'] as String? ?? '',
       identityProofPath: json['identityProofPath'] as String? ?? '',
@@ -241,6 +253,16 @@ class WorkerWalletTransactionModel {
   }
 }
 
+String _readWorkerSalaryType(Map<String, dynamic> json) {
+  for (final key in const ['salaryType', 'salary_type', 'workerSalaryType']) {
+    final value = json[key]?.toString().trim() ?? '';
+    if (value.isNotEmpty) {
+      return value;
+    }
+  }
+  return 'Daily Wage';
+}
+
 class WorkerWalletSummaryModel {
   final double balance;
   final double dailyCharge;
@@ -248,7 +270,11 @@ class WorkerWalletSummaryModel {
   final bool registrationFeePaid;
   final int estimatedDaysRemaining;
   final String visibilityRule;
+  final bool isPausedByWorker;
+  final String? pausedAt;
+  final String? reactivatedAt;
   final String? lastDeductionAt;
+  final String? nextDeductionAt;
   final List<WorkerWalletTransactionModel> transactions;
 
   WorkerWalletSummaryModel({
@@ -258,7 +284,11 @@ class WorkerWalletSummaryModel {
     required this.registrationFeePaid,
     required this.estimatedDaysRemaining,
     required this.visibilityRule,
+    required this.isPausedByWorker,
+    required this.pausedAt,
+    required this.reactivatedAt,
     required this.lastDeductionAt,
+    required this.nextDeductionAt,
     required this.transactions,
   });
 
@@ -270,7 +300,11 @@ class WorkerWalletSummaryModel {
       registrationFeePaid: json['registrationFeePaid'] as bool? ?? false,
       estimatedDaysRemaining: json['estimatedDaysRemaining'] as int? ?? 0,
       visibilityRule: json['visibilityRule'] as String? ?? '',
+      isPausedByWorker: json['isPausedByWorker'] as bool? ?? false,
+      pausedAt: json['pausedAt'] as String?,
+      reactivatedAt: json['reactivatedAt'] as String?,
       lastDeductionAt: json['lastDeductionAt'] as String?,
+      nextDeductionAt: json['nextDeductionAt'] as String?,
       transactions: ((json['transactions'] as List?) ?? [])
           .map((item) => WorkerWalletTransactionModel.fromJson(
               item as Map<String, dynamic>))
@@ -313,6 +347,7 @@ class WorkerRazorpayOrderModel {
 
 class WorkerActivationSummaryModel {
   final bool isActive;
+  final bool isPausedByWorker;
   final bool canViewCompanyDetails;
   final String status;
   final String headline;
@@ -321,6 +356,7 @@ class WorkerActivationSummaryModel {
 
   WorkerActivationSummaryModel({
     required this.isActive,
+    required this.isPausedByWorker,
     required this.canViewCompanyDetails,
     required this.status,
     required this.headline,
@@ -331,6 +367,7 @@ class WorkerActivationSummaryModel {
   factory WorkerActivationSummaryModel.fromJson(Map<String, dynamic> json) {
     return WorkerActivationSummaryModel(
       isActive: json['isActive'] as bool? ?? false,
+      isPausedByWorker: json['isPausedByWorker'] as bool? ?? false,
       canViewCompanyDetails: json['canViewCompanyDetails'] as bool? ?? false,
       status: json['status'] as String? ?? '',
       headline: json['headline'] as String? ?? '',
@@ -631,6 +668,7 @@ class WorkerDashboardModel {
   final List<WorkerCategoryOption> availableCategories;
   final List<WorkerMasterOption> availableIndustryCategories;
   final List<WorkerMasterOption> availableBusinessTypes;
+  final List<WorkerMasterOption> availableWorkerSalaryTypes;
   final List<WorkerIndustryBusinessDependency> industryBusinessDependencies;
   final List<WorkerCategoryDependency> categoryDependencies;
   final List<String> availableCities;
@@ -647,6 +685,7 @@ class WorkerDashboardModel {
     required this.availableCategories,
     required this.availableIndustryCategories,
     required this.availableBusinessTypes,
+    required this.availableWorkerSalaryTypes,
     required this.industryBusinessDependencies,
     required this.categoryDependencies,
     required this.availableCities,
@@ -685,6 +724,11 @@ class WorkerDashboardModel {
           .map((item) =>
               WorkerMasterOption.fromJson(item as Map<String, dynamic>))
           .toList(),
+      availableWorkerSalaryTypes:
+          ((json['availableWorkerSalaryTypes'] as List?) ?? [])
+              .map((item) =>
+                  WorkerMasterOption.fromJson(item as Map<String, dynamic>))
+              .toList(),
       industryBusinessDependencies:
           ((json['industryBusinessDependencies'] as List?) ?? [])
               .map((item) => WorkerIndustryBusinessDependency.fromJson(

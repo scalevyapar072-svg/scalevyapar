@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 class WorkerLocalizations {
@@ -21,261 +21,318 @@ class WorkerLocalizations {
 
   bool get isHindi => locale.languageCode.toLowerCase().startsWith('hi');
 
-  String get appTitle => isHindi ? 'स्केलव्यापार रोजगार' : 'ScaleVyapar Rozgar';
-  String get switchLanguage => isHindi ? 'EN' : 'हिं';
-  String get welcomePrefix => isHindi ? 'नमस्ते' : 'Welcome';
+  String get appTitle => isHindi ? 'à¤¸à¥à¤•à¥‡à¤²à¤µà¥à¤¯à¤¾à¤ªà¤¾à¤° à¤°à¥‹à¤œà¤—à¤¾à¤°' : 'ScaleVyapar Rozgar';
+  String get switchLanguage => isHindi ? 'EN' : 'à¤¹à¤¿à¤‚';
+  String get welcomePrefix => isHindi ? 'à¤¨à¤®à¤¸à¥à¤¤à¥‡' : 'Welcome';
   String welcomeUser(String name) =>
-      isHindi ? 'नमस्ते, $name' : 'Welcome, $name';
+      isHindi ? 'à¤¨à¤®à¤¸à¥à¤¤à¥‡, $name' : 'Welcome, $name';
 
   String get bootstrapSubtitle => isHindi
-      ? 'रोजगार के मौके, वॉलेट विजिबिलिटी और एक्टिवेशन स्टेटस अब एक ही ऐप में।'
+      ? 'à¤°à¥‹à¤œà¤—à¤¾à¤° à¤•à¥‡ à¤®à¥Œà¤•à¥‡, à¤µà¥‰à¤²à¥‡à¤Ÿ à¤µà¤¿à¤œà¤¿à¤¬à¤¿à¤²à¤¿à¤Ÿà¥€ à¤”à¤° à¤à¤•à¥à¤Ÿà¤¿à¤µà¥‡à¤¶à¤¨ à¤¸à¥à¤Ÿà¥‡à¤Ÿà¤¸ à¤…à¤¬ à¤à¤• à¤¹à¥€ à¤à¤ª à¤®à¥‡à¤‚à¥¤'
       : 'Daily work opportunities, wallet visibility, and activation status in one app.';
 
   String get loginHeroTitle =>
-      isHindi ? 'दैनिक काम जल्दी खोजें।' : 'Find daily work faster.';
+      isHindi ? 'à¤¦à¥ˆà¤¨à¤¿à¤• à¤•à¤¾à¤® à¤œà¤²à¥à¤¦à¥€ à¤–à¥‹à¤œà¥‡à¤‚à¥¤' : 'Find daily work faster.';
   String get loginHeroSubtitle => isHindi
-      ? 'ओटीपी से लॉगिन करें, अपना प्रोफाइल सक्रिय रखें, और वॉलेट स्टेटस के आधार पर कंपनी डिटेल्स देखें।'
+      ? 'à¤“à¤Ÿà¥€à¤ªà¥€ à¤¸à¥‡ à¤²à¥‰à¤—à¤¿à¤¨ à¤•à¤°à¥‡à¤‚, à¤…à¤ªà¤¨à¤¾ à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤² à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤°à¤–à¥‡à¤‚, à¤”à¤° à¤µà¥‰à¤²à¥‡à¤Ÿ à¤¸à¥à¤Ÿà¥‡à¤Ÿà¤¸ à¤•à¥‡ à¤†à¤§à¤¾à¤° à¤ªà¤° à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤¦à¥‡à¤–à¥‡à¤‚à¥¤'
       : 'Login with OTP, keep your profile active, and unlock company details based on your wallet status.';
   String get otpMobileLogin =>
-      isHindi ? 'ओटीपी मोबाइल लॉगिन' : 'OTP mobile login';
+      isHindi ? 'à¤“à¤Ÿà¥€à¤ªà¥€ à¤®à¥‹à¤¬à¤¾à¤‡à¤² à¤²à¥‰à¤—à¤¿à¤¨' : 'OTP mobile login';
   String get dailyWalletTracking =>
-      isHindi ? 'दैनिक वॉलेट ट्रैकिंग' : 'Daily wallet tracking';
+      isHindi ? 'à¤¦à¥ˆà¤¨à¤¿à¤• à¤µà¥‰à¤²à¥‡à¤Ÿ à¤Ÿà¥à¤°à¥ˆà¤•à¤¿à¤‚à¤—' : 'Daily wallet tracking';
   String get matchingJobFeed =>
-      isHindi ? 'मिलती-जुलती जॉब फीड' : 'Matching job feed';
+      isHindi ? 'à¤®à¤¿à¤²à¤¤à¥€-à¤œà¥à¤²à¤¤à¥€ à¤œà¥‰à¤¬ à¤«à¥€à¤¡' : 'Matching job feed';
   String get verifyYourOtp =>
-      isHindi ? 'ओटीपी सत्यापित करें' : 'Verify your OTP';
-  String get workerLogin => isHindi ? 'वर्कर लॉगिन' : 'Worker login';
+      isHindi ? 'à¤“à¤Ÿà¥€à¤ªà¥€ à¤¸à¤¤à¥à¤¯à¤¾à¤ªà¤¿à¤¤ à¤•à¤°à¥‡à¤‚' : 'Verify your OTP';
+  String get workerLogin => isHindi ? 'à¤µà¤°à¥à¤•à¤° à¤²à¥‰à¤—à¤¿à¤¨' : 'Worker login';
   String get otpSentDescription => isHindi
-      ? 'आपके मोबाइल नंबर पर कोड भेज दिया गया है।'
+      ? 'à¤†à¤ªà¤•à¥‡ à¤®à¥‹à¤¬à¤¾à¤‡à¤² à¤¨à¤‚à¤¬à¤° à¤ªà¤° à¤•à¥‹à¤¡ à¤­à¥‡à¤œ à¤¦à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾ à¤¹à¥ˆà¥¤'
       : 'We have sent a code to your mobile number.';
   String get enterMobileDescription => isHindi
-      ? 'लॉगिन ओटीपी पाने के लिए अपना मोबाइल नंबर दर्ज करें।'
+      ? 'à¤²à¥‰à¤—à¤¿à¤¨ à¤“à¤Ÿà¥€à¤ªà¥€ à¤ªà¤¾à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤…à¤ªà¤¨à¤¾ à¤®à¥‹à¤¬à¤¾à¤‡à¤² à¤¨à¤‚à¤¬à¤° à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚à¥¤'
       : 'Enter your mobile number to receive the login OTP.';
-  String get mobile => isHindi ? 'मोबाइल' : 'Mobile';
-  String get otp => isHindi ? 'ओटीपी' : 'OTP';
-  String get mobileNumber => isHindi ? 'मोबाइल नंबर' : 'Mobile Number';
+  String get mobile => isHindi ? 'à¤®à¥‹à¤¬à¤¾à¤‡à¤²' : 'Mobile';
+  String get otp => isHindi ? 'à¤“à¤Ÿà¥€à¤ªà¥€' : 'OTP';
+  String get mobileNumber => isHindi ? 'à¤®à¥‹à¤¬à¤¾à¤‡à¤² à¤¨à¤‚à¤¬à¤°' : 'Mobile Number';
   String get enterTenDigitMobile => isHindi
-      ? '10 अंकों का मोबाइल नंबर दर्ज करें'
+      ? '10 à¤…à¤‚à¤•à¥‹à¤‚ à¤•à¤¾ à¤®à¥‹à¤¬à¤¾à¤‡à¤² à¤¨à¤‚à¤¬à¤° à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚'
       : 'Enter 10-digit mobile number';
-  String get otpCode => isHindi ? 'ओटीपी कोड' : 'OTP Code';
-  String get enterOtp => isHindi ? 'ओटीपी दर्ज करें' : 'Enter OTP';
+  String get otpCode => isHindi ? 'à¤“à¤Ÿà¥€à¤ªà¥€ à¤•à¥‹à¤¡' : 'OTP Code';
+  String get enterOtp => isHindi ? 'à¤“à¤Ÿà¥€à¤ªà¥€ à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚' : 'Enter OTP';
   String demoOtpForTesting(String otp) => isHindi
-      ? 'टेस्टिंग के लिए डेमो ओटीपी: $otp'
+      ? 'à¤Ÿà¥‡à¤¸à¥à¤Ÿà¤¿à¤‚à¤— à¤•à¥‡ à¤²à¤¿à¤ à¤¡à¥‡à¤®à¥‹ à¤“à¤Ÿà¥€à¤ªà¥€: $otp'
       : 'Demo OTP for testing: $otp';
   String get requestingOtp =>
-      isHindi ? 'ओटीपी भेजा जा रहा है...' : 'Requesting OTP...';
-  String get requestOtp => isHindi ? 'ओटीपी प्राप्त करें' : 'Request OTP';
-  String get verifying => isHindi ? 'सत्यापन हो रहा है...' : 'Verifying...';
-  String get verifyOtp => isHindi ? 'ओटीपी सत्यापित करें' : 'Verify OTP';
+      isHindi ? 'à¤“à¤Ÿà¥€à¤ªà¥€ à¤­à¥‡à¤œà¤¾ à¤œà¤¾ à¤°à¤¹à¤¾ à¤¹à¥ˆ...' : 'Requesting OTP...';
+  String get requestOtp => isHindi ? 'à¤“à¤Ÿà¥€à¤ªà¥€ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤•à¤°à¥‡à¤‚' : 'Request OTP';
+  String get verifying => isHindi ? 'à¤¸à¤¤à¥à¤¯à¤¾à¤ªà¤¨ à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ...' : 'Verifying...';
+  String get verifyOtp => isHindi ? 'à¤“à¤Ÿà¥€à¤ªà¥€ à¤¸à¤¤à¥à¤¯à¤¾à¤ªà¤¿à¤¤ à¤•à¤°à¥‡à¤‚' : 'Verify OTP';
   String get demoSeededWorkers =>
-      isHindi ? 'डेमो वर्कर नंबर' : 'Demo seeded worker numbers';
+      isHindi ? 'à¤¡à¥‡à¤®à¥‹ à¤µà¤°à¥à¤•à¤° à¤¨à¤‚à¤¬à¤°' : 'Demo seeded worker numbers';
   String get activeWorkerLine =>
-      isHindi ? '9876543210 (सक्रिय वर्कर)' : '9876543210 (active worker)';
+      isHindi ? '9876543210 (à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤µà¤°à¥à¤•à¤°)' : '9876543210 (active worker)';
   String get walletEmptyWorkerLine => isHindi
-      ? '9812345678 (वॉलेट खाली वर्कर)'
+      ? '9812345678 (à¤µà¥‰à¤²à¥‡à¤Ÿ à¤–à¤¾à¤²à¥€ à¤µà¤°à¥à¤•à¤°)'
       : '9812345678 (wallet empty worker)';
 
   String get invalidMobileNumberError => isHindi
-      ? 'सही 10 अंकों का मोबाइल नंबर दर्ज करें।'
+      ? 'à¤¸à¤¹à¥€ 10 à¤…à¤‚à¤•à¥‹à¤‚ à¤•à¤¾ à¤®à¥‹à¤¬à¤¾à¤‡à¤² à¤¨à¤‚à¤¬à¤° à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚à¥¤'
       : 'Enter a valid 10-digit mobile number.';
   String get invalidOtpError =>
-      isHindi ? '6 अंकों का ओटीपी दर्ज करें।' : 'Enter the 6-digit OTP code.';
+      isHindi ? '6 à¤…à¤‚à¤•à¥‹à¤‚ à¤•à¤¾ à¤“à¤Ÿà¥€à¤ªà¥€ à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚à¥¤' : 'Enter the 6-digit OTP code.';
   String get loadingDashboard =>
-      isHindi ? 'डैशबोर्ड लोड हो रहा है...' : 'Loading dashboard...';
-  String get tryAgain => isHindi ? 'फिर प्रयास करें' : 'Try Again';
+      isHindi ? 'à¤¡à¥ˆà¤¶à¤¬à¥‹à¤°à¥à¤¡ à¤²à¥‹à¤¡ à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ...' : 'Loading dashboard...';
+  String get tryAgain => isHindi ? 'à¤«à¤¿à¤° à¤ªà¥à¤°à¤¯à¤¾à¤¸ à¤•à¤°à¥‡à¤‚' : 'Try Again';
 
-  String get wallet => isHindi ? 'वॉलेट' : 'Wallet';
-  String get jobs => isHindi ? 'जॉब्स' : 'Jobs';
-  String get wage => isHindi ? 'दिहाड़ी' : 'Wage';
-  String get dailyDeduction => isHindi ? 'दैनिक कटौती' : 'Daily deduction';
+  String get wallet => isHindi ? 'à¤µà¥‰à¤²à¥‡à¤Ÿ' : 'Wallet';
+  String get jobs => isHindi ? 'à¤œà¥‰à¤¬à¥à¤¸' : 'Jobs';
+  String get wage => isHindi ? 'à¤¦à¤¿à¤¹à¤¾à¤¡à¤¼à¥€' : 'Wage';
+  String get dailyDeduction => isHindi ? 'à¤¦à¥ˆà¤¨à¤¿à¤• à¤•à¤Ÿà¥Œà¤¤à¥€' : 'Daily deduction';
   String get estimatedDaysLeft =>
-      isHindi ? 'अनुमानित बचे दिन' : 'Estimated days left';
+      isHindi ? 'à¤…à¤¨à¥à¤®à¤¾à¤¨à¤¿à¤¤ à¤¬à¤šà¥‡ à¤¦à¤¿à¤¨' : 'Estimated days left';
   String unlockedJobsCount(int count) =>
-      isHindi ? '$count अनलॉक्ड' : '$count unlocked';
+      isHindi ? '$count à¤…à¤¨à¤²à¥‰à¤•à¥à¤¡' : '$count unlocked';
 
   String get matchingJobFeedTitle =>
-      isHindi ? 'मिलती-जुलती जॉब फीड' : 'Matching job feed';
+      isHindi ? 'à¤®à¤¿à¤²à¤¤à¥€-à¤œà¥à¤²à¤¤à¥€ à¤œà¥‰à¤¬ à¤«à¥€à¤¡' : 'Matching job feed';
   String get matchingJobFeedSubtitle => isHindi
-      ? 'जॉब्स आपके शहर, कैटेगरी और सक्रिय वर्कर स्टेटस के आधार पर दिखाई जाती हैं।'
+      ? 'à¤œà¥‰à¤¬à¥à¤¸ à¤†à¤ªà¤•à¥‡ à¤¶à¤¹à¤°, à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€ à¤”à¤° à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤µà¤°à¥à¤•à¤° à¤¸à¥à¤Ÿà¥‡à¤Ÿà¤¸ à¤•à¥‡ à¤†à¤§à¤¾à¤° à¤ªà¤° à¤¦à¤¿à¤–à¤¾à¤ˆ à¤œà¤¾à¤¤à¥€ à¤¹à¥ˆà¤‚à¥¤'
       : 'Jobs are matched using your city, categories, and active worker status.';
-  String get searchJobs => isHindi ? 'जॉब खोजें' : 'Search jobs';
+  String get searchJobs => isHindi ? 'à¤œà¥‰à¤¬ à¤–à¥‹à¤œà¥‡à¤‚' : 'Search jobs';
   String get searchJobsHint => isHindi
-      ? 'टाइटल, शहर या कैटेगरी से खोजें'
+      ? 'à¤Ÿà¤¾à¤‡à¤Ÿà¤², à¤¶à¤¹à¤° à¤¯à¤¾ à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€ à¤¸à¥‡ à¤–à¥‹à¤œà¥‡à¤‚'
       : 'Search by title, city, or category';
-  String get searchForSkills => isHindi ? 'स्किल्स खोजें' : 'Search for Skills';
-  String get searchJobType => isHindi ? 'जॉब टाइप खोजें' : 'Search Job Type';
+  String get searchForSkills => isHindi ? 'à¤¸à¥à¤•à¤¿à¤²à¥à¤¸ à¤–à¥‹à¤œà¥‡à¤‚' : 'Search for Skills';
+  String get searchJobType => isHindi ? 'à¤œà¥‰à¤¬ à¤Ÿà¤¾à¤‡à¤ª à¤–à¥‹à¤œà¥‡à¤‚' : 'Search Job Type';
   String get selectJobTypeYouWant => isHindi
-      ? 'आप जो जॉब टाइप चाहते हैं उसे चुनें'
+      ? 'à¤†à¤ª à¤œà¥‹ à¤œà¥‰à¤¬ à¤Ÿà¤¾à¤‡à¤ª à¤šà¤¾à¤¹à¤¤à¥‡ à¤¹à¥ˆà¤‚ à¤‰à¤¸à¥‡ à¤šà¥à¤¨à¥‡à¤‚'
       : 'Select the Job Type you want';
   String get selectedJobTypes =>
-      isHindi ? 'चुने हुए जॉब टाइप' : 'Selected job types';
-  String get applyFilters => isHindi ? 'लागू करें' : 'Apply';
-  String get backAction => isHindi ? 'वापस' : 'Back';
+      isHindi ? 'à¤šà¥à¤¨à¥‡ à¤¹à¥à¤ à¤œà¥‰à¤¬ à¤Ÿà¤¾à¤‡à¤ª' : 'Selected job types';
+  String get applyFilters => isHindi ? 'à¤²à¤¾à¤—à¥‚ à¤•à¤°à¥‡à¤‚' : 'Apply';
+  String get backAction => isHindi ? 'à¤µà¤¾à¤ªà¤¸' : 'Back';
   String get noJobTypesFound =>
-      isHindi ? 'कोई जॉब टाइप नहीं मिला।' : 'No job types found.';
+      isHindi ? 'à¤•à¥‹à¤ˆ à¤œà¥‰à¤¬ à¤Ÿà¤¾à¤‡à¤ª à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¤¾à¥¤' : 'No job types found.';
   String get showUnlockedCompanyDetails => isHindi
-      ? 'सिर्फ अनलॉक कंपनी डिटेल्स दिखाएं'
+      ? 'à¤¸à¤¿à¤°à¥à¤« à¤…à¤¨à¤²à¥‰à¤• à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤¦à¤¿à¤–à¤¾à¤à¤‚'
       : 'Show only unlocked company details';
   String get unlockedCompanyDetailsSubtitle => isHindi
-      ? 'जब आपका अकाउंट सक्रिय हो और आपको सीधे संपर्क चाहिए तब उपयोगी।'
+      ? 'à¤œà¤¬ à¤†à¤ªà¤•à¤¾ à¤…à¤•à¤¾à¤‰à¤‚à¤Ÿ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¹à¥‹ à¤”à¤° à¤†à¤ªà¤•à¥‹ à¤¸à¥€à¤§à¥‡ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤šà¤¾à¤¹à¤¿à¤ à¤¤à¤¬ à¤‰à¤ªà¤¯à¥‹à¤—à¥€à¥¤'
       : 'Useful when your account is active and you want direct contacts.';
   String get noJobsMatchMessage => isHindi
-      ? 'मौजूदा फिल्टर से कोई जॉब नहीं मिली। खोज साफ़ करें या अपना प्रोफाइल सक्रिय रखें।'
+      ? 'à¤®à¥Œà¤œà¥‚à¤¦à¤¾ à¤«à¤¿à¤²à¥à¤Ÿà¤° à¤¸à¥‡ à¤•à¥‹à¤ˆ à¤œà¥‰à¤¬ à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¥€à¥¤ à¤–à¥‹à¤œ à¤¸à¤¾à¤«à¤¼ à¤•à¤°à¥‡à¤‚ à¤¯à¤¾ à¤…à¤ªà¤¨à¤¾ à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤² à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤°à¤–à¥‡à¤‚à¥¤'
       : 'No jobs match the current filters. Try clearing your search or keeping your worker profile active.';
   String workersNeeded(int count) =>
-      isHindi ? '$count वर्कर चाहिए' : '$count workers needed';
-  String get saved => isHindi ? 'सेव्ड' : 'Saved';
+      isHindi ? '$count à¤µà¤°à¥à¤•à¤° à¤šà¤¾à¤¹à¤¿à¤' : '$count workers needed';
+  String get saved => isHindi ? 'à¤¸à¥‡à¤µà¥à¤¡' : 'Saved';
   String appliedStatusLabel(String status) => isHindi
-      ? 'अप्लाई किया • ${prettyValue(status)}'
-      : 'Applied • ${prettyValue(status)}';
-  String get appliedWithoutStatus => isHindi ? 'अप्लाई किया' : 'Applied';
-  String get working => isHindi ? 'प्रक्रिया जारी है...' : 'Working...';
+      ? 'à¤…à¤ªà¥à¤²à¤¾à¤ˆ à¤•à¤¿à¤¯à¤¾ â€¢ ${prettyValue(status)}'
+      : 'Applied â€¢ ${prettyValue(status)}';
+  String get appliedWithoutStatus => isHindi ? 'à¤…à¤ªà¥à¤²à¤¾à¤ˆ à¤•à¤¿à¤¯à¤¾' : 'Applied';
+  String get working => isHindi ? 'à¤ªà¥à¤°à¤•à¥à¤°à¤¿à¤¯à¤¾ à¤œà¤¾à¤°à¥€ à¤¹à¥ˆ...' : 'Working...';
   String get applicationSent =>
-      isHindi ? 'आवेदन भेज दिया गया' : 'Application sent';
-  String get applyToJob => isHindi ? 'जॉब के लिए आवेदन करें' : 'Apply to job';
+      isHindi ? 'à¤†à¤µà¥‡à¤¦à¤¨ à¤­à¥‡à¤œ à¤¦à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾' : 'Application sent';
+  String get applyToJob => isHindi ? 'à¤œà¥‰à¤¬ à¤•à¥‡ à¤²à¤¿à¤ à¤†à¤µà¥‡à¤¦à¤¨ à¤•à¤°à¥‡à¤‚' : 'Apply to job';
   String get favouriteCitiesJobsHeading => isHindi
-      ? 'आपके पसंदीदा शहरों में नौकरियां'
+      ? 'à¤†à¤ªà¤•à¥‡ à¤ªà¤¸à¤‚à¤¦à¥€à¤¦à¤¾ à¤¶à¤¹à¤°à¥‹à¤‚ à¤®à¥‡à¤‚ à¤¨à¥Œà¤•à¤°à¤¿à¤¯à¤¾à¤‚'
       : 'Jobs in your favourite cities';
   String get popularJobCategoriesHeading =>
-      isHindi ? 'लोकप्रिय नौकरी श्रेणियां' : 'Popular job categories';
+      isHindi ? 'à¤²à¥‹à¤•à¤ªà¥à¤°à¤¿à¤¯ à¤¨à¥Œà¤•à¤°à¥€ à¤¶à¥à¤°à¥‡à¤£à¤¿à¤¯à¤¾à¤‚' : 'Popular job categories';
   String get viewMoreJobs =>
-      isHindi ? 'और नौकरियां देखें' : 'View More Jobs';
-  String get showMore => isHindi ? 'और देखें' : 'Show more';
-  String get showLess => isHindi ? 'कम दिखाएं' : 'Show less';
+      isHindi ? 'à¤”à¤° à¤¨à¥Œà¤•à¤°à¤¿à¤¯à¤¾à¤‚ à¤¦à¥‡à¤–à¥‡à¤‚' : 'View More Jobs';
+  String get showMore => isHindi ? 'à¤”à¤° à¤¦à¥‡à¤–à¥‡à¤‚' : 'Show more';
+  String get showLess => isHindi ? 'à¤•à¤® à¤¦à¤¿à¤–à¤¾à¤à¤‚' : 'Show less';
   String get removeFromShortlist =>
-      isHindi ? 'शॉर्टलिस्ट से हटाएं' : 'Remove from shortlist';
-  String get saveJob => isHindi ? 'जॉब सेव करें' : 'Save job';
+      isHindi ? 'à¤¶à¥‰à¤°à¥à¤Ÿà¤²à¤¿à¤¸à¥à¤Ÿ à¤¸à¥‡ à¤¹à¤Ÿà¤¾à¤à¤‚' : 'Remove from shortlist';
+  String get saveJob => isHindi ? 'à¤œà¥‰à¤¬ à¤¸à¥‡à¤µ à¤•à¤°à¥‡à¤‚' : 'Save job';
   String get companyLockedMessage => isHindi
-      ? 'कंपनी डिटेल्स लॉक हैं। सीधे संपर्क खोलने के लिए रिचार्ज करें और वर्कर अकाउंट सक्रिय रखें।'
+      ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤²à¥‰à¤• à¤¹à¥ˆà¤‚à¥¤ à¤¸à¥€à¤§à¥‡ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤–à¥‹à¤²à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚ à¤”à¤° à¤µà¤°à¥à¤•à¤° à¤…à¤•à¤¾à¤‰à¤‚à¤Ÿ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤°à¤–à¥‡à¤‚à¥¤'
       : 'Company details are locked. Recharge and keep the worker account active to unlock direct company contact.';
   String contactPerson(String name) =>
-      isHindi ? 'संपर्क व्यक्ति: $name' : 'Contact person: $name';
+      isHindi ? 'à¤¸à¤‚à¤ªà¤°à¥à¤• à¤µà¥à¤¯à¤•à¥à¤¤à¤¿: $name' : 'Contact person: $name';
   String companyMobile(String mobile) =>
-      isHindi ? 'मोबाइल: $mobile' : 'Mobile: $mobile';
+      isHindi ? 'à¤®à¥‹à¤¬à¤¾à¤‡à¤²: $mobile' : 'Mobile: $mobile';
   String companyCity(String city) =>
-      isHindi ? 'कंपनी शहर: $city' : 'Company city: $city';
+      isHindi ? 'à¤•à¤‚à¤ªà¤¨à¥€ à¤¶à¤¹à¤°: $city' : 'Company city: $city';
 
-  String get allJobs => isHindi ? 'सभी नौकरियां' : 'All Jobs';
-  String get jobsNearYou => isHindi ? 'नजदीकी नौकरियां' : 'Jobs Near You';
-  String get otherCities => isHindi ? 'अन्य शहर' : 'Other Cities';
-  String get advancedFilters => isHindi ? 'एडवांस फ़िल्टर' : 'Advanced filters';
-  String get clearAction => isHindi ? 'साफ़ करें' : 'Clear';
-  String get clearAll => isHindi ? 'सभी साफ़ करें' : 'Clear all';
-  String get activeFiltersTitle => isHindi ? 'सक्रिय फ़िल्टर' : 'Active filters';
+  String get allJobs => isHindi ? 'à¤¸à¤­à¥€ à¤¨à¥Œà¤•à¤°à¤¿à¤¯à¤¾à¤‚' : 'All Jobs';
+  String get jobsNearYou => isHindi ? 'à¤¨à¤œà¤¦à¥€à¤•à¥€ à¤¨à¥Œà¤•à¤°à¤¿à¤¯à¤¾à¤‚' : 'Jobs Near You';
+  String get otherCities => isHindi ? 'à¤…à¤¨à¥à¤¯ à¤¶à¤¹à¤°' : 'Other Cities';
+  String get advancedFilters => isHindi ? 'à¤à¤¡à¤µà¤¾à¤‚à¤¸ à¤«à¤¼à¤¿à¤²à¥à¤Ÿà¤°' : 'Advanced filters';
+  String get clearAction => isHindi ? 'à¤¸à¤¾à¤«à¤¼ à¤•à¤°à¥‡à¤‚' : 'Clear';
+  String get clearAll => isHindi ? 'à¤¸à¤­à¥€ à¤¸à¤¾à¤«à¤¼ à¤•à¤°à¥‡à¤‚' : 'Clear all';
+  String get activeFiltersTitle => isHindi ? 'à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤«à¤¼à¤¿à¤²à¥à¤Ÿà¤°' : 'Active filters';
   String jobsAvailableForSelectedFilters(int count) => isHindi
-      ? 'चुने हुए फ़िल्टर के लिए $count जॉब उपलब्ध हैं'
+      ? 'à¤šà¥à¤¨à¥‡ à¤¹à¥à¤ à¤«à¤¼à¤¿à¤²à¥à¤Ÿà¤° à¤•à¥‡ à¤²à¤¿à¤ $count à¤œà¥‰à¤¬ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¹à¥ˆà¤‚'
       : '$count jobs available for selected filters';
-  String get industryCategory => isHindi ? 'इंडस्ट्री कैटेगरी' : 'Industry Category';
+  String get industryCategory => isHindi ? 'à¤‡à¤‚à¤¡à¤¸à¥à¤Ÿà¥à¤°à¥€ à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€' : 'Industry Category';
   String get allIndustryCategories =>
-      isHindi ? 'सभी उद्योग' : 'All Industry';
-  String get businessType => isHindi ? 'बिज़नेस टाइप' : 'Business Type';
+      isHindi ? 'à¤¸à¤­à¥€ à¤‰à¤¦à¥à¤¯à¥‹à¤—' : 'All Industry';
+  String get businessType => isHindi ? 'à¤¬à¤¿à¤œà¤¼à¤¨à¥‡à¤¸ à¤Ÿà¤¾à¤‡à¤ª' : 'Business Type';
   String get allBusinessTypes =>
-      isHindi ? 'सभी बिजनेस प्रकार चुनें' : 'Select all business type';
+      isHindi ? 'à¤¸à¤­à¥€ à¤¬à¤¿à¤œà¤¨à¥‡à¤¸ à¤ªà¥à¤°à¤•à¤¾à¤° à¤šà¥à¤¨à¥‡à¤‚' : 'Select all business type';
   String get selectIndustryFirst =>
-      isHindi ? 'सभी बिजनेस प्रकार चुनें' : 'Select all business type';
-  String get category => isHindi ? 'कैटेगरी' : 'Category';
-  String get allCategories => isHindi ? 'सभी श्रेणियां' : 'All Category';
-  String get cityFilter => isHindi ? 'शहर फ़िल्टर' : 'City Filter';
-  String get allCities => isHindi ? 'सभी शहर' : 'All Cities';
-  String get wageFilter => isHindi ? 'वेतन फ़िल्टर' : 'Wage filter';
-  String get allWages => isHindi ? 'सभी मजदूरी' : 'All Wages';
-  String get savedOnly => isHindi ? 'सिर्फ़ सेव्ड' : 'Saved only';
-  String get appliedOnly => isHindi ? 'सिर्फ़ अप्लाइड' : 'Applied only';
-  String get unlockedOnly => isHindi ? 'सिर्फ़ अनलॉक' : 'Unlocked only';
+      isHindi ? 'à¤¸à¤­à¥€ à¤¬à¤¿à¤œà¤¨à¥‡à¤¸ à¤ªà¥à¤°à¤•à¤¾à¤° à¤šà¥à¤¨à¥‡à¤‚' : 'Select all business type';
+  String get category => isHindi ? 'à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€' : 'Category';
+  String get allCategories => isHindi ? 'à¤¸à¤­à¥€ à¤¶à¥à¤°à¥‡à¤£à¤¿à¤¯à¤¾à¤‚' : 'All Category';
+  String get cityFilter => isHindi ? 'à¤¶à¤¹à¤° à¤«à¤¼à¤¿à¤²à¥à¤Ÿà¤°' : 'City Filter';
+  String get allCities => isHindi ? 'à¤¸à¤­à¥€ à¤¶à¤¹à¤°' : 'All Cities';
+  String get wageFilter => isHindi ? 'à¤µà¥‡à¤¤à¤¨ à¤«à¤¼à¤¿à¤²à¥à¤Ÿà¤°' : 'Wage filter';
+  String get allWages => isHindi ? 'à¤¸à¤­à¥€ à¤®à¤œà¤¦à¥‚à¤°à¥€' : 'All Wages';
+  String get savedOnly => isHindi ? 'à¤¸à¤¿à¤°à¥à¤«à¤¼ à¤¸à¥‡à¤µà¥à¤¡' : 'Saved only';
+  String get appliedOnly => isHindi ? 'à¤¸à¤¿à¤°à¥à¤«à¤¼ à¤…à¤ªà¥à¤²à¤¾à¤‡à¤¡' : 'Applied only';
+  String get unlockedOnly => isHindi ? 'à¤¸à¤¿à¤°à¥à¤«à¤¼ à¤…à¤¨à¤²à¥‰à¤•' : 'Unlocked only';
   String filterLabel(String label, String value) =>
       isHindi ? '$label: $value' : '$label: $value';
   String get noJobsMatchCurrentFilters => isHindi
-      ? 'मौजूदा फ़िल्टर से कोई जॉब नहीं मिली। फ़िल्टर साफ़ करें, दूसरा शहर चुनें, या दूरी बढ़ाएँ।'
+      ? 'à¤®à¥Œà¤œà¥‚à¤¦à¤¾ à¤«à¤¼à¤¿à¤²à¥à¤Ÿà¤° à¤¸à¥‡ à¤•à¥‹à¤ˆ à¤œà¥‰à¤¬ à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¥€à¥¤ à¤«à¤¼à¤¿à¤²à¥à¤Ÿà¤° à¤¸à¤¾à¤«à¤¼ à¤•à¤°à¥‡à¤‚, à¤¦à¥‚à¤¸à¤°à¤¾ à¤¶à¤¹à¤° à¤šà¥à¤¨à¥‡à¤‚, à¤¯à¤¾ à¤¦à¥‚à¤°à¥€ à¤¬à¤¢à¤¼à¤¾à¤à¤à¥¤'
       : 'No jobs match the current filters. Try clearing filters, selecting another city, or increasing distance.';
   String get noActiveJobsAvailable => isHindi
-      ? 'अभी कोई सक्रिय जॉब उपलब्ध नहीं है।'
+      ? 'à¤…à¤­à¥€ à¤•à¥‹à¤ˆ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤œà¥‰à¤¬ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤'
       : 'No active jobs are available right now.';
   String get enableLocationOrSelectCity => isHindi
-      ? 'पास की जॉब्स देखने के लिए लोकेशन चालू करें या शहर चुनें।'
+      ? 'à¤ªà¤¾à¤¸ à¤•à¥€ à¤œà¥‰à¤¬à¥à¤¸ à¤¦à¥‡à¤–à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤²à¥‹à¤•à¥‡à¤¶à¤¨ à¤šà¤¾à¤²à¥‚ à¤•à¤°à¥‡à¤‚ à¤¯à¤¾ à¤¶à¤¹à¤° à¤šà¥à¤¨à¥‡à¤‚à¥¤'
       : 'Enable location or select a city to see nearby jobs.';
   String get walletActivation =>
-      isHindi ? 'वॉलेट और एक्टिवेशन' : 'Wallet & activation';
+      isHindi ? 'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤”à¤° à¤à¤•à¥à¤Ÿà¤¿à¤µà¥‡à¤¶à¤¨' : 'Wallet & activation';
   String get walletActivationSubtitle => isHindi
-      ? 'आपका वॉलेट बैलेंस तय करता है कि आप कंपनी डिटेल्स देख पाएंगे या नहीं और क्या आप नियोक्ताओं को दिखेंगे।'
+      ? 'à¤†à¤ªà¤•à¤¾ à¤µà¥‰à¤²à¥‡à¤Ÿ à¤¬à¥ˆà¤²à¥‡à¤‚à¤¸ à¤¤à¤¯ à¤•à¤°à¤¤à¤¾ à¤¹à¥ˆ à¤•à¤¿ à¤†à¤ª à¤•à¤‚à¤ªà¤¨à¥€ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤¦à¥‡à¤– à¤ªà¤¾à¤à¤‚à¤—à¥‡ à¤¯à¤¾ à¤¨à¤¹à¥€à¤‚ à¤”à¤° à¤•à¥à¤¯à¤¾ à¤†à¤ª à¤¨à¤¿à¤¯à¥‹à¤•à¥à¤¤à¤¾à¤“à¤‚ à¤•à¥‹ à¤¦à¤¿à¤–à¥‡à¤‚à¤—à¥‡à¥¤'
       : 'Your wallet balance decides whether you can keep viewing company details and stay visible to employers.';
-  String get currentBalance => isHindi ? 'मौजूदा बैलेंस' : 'Current balance';
+  String get currentBalance => isHindi ? 'à¤®à¥Œà¤œà¥‚à¤¦à¤¾ à¤¬à¥ˆà¤²à¥‡à¤‚à¤¸' : 'Current balance';
   String get estimatedActiveDays =>
-      isHindi ? 'अनुमानित सक्रिय दिन' : 'Estimated active days';
+      isHindi ? 'à¤…à¤¨à¥à¤®à¤¾à¤¨à¤¿à¤¤ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¦à¤¿à¤¨' : 'Estimated active days';
+  String get dailyDeductionAmountLabel =>
+      isHindi ? 'à¤¦à¥ˆà¤¨à¤¿à¤• à¤•à¤Ÿà¥Œà¤¤à¥€ à¤°à¤¾à¤¶à¤¿' : 'Daily Deduction Amount';
+  String get nextDailyDeduction =>
+      isHindi ? 'à¤…à¤—à¤²à¥€ à¤¦à¥ˆà¤¨à¤¿à¤• à¤•à¤Ÿà¥Œà¤¤à¥€' : 'Next daily deduction';
+  String get activateWorkerAccess =>
+      isHindi ? 'à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤•à¤°à¥‡à¤‚' : 'Activate';
+  String get deactivateWorkerAccess =>
+      isHindi ? 'à¤¨à¤¿à¤·à¥à¤•à¥à¤°à¤¿à¤¯ à¤•à¤°à¥‡à¤‚' : 'Deactivate';
+  String get activateWorkerAccessSuccess =>
+      isHindi ? 'à¤µà¤°à¥à¤•à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤«à¤¿à¤° à¤¸à¥‡ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¹à¥‹ à¤—à¤¯à¤¾à¥¤' : 'Worker access is active again.';
+  String get deactivateWorkerAccessSuccess =>
+      isHindi ? 'à¤µà¤°à¥à¤•à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¨à¤¿à¤·à¥à¤•à¥à¤°à¤¿à¤¯ à¤•à¤° à¤¦à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾ à¤¹à¥ˆà¥¤' : 'Worker access has been deactivated.';
+  String get deactivateWorkerAccessTitle =>
+      isHindi ? 'à¤µà¤°à¥à¤•à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¨à¤¿à¤·à¥à¤•à¥à¤°à¤¿à¤¯ à¤•à¤°à¥‡à¤‚?' : 'Deactivate worker access?';
+  String get deactivateWorkerAccessMessage => isHindi
+      ? 'à¤¦à¥ˆà¤¨à¤¿à¤• à¤•à¤Ÿà¥Œà¤¤à¥€ à¤…à¤—à¤²à¥‡ 24 à¤˜à¤‚à¤Ÿà¥‡ à¤•à¥‡ à¤šà¤•à¥à¤° à¤¸à¥‡ à¤°à¥à¤• à¤œà¤¾à¤à¤—à¥€à¥¤ à¤†à¤ªà¤•à¥€ à¤µà¥‰à¤²à¥‡à¤Ÿ à¤°à¤¾à¤¶à¤¿ à¤¸à¥à¤°à¤•à¥à¤·à¤¿à¤¤ à¤°à¤¹à¥‡à¤—à¥€à¥¤'
+      : 'Daily deduction will stop from the next 24-hour cycle. Your wallet balance will remain safe.';
+  String get workerPlanPaused =>
+      isHindi ? 'à¤µà¤°à¥à¤•à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤°à¥‹à¤•à¤¾ à¤—à¤¯à¤¾ à¤¹à¥ˆ' : 'Worker access is paused';
+  String get workerPlanPausedSubtitle => isHindi
+      ? 'à¤†à¤ªà¤•à¥‡ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤•à¤°à¤¨à¥‡ à¤¤à¤• à¤¦à¥ˆà¤¨à¤¿à¤• à¤•à¤Ÿà¥Œà¤¤à¥€ à¤°à¥à¤•à¥€ à¤°à¤¹à¥‡à¤—à¥€à¥¤'
+      : 'Daily deduction will stay paused until you activate worker access again.';
+  String get walletStatusControlUnavailable => isHindi
+      ? 'à¤¯à¤¹ à¤¨à¤¿à¤¯à¤‚à¤¤à¥à¤°à¤£ à¤•à¥‡à¤µà¤² à¤ªà¥‡à¤¡ à¤µà¤°à¥à¤•à¤° à¤ªà¥à¤²à¤¾à¤¨ à¤•à¥‡ à¤²à¤¿à¤ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¹à¥ˆà¥¤'
+      : 'This control is available only for paid worker plans.';
+  String get ok => isHindi ? 'à¤ à¥€à¤• à¤¹à¥ˆ' : 'OK';
+  String get cancel => isHindi ? 'à¤°à¤¦à¥à¤¦ à¤•à¤°à¥‡à¤‚' : 'Cancel';
   String get rechargeNoteForAdmin =>
-      isHindi ? 'एडमिन के लिए रिचार्ज नोट' : 'Recharge note for admin';
+      isHindi ? 'à¤à¤¡à¤®à¤¿à¤¨ à¤•à¥‡ à¤²à¤¿à¤ à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤¨à¥‹à¤Ÿ' : 'Recharge note for admin';
   String get rechargeNoteHint => isHindi
-      ? 'उदाहरण: 20 और दिनों के लिए Rs 100 रिचार्ज चाहिए'
+      ? 'à¤‰à¤¦à¤¾à¤¹à¤°à¤£: 20 à¤”à¤° à¤¦à¤¿à¤¨à¥‹à¤‚ à¤•à¥‡ à¤²à¤¿à¤ Rs 100 à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤šà¤¾à¤¹à¤¿à¤'
       : 'Example: Need Rs 100 recharge for 20 more days';
   String get sendingRequest =>
-      isHindi ? 'अनुरोध भेजा जा रहा है...' : 'Sending request...';
+      isHindi ? 'à¤…à¤¨à¥à¤°à¥‹à¤§ à¤­à¥‡à¤œà¤¾ à¤œà¤¾ à¤°à¤¹à¤¾ à¤¹à¥ˆ...' : 'Sending request...';
   String get requestRecharge =>
-      isHindi ? 'रिचार्ज अनुरोध भेजें' : 'Request Recharge';
+      isHindi ? 'à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤…à¤¨à¥à¤°à¥‹à¤§ à¤­à¥‡à¤œà¥‡à¤‚' : 'Request Recharge';
   String get rechargeHistory =>
-      isHindi ? 'रिचार्ज और कटौती हिस्ट्री' : 'Recharge & deduction history';
+      isHindi ? 'à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤”à¤° à¤•à¤Ÿà¥Œà¤¤à¥€ à¤¹à¤¿à¤¸à¥à¤Ÿà¥à¤°à¥€' : 'Recharge & deduction history';
 
-  String get workerProfile => isHindi ? 'वर्कर प्रोफाइल' : 'Worker profile';
+  String get workerProfile => isHindi ? 'à¤µà¤°à¥à¤•à¤° à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤²' : 'Worker profile';
   String get workerProfileSubtitle => isHindi
-      ? 'इन डिटेल्स को अपडेट रखें ताकि ऐप आपको सही कंपनी जरूरतों से जोड़ सके।'
+      ? 'à¤‡à¤¨ à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤•à¥‹ à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤°à¤–à¥‡à¤‚ à¤¤à¤¾à¤•à¤¿ à¤à¤ª à¤†à¤ªà¤•à¥‹ à¤¸à¤¹à¥€ à¤•à¤‚à¤ªà¤¨à¥€ à¤œà¤°à¥‚à¤°à¤¤à¥‹à¤‚ à¤¸à¥‡ à¤œà¥‹à¤¡à¤¼ à¤¸à¤•à¥‡à¥¤'
       : 'Keep these details updated so the app matches you with the right company requirements.';
-  String get fullName => isHindi ? 'पूरा नाम' : 'Full Name';
-  String get city => isHindi ? 'शहर' : 'City';
-  String get experienceYears => isHindi ? 'अनुभव (वर्ष)' : 'Experience (years)';
+  String get fullName => isHindi ? 'à¤ªà¥‚à¤°à¤¾ à¤¨à¤¾à¤®' : 'Full Name';
+  String get city => isHindi ? 'à¤¶à¤¹à¤°' : 'City';
+  String get lookingJobCity =>
+      isHindi ? 'जॉब देखने का शहर' : 'Looking Job City';
+  String get belongsToCity =>
+      isHindi ? 'अपने शहर का नाम' : 'Belongs To City';
+  String get addressLabel => isHindi ? 'पता' : 'Address';
+  String get salaryType => isHindi ? 'वेतन प्रकार' : 'Salary Type';
+  String get experienceYears => isHindi ? 'à¤…à¤¨à¥à¤­à¤µ (à¤µà¤°à¥à¤·)' : 'Experience (years)';
+  String get expectedSalaryWage =>
+      isHindi ? 'अपेक्षित वेतन / मजदूरी' : 'Expected Salary/Wage';
   String get expectedDailyWage =>
-      isHindi ? 'अपेक्षित दैनिक दिहाड़ी' : 'Expected daily wage';
-  String get skills => isHindi ? 'स्किल्स' : 'Skills';
+      isHindi ? 'à¤…à¤ªà¥‡à¤•à¥à¤·à¤¿à¤¤ à¤¦à¥ˆà¤¨à¤¿à¤• à¤¦à¤¿à¤¹à¤¾à¤¡à¤¼à¥€' : 'Expected daily wage';
+  String get skills => isHindi ? 'à¤¸à¥à¤•à¤¿à¤²à¥à¤¸' : 'Skills';
   String get skillsHint => isHindi
-      ? 'उदाहरण: ओवरलॉक, कटिंग, जरी, फिनिशिंग'
+      ? 'à¤‰à¤¦à¤¾à¤¹à¤°à¤£: à¤“à¤µà¤°à¤²à¥‰à¤•, à¤•à¤Ÿà¤¿à¤‚à¤—, à¤œà¤°à¥€, à¤«à¤¿à¤¨à¤¿à¤¶à¤¿à¤‚à¤—'
       : 'Example: overlock, cutting, zari, finishing';
-  String get categories => isHindi ? 'कैटेगरी' : 'Categories';
-  String get availability => isHindi ? 'उपलब्धता' : 'Availability';
-  String get availableToday => isHindi ? 'आज उपलब्ध' : 'Available today';
+  String get categories => isHindi ? 'à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€' : 'Categories';
+  String get availability => isHindi ? 'à¤‰à¤ªà¤²à¤¬à¥à¤§à¤¤à¤¾' : 'Availability';
+  String get availableToday => isHindi ? 'à¤†à¤œ à¤‰à¤ªà¤²à¤¬à¥à¤§' : 'Available today';
   String get availableThisWeek =>
-      isHindi ? 'इस सप्ताह उपलब्ध' : 'Available this week';
-  String get notAvailable => isHindi ? 'उपलब्ध नहीं' : 'Not available';
-  String get saveProfile => isHindi ? 'प्रोफाइल सेव करें' : 'Save Profile';
-  String get saving => isHindi ? 'सेव हो रहा है...' : 'Saving...';
+      isHindi ? 'à¤‡à¤¸ à¤¸à¤ªà¥à¤¤à¤¾à¤¹ à¤‰à¤ªà¤²à¤¬à¥à¤§' : 'Available this week';
+  String get notAvailable => isHindi ? 'à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚' : 'Not available';
+  String get saveProfile => isHindi ? 'à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤² à¤¸à¥‡à¤µ à¤•à¤°à¥‡à¤‚' : 'Save Profile';
+  String get saving => isHindi ? 'à¤¸à¥‡à¤µ à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ...' : 'Saving...';
   String get fullNameRequired =>
-      isHindi ? 'पूरा नाम जरूरी है।' : 'Full name is required.';
-  String get cityRequired => isHindi ? 'शहर जरूरी है।' : 'City is required.';
+      isHindi ? 'à¤ªà¥‚à¤°à¤¾ à¤¨à¤¾à¤® à¤œà¤°à¥‚à¤°à¥€ à¤¹à¥ˆà¥¤' : 'Full name is required.';
+  String get cityRequired => isHindi ? 'à¤¶à¤¹à¤° à¤œà¤°à¥‚à¤°à¥€ à¤¹à¥ˆà¥¤' : 'City is required.';
   String get categoryRequired =>
-      isHindi ? 'कम से कम एक कैटेगरी चुनें।' : 'Select at least one category.';
+      isHindi ? 'à¤•à¤® à¤¸à¥‡ à¤•à¤® à¤à¤• à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€ à¤šà¥à¤¨à¥‡à¤‚à¥¤' : 'Select at least one category.';
   String get profileUpdatedSuccessfully => isHindi
-      ? 'प्रोफाइल सफलतापूर्वक अपडेट हो गई।'
+      ? 'à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤² à¤¸à¤«à¤²à¤¤à¤¾à¤ªà¥‚à¤°à¥à¤µà¤• à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤¹à¥‹ à¤—à¤ˆà¥¤'
       : 'Profile updated successfully.';
   String get rechargeRequestSent => isHindi
-      ? 'रिचार्ज अनुरोध एडमिन को भेज दिया गया।'
+      ? 'à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ à¤…à¤¨à¥à¤°à¥‹à¤§ à¤à¤¡à¤®à¤¿à¤¨ à¤•à¥‹ à¤­à¥‡à¤œ à¤¦à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾à¥¤'
       : 'Recharge request sent to admin.';
 
-  String get feed => isHindi ? 'फीड' : 'Feed';
-  String get profile => isHindi ? 'प्रोफाइल' : 'Profile';
-  String get alerts => isHindi ? 'अलर्ट्स' : 'Alerts';
+  String get feed => isHindi ? 'à¤«à¥€à¤¡' : 'Feed';
+  String get profile => isHindi ? 'à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤²' : 'Profile';
+  String workerSalaryTypeLabel(String value) {
+    switch (value.trim().toLowerCase()) {
+      case 'daily wage':
+        return isHindi ? 'दैनिक मजदूरी' : 'Daily Wage';
+      case 'monthly salary':
+        return isHindi ? 'मासिक वेतन' : 'Monthly Salary';
+      case 'weekly':
+      case 'weekly payment':
+        return isHindi ? 'साप्ताहिक' : 'Weekly';
+      case 'per piece':
+      case 'piece rate':
+        return isHindi ? 'प्रति पीस' : 'Per Piece';
+      case 'contract':
+      case 'contract payment':
+        return isHindi ? 'कॉन्ट्रैक्ट' : 'Contract';
+      case 'hourly':
+        return isHindi ? 'घंटे के हिसाब से' : 'Hourly';
+      default:
+        return value;
+    }
+  }
+
+  String get alerts => isHindi ? 'à¤…à¤²à¤°à¥à¤Ÿà¥à¤¸' : 'Alerts';
   String kmAway(String distance) =>
-      isHindi ? '$distance किमी दूर' : '$distance km away';
+      isHindi ? '$distance à¤•à¤¿à¤®à¥€ à¤¦à¥‚à¤°' : '$distance km away';
   String mAway(String distance) =>
-      isHindi ? '$distance मीटर दूर' : '$distance m away';
+      isHindi ? '$distance à¤®à¥€à¤Ÿà¤° à¤¦à¥‚à¤°' : '$distance m away';
   String get distanceUnavailable =>
-      isHindi ? 'दूरी उपलब्ध नहीं है' : 'Distance unavailable';
+      isHindi ? 'à¤¦à¥‚à¤°à¥€ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆ' : 'Distance unavailable';
   String get enableLocationToSeeDistance => isHindi
-      ? 'दूरी देखने के लिए लोकेशन चालू करें'
+      ? 'à¤¦à¥‚à¤°à¥€ à¤¦à¥‡à¤–à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤²à¥‹à¤•à¥‡à¤¶à¤¨ à¤šà¤¾à¤²à¥‚ à¤•à¤°à¥‡à¤‚'
       : 'Enable location to see distance';
   String get notificationsTitle =>
-      isHindi ? 'वर्कर नोटिफिकेशन' : 'Worker notifications';
+      isHindi ? 'à¤µà¤°à¥à¤•à¤° à¤¨à¥‹à¤Ÿà¤¿à¤«à¤¿à¤•à¥‡à¤¶à¤¨' : 'Worker notifications';
   String unreadNotifications(int count) => isHindi
-      ? '$count अनरीड अपडेट आपकी प्रतीक्षा में हैं।'
+      ? '$count à¤…à¤¨à¤°à¥€à¤¡ à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤†à¤ªà¤•à¥€ à¤ªà¥à¤°à¤¤à¥€à¤•à¥à¤·à¤¾ à¤®à¥‡à¤‚ à¤¹à¥ˆà¤‚à¥¤'
       : '$count unread updates waiting for you.';
   String get allCaughtUpMessage => isHindi
-      ? 'आपने सभी अपडेट देख लिए हैं। नई जॉब गतिविधियां और अकाउंट अपडेट यहीं दिखेंगे।'
+      ? 'à¤†à¤ªà¤¨à¥‡ à¤¸à¤­à¥€ à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤¦à¥‡à¤– à¤²à¤¿à¤ à¤¹à¥ˆà¤‚à¥¤ à¤¨à¤ˆ à¤œà¥‰à¤¬ à¤—à¤¤à¤¿à¤µà¤¿à¤§à¤¿à¤¯à¤¾à¤‚ à¤”à¤° à¤…à¤•à¤¾à¤‰à¤‚à¤Ÿ à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤¯à¤¹à¥€à¤‚ à¤¦à¤¿à¤–à¥‡à¤‚à¤—à¥‡à¥¤'
       : 'You are fully caught up. New job actions and account updates will appear here.';
   String get markAllAsRead =>
-      isHindi ? 'सभी को पढ़ा हुआ चिन्हित करें' : 'Mark all as read';
-  String get updating => isHindi ? 'अपडेट हो रहा है...' : 'Updating...';
+      isHindi ? 'à¤¸à¤­à¥€ à¤•à¥‹ à¤ªà¤¢à¤¼à¤¾ à¤¹à¥à¤† à¤šà¤¿à¤¨à¥à¤¹à¤¿à¤¤ à¤•à¤°à¥‡à¤‚' : 'Mark all as read';
+  String get updating => isHindi ? 'à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ...' : 'Updating...';
   String get notificationsEmpty => isHindi
-      ? 'अभी कोई नोटिफिकेशन नहीं है। जैसे ही आप जॉब सेव या अप्लाई करेंगे, अपडेट यहां दिखेंगे।'
+      ? 'à¤…à¤­à¥€ à¤•à¥‹à¤ˆ à¤¨à¥‹à¤Ÿà¤¿à¤«à¤¿à¤•à¥‡à¤¶à¤¨ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤ à¤œà¥ˆà¤¸à¥‡ à¤¹à¥€ à¤†à¤ª à¤œà¥‰à¤¬ à¤¸à¥‡à¤µ à¤¯à¤¾ à¤…à¤ªà¥à¤²à¤¾à¤ˆ à¤•à¤°à¥‡à¤‚à¤—à¥‡, à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤¯à¤¹à¤¾à¤‚ à¤¦à¤¿à¤–à¥‡à¤‚à¤—à¥‡à¥¤'
       : 'No notifications yet. Once you save jobs or apply, updates will start showing here.';
-  String get markRead => isHindi ? 'पढ़ा हुआ' : 'Mark read';
+  String get markRead => isHindi ? 'à¤ªà¤¢à¤¼à¤¾ à¤¹à¥à¤†' : 'Mark read';
 
   String get applicationSentSuccess => isHindi
-      ? 'आवेदन सफलतापूर्वक भेज दिया गया।'
+      ? 'à¤†à¤µà¥‡à¤¦à¤¨ à¤¸à¤«à¤²à¤¤à¤¾à¤ªà¥‚à¤°à¥à¤µà¤• à¤­à¥‡à¤œ à¤¦à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾à¥¤'
       : 'Application sent successfully.';
 
   String localizeMatchReason(String value) {
@@ -284,9 +341,9 @@ class WorkerLocalizations {
 
     switch (normalized) {
       case 'strong match in your city and category':
-        return 'आपके शहर और कैटेगरी में मजबूत मैच';
+        return 'à¤†à¤ªà¤•à¥‡ à¤¶à¤¹à¤° à¤”à¤° à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€ à¤®à¥‡à¤‚ à¤®à¤œà¤¬à¥‚à¤¤ à¤®à¥ˆà¤š';
       case 'category match for your worker profile':
-        return 'आपकी वर्कर प्रोफ़ाइल के लिए कैटेगरी मैच';
+        return 'à¤†à¤ªà¤•à¥€ à¤µà¤°à¥à¤•à¤° à¤ªà¥à¤°à¥‹à¤«à¤¼à¤¾à¤‡à¤² à¤•à¥‡ à¤²à¤¿à¤ à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€ à¤®à¥ˆà¤š';
       default:
         return value;
     }
@@ -297,13 +354,13 @@ class WorkerLocalizations {
 
     switch (type.trim().toLowerCase()) {
       case 'application_submitted':
-        return 'आवेदन भेजा गया';
+        return 'à¤†à¤µà¥‡à¤¦à¤¨ à¤­à¥‡à¤œà¤¾ à¤—à¤¯à¤¾';
       case 'job_saved':
-        return 'जॉब सेव हुई';
+        return 'à¤œà¥‰à¤¬ à¤¸à¥‡à¤µ à¤¹à¥à¤ˆ';
       case 'application_status':
-        return 'आवेदन स्थिति अपडेट';
+        return 'à¤†à¤µà¥‡à¤¦à¤¨ à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤…à¤ªà¤¡à¥‡à¤Ÿ';
       case 'wallet_reminder':
-        return 'वॉलेट रिमाइंडर';
+        return 'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤°à¤¿à¤®à¤¾à¤‡à¤‚à¤¡à¤°';
       default:
         return title;
     }
@@ -321,20 +378,20 @@ class WorkerLocalizations {
       case 'application_submitted':
         if (jobTitle != null && jobTitle.isNotEmpty) {
           final companyPart = companyName != null && companyName.isNotEmpty
-              ? ' ${companyName} में'
+              ? ' ${companyName} à¤®à¥‡à¤‚'
               : '';
-          return 'आपने ${jobTitle}${companyPart} आवेदन भेज दिया है।';
+          return 'à¤†à¤ªà¤¨à¥‡ ${jobTitle}${companyPart} à¤†à¤µà¥‡à¤¦à¤¨ à¤­à¥‡à¤œ à¤¦à¤¿à¤¯à¤¾ à¤¹à¥ˆà¥¤';
         }
-        return 'आपका आवेदन सफलतापूर्वक भेज दिया गया है।';
+        return 'à¤†à¤ªà¤•à¤¾ à¤†à¤µà¥‡à¤¦à¤¨ à¤¸à¤«à¤²à¤¤à¤¾à¤ªà¥‚à¤°à¥à¤µà¤• à¤­à¥‡à¤œ à¤¦à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾ à¤¹à¥ˆà¥¤';
       case 'job_saved':
         if (jobTitle != null && jobTitle.isNotEmpty) {
-          return '${jobTitle} आपकी शॉर्टलिस्ट में सेव हो गई है।';
+          return '${jobTitle} à¤†à¤ªà¤•à¥€ à¤¶à¥‰à¤°à¥à¤Ÿà¤²à¤¿à¤¸à¥à¤Ÿ à¤®à¥‡à¤‚ à¤¸à¥‡à¤µ à¤¹à¥‹ à¤—à¤ˆ à¤¹à¥ˆà¥¤';
         }
-        return 'जॉब आपकी शॉर्टलिस्ट में सेव हो गई है।';
+        return 'à¤œà¥‰à¤¬ à¤†à¤ªà¤•à¥€ à¤¶à¥‰à¤°à¥à¤Ÿà¤²à¤¿à¤¸à¥à¤Ÿ à¤®à¥‡à¤‚ à¤¸à¥‡à¤µ à¤¹à¥‹ à¤—à¤ˆ à¤¹à¥ˆà¥¤';
       case 'application_status':
-        return 'आपके आवेदन की स्थिति अपडेट हुई है।';
+        return 'à¤†à¤ªà¤•à¥‡ à¤†à¤µà¥‡à¤¦à¤¨ à¤•à¥€ à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤¹à¥à¤ˆ à¤¹à¥ˆà¥¤';
       case 'wallet_reminder':
-        return 'वॉलेट और एक्सेस से जुड़ा नया अपडेट उपलब्ध है।';
+        return 'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤”à¤° à¤à¤•à¥à¤¸à¥‡à¤¸ à¤¸à¥‡ à¤œà¥à¤¡à¤¼à¤¾ à¤¨à¤¯à¤¾ à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¹à¥ˆà¥¤';
       default:
         return message;
     }
@@ -344,6 +401,7 @@ class WorkerLocalizations {
     const english = {
       'active': 'Active',
       'pending': 'Pending',
+      'inactive_paused_by_worker': 'Paused by worker',
       'inactive_wallet_empty': 'Wallet empty',
       'inactive_subscription_expired': 'Subscription expired',
       'blocked': 'Blocked',
@@ -366,27 +424,28 @@ class WorkerLocalizations {
     };
 
     const hindi = {
-      'active': 'सक्रिय',
-      'pending': 'लंबित',
-      'inactive_wallet_empty': 'वॉलेट खाली',
-      'inactive_subscription_expired': 'सदस्यता समाप्त',
-      'blocked': 'ब्लॉक',
-      'rejected': 'अस्वीकृत',
-      'registration_fee': 'रजिस्ट्रेशन शुल्क',
-      'wallet_deduction': 'वॉलेट कटौती',
-      'plan_purchase': 'प्लान खरीद',
-      'wallet_recharge': 'वॉलेट रिचार्ज',
-      'manual_adjustment': 'मैनुअल समायोजन',
-      'completed': 'पूर्ण',
-      'attention': 'ध्यान दें',
-      'failed': 'असफल',
-      'submitted': 'भेजा गया',
-      'reviewed': 'समीक्षित',
-      'shortlisted': 'शॉर्टलिस्टेड',
-      'hired': 'नियुक्त',
-      'high': 'उच्च',
-      'medium': 'मध्यम',
-      'low': 'कम',
+      'active': 'à¤¸à¤•à¥à¤°à¤¿à¤¯',
+      'pending': 'à¤²à¤‚à¤¬à¤¿à¤¤',
+      'inactive_paused_by_worker': 'à¤µà¤°à¥à¤•à¤° à¤¨à¥‡ à¤°à¥‹à¤•à¤¾',
+      'inactive_wallet_empty': 'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤–à¤¾à¤²à¥€',
+      'inactive_subscription_expired': 'à¤¸à¤¦à¤¸à¥à¤¯à¤¤à¤¾ à¤¸à¤®à¤¾à¤ªà¥à¤¤',
+      'blocked': 'à¤¬à¥à¤²à¥‰à¤•',
+      'rejected': 'à¤…à¤¸à¥à¤µà¥€à¤•à¥ƒà¤¤',
+      'registration_fee': 'à¤°à¤œà¤¿à¤¸à¥à¤Ÿà¥à¤°à¥‡à¤¶à¤¨ à¤¶à¥à¤²à¥à¤•',
+      'wallet_deduction': 'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤•à¤Ÿà¥Œà¤¤à¥€',
+      'plan_purchase': 'à¤ªà¥à¤²à¤¾à¤¨ à¤–à¤°à¥€à¤¦',
+      'wallet_recharge': 'à¤µà¥‰à¤²à¥‡à¤Ÿ à¤°à¤¿à¤šà¤¾à¤°à¥à¤œ',
+      'manual_adjustment': 'à¤®à¥ˆà¤¨à¥à¤…à¤² à¤¸à¤®à¤¾à¤¯à¥‹à¤œà¤¨',
+      'completed': 'à¤ªà¥‚à¤°à¥à¤£',
+      'attention': 'à¤§à¥à¤¯à¤¾à¤¨ à¤¦à¥‡à¤‚',
+      'failed': 'à¤…à¤¸à¤«à¤²',
+      'submitted': 'à¤­à¥‡à¤œà¤¾ à¤—à¤¯à¤¾',
+      'reviewed': 'à¤¸à¤®à¥€à¤•à¥à¤·à¤¿à¤¤',
+      'shortlisted': 'à¤¶à¥‰à¤°à¥à¤Ÿà¤²à¤¿à¤¸à¥à¤Ÿà¥‡à¤¡',
+      'hired': 'à¤¨à¤¿à¤¯à¥à¤•à¥à¤¤',
+      'high': 'à¤‰à¤šà¥à¤š',
+      'medium': 'à¤®à¤§à¥à¤¯à¤®',
+      'low': 'à¤•à¤®',
     };
 
     final normalized = value.trim().toLowerCase();

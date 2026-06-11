@@ -403,9 +403,12 @@ class WorkerApiService {
     String token, {
     required String fullName,
     required String city,
+    required String homeCity,
+    required String address,
     required List<String> categoryIds,
     required List<String> skills,
     required double experienceYears,
+    required String salaryType,
     required double expectedDailyWage,
     required String availability,
   }) async {
@@ -418,9 +421,12 @@ class WorkerApiService {
       body: jsonEncode({
         'fullName': fullName,
         'city': city,
+        'homeCity': homeCity,
+        'address': address,
         'categoryIds': categoryIds,
         'skills': skills,
         'experienceYears': experienceYears,
+        'salaryType': salaryType,
         'expectedDailyWage': expectedDailyWage,
         'availability': availability,
       }),
@@ -465,6 +471,7 @@ class WorkerApiService {
     required String city,
     required String homeCity,
     required String address,
+    required String salaryType,
     required List<String> categoryIds,
     required List<String> skills,
     required double experienceYears,
@@ -486,6 +493,7 @@ class WorkerApiService {
         'city': city,
         'homeCity': homeCity,
         'address': address,
+        'salaryType': salaryType,
         'categoryIds': categoryIds,
         'skills': skills,
         'experienceYears': experienceYears,
@@ -641,6 +649,29 @@ class WorkerApiService {
         fallbackError: 'Failed to update notifications');
     if (response.statusCode >= 400) {
       throw Exception(data['error'] ?? 'Failed to update notifications');
+    }
+
+    return WorkerDashboardModel.fromJson(
+        data['dashboard'] as Map<String, dynamic>);
+  }
+
+  Future<WorkerDashboardModel> updateWalletStatus(
+    String token, {
+    required bool active,
+  }) async {
+    final response = await _postWorkerJsonWithFallback(
+      ApiConfig.resolveWorkerPath('/wallet/status', preferRozgarV1: true),
+      _workerPath('/wallet/status'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'active': active}),
+    );
+
+    final data = _decodeResponse(response,
+        fallbackError: 'Failed to update wallet status');
+    if (response.statusCode >= 400) {
+      throw Exception(data['error'] ?? 'Failed to update wallet status');
     }
 
     return WorkerDashboardModel.fromJson(

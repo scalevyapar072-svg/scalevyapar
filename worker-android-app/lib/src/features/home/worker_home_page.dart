@@ -361,6 +361,41 @@ int _resolvedDaysRemaining(WorkerDashboardModel dashboard) {
   return math.max(dashboard.wallet.estimatedDaysRemaining, 0);
 }
 
+bool _isDashboardPausedByWorker(WorkerDashboardModel dashboard) {
+  return dashboard.activation.isPausedByWorker ||
+      dashboard.wallet.isPausedByWorker ||
+      dashboard.profile.isPausedByWorker;
+}
+
+bool _supportsWalletStatusToggle(WorkerDashboardModel dashboard) {
+  if (_hasActiveFreePlan(dashboard)) {
+    return false;
+  }
+
+  final dailyCharge = dashboard.workerPlan?.dailyCharge ?? dashboard.wallet.dailyCharge;
+  return dailyCharge > 0 &&
+      (_dashboardWorkerActive(dashboard) || _isDashboardPausedByWorker(dashboard));
+}
+
+String? _formatShortDateTime(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return null;
+  }
+
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) {
+    return null;
+  }
+
+  final local = parsed.toLocal();
+  final dateLabel =
+      '${local.day}/${local.month}/${local.year.toString().padLeft(4, '0')}';
+  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+  final minute = local.minute.toString().padLeft(2, '0');
+  final meridiem = local.hour >= 12 ? 'PM' : 'AM';
+  return '$dateLabel, $hour:$minute $meridiem';
+}
+
 String _normalizeJobRankKey(String value) {
   return value
       .trim()
@@ -668,6 +703,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   bool _notificationsLoading = false;
   bool _redirectingToLogin = false;
   bool _walletPaymentLoading = false;
+  bool _walletStatusLoading = false;
   Position? _livePosition;
   String _liveCity = '';
   String _liveArea = '';
@@ -1312,9 +1348,12 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   Future<void> _saveProfile({
     required String fullName,
     required String city,
+    required String homeCity,
+    required String address,
     required List<String> categoryIds,
     required List<String> skills,
     required double experienceYears,
+    required String salaryType,
     required double expectedDailyWage,
     required String availability,
   }) async {
@@ -1325,9 +1364,12 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
         _token,
         fullName: fullName,
         city: city,
+        homeCity: homeCity,
+        address: address,
         categoryIds: categoryIds,
         skills: skills,
         experienceYears: experienceYears,
+        salaryType: salaryType,
         expectedDailyWage: expectedDailyWage,
         availability: availability,
       );
@@ -1461,6 +1503,90 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           content:
               Text('External wallet selected. Complete payment to recharge.')),
     );
+  }
+
+  Future<void> _updateWalletStatus(bool active) async {
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      return;
+    }
+
+    final l10n = WorkerLocalizations.of(context);
+    if (!_supportsWalletStatusToggle(dashboard)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.walletStatusControlUnavailable)),
+      );
+      return;
+    }
+
+    setState(() => _walletStatusLoading = true);
+    try {
+      final nextDashboard = await _apiService.updateWalletStatus(
+        _token,
+        active: active,
+      );
+      if (!mounted) return;
+      setState(() => _dashboard = nextDashboard);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(active
+              ? l10n.activateWorkerAccessSuccess
+              : l10n.deactivateWorkerAccessSuccess),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = _cleanError(error);
+      if (await _handleSessionExpiryIfNeeded(message)) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _walletStatusLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleWalletStatusTap() async {
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      return;
+    }
+
+    final pausedByWorker = _isDashboardPausedByWorker(dashboard);
+    if (pausedByWorker) {
+      await _updateWalletStatus(true);
+      return;
+    }
+
+    final l10n = WorkerLocalizations.of(context);
+    final shouldDeactivate = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(l10n.deactivateWorkerAccessTitle),
+            content: Text(l10n.deactivateWorkerAccessMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(l10n.deactivateWorkerAccess),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldDeactivate) {
+      return;
+    }
+
+    await _updateWalletStatus(false);
   }
 
   Future<void> _applyToJob(String jobPostId) async {
@@ -2618,8 +2744,10 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                                   _rechargeAmountController,
                               rechargeNoteController: _rechargeNoteController,
                               onStartWalletRecharge: _startWalletRecharge,
+                              onToggleWalletStatus: _handleWalletStatusTap,
                               onRefresh: _loadDashboard,
-                              loading: _walletPaymentLoading || _loading,
+                              loading: _walletPaymentLoading || _walletStatusLoading || _loading,
+                              statusLoading: _walletStatusLoading,
                             ),
                           2 => _ProfileTab(
                               dashboard: dashboard,
@@ -2698,6 +2826,9 @@ class _TopSummarySection extends StatelessWidget {
     final isActive = _dashboardWorkerActive(dashboard);
     final walletValue = 'Rs ${dashboard.wallet.balance.toStringAsFixed(0)}';
     final jobsValue = '$visibleJobsCount';
+    final salaryTypeLabel = l10n.workerSalaryTypeLabel(
+      profile.salaryType.trim().isEmpty ? 'Daily Wage' : profile.salaryType.trim(),
+    );
     final wageValue = profile.expectedDailyWage > 0
         ? 'Rs ${profile.expectedDailyWage.toStringAsFixed(profile.expectedDailyWage % 1 == 0 ? 0 : 1)}'
         : '—';
@@ -2798,7 +2929,7 @@ class _TopSummarySection extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _SummaryChip(
-                    label: l10n.wage,
+                    label: salaryTypeLabel,
                     value: wageValue,
                   ),
                 ),
@@ -7564,16 +7695,20 @@ class _WalletTab extends StatelessWidget {
   final TextEditingController rechargeAmountController;
   final TextEditingController rechargeNoteController;
   final Future<void> Function() onStartWalletRecharge;
+  final Future<void> Function() onToggleWalletStatus;
   final Future<void> Function() onRefresh;
   final bool loading;
+  final bool statusLoading;
 
   const _WalletTab({
     required this.dashboard,
     required this.rechargeAmountController,
     required this.rechargeNoteController,
     required this.onStartWalletRecharge,
+    required this.onToggleWalletStatus,
     required this.onRefresh,
     required this.loading,
+    required this.statusLoading,
   });
 
   @override
@@ -7581,24 +7716,31 @@ class _WalletTab extends StatelessWidget {
     final l10n = WorkerLocalizations.of(context);
     final isActive = _dashboardWorkerActive(dashboard);
     final hasActiveFreePlan = _hasActiveFreePlan(dashboard);
+    final pausedByWorker = _isDashboardPausedByWorker(dashboard);
+    final supportsWalletStatusToggle = _supportsWalletStatusToggle(dashboard);
     final daysRemaining = _resolvedDaysRemaining(dashboard);
     final daysLabel = _daysRemainingLabel(l10n, daysRemaining);
     final validTillLabel = _formatShortDate(dashboard.workerPlan?.planEndDate);
     final validTillText =
         validTillLabel == null ? null : _validTillText(l10n, validTillLabel);
+    final nextDeductionLabel = _formatShortDateTime(dashboard.wallet.nextDeductionAt);
     final planName = (dashboard.workerPlan?.name.trim().isNotEmpty ?? false)
         ? dashboard.workerPlan!.name.trim()
         : 'Starter Plan';
-    final planHeadline = isActive
-        ? (hasActiveFreePlan
-            ? planName
-            : (l10n.isHindi ? '$planName सक्रिय' : '$planName Active'))
-        : (l10n.isHindi ? 'प्लान समाप्त' : 'Plan Expired');
-    final planSubtitle = isActive
-        ? (hasActiveFreePlan && validTillText != null
-            ? validTillText
-            : daysLabel)
-        : (l10n.isHindi ? 'रिचार्ज जरूरी' : 'Recharge Required');
+    final planHeadline = pausedByWorker
+        ? l10n.workerPlanPaused
+        : isActive
+            ? (hasActiveFreePlan
+                ? planName
+                : (l10n.isHindi ? '$planName सक्रिय' : '$planName Active'))
+            : (l10n.isHindi ? 'प्लान समाप्त' : 'Plan Expired');
+    final planSubtitle = pausedByWorker
+        ? l10n.workerPlanPausedSubtitle
+        : isActive
+            ? (hasActiveFreePlan && validTillText != null
+                ? validTillText
+                : daysLabel)
+            : (l10n.isHindi ? 'रिचार्ज जरूरी' : 'Recharge Required');
     final activationLabel =
         isActive ? (l10n.isHindi ? 'सक्रिय' : 'Active') : (l10n.isHindi ? 'निष्क्रिय' : 'Inactive');
     final dailyDeductionAmount =
@@ -7677,11 +7819,13 @@ class _WalletTab extends StatelessWidget {
                                 '${l10n.isHindi ? 'प्लान स्थिति' : 'Plan Status'}: $activationLabel',
                           ),
                           _WalletAccentPill(
-                            label: hasActiveFreePlan
-                                ? (l10n.isHindi ? 'फ्री प्लान सक्रिय' : 'Free plan active')
-                                : (l10n.isHindi
-                                    ? 'बाकी दिन: $daysRemaining'
-                                    : 'Days Remaining: $daysRemaining'),
+                            label: pausedByWorker
+                                ? l10n.prettyValue('inactive_paused_by_worker')
+                                : hasActiveFreePlan
+                                    ? (l10n.isHindi ? 'फ्री प्लान सक्रिय' : 'Free plan active')
+                                    : (l10n.isHindi
+                                        ? 'बाकी दिन: $daysRemaining'
+                                        : 'Days Remaining: $daysRemaining'),
                           ),
                         ],
                       ),
@@ -7703,7 +7847,7 @@ class _WalletTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _WalletDetailCard(
-                  title: l10n.isHindi ? 'दैनिक कटौती राशि' : 'Daily Deduction Amount',
+                  title: l10n.dailyDeductionAmountLabel,
                   value: _dailyDeductionAmountText(l10n, dailyDeductionAmount),
                   subtitle: hasActiveFreePlan
                       ? (l10n.isHindi
@@ -7711,12 +7855,83 @@ class _WalletTab extends StatelessWidget {
                           : 'No daily deduction applies during the free plan.')
                       : null,
                 ),
+                if (nextDeductionLabel != null && !hasActiveFreePlan) ...[
+                  const SizedBox(height: 12),
+                  _WalletDetailCard(
+                    title: l10n.nextDailyDeduction,
+                    value: nextDeductionLabel,
+                    subtitle: pausedByWorker
+                        ? l10n.workerPlanPausedSubtitle
+                        : null,
+                  ),
+                ],
                 const SizedBox(height: 12),
                 _WalletDetailCard(
                   title: l10n.isHindi ? 'न्यूनतम रिचार्ज' : 'Minimum Recharge',
                   value:
                       'Rs ${_minimumWalletRechargeAmount.toStringAsFixed(0)}',
                 ),
+                if (supportsWalletStatusToggle) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.walletActivation,
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          pausedByWorker
+                              ? l10n.workerPlanPausedSubtitle
+                              : (l10n.isHindi
+                                  ? 'आप चाहें तो वर्कर एक्सेस रोक सकते हैं। दैनिक कटौती अगले चक्र से रुक जाएगी।'
+                                  : 'You can pause worker access anytime. Daily deduction will stop from the next cycle.'),
+                          style: const TextStyle(
+                            color: Color(0xFF475569),
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: loading ? null : onToggleWalletStatus,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: pausedByWorker
+                                  ? const Color(0xFF166534)
+                                  : const Color(0xFF173C77),
+                              padding: const EdgeInsets.symmetric(vertical: 15),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                            child: Text(
+                              statusLoading
+                                  ? l10n.updating
+                                  : (pausedByWorker
+                                      ? l10n.activateWorkerAccess
+                                      : l10n.deactivateWorkerAccess),
+                              style: const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
@@ -7899,9 +8114,12 @@ class _ProfileTab extends StatefulWidget {
   final Future<void> Function({
     required String fullName,
     required String city,
+    required String homeCity,
+    required String address,
     required List<String> categoryIds,
     required List<String> skills,
     required double experienceYears,
+    required String salaryType,
     required double expectedDailyWage,
     required String availability,
   }) onSave;
@@ -7929,6 +8147,7 @@ class _ProfileTabState extends State<_ProfileTab> {
   late TextEditingController _skillsController;
   late List<String> _selectedCategories;
   late String _availability;
+  late String _salaryType;
 
   @override
   void initState() {
@@ -7951,6 +8170,8 @@ class _ProfileTabState extends State<_ProfileTab> {
             widget.dashboard.profile.categoryIds.join(',') ||
         oldWidget.dashboard.profile.availability !=
             widget.dashboard.profile.availability ||
+        oldWidget.dashboard.profile.salaryType !=
+            widget.dashboard.profile.salaryType ||
         oldWidget.dashboard.profile.expectedDailyWage !=
             widget.dashboard.profile.expectedDailyWage ||
         oldWidget.dashboard.profile.experienceYears !=
@@ -7974,6 +8195,9 @@ class _ProfileTabState extends State<_ProfileTab> {
         TextEditingController(text: widget.dashboard.profile.skills.join(', '));
     _selectedCategories = [...widget.dashboard.profile.categoryIds];
     _availability = widget.dashboard.profile.availability;
+    _salaryType = widget.dashboard.profile.salaryType.trim().isEmpty
+        ? 'Daily Wage'
+        : widget.dashboard.profile.salaryType.trim();
   }
 
   void _syncControllersFromDashboard() {
@@ -7986,6 +8210,9 @@ class _ProfileTabState extends State<_ProfileTab> {
     _skillsController.text = widget.dashboard.profile.skills.join(', ');
     _selectedCategories = [...widget.dashboard.profile.categoryIds];
     _availability = widget.dashboard.profile.availability;
+    _salaryType = widget.dashboard.profile.salaryType.trim().isEmpty
+        ? 'Daily Wage'
+        : widget.dashboard.profile.salaryType.trim();
   }
 
   @override
@@ -8015,6 +8242,8 @@ class _ProfileTabState extends State<_ProfileTab> {
     widget.onSave(
       fullName: _nameController.text.trim(),
       city: _cityController.text.trim(),
+      homeCity: widget.dashboard.profile.homeCity,
+      address: widget.dashboard.profile.address,
       categoryIds: _selectedCategories,
       skills: _skillsController.text
           .split(',')
@@ -8022,6 +8251,7 @@ class _ProfileTabState extends State<_ProfileTab> {
           .where((item) => item.isNotEmpty)
           .toList(),
       experienceYears: double.tryParse(_experienceController.text.trim()) ?? 0,
+      salaryType: _salaryType.trim().isEmpty ? 'Daily Wage' : _salaryType.trim(),
       expectedDailyWage: double.tryParse(_wageController.text.trim()) ?? 0,
       availability: _availability,
     );
@@ -8029,6 +8259,57 @@ class _ProfileTabState extends State<_ProfileTab> {
 
   void _showMessage(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  List<WorkerMasterOption> get _workerSalaryTypeOptions {
+    final List<WorkerMasterOption> items =
+        widget.dashboard.availableWorkerSalaryTypes.isNotEmpty
+        ? widget.dashboard.availableWorkerSalaryTypes
+        : [
+            WorkerMasterOption(
+              id: 'worker-salary-daily-wage',
+              label: 'Daily Wage',
+              value: 'Daily Wage',
+              slug: 'daily-wage',
+            ),
+            WorkerMasterOption(
+              id: 'worker-salary-monthly-salary',
+              label: 'Monthly Salary',
+              value: 'Monthly Salary',
+              slug: 'monthly-salary',
+            ),
+            WorkerMasterOption(
+              id: 'worker-salary-weekly',
+              label: 'Weekly',
+              value: 'Weekly',
+              slug: 'weekly',
+            ),
+            WorkerMasterOption(
+              id: 'worker-salary-per-piece',
+              label: 'Per Piece',
+              value: 'Per Piece',
+              slug: 'per-piece',
+            ),
+            WorkerMasterOption(
+              id: 'worker-salary-contract',
+              label: 'Contract',
+              value: 'Contract',
+              slug: 'contract',
+            ),
+            WorkerMasterOption(
+              id: 'worker-salary-hourly',
+              label: 'Hourly',
+              value: 'Hourly',
+              slug: 'hourly',
+            ),
+          ];
+
+    return items
+        .where(
+          (item) =>
+              item.value.trim().isNotEmpty || item.label.trim().isNotEmpty,
+        )
+        .toList();
   }
 
   @override
@@ -8041,6 +8322,12 @@ class _ProfileTabState extends State<_ProfileTab> {
       profile.categoryLabels,
     );
     final isActive = _dashboardWorkerActive(widget.dashboard);
+    final salaryTypeOptions = _workerSalaryTypeOptions;
+    final selectedSalaryTypeValue = salaryTypeOptions.any(
+      (item) => item.value == _salaryType,
+    )
+        ? _salaryType
+        : null;
 
     return RefreshIndicator.adaptive(
       onRefresh: widget.onRefresh,
@@ -8099,13 +8386,19 @@ class _ProfileTabState extends State<_ProfileTab> {
                 TextField(
                   controller: _cityController,
                   decoration: InputDecoration(
-                    labelText: l10n.city,
+                    labelText: l10n.lookingJobCity,
                     prefixIcon: const Icon(Icons.home_outlined),
                   ),
                 ),
                 const SizedBox(height: 12),
                 _ProfileReadOnlyField(
-                  label: l10n.isHindi ? 'पता' : 'Address',
+                  label: l10n.belongsToCity,
+                  icon: Icons.location_city_outlined,
+                  value: profile.homeCity.trim().isEmpty ? '-' : profile.homeCity.trim(),
+                ),
+                const SizedBox(height: 12),
+                _ProfileReadOnlyField(
+                  label: l10n.addressLabel,
                   icon: Icons.home_work_outlined,
                   value: profile.address.trim().isEmpty
                       ? '-'
@@ -8131,12 +8424,39 @@ class _ProfileTabState extends State<_ProfileTab> {
                         controller: _wageController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: l10n.expectedDailyWage,
+                          labelText: l10n.expectedSalaryWage,
                           prefixIcon: const Icon(Icons.currency_rupee_rounded),
                         ),
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedSalaryTypeValue,
+                  items: salaryTypeOptions
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item.value,
+                          child: Text(
+                            l10n.workerSalaryTypeLabel(
+                              item.label.trim().isNotEmpty
+                                  ? item.label.trim()
+                                  : item.value,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _salaryType = value);
+                    }
+                  },
+                  decoration: InputDecoration(
+                    labelText: l10n.salaryType,
+                    prefixIcon: const Icon(Icons.payments_outlined),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -8601,11 +8921,16 @@ class _SummaryChip extends StatelessWidget {
         children: [
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
             style: const TextStyle(color: Color(0xFFD7E4FF), fontSize: 12),
           ),
           const SizedBox(height: 4),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
                 color: Colors.white, fontWeight: FontWeight.w800),
           ),
@@ -8657,6 +8982,10 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = switch (status) {
       'active' => (const Color(0xFFE8F7EF), const Color(0xFF166534)),
+      'inactive_paused_by_worker' => (
+          const Color(0xFFE0EBFF),
+          const Color(0xFF173C77)
+        ),
       'inactive_wallet_empty' => (
           const Color(0xFFFFF7E6),
           const Color(0xFF92400E)
@@ -8897,6 +9226,9 @@ String _buildWhatsAppMessage({
   final wage = profile.expectedDailyWage % 1 == 0
       ? profile.expectedDailyWage.toStringAsFixed(0)
       : profile.expectedDailyWage.toStringAsFixed(1);
+  final salaryType = profile.salaryType.trim().isEmpty
+      ? 'Daily Wage'
+      : profile.salaryType.trim();
 
   if (isHindi) {
     return 'नमस्ते $contactName,\n\n'
@@ -8908,7 +9240,8 @@ String _buildWhatsAppMessage({
         'कैटेगरी: ${categories.isEmpty ? '-' : categories}\n'
         'स्किल्स: ${skills.isEmpty ? '-' : skills}\n'
         'अनुभव: $experience वर्ष\n'
-        'अपेक्षित दिहाड़ी: Rs $wage\n\n'
+        'वेतन प्रकार: $salaryType\n'
+        'अपेक्षित वेतन / मजदूरी: Rs $wage\n\n'
         'कृपया बताइए अगर यह जॉब अभी उपलब्ध है।';
   }
 
@@ -8921,7 +9254,8 @@ String _buildWhatsAppMessage({
       'Categories: ${categories.isEmpty ? '-' : categories}\n'
       'Skills: ${skills.isEmpty ? '-' : skills}\n'
       'Experience: $experience years\n'
-      'Expected daily wage: Rs $wage\n\n'
+      'Salary type: $salaryType\n'
+      'Expected salary/wage: Rs $wage\n\n'
       'Please let me know if this job is still available.';
 }
 
@@ -9158,6 +9492,7 @@ String _activationHeadline(
 
   return switch (activation.status) {
     'active' => 'वर्कर एक्सेस सक्रिय है',
+    'inactive_paused_by_worker' => 'वर्कर एक्सेस रोका गया है',
     'inactive_wallet_empty' =>
       'वॉलेट रिचार्ज की जरूरत है',
     'inactive_subscription_expired' =>
@@ -9178,6 +9513,8 @@ String _activationDescription(
   return switch (activation.status) {
     'active' =>
       'आपका वॉलेट सक्रिय है। दैनिक कटौती के बाद भी कंपनी डिटेल्स खुली रहेंगी।',
+    'inactive_paused_by_worker' =>
+      'वर्कर एक्सेस आपके द्वारा रोका गया है। दोबारा सक्रिय करने तक दैनिक कटौती नहीं होगी।',
     'inactive_wallet_empty' =>
       'वॉलेट बैलेंस कम है। रिचार्ज करके कंपनी डिटेल्स और विजिबिलिटी फिर से चालू करें।',
     'inactive_subscription_expired' =>
@@ -9204,6 +9541,14 @@ String _walletVisibilityRule(
     return validTillLabel == null
         ? 'आपका फ्री वर्कर प्लान अभी सक्रिय है। इस प्लान के दौरान कोई दैनिक कटौती नहीं होगी।'
         : 'आपका फ्री वर्कर प्लान अभी सक्रिय है। वैधता $validTillLabel तक है और इस प्लान के दौरान कोई दैनिक कटौती नहीं होगी।';
+  }
+
+  if (_isDashboardPausedByWorker(dashboard)) {
+    if (!l10n.isHindi) {
+      return 'Your paid worker plan is paused. Daily deduction will stay stopped until you activate worker access again.';
+    }
+
+    return 'आपका पेड वर्कर प्लान रोका गया है। दोबारा सक्रिय करने तक दैनिक कटौती रुकी रहेगी।';
   }
 
   if (!dashboard.activation.isActive ||

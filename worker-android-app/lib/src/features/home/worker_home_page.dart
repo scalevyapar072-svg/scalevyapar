@@ -4108,108 +4108,113 @@ class _FeedTab extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          if (canRevealCompanyContact) ...[
+                          if (canShowContactActions) ...[
                             const SizedBox(height: 8),
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Expanded(
                                   child: Text(
-                                    '${l10n.isHindi ? 'संपर्क व्यक्ति' : 'Contact Person'}: $companyPerson',
-                                    maxLines: 1,
+                                    canRevealCompanyContact
+                                        ? '${l10n.isHindi ? 'संपर्क व्यक्ति' : 'Contact Person'}: $companyPerson'
+                                        : (l10n.isHindi
+                                            ? 'एक्टिवेशन के बाद कंपनी संपर्क अनलॉक होगा'
+                                            : 'Unlock company contact after activation'),
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xFF334155),
+                                    style: TextStyle(
+                                      color: canRevealCompanyContact
+                                          ? const Color(0xFF334155)
+                                          : const Color(0xFF64748B),
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w700,
+                                      height: 1.3,
                                     ),
                                   ),
                                 ),
-                                if (canShowContactActions) ...[
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width: 42,
-                                    height: 42,
-                                    child: OutlinedButton(
-                                      onPressed: () async {
-                                        if (!isWorkerActive || item.companyLocked) {
-                                          await _showWorkerInactiveRechargeDialog(
-                                            context,
-                                            activation: dashboard.activation,
-                                            support: dashboard.support,
-                                            workerMobile: dashboard.profile.mobile,
-                                            onOpenProfile: onOpenProfile,
-                                            onOpenWallet: onOpenWallet,
-                                            onActivateNow: onActivateNow,
-                                          );
-                                          return;
-                                        }
-                                        await _openJobWhatsApp(
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 42,
+                                  height: 42,
+                                  child: OutlinedButton(
+                                    onPressed: () async {
+                                      if (!isWorkerActive || item.companyLocked) {
+                                        await _showWorkerInactiveRechargeDialog(
                                           context,
-                                          item,
-                                          dashboard.profile,
+                                          activation: dashboard.activation,
+                                          support: dashboard.support,
+                                          workerMobile: dashboard.profile.mobile,
+                                          onOpenProfile: onOpenProfile,
+                                          onOpenWallet: onOpenWallet,
+                                          onActivateNow: onActivateNow,
                                         );
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        padding: EdgeInsets.zero,
-                                        backgroundColor:
-                                            const Color(0xFFEFFAF3),
-                                        side: const BorderSide(
-                                          color: Color(0xFFB7E8C6),
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(14),
-                                        ),
+                                        return;
+                                      }
+                                      await _openJobWhatsApp(
+                                        context,
+                                        item,
+                                        dashboard.profile,
+                                      );
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      backgroundColor:
+                                          const Color(0xFFEFFAF3),
+                                      side: const BorderSide(
+                                        color: Color(0xFFB7E8C6),
                                       ),
-                                      child: Image.asset(
-                                        'assets/images/whatsapp_icon.jpeg',
-                                        width: 22,
-                                        height: 22,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width: 42,
-                                    height: 42,
-                                    child: OutlinedButton(
-                                      onPressed: () async {
-                                        if (!isWorkerActive || item.companyLocked) {
-                                          await _showWorkerInactiveRechargeDialog(
-                                            context,
-                                            activation: dashboard.activation,
-                                            support: dashboard.support,
-                                            workerMobile: dashboard.profile.mobile,
-                                            onOpenProfile: onOpenProfile,
-                                            onOpenWallet: onOpenWallet,
-                                            onActivateNow: onActivateNow,
-                                          );
-                                          return;
-                                        }
-                                        await _callJobCompany(context, item);
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        padding: EdgeInsets.zero,
-                                        backgroundColor:
-                                            const Color(0xFFF8FAFC),
-                                        side: const BorderSide(
-                                          color: Color(0xFFD7E2EE),
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(14),
-                                        ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.call_rounded,
-                                        size: 19,
-                                        color: Color(0xFF173C77),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(14),
                                       ),
                                     ),
+                                    child: Image.asset(
+                                      'assets/images/whatsapp_icon.jpeg',
+                                      width: 22,
+                                      height: 22,
+                                      fit: BoxFit.contain,
+                                    ),
                                   ),
-                                ],
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 42,
+                                  height: 42,
+                                  child: OutlinedButton(
+                                    onPressed: () async {
+                                      if (!isWorkerActive || item.companyLocked) {
+                                        await _showWorkerInactiveRechargeDialog(
+                                          context,
+                                          activation: dashboard.activation,
+                                          support: dashboard.support,
+                                          workerMobile: dashboard.profile.mobile,
+                                          onOpenProfile: onOpenProfile,
+                                          onOpenWallet: onOpenWallet,
+                                          onActivateNow: onActivateNow,
+                                        );
+                                        return;
+                                      }
+                                      await _callJobCompany(context, item);
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      backgroundColor:
+                                          const Color(0xFFF8FAFC),
+                                      side: const BorderSide(
+                                        color: Color(0xFFD7E2EE),
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.call_rounded,
+                                      size: 19,
+                                      color: Color(0xFF173C77),
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -7621,6 +7626,58 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
     }
   }
 
+  Future<void> _handleWhatsAppTap(WorkerFeedItemModel item) async {
+    if (_isJobCategoryLockedForWorker(widget.profile, item)) {
+      await _showCategoryLockedMessageDialog(context);
+      return;
+    }
+    if (!widget.isWorkerActive || item.companyLocked) {
+      await _showWorkerInactiveRechargeDialog(
+        context,
+        activation: widget.activation,
+        support: widget.support,
+        workerMobile: widget.workerMobile,
+        onOpenProfile: () {
+          widget.onOpenProfile();
+          Navigator.of(context).pop();
+        },
+        onOpenWallet: () {
+          widget.onOpenWallet();
+          Navigator.of(context).pop();
+        },
+        onActivateNow: widget.onActivateNow,
+      );
+      return;
+    }
+    await _openJobWhatsApp(context, item, widget.profile);
+  }
+
+  Future<void> _handleCallTap(WorkerFeedItemModel item) async {
+    if (_isJobCategoryLockedForWorker(widget.profile, item)) {
+      await _showCategoryLockedMessageDialog(context);
+      return;
+    }
+    if (!widget.isWorkerActive || item.companyLocked) {
+      await _showWorkerInactiveRechargeDialog(
+        context,
+        activation: widget.activation,
+        support: widget.support,
+        workerMobile: widget.workerMobile,
+        onOpenProfile: () {
+          widget.onOpenProfile();
+          Navigator.of(context).pop();
+        },
+        onOpenWallet: () {
+          widget.onOpenWallet();
+          Navigator.of(context).pop();
+        },
+        onActivateNow: widget.onActivateNow,
+      );
+      return;
+    }
+    await _callJobCompany(context, item);
+  }
+
   void _openDetails(WorkerFeedItemModel item) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -7852,6 +7909,49 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                           ],
                         ),
                         const SizedBox(height: 14),
+                        if (!categoryLocked) ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _handleWhatsAppTap(item),
+                                  icon: Image.asset(
+                                    'assets/images/whatsapp_icon.jpeg',
+                                    width: 18,
+                                    height: 18,
+                                    fit: BoxFit.contain,
+                                  ),
+                                  label: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    child: Text(
+                                      l10n.isHindi ? 'व्हाट्सऐप' : 'WhatsApp',
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(
+                                      color: Color(0xFFB7E8C6),
+                                    ),
+                                    backgroundColor: const Color(0xFFEFFAF3),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _handleCallTap(item),
+                                  icon: const Icon(Icons.call_rounded),
+                                  label: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    child: Text(
+                                      l10n.isHindi ? 'कॉल' : 'Call',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         Row(
                           children: [
                             Expanded(
@@ -8043,7 +8143,7 @@ class _NotificationsTab extends StatelessWidget {
   }
 }
 
-class _WalletTab extends StatelessWidget {
+class _WalletTab extends StatefulWidget {
   final WorkerDashboardModel dashboard;
   final TextEditingController rechargeAmountController;
   final TextEditingController rechargeNoteController;
@@ -8065,8 +8165,37 @@ class _WalletTab extends StatelessWidget {
   });
 
   @override
+  State<_WalletTab> createState() => _WalletTabState();
+}
+
+class _WalletTabState extends State<_WalletTab> {
+  static const int _collapsedHistoryPreviewCount = 5;
+
+  bool _historyExpanded = false;
+  int _visibleHistoryCount = _collapsedHistoryPreviewCount;
+
+  void _toggleHistoryVisibility() {
+    setState(() {
+      _historyExpanded = !_historyExpanded;
+      if (!_historyExpanded) {
+        _visibleHistoryCount = _collapsedHistoryPreviewCount;
+      }
+    });
+  }
+
+  void _showMoreHistory(int totalCount) {
+    setState(() {
+      _visibleHistoryCount = math.min(
+        totalCount,
+        _visibleHistoryCount + _collapsedHistoryPreviewCount,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = WorkerLocalizations.of(context);
+    final dashboard = widget.dashboard;
     final isActive = _dashboardWorkerActive(dashboard);
     final hasActiveFreePlan = _hasActiveFreePlan(dashboard);
     final pausedByWorker = _isDashboardPausedByWorker(dashboard);
@@ -8102,7 +8231,7 @@ class _WalletTab extends StatelessWidget {
     final historyItems = dashboard.wallet.transactions;
 
     return RefreshIndicator.adaptive(
-      onRefresh: onRefresh,
+      onRefresh: widget.onRefresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
@@ -8262,7 +8391,9 @@ class _WalletTab extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton(
-                            onPressed: loading ? null : onToggleWalletStatus,
+                            onPressed: widget.loading
+                                ? null
+                                : widget.onToggleWalletStatus,
                             style: FilledButton.styleFrom(
                               backgroundColor: pausedByWorker
                                   ? const Color(0xFF166534)
@@ -8273,7 +8404,7 @@ class _WalletTab extends StatelessWidget {
                               ),
                             ),
                             child: Text(
-                              statusLoading
+                              widget.statusLoading
                                   ? l10n.updating
                                   : (pausedByWorker
                                       ? l10n.activateWorkerAccess
@@ -8308,7 +8439,7 @@ class _WalletTab extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       TextField(
-                        controller: rechargeAmountController,
+                        controller: widget.rechargeAmountController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText:
@@ -8321,7 +8452,7 @@ class _WalletTab extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       TextField(
-                        controller: rechargeNoteController,
+                        controller: widget.rechargeNoteController,
                         decoration: InputDecoration(
                           labelText: l10n.isHindi
                               ? 'रिचार्ज नोट'
@@ -8336,7 +8467,9 @@ class _WalletTab extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed: loading ? null : onStartWalletRecharge,
+                          onPressed: widget.loading
+                              ? null
+                              : widget.onStartWalletRecharge,
                           style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xFF173C77),
                             padding: const EdgeInsets.symmetric(vertical: 15),
@@ -8345,7 +8478,7 @@ class _WalletTab extends StatelessWidget {
                             ),
                           ),
                           child: Text(
-                            loading
+                            widget.loading
                                 ? (l10n.isHindi
                                     ? 'पेमेंट खुल रहा है...'
                                     : 'Opening payment...')
@@ -8363,100 +8496,308 @@ class _WalletTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            l10n.rechargeHistory,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          _WalletSurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: historyItems.isEmpty ? null : _toggleHistoryVisibility,
+                  borderRadius: BorderRadius.circular(18),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.rechargeHistory,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l10n.recordsCount(historyItems.length),
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!historyItems.isEmpty)
+                          Icon(
+                            _historyExpanded
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            color: const Color(0xFF173C77),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (historyItems.isEmpty)
+                  Text(
+                    l10n.noRechargeOrDeductionHistoryYet,
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                else if (!_historyExpanded)
+                  _WalletHistorySummaryCard(
+                    onTap: _toggleHistoryVisibility,
+                    promptLabel: l10n.tapToViewHistory,
+                    title: _prettyText(context, historyItems.first.transactionType),
+                    amountLabel:
+                        '${historyItems.first.direction == 'debit' ? '-' : '+'} Rs ${historyItems.first.amount.toStringAsFixed(0)}',
+                    amountColor: historyItems.first.direction == 'debit'
+                        ? const Color(0xFFB91C1C)
+                        : const Color(0xFF166534),
+                    metaLabel:
+                        '${l10n.dateLabel}: ${_shortDate(context, historyItems.first.createdAt)} • ${l10n.statusLabel}: ${_prettyText(context, historyItems.first.status)}',
+                  )
+                else ...[
+                  ...historyItems.take(_visibleHistoryCount).map(
+                        (transaction) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _WalletHistoryCompactRow(
+                            title: _prettyText(
+                              context,
+                              transaction.transactionType,
+                            ),
+                            amountLabel:
+                                '${transaction.direction == 'debit' ? '-' : '+'} Rs ${transaction.amount.toStringAsFixed(0)}',
+                            amountColor: transaction.direction == 'debit'
+                                ? const Color(0xFFB91C1C)
+                                : const Color(0xFF166534),
+                            dateLabel: _shortDate(context, transaction.createdAt),
+                            statusLabel: _prettyText(context, transaction.status),
+                            note: transaction.note.trim().isNotEmpty
+                                ? transaction.note.trim()
+                                : transaction.reference.trim(),
+                            l10n: l10n,
+                          ),
+                        ),
+                      ),
+                  if (historyItems.length > _collapsedHistoryPreviewCount)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: _visibleHistoryCount < historyItems.length
+                            ? () => _showMoreHistory(historyItems.length)
+                            : () {
+                                setState(() {
+                                  _visibleHistoryCount =
+                                      _collapsedHistoryPreviewCount;
+                                });
+                              },
+                        child: Text(
+                          _visibleHistoryCount < historyItems.length
+                              ? l10n.showMore
+                              : l10n.showLess,
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          if (historyItems.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: const Text(
-                'No records available.',
-                style: TextStyle(
+        ],
+      ),
+    );
+  }
+}
+
+class _WalletHistorySummaryCard extends StatelessWidget {
+  final VoidCallback? onTap;
+  final String promptLabel;
+  final String title;
+  final String amountLabel;
+  final Color amountColor;
+  final String metaLabel;
+
+  const _WalletHistorySummaryCard({
+    this.onTap,
+    required this.promptLabel,
+    required this.title,
+    required this.amountLabel,
+    required this.amountColor,
+    required this.metaLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                promptLabel,
+                style: const TextStyle(
                   color: Color(0xFF64748B),
-                  fontSize: 15,
+                  fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            )
-          else
-            ...historyItems.map(
-              (transaction) => Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _prettyText(context, transaction.transactionType),
-                            style: const TextStyle(
-                              color: Color(0xFF0F172A),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${transaction.direction == 'debit' ? '-' : '+'} Rs ${transaction.amount.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            color: transaction.direction == 'debit'
-                                ? const Color(0xFFB91C1C)
-                                : const Color(0xFF166534),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _WalletHistoryPill(
-                          label:
-                              'Date: ${_shortDate(context, transaction.createdAt)}',
-                        ),
-                        _WalletHistoryPill(
-                          label:
-                              'Type: ${_prettyText(context, transaction.status)}',
-                        ),
-                      ],
-                    ),
-                    if (transaction.note.trim().isNotEmpty ||
-                        transaction.reference.trim().isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        transaction.note.trim().isNotEmpty
-                            ? transaction.note.trim()
-                            : transaction.reference.trim(),
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: 13,
-                          height: 1.45,
-                        ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
                       ),
-                    ],
-                  ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    amountLabel,
+                    style: TextStyle(
+                      color: amountColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                metaLabel,
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 12.5,
+                  height: 1.35,
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WalletHistoryCompactRow extends StatelessWidget {
+  final String title;
+  final String amountLabel;
+  final Color amountColor;
+  final String dateLabel;
+  final String statusLabel;
+  final String note;
+  final WorkerLocalizations l10n;
+
+  const _WalletHistoryCompactRow({
+    required this.title,
+    required this.amountLabel,
+    required this.amountColor,
+    required this.dateLabel,
+    required this.statusLabel,
+    required this.note,
+    required this.l10n,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                amountLabel,
+                style: TextStyle(
+                  color: amountColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            children: [
+              Text(
+                '${l10n.dateLabel}: $dateLabel',
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                '${l10n.statusLabel}: $statusLabel',
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          if (note.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              note,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF475569),
+                fontSize: 12.5,
+                height: 1.4,
+              ),
             ),
+          ],
         ],
       ),
     );

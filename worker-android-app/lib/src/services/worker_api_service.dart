@@ -7,6 +7,16 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/worker_models.dart';
 
+class WorkerOtpRequestMetadata {
+  final DateTime? expiresAt;
+  final String message;
+
+  const WorkerOtpRequestMetadata({
+    required this.expiresAt,
+    required this.message,
+  });
+}
+
 class _WorkerApiTransportException implements Exception {
   final String message;
 
@@ -331,7 +341,7 @@ class WorkerApiService {
     throw Exception(fallbackError);
   }
 
-  Future<void> requestOtp(String mobile) async {
+  Future<WorkerOtpRequestMetadata> requestOtp(String mobile) async {
     final response = await _postAuthJsonWithFallback(
       ApiConfig.resolveWorkerPath('/auth/request-otp', preferRozgarV1: true),
       _workerPath('/auth/request-otp'),
@@ -349,6 +359,12 @@ class WorkerApiService {
         sessionToken is String && sessionToken.trim().isNotEmpty
             ? sessionToken.trim()
             : null;
+
+    final expiresAtValue = data['expiresAt']?.toString().trim() ?? '';
+    return WorkerOtpRequestMetadata(
+      expiresAt: expiresAtValue.isEmpty ? null : DateTime.tryParse(expiresAtValue),
+      message: data['message'] as String? ?? '',
+    );
   }
 
   Future<(String, WorkerDashboardModel)> verifyOtp(

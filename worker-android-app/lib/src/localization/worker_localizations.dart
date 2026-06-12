@@ -65,6 +65,15 @@ class WorkerLocalizations {
   String get requestingOtp =>
       isHindi ? 'ओटीपी भेजा जा रहा है...' : 'Requesting OTP...';
   String get requestOtp => isHindi ? 'ओटीपी प्राप्त करें' : 'Request OTP';
+  String otpExpiresInSeconds(int seconds) => isHindi
+      ? 'OTP $seconds सेकंड में समाप्त होगा'
+      : 'OTP expires in $seconds seconds';
+  String resendOtpInSeconds(int seconds) => isHindi
+      ? '$seconds सेकंड बाद OTP फिर भेजें'
+      : 'Resend OTP in $seconds seconds';
+  String get resendOtp => isHindi ? 'OTP फिर भेजें' : 'Resend OTP';
+  String get otpSentSuccessfully =>
+      isHindi ? 'OTP सफलतापूर्वक भेजा गया' : 'OTP sent successfully';
   String get verifying => isHindi ? 'सत्यापन हो रहा है...' : 'Verifying...';
   String get verifyOtp => isHindi ? 'ओटीपी सत्यापित करें' : 'Verify OTP';
   String get demoSeededWorkers =>
@@ -271,7 +280,16 @@ class WorkerLocalizations {
   String get requestRecharge =>
       isHindi ? 'रिचार्ज अनुरोध भेजें' : 'Request Recharge';
   String get rechargeHistory =>
-      isHindi ? 'रिचार्ज और कटौती हिस्ट्री' : 'Recharge & deduction history';
+      isHindi ? 'रिचार्ज और कटौती इतिहास' : 'Recharge & Deduction History';
+  String recordsCount(int count) =>
+      isHindi ? '$count रिकॉर्ड' : '$count records';
+  String get tapToViewHistory =>
+      isHindi ? 'इतिहास देखने के लिए टैप करें' : 'Tap to view history';
+  String get noRechargeOrDeductionHistoryYet => isHindi
+      ? 'अभी कोई रिचार्ज या कटौती इतिहास नहीं है'
+      : 'No recharge or deduction history yet';
+  String get statusLabel => isHindi ? 'स्थिति' : 'Status';
+  String get dateLabel => isHindi ? 'दिनांक' : 'Date';
 
   String get workerProfile => isHindi ? 'वर्कर प्रोफाइल' : 'Worker profile';
   String get workerProfileSubtitle => isHindi

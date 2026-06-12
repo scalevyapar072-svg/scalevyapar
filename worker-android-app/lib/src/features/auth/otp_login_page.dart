@@ -1,6 +1,9 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'dart:async';
+import 'dart:math' as math;
+
 import '../../localization/worker_localizations.dart';
 import '../../services/session_store.dart';
 import '../../services/worker_api_service.dart';
@@ -15,17 +18,39 @@ class OtpLoginPage extends StatefulWidget {
   State<OtpLoginPage> createState() => _OtpLoginPageState();
 }
 
-class _OtpLoginPageState extends State<OtpLoginPage> {
+class _OtpLoginPageState extends State<OtpLoginPage>
+    with WidgetsBindingObserver {
+  static const Duration _otpExpiryFallback = Duration(minutes: 10);
+  static const Duration _otpResendCooldown = Duration(seconds: 60);
+
   final _mobileController = TextEditingController();
   final _otpController = TextEditingController();
   final _apiService = WorkerApiService();
   final _sessionStore = SessionStore();
 
+  Timer? _otpTimer;
+  DateTime? _otpExpiresAt;
+  DateTime? _resendAvailableAt;
   bool _requestingOtp = false;
   bool _verifyingOtp = false;
   bool _acceptedTerms = true;
   bool _otpSent = false;
+  int _otpExpirySecondsRemaining = 0;
+  int _resendSecondsRemaining = 0;
   String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshOtpCountdowns();
+    }
+  }
 
   Future<void> _openCompanySite() async {
     final uri = Uri.parse('https://www.scalevyapar.in/labour/company');
@@ -39,9 +64,10 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
 
   Future<void> _requestOtp() async {
     final mobile = _mobileController.text.trim();
+    final l10n = WorkerLocalizations.of(context);
     if (mobile.length != 10) {
       if (!mounted) return;
-      setState(() => _error = WorkerLocalizations.of(context).invalidMobileNumberError);
+      setState(() => _error = l10n.invalidMobileNumberError);
       return;
     }
 
@@ -51,12 +77,16 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
     });
 
     try {
-      await _apiService.requestOtp(mobile);
+      final metadata = await _apiService.requestOtp(mobile);
       if (!mounted) return;
       setState(() {
         _otpSent = true;
         _otpController.clear();
       });
+      _startOtpCountdowns(metadata.expiresAt);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.otpSentSuccessfully)),
+      );
     } catch (error) {
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -64,6 +94,57 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
         setState(() => _requestingOtp = false);
       }
     }
+  }
+
+  void _startOtpCountdowns(DateTime? expiresAt) {
+    _otpExpiresAt = (expiresAt ?? DateTime.now().add(_otpExpiryFallback)).toLocal();
+    _resendAvailableAt = DateTime.now().add(_otpResendCooldown);
+    _refreshOtpCountdowns();
+    _otpTimer?.cancel();
+    _otpTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _refreshOtpCountdowns();
+    });
+  }
+
+  void _refreshOtpCountdowns() {
+    if (!mounted) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final expirySeconds = _otpExpiresAt == null
+        ? 0
+        : math.max(0, _otpExpiresAt!.difference(now).inSeconds);
+    final resendSeconds = _resendAvailableAt == null
+        ? 0
+        : math.max(0, _resendAvailableAt!.difference(now).inSeconds);
+
+    if (_otpExpirySecondsRemaining == expirySeconds &&
+        _resendSecondsRemaining == resendSeconds) {
+      if (expirySeconds == 0 && resendSeconds == 0) {
+        _otpTimer?.cancel();
+        _otpTimer = null;
+      }
+      return;
+    }
+
+    setState(() {
+      _otpExpirySecondsRemaining = expirySeconds;
+      _resendSecondsRemaining = resendSeconds;
+    });
+
+    if (expirySeconds == 0 && resendSeconds == 0) {
+      _otpTimer?.cancel();
+      _otpTimer = null;
+    }
+  }
+
+  Future<void> _resendOtp() async {
+    if (_requestingOtp || _verifyingOtp || _resendSecondsRemaining > 0) {
+      return;
+    }
+    _otpController.clear();
+    await _requestOtp();
   }
 
   Future<void> _verifyOtp() async {
@@ -140,6 +221,8 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _otpTimer?.cancel();
     _mobileController.dispose();
     _otpController.dispose();
     super.dispose();
@@ -153,11 +236,11 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
         : 'I agree to T&C and Privacy Policy, and provide consent to be contacted by employers via call, WhatsApp, SMS, and Emails.';
     final referralText = l10n.isHindi ? 'क्या आपके पास referral code है?' : 'Have a referral code?';
     final hireStaffText = l10n.isHindi ? 'स्टाफ hire करना है? यहाँ क्लिक करें' : 'Looking to hire staff? Click Here';
-    final subtitle = _otpSent ? 'Verify your OTP' : 'Enter Phone Number';
-    final heading = _otpSent ? 'Verify Your Phone with OTP' : 'Enter Phone Number';
+    final subtitle = _otpSent ? l10n.verifyYourOtp : l10n.mobileNumber;
+    final heading = _otpSent ? l10n.verifyYourOtp : l10n.mobileNumber;
     final description = _otpSent
-        ? 'We have sent a code to your mobile number.'
-        : 'Enter your mobile number to receive the login OTP.';
+        ? l10n.otpSentDescription
+        : l10n.enterMobileDescription;
     final busy = _requestingOtp || _verifyingOtp;
 
     return Scaffold(
@@ -246,7 +329,9 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
                           readOnly: _otpSent,
                           keyboardType: TextInputType.phone,
                           decoration: _lineFieldDecoration(
-                            hintText: _otpSent ? _mobileController.text.trim() : 'Phone Number',
+                            hintText: _otpSent
+                                ? _mobileController.text.trim()
+                                : l10n.mobileNumber,
                             icon: Icons.phone_android_rounded,
                           ),
                         ),
@@ -256,8 +341,54 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
                             controller: _otpController,
                             keyboardType: TextInputType.number,
                             decoration: _lineFieldDecoration(
-                              hintText: 'OTP Code',
+                              hintText: l10n.otpCode,
                               icon: Icons.password_rounded,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l10n.otpExpiresInSeconds(
+                                    _otpExpirySecondsRemaining,
+                                  ),
+                                  style: const TextStyle(
+                                    color: Color(0xFF0F172A),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                if (_resendSecondsRemaining > 0)
+                                  Text(
+                                    l10n.resendOtpInSeconds(
+                                      _resendSecondsRemaining,
+                                    ),
+                                    style: const TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  )
+                                else
+                                  TextButton(
+                                    onPressed: busy ? null : _resendOtp,
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(l10n.resendOtp),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
@@ -294,8 +425,12 @@ class _OtpLoginPageState extends State<OtpLoginPage> {
                             ),
                             child: Text(
                               _otpSent
-                                  ? (_verifyingOtp ? l10n.verifying : 'Verify OTP')
-                                  : (_requestingOtp ? l10n.requestingOtp : 'Request OTP'),
+                                  ? (_verifyingOtp
+                                      ? l10n.verifying
+                                      : l10n.verifyOtp)
+                                  : (_requestingOtp
+                                      ? l10n.requestingOtp
+                                      : l10n.requestOtp),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w800,

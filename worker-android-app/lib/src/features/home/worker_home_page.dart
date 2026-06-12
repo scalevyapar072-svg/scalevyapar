@@ -211,6 +211,189 @@ String _categoryLockedDialogMessage(WorkerLocalizations l10n) {
       : _categoryLockedApplyMessage;
 }
 
+enum _WorkerAccessGateState {
+  review,
+  rejected,
+  inactive,
+  paused,
+}
+
+_WorkerAccessGateState _resolveWorkerAccessGateState(
+  WorkerActivationSummaryModel activation,
+) {
+  if (activation.isPausedByWorker ||
+      activation.status == 'inactive_paused_by_worker') {
+    return _WorkerAccessGateState.paused;
+  }
+  if (activation.status == 'pending') {
+    return _WorkerAccessGateState.review;
+  }
+  if (activation.status == 'rejected') {
+    return _WorkerAccessGateState.rejected;
+  }
+  return _WorkerAccessGateState.inactive;
+}
+
+String _workerAccessInlineMessage(
+  WorkerLocalizations l10n,
+  WorkerActivationSummaryModel activation,
+) {
+  return switch (_resolveWorkerAccessGateState(activation)) {
+    _WorkerAccessGateState.review => l10n.accountUnderReviewMessage,
+    _WorkerAccessGateState.rejected => l10n.kycUpdateRequiredMessage,
+    _WorkerAccessGateState.inactive => l10n.workerAccessNotActiveMessage,
+    _WorkerAccessGateState.paused => l10n.workerAccessPausedGateMessage,
+  };
+}
+
+Future<void> _openSupportWhatsAppMessage(
+  BuildContext context,
+  WorkerSupportModel support, {
+  String? messageOverride,
+}) async {
+  final l10n = WorkerLocalizations.of(context);
+  final phone = _normalizeWhatsappPhone(support.whatsappNumber);
+  if (phone.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          l10n.isHindi
+              ? 'व्हाट्सएप सपोर्ट उपलब्ध नहीं है।'
+              : 'WhatsApp support is not available.',
+        ),
+      ),
+    );
+    return;
+  }
+
+  final message = messageOverride?.trim().isNotEmpty == true
+      ? messageOverride!.trim()
+      : (support.prefilledMessage.trim().isNotEmpty
+          ? support.prefilledMessage.trim()
+          : (l10n.isHindi
+              ? 'नमस्ते टीम, मुझे Rozgar worker app में मदद चाहिए।'
+              : 'Hello Team, I need help with the Rozgar worker app.'));
+
+  final uri =
+      Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
+  final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!launched && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          l10n.isHindi ? 'व्हाट्सएप खोला नहीं जा सका।' : 'Could not open WhatsApp.',
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showWorkerAccessGateDialog(
+  BuildContext context, {
+  required WorkerActivationSummaryModel activation,
+  required WorkerSupportModel support,
+  required String workerMobile,
+  required VoidCallback onOpenProfile,
+  required VoidCallback onOpenWallet,
+  required Future<void> Function() onActivateNow,
+}) async {
+  final l10n = WorkerLocalizations.of(context);
+  final gateState = _resolveWorkerAccessGateState(activation);
+  final title = switch (gateState) {
+    _WorkerAccessGateState.review => l10n.accountUnderReviewTitle,
+    _WorkerAccessGateState.rejected => l10n.kycUpdateRequiredTitle,
+    _WorkerAccessGateState.inactive => l10n.workerAccessNotActiveTitle,
+    _WorkerAccessGateState.paused => l10n.workerAccessPausedGateTitle,
+  };
+  final message = switch (gateState) {
+    _WorkerAccessGateState.review => l10n.accountUnderReviewMessage,
+    _WorkerAccessGateState.rejected => l10n.kycUpdateRequiredMessage,
+    _WorkerAccessGateState.inactive => l10n.workerAccessNotActiveMessage,
+    _WorkerAccessGateState.paused => l10n.workerAccessPausedGateMessage,
+  };
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.laterAction),
+          ),
+          ...switch (gateState) {
+            _WorkerAccessGateState.review => [
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await _openSupportWhatsAppMessage(
+                      context,
+                      support,
+                      messageOverride: l10n.workerReviewSupportMessage(
+                        workerMobile.trim().isEmpty ? '-' : workerMobile.trim(),
+                      ),
+                    );
+                  },
+                  child: Text(l10n.contactSupportAction),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    onOpenProfile();
+                  },
+                  child: Text(l10n.viewProfileAction),
+                ),
+              ],
+            _WorkerAccessGateState.rejected => [
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await _openSupportWhatsAppMessage(context, support);
+                  },
+                  child: Text(l10n.contactSupportAction),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    onOpenProfile();
+                  },
+                  child: Text(l10n.updateKycAction),
+                ),
+              ],
+            _WorkerAccessGateState.inactive => [
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await _openSupportWhatsAppMessage(context, support);
+                  },
+                  child: Text(l10n.contactSupportAction),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    onOpenWallet();
+                  },
+                  child: Text(l10n.viewWalletAction),
+                ),
+              ],
+            _WorkerAccessGateState.paused => [
+                FilledButton(
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await onActivateNow();
+                  },
+                  child: Text(l10n.activateNowAction),
+                ),
+              ],
+          },
+        ],
+      );
+    },
+  );
+}
+
 Future<void> _showCategoryLockedMessageDialog(BuildContext context) async {
   final l10n = WorkerLocalizations.of(context);
   await showDialog<void>(
@@ -232,34 +415,21 @@ Future<void> _showCategoryLockedMessageDialog(BuildContext context) async {
 
 Future<void> _showWorkerInactiveRechargeDialog(
   BuildContext context, {
-  required VoidCallback onRecharge,
+  required WorkerActivationSummaryModel activation,
+  required WorkerSupportModel support,
+  required String workerMobile,
+  required VoidCallback onOpenProfile,
+  required VoidCallback onOpenWallet,
+  required Future<void> Function() onActivateNow,
 }) async {
-  final l10n = WorkerLocalizations.of(context);
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(l10n.isHindi ? 'वॉलेट रिचार्ज करें' : 'Recharge your Wallet'),
-        content: Text(
-          l10n.isHindi
-              ? 'आपका वर्कर एक्सेस निष्क्रिय है। जॉब्स के लिए अप्लाई जारी रखने के लिए रिचार्ज करें।'
-              : 'Your worker access is inactive. Recharge to continue applying for jobs.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(l10n.isHindi ? 'अभी नहीं' : 'Not now'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              onRecharge();
-            },
-            child: Text(l10n.isHindi ? 'रिचार्ज करें' : 'Recharge'),
-          ),
-        ],
-      );
-    },
+  await _showWorkerAccessGateDialog(
+    context,
+    activation: activation,
+    support: support,
+    workerMobile: workerMobile,
+    onOpenProfile: onOpenProfile,
+    onOpenWallet: onOpenWallet,
+    onActivateNow: onActivateNow,
   );
 }
 
@@ -1606,11 +1776,20 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     if (!_isWorkerActive()) {
       await _showWorkerInactiveRechargeDialog(
         context,
-        onRecharge: () {
+        activation: dashboard.activation,
+        support: dashboard.support,
+        workerMobile: dashboard.profile.mobile,
+        onOpenProfile: () {
+          if (mounted) {
+            setState(() => _selectedIndex = 2);
+          }
+        },
+        onOpenWallet: () {
           if (mounted) {
             setState(() => _selectedIndex = 1);
           }
         },
+        onActivateNow: _handleWalletStatusTap,
       );
       return;
     }
@@ -1651,13 +1830,26 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   }
 
   Future<void> _showRechargeWalletDialog() async {
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      return;
+    }
     await _showWorkerInactiveRechargeDialog(
       context,
-      onRecharge: () {
+      activation: dashboard.activation,
+      support: dashboard.support,
+      workerMobile: dashboard.profile.mobile,
+      onOpenProfile: () {
+        if (mounted) {
+          setState(() => _selectedIndex = 2);
+        }
+      },
+      onOpenWallet: () {
         if (mounted) {
           setState(() => _selectedIndex = 1);
         }
       },
+      onActivateNow: _handleWalletStatusTap,
     );
   }
 
@@ -1722,11 +1914,16 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           item: item,
           profile: dashboard.profile,
           isWorkerActive: _isWorkerActive(),
+          activation: dashboard.activation,
+          support: dashboard.support,
+          workerMobile: dashboard.profile.mobile,
           liveLocation: _liveLocationSnapshot(dashboard.profile),
           resolvedCoordinates: _resolveJobCoordinatesForItem(item),
           onApply: _applyToJob,
           onToggleSaved: _toggleSavedJob,
+          onOpenProfile: () => setState(() => _selectedIndex = 2),
           onOpenWallet: () => setState(() => _selectedIndex = 1),
+          onActivateNow: _handleWalletStatusTap,
         ),
       ),
     );
@@ -1743,9 +1940,14 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           profile: dashboard.profile,
           items: dashboard.feed.where((item) => item.isSaved).toList(),
           isWorkerActive: _isWorkerActive(),
+          activation: dashboard.activation,
+          support: dashboard.support,
+          workerMobile: dashboard.profile.mobile,
           onApply: _applyToJob,
           onToggleSaved: _toggleSavedJob,
+          onOpenProfile: () => setState(() => _selectedIndex = 2),
           onOpenWallet: () => setState(() => _selectedIndex = 1),
+          onActivateNow: _handleWalletStatusTap,
         ),
       ),
     );
@@ -2112,7 +2314,9 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           initialSelectedCityFilter: overrideCityFilter ?? _selectedCityFilter,
           initialSelectedWageBand: _selectedWageBand,
           resolveJobCoordinatesForItem: _resolveJobCoordinatesForItem,
+          onOpenProfile: () => setState(() => _selectedIndex = 2),
           onOpenWallet: () => setState(() => _selectedIndex = 1),
+          onActivateNow: _handleWalletStatusTap,
         ),
       ),
     )
@@ -4238,7 +4442,9 @@ class _AllJobsPage extends StatefulWidget {
   final List<String> initialSelectedCategoryFilters;
   final String initialSelectedCityFilter;
   final String initialSelectedWageBand;
+  final VoidCallback onOpenProfile;
   final VoidCallback onOpenWallet;
+  final Future<void> Function() onActivateNow;
 
   const _AllJobsPage({
     required this.token,
@@ -4256,7 +4462,9 @@ class _AllJobsPage extends StatefulWidget {
     required this.initialSelectedCategoryFilters,
     required this.initialSelectedCityFilter,
     required this.initialSelectedWageBand,
+    required this.onOpenProfile,
     required this.onOpenWallet,
+    required this.onActivateNow,
   });
 
   @override
@@ -4850,9 +5058,21 @@ class _AllJobsPageState extends State<_AllJobsPage> {
     if (!_isWorkerActive) {
       await _showWorkerInactiveRechargeDialog(
         context,
-        onRecharge: () {
+        activation: _dashboard.activation,
+        support: _dashboard.support,
+        workerMobile: _dashboard.profile.mobile,
+        onOpenProfile: () {
+          widget.onOpenProfile();
+          Navigator.of(context).pop();
+        },
+        onOpenWallet: () {
           widget.onOpenWallet();
           Navigator.of(context).pop();
+        },
+        onActivateNow: () async {
+          await widget.onActivateNow();
+          if (!mounted) return;
+          await _loadDashboard();
         },
       );
       return;
@@ -4912,11 +5132,23 @@ class _AllJobsPageState extends State<_AllJobsPage> {
           item: item,
           profile: _dashboard.profile,
           isWorkerActive: _isWorkerActive,
+          activation: _dashboard.activation,
+          support: _dashboard.support,
+          workerMobile: _dashboard.profile.mobile,
           liveLocation: widget.initialLiveLocation,
           resolvedCoordinates: widget.resolveJobCoordinatesForItem(item),
           onApply: _handleApply,
           onToggleSaved: _handleToggleSaved,
+          onOpenProfile: () {
+            widget.onOpenProfile();
+            Navigator.of(context).pop();
+          },
           onOpenWallet: widget.onOpenWallet,
+          onActivateNow: () async {
+            await widget.onActivateNow();
+            if (!mounted) return;
+            await _loadDashboard();
+          },
         ),
       ),
     );
@@ -5927,21 +6159,31 @@ class _JobDetailsPage extends StatefulWidget {
   final WorkerFeedItemModel item;
   final WorkerProfileModel profile;
   final bool isWorkerActive;
+  final WorkerActivationSummaryModel activation;
+  final WorkerSupportModel support;
+  final String workerMobile;
   final _LiveLocationSnapshot liveLocation;
   final _DerivedJobCoordinates? resolvedCoordinates;
   final Future<void> Function(String jobPostId) onApply;
   final Future<void> Function(String jobPostId) onToggleSaved;
+  final VoidCallback onOpenProfile;
   final VoidCallback onOpenWallet;
+  final Future<void> Function() onActivateNow;
 
   const _JobDetailsPage({
     required this.item,
     required this.profile,
     required this.isWorkerActive,
+    required this.activation,
+    required this.support,
+    required this.workerMobile,
     required this.liveLocation,
     required this.resolvedCoordinates,
     required this.onApply,
     required this.onToggleSaved,
+    required this.onOpenProfile,
     required this.onOpenWallet,
+    required this.onActivateNow,
   });
 
   @override
@@ -6011,8 +6253,20 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
   Future<void> _showRechargeWalletDialog() async {
     await _showWorkerInactiveRechargeDialog(
       context,
-      onRecharge: () {
+      activation: widget.activation,
+      support: widget.support,
+      workerMobile: widget.workerMobile,
+      onOpenProfile: () {
+        widget.onOpenProfile();
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      },
+      onOpenWallet: () {
         widget.onOpenWallet();
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      },
+      onActivateNow: () async {
+        await widget.onActivateNow();
+        if (!mounted) return;
         Navigator.of(context).popUntil((route) => route.isFirst);
       },
     );
@@ -6450,9 +6704,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       border: Border.all(color: const Color(0xFFD6E4FF)),
                     ),
                     child: Text(
-                      l10n.isHindi
-                          ? 'कंपनी संपर्क डिटेल्स खोलने के लिए अपना वॉलेट रिचार्ज करें।'
-                          : 'Recharge your wallet to unlock company contact details.',
+                      _workerAccessInlineMessage(l10n, widget.activation),
                       style: TextStyle(
                         color: Color(0xFF173C77),
                         fontWeight: FontWeight.w700,
@@ -7169,17 +7421,27 @@ class _SavedJobsPage extends StatefulWidget {
   final WorkerProfileModel profile;
   final List<WorkerFeedItemModel> items;
   final bool isWorkerActive;
+  final WorkerActivationSummaryModel activation;
+  final WorkerSupportModel support;
+  final String workerMobile;
   final Future<void> Function(String jobPostId) onApply;
   final Future<void> Function(String jobPostId) onToggleSaved;
+  final VoidCallback onOpenProfile;
   final VoidCallback onOpenWallet;
+  final Future<void> Function() onActivateNow;
 
   const _SavedJobsPage({
     required this.profile,
     required this.items,
     required this.isWorkerActive,
+    required this.activation,
+    required this.support,
+    required this.workerMobile,
     required this.onApply,
     required this.onToggleSaved,
+    required this.onOpenProfile,
     required this.onOpenWallet,
+    required this.onActivateNow,
   });
 
   @override
@@ -7209,10 +7471,18 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
     if (!widget.isWorkerActive) {
       await _showWorkerInactiveRechargeDialog(
         context,
-        onRecharge: () {
+        activation: widget.activation,
+        support: widget.support,
+        workerMobile: widget.workerMobile,
+        onOpenProfile: () {
+          widget.onOpenProfile();
+          Navigator.of(context).pop();
+        },
+        onOpenWallet: () {
           widget.onOpenWallet();
           Navigator.of(context).pop();
         },
+        onActivateNow: widget.onActivateNow,
       );
       return;
     }
@@ -7297,6 +7567,9 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
           item: item,
           profile: widget.profile,
           isWorkerActive: widget.isWorkerActive,
+          activation: widget.activation,
+          support: widget.support,
+          workerMobile: widget.workerMobile,
           liveLocation: _LiveLocationSnapshot(
             latitude: widget.profile.latitude,
             longitude: widget.profile.longitude,
@@ -7322,7 +7595,12 @@ class _SavedJobsPageState extends State<_SavedJobsPage> {
                   : null),
           onApply: _handleApply,
           onToggleSaved: _handleToggleSaved,
+          onOpenProfile: () {
+            widget.onOpenProfile();
+            Navigator.of(context).pop();
+          },
           onOpenWallet: widget.onOpenWallet,
+          onActivateNow: widget.onActivateNow,
         ),
       ),
     );

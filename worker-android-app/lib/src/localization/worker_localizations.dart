@@ -226,6 +226,39 @@ class WorkerLocalizations {
   String get walletStatusControlUnavailable => isHindi
       ? 'यह नियंत्रण केवल पेड वर्कर प्लान के लिए उपलब्ध है।'
       : 'This control is available only for paid worker plans.';
+  String get accountUnderReviewTitle =>
+      isHindi ? 'खाता समीक्षा में है' : 'Account under review';
+  String get accountUnderReviewMessage => isHindi
+      ? 'आपका वर्कर प्रोफाइल और KYC जमा हो चुका है। हमारी टीम रिव्यू करके आपका वर्कर एक्सेस सक्रिय करेगी। सक्रिय होने के बाद आप कंपनी का मोबाइल नंबर, WhatsApp और जॉब संपर्क देख पाएंगे।'
+      : 'Your worker profile and KYC have been submitted. Our team will review and activate your worker access. After activation, you can view company mobile number, WhatsApp, and apply/contact jobs.';
+  String get kycUpdateRequiredTitle =>
+      isHindi ? 'KYC सुधार जरूरी है' : 'KYC update required';
+  String get kycUpdateRequiredMessage => isHindi
+      ? 'आपके KYC में सुधार की जरूरत है। कृपया अपनी प्रोफाइल जानकारी अपडेट करें या सपोर्ट से संपर्क करें।'
+      : 'Your KYC needs correction. Please update your profile details or contact support.';
+  String get workerAccessNotActiveTitle =>
+      isHindi ? 'वर्कर एक्सेस सक्रिय नहीं है' : 'Worker access not active';
+  String get workerAccessNotActiveMessage => isHindi
+      ? 'आपका KYC approved है, लेकिन आपका वर्कर एक्सेस अभी सक्रिय नहीं है। कृपया सपोर्ट से संपर्क करें या Wallet/Plan activation चेक करें।'
+      : 'Your KYC is approved, but your worker access is not active yet. Please contact support or check your wallet/plan activation.';
+  String get workerAccessPausedGateTitle =>
+      isHindi ? 'वर्कर एक्सेस रुका हुआ है' : 'Worker access paused';
+  String get workerAccessPausedGateMessage => isHindi
+      ? 'आपने अपना वर्कर एक्सेस pause किया है। कंपनी संपर्क देखने और जॉब पर संपर्क करने के लिए फिर से active करें।'
+      : 'You have paused your worker access. Activate again to view company contact and apply/contact jobs.';
+  String get contactSupportAction =>
+      isHindi ? 'सपोर्ट से संपर्क करें' : 'Contact Support';
+  String get viewProfileAction =>
+      isHindi ? 'प्रोफाइल देखें' : 'View Profile';
+  String get laterAction => isHindi ? 'बाद में' : 'Later';
+  String get updateKycAction =>
+      isHindi ? 'KYC अपडेट करें' : 'Update KYC';
+  String get viewWalletAction => isHindi ? 'वॉलेट देखें' : 'View Wallet';
+  String get activateNowAction =>
+      isHindi ? 'अभी सक्रिय करें' : 'Activate Now';
+  String workerReviewSupportMessage(String mobile) => isHindi
+      ? 'नमस्ते Rozgar Support, मैंने अपना वर्कर प्रोफाइल और KYC जमा कर दिया है। कृपया मेरा अकाउंट रिव्यू करके सक्रिय करें। मेरा मोबाइल नंबर है: $mobile.'
+      : 'Hello Rozgar Support, I have submitted my worker profile and KYC. Please review and activate my worker account. My mobile number is: $mobile.';
   String get ok => isHindi ? 'ठीक है' : 'OK';
   String get cancel => isHindi ? 'रद्द करें' : 'Cancel';
   String get rechargeNoteForAdmin =>

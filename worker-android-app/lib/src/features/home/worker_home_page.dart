@@ -6237,13 +6237,13 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
         title: Text(l10n.isHindi ? 'जॉब विवरण' : 'Job details'),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 132),
         children: [
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: showLockedState
                     ? const Color(0xFFF5D0A4)
@@ -6252,8 +6252,8 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x140F172A),
-                  blurRadius: 24,
-                  offset: Offset(0, 12),
+                  blurRadius: 18,
+                  offset: Offset(0, 10),
                 ),
               ],
             ),
@@ -6303,10 +6303,10 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     SizedBox(
-                      width: 42,
-                      height: 42,
+                      width: 40,
+                      height: 40,
                       child: OutlinedButton(
                         onPressed: _actionLoading ? null : _handleSaveToggle,
                         style: OutlinedButton.styleFrom(
@@ -6329,26 +6329,26 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Text(
                   item.title,
                   style: const TextStyle(
                     color: Color(0xFF0F172A),
-                    fontSize: 23,
+                    fontSize: 20,
                     fontWeight: FontWeight.w900,
-                    height: 1.2,
+                    height: 1.22,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   item.companyName,
                   style: const TextStyle(
                     color: Color(0xFF475569),
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -6388,7 +6388,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -6403,9 +6403,9 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                         locationLine,
                         style: const TextStyle(
                           color: Color(0xFF475569),
-                          fontSize: 13.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          height: 1.45,
+                          height: 1.4,
                         ),
                       ),
                     ),
@@ -6414,7 +6414,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _JobDetailSectionCard(
             title: l10n.isHindi ? 'कंपनी विवरण' : 'Company Details',
             child: Column(
@@ -6482,7 +6482,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       : companyLocationLine,
                 ),
                 if (canContactCompany) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -6519,7 +6519,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _JobDetailCardGrid(
             cards: [
               _JobDetailSectionCard(
@@ -6567,7 +6567,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _JobDetailSectionCard(
             title: l10n.isHindi ? 'जॉब विवरण' : 'Job Description',
             child: Column(
@@ -6661,12 +6661,19 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
           decoration: const BoxDecoration(
             color: Colors.white,
             border: Border(
               top: BorderSide(color: Color(0xFFE2E8F0)),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x120F172A),
+                blurRadius: 16,
+                offset: Offset(0, -4),
+              ),
+            ],
           ),
           child: Row(
             children: [
@@ -6674,7 +6681,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                 child: OutlinedButton.icon(
                   onPressed: _actionLoading ? null : _handleSaveToggle,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     side: const BorderSide(color: Color(0xFFD7E2EE)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -6697,7 +6704,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       _hasApplied || _actionLoading ? null : _handleApply,
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF173C77),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -6743,16 +6750,16 @@ class _JobDetailSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(compact ? 13 : 16),
+      padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0F0F172A),
-            blurRadius: 18,
-            offset: Offset(0, 8),
+            blurRadius: 14,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -6762,12 +6769,13 @@ class _JobDetailSectionCard extends StatelessWidget {
           Text(
             title,
             style: TextStyle(
-              color: Color(0xFF0F172A),
-              fontSize: compact ? 15.5 : 17,
+              color: const Color(0xFF0F172A),
+              fontSize: compact ? 15 : 16.5,
               fontWeight: FontWeight.w900,
+              height: 1.2,
             ),
           ),
-          SizedBox(height: compact ? 10 : 14),
+          SizedBox(height: compact ? 8 : 12),
           child,
         ],
       ),
@@ -6786,12 +6794,12 @@ class _JobDetailCardGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 320) {
+        if (constraints.maxWidth < 700) {
           return Column(
             children: [
               for (var index = 0; index < cards.length; index++) ...[
                 cards[index],
-                if (index != cards.length - 1) const SizedBox(height: 12),
+                if (index != cards.length - 1) const SizedBox(height: 10),
               ],
             ],
           );
@@ -6804,7 +6812,7 @@ class _JobDetailCardGrid extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: cards[i]),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: i + 1 < cards.length
                       ? cards[i + 1]
@@ -6814,7 +6822,7 @@ class _JobDetailCardGrid extends StatelessWidget {
             ),
           );
           if (i + 2 < cards.length) {
-            rows.add(const SizedBox(height: 12));
+            rows.add(const SizedBox(height: 10));
           }
         }
         return Column(children: rows);
@@ -6850,7 +6858,7 @@ class _JobDetailFieldList extends StatelessWidget {
       children: [
         for (var index = 0; index < fields.length; index++) ...[
           _JobDetailCompactRow(field: fields[index]),
-          if (index != fields.length - 1) const SizedBox(height: 8),
+          if (index != fields.length - 1) const SizedBox(height: 6),
         ],
       ],
     );
@@ -6868,10 +6876,11 @@ class _JobDetailCompactRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      constraints: const BoxConstraints(minHeight: 68),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(13),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
@@ -6881,20 +6890,20 @@ class _JobDetailCompactRow extends StatelessWidget {
             field.label,
             style: const TextStyle(
               color: Color(0xFF64748B),
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             field.value,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Color(0xFF0F172A),
-              fontSize: 12.5,
+              fontSize: 12.75,
               fontWeight: FontWeight.w800,
-              height: 1.35,
+              height: 1.3,
             ),
           ),
         ],
@@ -6916,10 +6925,10 @@ class _JobDetailInfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
@@ -6929,18 +6938,20 @@ class _JobDetailInfoRow extends StatelessWidget {
             label,
             style: const TextStyle(
               color: Color(0xFF64748B),
-              fontSize: 12,
+              fontSize: 11.5,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           Text(
             value,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Color(0xFF0F172A),
-              fontSize: 14,
+              fontSize: 13.5,
               fontWeight: FontWeight.w800,
-              height: 1.45,
+              height: 1.4,
             ),
           ),
         ],
@@ -6969,7 +6980,7 @@ class _JobDetailActionButton extends StatelessWidget {
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         backgroundColor: backgroundColor,
         side: BorderSide(color: borderColor),
         shape: RoundedRectangleBorder(
@@ -6985,6 +6996,7 @@ class _JobDetailActionButton extends StatelessWidget {
             label,
             style: const TextStyle(
               color: Color(0xFF173C77),
+              fontSize: 14.5,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -7012,7 +7024,7 @@ class _JobDetailHighlightChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(999),
@@ -7026,9 +7038,11 @@ class _JobDetailHighlightChip extends StatelessWidget {
           Flexible(
             child: Text(
               label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: textColor,
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
             ),

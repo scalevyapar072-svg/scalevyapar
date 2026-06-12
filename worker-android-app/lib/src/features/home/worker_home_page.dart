@@ -382,7 +382,7 @@ Future<void> _showWorkerAccessGateDialog(
                 FilledButton(
                   onPressed: () async {
                     Navigator.of(dialogContext).pop();
-                    await onActivateNow();
+                    onOpenWallet();
                   },
                   child: Text(l10n.activateNowAction),
                 ),
@@ -2935,6 +2935,11 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                               onApply: _applyToJob,
                               onToggleSaved: _toggleSavedJob,
                               onOpenDetails: _openJobDetails,
+                              onOpenProfile: () =>
+                                  setState(() => _selectedIndex = 2),
+                              onOpenWallet: () =>
+                                  setState(() => _selectedIndex = 1),
+                              onActivateNow: _handleWalletStatusTap,
                               showViewMoreButton: filteredFeed.length > 8,
                               onViewMoreJobs: _openViewMoreJobs,
                               sectionsAfterJobs: _buildHomeSections(dashboard),
@@ -3222,6 +3227,9 @@ class _FeedTab extends StatelessWidget {
   final Future<void> Function(String jobPostId) onApply;
   final Future<void> Function(String jobPostId) onToggleSaved;
   final ValueChanged<WorkerFeedItemModel> onOpenDetails;
+  final VoidCallback onOpenProfile;
+  final VoidCallback onOpenWallet;
+  final Future<void> Function() onActivateNow;
   final bool showTopSummarySection;
   final List<Widget> sectionsBeforeJobs;
   final List<Widget> sectionsAfterJobs;
@@ -3267,6 +3275,9 @@ class _FeedTab extends StatelessWidget {
     required this.onApply,
     required this.onToggleSaved,
     required this.onOpenDetails,
+    required this.onOpenProfile,
+    required this.onOpenWallet,
+    required this.onActivateNow,
     this.showTopSummarySection = true,
     this.sectionsBeforeJobs = const [],
     this.sectionsAfterJobs = const [],
@@ -3899,8 +3910,6 @@ class _FeedTab extends StatelessWidget {
                   item,
                   resolvedCoordinates: resolveJobCoordinatesForItem(item),
                 );
-                final hasCompanyMobile =
-                    (item.companyMobile ?? '').trim().isNotEmpty;
                 final categoryMatch = _jobRankSetsIntersect(
                   _workerCategoryKeys(dashboard.profile),
                   _jobCategoryKeys(item),
@@ -3908,8 +3917,7 @@ class _FeedTab extends StatelessWidget {
                 final showLockedState = !categoryMatch;
                 final canRevealCompanyContact =
                     isWorkerActive && !item.companyLocked && categoryMatch;
-                final canContactCompany =
-                    canRevealCompanyContact && hasCompanyMobile;
+                final canShowContactActions = categoryMatch;
                 final locationText = _locationLine(item, distanceLabel);
                 final companyPerson = canRevealCompanyContact &&
                         (item.contactPerson ?? '').trim().isNotEmpty
@@ -4117,17 +4125,31 @@ class _FeedTab extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                if (canContactCompany) ...[
+                                if (canShowContactActions) ...[
                                   const SizedBox(width: 8),
                                   SizedBox(
                                     width: 42,
                                     height: 42,
                                     child: OutlinedButton(
-                                      onPressed: () => _openJobWhatsApp(
-                                        context,
-                                        item,
-                                        dashboard.profile,
-                                      ),
+                                      onPressed: () async {
+                                        if (!isWorkerActive || item.companyLocked) {
+                                          await _showWorkerInactiveRechargeDialog(
+                                            context,
+                                            activation: dashboard.activation,
+                                            support: dashboard.support,
+                                            workerMobile: dashboard.profile.mobile,
+                                            onOpenProfile: onOpenProfile,
+                                            onOpenWallet: onOpenWallet,
+                                            onActivateNow: onActivateNow,
+                                          );
+                                          return;
+                                        }
+                                        await _openJobWhatsApp(
+                                          context,
+                                          item,
+                                          dashboard.profile,
+                                        );
+                                      },
                                       style: OutlinedButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                         backgroundColor:
@@ -4153,8 +4175,21 @@ class _FeedTab extends StatelessWidget {
                                     width: 42,
                                     height: 42,
                                     child: OutlinedButton(
-                                      onPressed: () =>
-                                          _callJobCompany(context, item),
+                                      onPressed: () async {
+                                        if (!isWorkerActive || item.companyLocked) {
+                                          await _showWorkerInactiveRechargeDialog(
+                                            context,
+                                            activation: dashboard.activation,
+                                            support: dashboard.support,
+                                            workerMobile: dashboard.profile.mobile,
+                                            onOpenProfile: onOpenProfile,
+                                            onOpenWallet: onOpenWallet,
+                                            onActivateNow: onActivateNow,
+                                          );
+                                          return;
+                                        }
+                                        await _callJobCompany(context, item);
+                                      },
                                       style: OutlinedButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                         backgroundColor:
@@ -5270,6 +5305,9 @@ class _AllJobsPageState extends State<_AllJobsPage> {
                 onApply: _handleApply,
                 onToggleSaved: _handleToggleSaved,
                 onOpenDetails: _openJobDetails,
+                onOpenProfile: widget.onOpenProfile,
+                onOpenWallet: widget.onOpenWallet,
+                onActivateNow: widget.onActivateNow,
                 showTopSummarySection: false,
                 isFilteringJobs: _filtersUpdating,
                 scrollStorageKey:
@@ -6272,6 +6310,30 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
     );
   }
 
+  Future<void> _handleJobDetailWhatsAppTap(bool categoryMatch) async {
+    if (!categoryMatch) {
+      await _showCategoryLockedDialog();
+      return;
+    }
+    if (!widget.isWorkerActive || widget.item.companyLocked) {
+      await _showRechargeWalletDialog();
+      return;
+    }
+    await _openWhatsApp();
+  }
+
+  Future<void> _handleJobDetailCallTap(bool categoryMatch) async {
+    if (!categoryMatch) {
+      await _showCategoryLockedDialog();
+      return;
+    }
+    if (!widget.isWorkerActive || widget.item.companyLocked) {
+      await _showRechargeWalletDialog();
+      return;
+    }
+    await _callJobCompany(context, widget.item);
+  }
+
   Future<void> _openWhatsApp() async {
     final l10n = WorkerLocalizations.of(context);
     final companyMobile = widget.item.companyMobile?.trim() ?? '';
@@ -6338,8 +6400,8 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
       _jobCategoryKeys(item),
     );
     final showLockedState = item.companyLocked || !categoryMatch;
-    final hasCompanyMobile = item.companyMobile?.trim().isNotEmpty ?? false;
     final canRevealCompanyContact = widget.isWorkerActive && !showLockedState;
+    final canShowContactActions = categoryMatch;
     final requirementFields = <_JobDetailFieldData>[
       _JobDetailFieldData(
         label: l10n.isHindi ? 'आवश्यक वर्कर' : 'Workers Needed',
@@ -6477,7 +6539,6 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
     ];
     final specialInstructions = parsedDetails['special instructions'] ?? '';
     final languagesPreferred = parsedDetails['languages preferred'] ?? '';
-    final canContactCompany = canRevealCompanyContact && hasCompanyMobile;
     final statusFill =
         showLockedState ? const Color(0xFFFFF7ED) : const Color(0xFFF0FDF4);
     final statusBorder =
@@ -6733,7 +6794,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                       ? (item.city.trim().isEmpty ? '-' : item.city.trim())
                       : companyLocationLine,
                 ),
-                if (canContactCompany) ...[
+                if (canShowContactActions) ...[
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -6742,7 +6803,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                           label: l10n.isHindi ? 'व्हाट्सऐप' : 'WhatsApp',
                           backgroundColor: const Color(0xFFEFFAF3),
                           borderColor: const Color(0xFFB7E8C6),
-                          onPressed: _openWhatsApp,
+                          onPressed: () => _handleJobDetailWhatsAppTap(categoryMatch),
                           child: Image.asset(
                             'assets/images/whatsapp_icon.jpeg',
                             width: 22,
@@ -6757,7 +6818,7 @@ class _JobDetailsPageState extends State<_JobDetailsPage> {
                           label: l10n.isHindi ? 'कॉल' : 'Call',
                           backgroundColor: const Color(0xFFF8FAFC),
                           borderColor: const Color(0xFFD7E2EE),
-                          onPressed: () => _callJobCompany(context, item),
+                          onPressed: () => _handleJobDetailCallTap(categoryMatch),
                           child: const Icon(
                             Icons.call_rounded,
                             size: 19,

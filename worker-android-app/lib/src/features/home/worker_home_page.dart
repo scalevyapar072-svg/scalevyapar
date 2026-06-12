@@ -7724,9 +7724,10 @@ class _WalletTab extends StatelessWidget {
     final validTillText =
         validTillLabel == null ? null : _validTillText(l10n, validTillLabel);
     final nextDeductionLabel = _formatShortDateTime(dashboard.wallet.nextDeductionAt);
-    final planName = (dashboard.workerPlan?.name.trim().isNotEmpty ?? false)
+    final rawPlanName = (dashboard.workerPlan?.name.trim().isNotEmpty ?? false)
         ? dashboard.workerPlan!.name.trim()
         : 'Starter Plan';
+    final planName = _localizeCommonJobText(l10n, rawPlanName);
     final planHeadline = pausedByWorker
         ? l10n.workerPlanPaused
         : isActive

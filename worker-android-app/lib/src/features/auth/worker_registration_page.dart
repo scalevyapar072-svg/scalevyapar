@@ -316,7 +316,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
     if (picked.path == null || picked.path!.isEmpty) {
       setState(() {
         _error = _t(
-          'à¤«à¤¼à¤¾à¤‡à¤² à¤ªà¤¾à¤¥ à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¤¾à¥¤ à¤«à¤¿à¤° à¤¸à¥‡ à¤šà¥à¤¨à¥‡à¤‚à¥¤',
+          'फ़ाइल पाथ नहीं मिला। फिर से चुनें।',
           'Selected file path is missing. Please choose again.',
         );
       });
@@ -363,33 +363,33 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
 
   Future<void> _submit() async {
     if (_fullNameController.text.trim().isEmpty) {
-      setState(() => _error = _t('à¤ªà¥‚à¤°à¤¾ à¤¨à¤¾à¤® à¤œà¤°à¥‚à¤°à¥€ à¤¹à¥ˆà¥¤', 'Full name is required.'));
+      setState(() => _error = _t('पूरा नाम जरूरी है।', 'Full name is required.'));
       return;
     }
     if (_jobSearchCity.trim().isEmpty) {
-      setState(() => _error = _t('à¤œà¥‰à¤¬ à¤¸à¤°à¥à¤š à¤¸à¤¿à¤Ÿà¥€ à¤œà¤°à¥‚à¤°à¥€ à¤¹à¥ˆà¥¤', 'Job search city is required.'));
+      setState(() => _error = _t('जॉब सर्च सिटी जरूरी है।', 'Job search city is required.'));
       return;
     }
     if (_homeCity.trim().isEmpty) {
-      setState(() => _error = _t('à¤¹à¥‹à¤® à¤¸à¤¿à¤Ÿà¥€ à¤œà¤°à¥‚à¤°à¥€ à¤¹à¥ˆà¥¤', 'Home city is required.'));
+      setState(() => _error = _t('होम सिटी जरूरी है।', 'Home city is required.'));
       return;
     }
     if (_addressController.text.trim().isEmpty) {
-      setState(() => _error = _t('à¤ªà¤¤à¤¾ à¤œà¤°à¥‚à¤°à¥€ à¤¹à¥ˆà¥¤', 'Address is required.'));
+      setState(() => _error = _t('पता जरूरी है।', 'Address is required.'));
       return;
     }
     if (_selectedCategoryId.isEmpty) {
-      setState(() => _error = _t('à¤œà¥‰à¤¬ à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€ à¤šà¥à¤¨à¥‡à¤‚à¥¤', 'Select a job category.'));
+      setState(() => _error = _t('जॉब कैटेगरी चुनें।', 'Select a job category.'));
       return;
     }
     if (_profilePhotoPath.isEmpty) {
-      setState(() => _error = _t('à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤² à¤«à¥‹à¤Ÿà¥‹ à¤…à¤ªà¤²à¥‹à¤¡ à¤•à¤°à¥‡à¤‚à¥¤', 'Upload a profile photo.'));
+      setState(() => _error = _t('प्रोफाइल फोटो अपलोड करें।', 'Upload a profile photo.'));
       return;
     }
     if (_identityProofNumberController.text.trim().isEmpty) {
       setState(() {
         _error = _t(
-          'à¤†à¤ˆà¤¡à¥€ à¤ªà¥à¤°à¥‚à¤« à¤¨à¤‚à¤¬à¤° à¤œà¤°à¥‚à¤°à¥€ à¤¹à¥ˆà¥¤',
+          'आईडी प्रूफ नंबर जरूरी है।',
           'Identity proof number is required.',
         );
       });
@@ -398,7 +398,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
     if (_identityProofPath.isEmpty) {
       setState(() {
         _error = _t(
-          'à¤†à¤ˆà¤¡à¥€ à¤ªà¥à¤°à¥‚à¤« à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥‡à¤œà¤¼ à¤…à¤ªà¤²à¥‹à¤¡ à¤•à¤°à¥‡à¤‚à¥¤',
+          'आईडी प्रूफ दस्तावेज़ अपलोड करें।',
           'Upload the identity proof document.',
         );
       });
@@ -487,18 +487,18 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.white,
-        title: Text(_t('à¤¨à¤¯à¤¾ à¤µà¤°à¥à¤•à¤° à¤…à¤•à¤¾à¤‰à¤‚à¤Ÿ', 'New worker account')),
+        title: Text(_t('नया वर्कर अकाउंट', 'New worker account')),
         actions: [
           PopupMenuButton<_RegistrationExitAction>(
             onSelected: (_) => _resetToLogin(),
             itemBuilder: (context) => [
               PopupMenuItem(
                 value: _RegistrationExitAction.changeNumber,
-                child: Text(_t('à¤¨à¤‚à¤¬à¤° à¤¬à¤¦à¤²à¥‡à¤‚', 'Change number')),
+                child: Text(_t('नंबर बदलें', 'Change number')),
               ),
               PopupMenuItem(
                 value: _RegistrationExitAction.logout,
-                child: Text(_t('à¤²à¥‰à¤— à¤†à¤‰à¤Ÿ', 'Log out')),
+                child: Text(_t('लॉग आउट', 'Log out')),
               ),
             ],
             child: Padding(
@@ -509,7 +509,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                   const Icon(Icons.logout_rounded, color: Color(0xFF0F172A)),
                   const SizedBox(width: 6),
                   Text(
-                    _t('à¤²à¥‰à¤— à¤†à¤‰à¤Ÿ', 'Log out'),
+                    _t('लॉग आउट', 'Log out'),
                     style: const TextStyle(
                       color: Color(0xFF0F172A),
                       fontWeight: FontWeight.w800,
@@ -543,13 +543,13 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _t('à¤°à¤œà¤¿à¤¸à¥à¤Ÿà¥à¤°à¥‡à¤¶à¤¨ à¤ªà¥‚à¤°à¤¾ à¤•à¤°à¥‡à¤‚', 'Complete your registration'),
+                    _t('रजिस्ट्रेशन पूरा करें', 'Complete your registration'),
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     _t(
-                      'à¤•à¤¾à¤® à¤¶à¥à¤°à¥‚ à¤•à¤°à¤¨à¥‡ à¤¸à¥‡ à¤ªà¤¹à¤²à¥‡ à¤«à¥‹à¤Ÿà¥‹, à¤ªà¤¹à¤šà¤¾à¤¨ à¤ªà¥à¤°à¤®à¤¾à¤£ à¤”à¤° à¤¬à¥‡à¤¸à¤¿à¤• à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤² à¤¡à¤¿à¤Ÿà¥‡à¤²à¥à¤¸ à¤œà¤®à¤¾ à¤•à¤°à¥‡à¤‚à¥¤',
+                      'काम शुरू करने से पहले फोटो, पहचान प्रमाण और बेसिक प्रोफाइल डिटेल्स जमा करें।',
                       'Before you start receiving work, submit your photo, identity proof, and basic profile details.',
                     ),
                     style: const TextStyle(
@@ -561,7 +561,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                   TextField(
                     controller: _fullNameController,
                     decoration: InputDecoration(
-                      labelText: _t('à¤ªà¥‚à¤°à¤¾ à¤¨à¤¾à¤®', 'Full Name'),
+                      labelText: _t('पूरा नाम', 'Full Name'),
                       prefixIcon: const Icon(Icons.person_outline_rounded),
                     ),
                   ),
@@ -582,7 +582,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                       }
                     },
                     decoration: InputDecoration(
-                      labelText: _t('à¤œà¥‰à¤¬ à¤¸à¤°à¥à¤š à¤¸à¤¿à¤Ÿà¥€', 'Job Search City'),
+                      labelText: _t('जॉब सर्च सिटी', 'Job Search City'),
                       prefixIcon: const Icon(Icons.location_city_outlined),
                     ),
                   ),
@@ -603,7 +603,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                       }
                     },
                     decoration: InputDecoration(
-                      labelText: _t('à¤¹à¥‹à¤® à¤¸à¤¿à¤Ÿà¥€', 'Home City'),
+                      labelText: _t('होम सिटी', 'Home City'),
                       prefixIcon: const Icon(Icons.home_work_outlined),
                     ),
                   ),
@@ -613,7 +613,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                     minLines: 2,
                     maxLines: 3,
                     decoration: InputDecoration(
-                      labelText: _t('à¤ªà¤¤à¤¾', 'Address'),
+                      labelText: _t('पता', 'Address'),
                       prefixIcon: const Icon(Icons.home_outlined),
                     ),
                   ),
@@ -625,7 +625,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                           controller: _experienceController,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
-                            labelText: _t('à¤…à¤¨à¥à¤­à¤µ (à¤µà¤°à¥à¤·)', 'Experience (years)'),
+                            labelText: _t('अनुभव (वर्ष)', 'Experience (years)'),
                             prefixIcon:
                                 const Icon(Icons.workspace_premium_outlined),
                           ),
@@ -675,9 +675,9 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                     controller: _skillsController,
                     maxLines: 2,
                     decoration: InputDecoration(
-                      labelText: _t('à¤¸à¥à¤•à¤¿à¤²à¥à¤¸', 'Skills'),
+                      labelText: _t('स्किल्स', 'Skills'),
                       hintText: _t(
-                        'à¤œà¥ˆà¤¸à¥‡: à¤¸à¤¿à¤²à¤¾à¤ˆ, à¤«à¤¿à¤¨à¤¿à¤¶à¤¿à¤‚à¤—, à¤µà¤¾à¤¯à¤°à¤¿à¤‚à¤—',
+                        'जैसे: सिलाई, फिनिशिंग, वायरिंग',
                         'For example: stitching, finishing, wiring',
                       ),
                       prefixIcon: const Icon(Icons.build_circle_outlined),
@@ -705,7 +705,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                             }
                           },
                     decoration: InputDecoration(
-                      labelText: _t('à¤‡à¤‚à¤¡à¤¸à¥à¤Ÿà¥à¤°à¥€ à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€', 'Industry Category'),
+                      labelText: _t('इंडस्ट्री कैटेगरी', 'Industry Category'),
                       prefixIcon: const Icon(Icons.apartment_rounded),
                     ),
                   ),
@@ -731,7 +731,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                             }
                           },
                     decoration: InputDecoration(
-                      labelText: _t('à¤¬à¤¿à¤œà¤¼à¤¨à¥‡à¤¸ à¤Ÿà¤¾à¤‡à¤ª', 'Business Type'),
+                      labelText: _t('बिज़नेस टाइप', 'Business Type'),
                       prefixIcon:
                           const Icon(Icons.business_center_outlined),
                     ),
@@ -755,7 +755,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                             }
                           },
                     decoration: InputDecoration(
-                      labelText: _t('à¤œà¥‰à¤¬ à¤•à¥ˆà¤Ÿà¥‡à¤—à¤°à¥€', 'Job Category'),
+                      labelText: _t('जॉब कैटेगरी', 'Job Category'),
                       prefixIcon: const Icon(Icons.category_outlined),
                     ),
                   ),
@@ -765,15 +765,15 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                     items: [
                       DropdownMenuItem(
                         value: 'available_today',
-                        child: Text(_t('à¤†à¤œ à¤‰à¤ªà¤²à¤¬à¥à¤§', 'Available today')),
+                        child: Text(_t('आज उपलब्ध', 'Available today')),
                       ),
                       DropdownMenuItem(
                         value: 'available_this_week',
-                        child: Text(_t('à¤‡à¤¸ à¤¸à¤ªà¥à¤¤à¤¾à¤¹ à¤‰à¤ªà¤²à¤¬à¥à¤§', 'Available this week')),
+                        child: Text(_t('इस सप्ताह उपलब्ध', 'Available this week')),
                       ),
                       DropdownMenuItem(
                         value: 'not_available',
-                        child: Text(_t('à¤…à¤­à¥€ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚', 'Not available')),
+                        child: Text(_t('अभी उपलब्ध नहीं', 'Not available')),
                       ),
                     ],
                     onChanged: (value) {
@@ -782,24 +782,24 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                       }
                     },
                     decoration: InputDecoration(
-                      labelText: _t('à¤‰à¤ªà¤²à¤¬à¥à¤§à¤¤à¤¾', 'Availability'),
+                      labelText: _t('उपलब्धता', 'Availability'),
                       prefixIcon:
                           const Icon(Icons.event_available_rounded),
                     ),
                   ),
                   const SizedBox(height: 18),
                   _UploadCard(
-                    title: _t('à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤² à¤«à¥‹à¤Ÿà¥‹', 'Profile photo'),
+                    title: _t('प्रोफाइल फोटो', 'Profile photo'),
                     subtitle: _t(
-                      'à¤¸à¥à¤ªà¤·à¥à¤Ÿ à¤šà¥‡à¤¹à¤°à¤¾ à¤µà¤¾à¤²à¥€ à¤«à¥‹à¤Ÿà¥‹ à¤…à¤ªà¤²à¥‹à¤¡ à¤•à¤°à¥‡à¤‚',
+                      'स्पष्ट चेहरा वाली फोटो अपलोड करें',
                       'Upload a clear photo of yourself',
                     ),
                     buttonLabel: _uploadingPhoto
-                        ? _t('à¤…à¤ªà¤²à¥‹à¤¡ à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ...', 'Uploading...')
-                        : _t('à¤«à¥‹à¤Ÿà¥‹ à¤šà¥à¤¨à¥‡à¤‚', 'Choose photo'),
+                        ? _t('अपलोड हो रहा है...', 'Uploading...')
+                        : _t('फोटो चुनें', 'Choose photo'),
                     statusLabel: _profilePhotoPath.isEmpty
                         ? ''
-                        : _t('à¤«à¥‹à¤Ÿà¥‹ à¤…à¤ªà¤²à¥‹à¤¡ à¤¹à¥‹ à¤—à¤ˆ', 'Photo uploaded'),
+                        : _t('फोटो अपलोड हो गई', 'Photo uploaded'),
                     onTap: _uploadingPhoto || _submitting
                         ? null
                         : () => _pickAndUpload(
@@ -824,23 +824,23 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                     items: [
                       DropdownMenuItem(
                         value: 'aadhaar',
-                        child: Text(_t('à¤†à¤§à¤¾à¤° à¤•à¤¾à¤°à¥à¤¡', 'Aadhaar Card')),
+                        child: Text(_t('आधार कार्ड', 'Aadhaar Card')),
                       ),
                       DropdownMenuItem(
                         value: 'pan',
-                        child: Text(_t('à¤ªà¥ˆà¤¨ à¤•à¤¾à¤°à¥à¤¡', 'PAN Card')),
+                        child: Text(_t('पैन कार्ड', 'PAN Card')),
                       ),
                       DropdownMenuItem(
                         value: 'voter_id',
-                        child: Text(_t('à¤µà¥‹à¤Ÿà¤° à¤†à¤ˆà¤¡à¥€', 'Voter ID')),
+                        child: Text(_t('वोटर आईडी', 'Voter ID')),
                       ),
                       DropdownMenuItem(
                         value: 'driving_license',
-                        child: Text(_t('à¤¡à¥à¤°à¤¾à¤‡à¤µà¤¿à¤‚à¤— à¤²à¤¾à¤‡à¤¸à¥‡à¤‚à¤¸', 'Driving License')),
+                        child: Text(_t('ड्राइविंग लाइसेंस', 'Driving License')),
                       ),
                       DropdownMenuItem(
                         value: 'other',
-                        child: Text(_t('à¤…à¤¨à¥à¤¯', 'Other')),
+                        child: Text(_t('अन्य', 'Other')),
                       ),
                     ],
                     onChanged: (value) {
@@ -850,7 +850,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                     },
                     decoration: InputDecoration(
                       labelText: _t(
-                        'à¤ªà¤¹à¤šà¤¾à¤¨ à¤ªà¥à¤°à¤®à¤¾à¤£ à¤ªà¥à¤°à¤•à¤¾à¤°',
+                        'पहचान प्रमाण प्रकार',
                         'Identity proof type',
                       ),
                       prefixIcon: const Icon(Icons.badge_outlined),
@@ -861,7 +861,7 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                     controller: _identityProofNumberController,
                     decoration: InputDecoration(
                       labelText:
-                          _t('à¤ªà¤¹à¤šà¤¾à¤¨ à¤ªà¥à¤°à¤®à¤¾à¤£ à¤¨à¤‚à¤¬à¤°', 'Identity proof number'),
+                          _t('पहचान प्रमाण नंबर', 'Identity proof number'),
                       prefixIcon:
                           const Icon(Icons.confirmation_number_outlined),
                     ),
@@ -869,19 +869,19 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                   const SizedBox(height: 18),
                   _UploadCard(
                     title: _t(
-                      'à¤ªà¤¹à¤šà¤¾à¤¨ à¤ªà¥à¤°à¤®à¤¾à¤£ à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥‡à¤œà¤¼',
+                      'पहचान प्रमाण दस्तावेज़',
                       'Identity proof document',
                     ),
                     subtitle: _t(
-                      'PDF à¤¯à¤¾ à¤«à¥‹à¤Ÿà¥‹ à¤«à¥‰à¤°à¥à¤®à¥‡à¤Ÿ à¤…à¤ªà¤²à¥‹à¤¡ à¤•à¤°à¥‡à¤‚',
+                      'PDF या फोटो फॉर्मेट अपलोड करें',
                       'Upload a PDF or image document',
                     ),
                     buttonLabel: _uploadingProof
-                        ? _t('à¤…à¤ªà¤²à¥‹à¤¡ à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ...', 'Uploading...')
-                        : _t('à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥‡à¤œà¤¼ à¤šà¥à¤¨à¥‡à¤‚', 'Choose document'),
+                        ? _t('अपलोड हो रहा है...', 'Uploading...')
+                        : _t('दस्तावेज़ चुनें', 'Choose document'),
                     statusLabel: _identityProofPath.isEmpty
                         ? ''
-                        : _t('à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥‡à¤œà¤¼ à¤…à¤ªà¤²à¥‹à¤¡ à¤¹à¥‹ à¤—à¤¯à¤¾', 'Document uploaded'),
+                        : _t('दस्तावेज़ अपलोड हो गया', 'Document uploaded'),
                     onTap: _uploadingProof || _submitting
                         ? null
                         : () => _pickAndUpload(
@@ -933,9 +933,9 @@ class _WorkerRegistrationPageState extends State<WorkerRegistrationPage> {
                       ),
                       child: Text(
                         _submitting
-                            ? _t('à¤¸à¤¬à¤®à¤¿à¤Ÿ à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ...', 'Submitting...')
+                            ? _t('सबमिट हो रहा है...', 'Submitting...')
                             : _t(
-                                'à¤°à¤œà¤¿à¤¸à¥à¤Ÿà¥à¤°à¥‡à¤¶à¤¨ à¤ªà¥‚à¤°à¤¾ à¤•à¤°à¥‡à¤‚',
+                                'रजिस्ट्रेशन पूरा करें',
                                 'Complete registration',
                               ),
                         style: const TextStyle(

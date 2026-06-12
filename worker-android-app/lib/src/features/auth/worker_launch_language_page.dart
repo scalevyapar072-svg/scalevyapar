@@ -41,8 +41,8 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
     ),
     _LanguageOption(
       code: 'hi',
-      title: 'हिन्दी',
-      subtitle: 'हिन्दी में आगे बढ़ें',
+      title: '\u0939\u093f\u0928\u094d\u0926\u0940',
+      subtitle: '\u0939\u093f\u0928\u094d\u0926\u0940 \u092e\u0947\u0902 \u0906\u0917\u0947 \u092c\u0922\u093c\u0947\u0902',
     ),
   ];
 
@@ -193,7 +193,7 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
                           ),
                           const SizedBox(height: 18),
                           const Text(
-                            'Hello!\nनमस्ते!',
+                            'Hello!\n\u0928\u092e\u0938\u094d\u0924\u0947!',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 38,
@@ -207,7 +207,7 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
                     ),
                     const SizedBox(height: 28),
                     Text(
-                      _selectedCode == 'hi' ? 'भाषा चुनें' : 'Select Language',
+                      _selectedCode == 'hi' ? '\u092d\u093e\u0937\u093e \u091a\u0941\u0928\u0947\u0902' : 'Select Language',
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w400,
@@ -217,7 +217,7 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
                     const SizedBox(height: 8),
                     Text(
                       _selectedCode == 'hi'
-                          ? 'Rozgar ऐप में उपयोग करने के लिए अपनी भाषा चुनें।'
+                          ? 'Rozgar \u090f\u092a \u092e\u0947\u0902 \u0909\u092a\u092f\u094b\u0917 \u0915\u0930\u0928\u0947 \u0915\u0947 \u0932\u093f\u090f \u0905\u092a\u0928\u0940 \u092d\u093e\u0937\u093e \u091a\u0941\u0928\u0947\u0902\u0964'
                           : 'Choose the language you want to use in Rozgar.',
                       style: const TextStyle(
                         fontSize: 17,
@@ -333,7 +333,7 @@ class _WorkerLaunchLanguagePageState extends State<WorkerLaunchLanguagePage> {
                     _continuing
                         ? l10n.loadingDashboard
                         : (_selectedCode == 'hi'
-                            ? 'हिन्दी चुनें'
+                            ? '\u0939\u093f\u0928\u094d\u0926\u0940 \u091a\u0941\u0928\u0947\u0902'
                             : 'SELECT ${selected.title.toUpperCase()}'),
                     style: const TextStyle(
                       fontSize: 18,

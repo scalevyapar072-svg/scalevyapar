@@ -46,19 +46,19 @@ class _WorkerLanguageSelectionPageState extends State<WorkerLanguageSelectionPag
       ),
       _LanguageOption(
         code: 'hi',
-        title: 'हिंदी',
-        subtitle: 'हिंदी में आगे बढ़ें',
+        title: '\u0939\u093f\u0928\u094d\u0926\u0940',
+        subtitle: '\u0939\u093f\u0928\u094d\u0926\u0940 \u092e\u0947\u0902 \u0906\u0917\u0947 \u092c\u0922\u093c\u0947\u0902',
         supported: true,
       ),
       _LanguageOption(
         code: 'mr',
-        title: 'मराठी',
+        title: '\u092e\u0930\u093e\u0920\u0940',
         subtitle: 'Coming soon',
         supported: false,
       ),
       _LanguageOption(
         code: 'kn',
-        title: 'ಕನ್ನಡ',
+        title: '\u0c95\u0ca8\u0ccd\u0ca8\u0ca1',
         subtitle: 'Coming soon',
         supported: false,
       ),
@@ -107,7 +107,7 @@ class _WorkerLanguageSelectionPageState extends State<WorkerLanguageSelectionPag
                           ),
                           const SizedBox(height: 18),
                           const Text(
-                            'Hello!\nनमस्ते!\nவணக்கம்!',
+                            'Hello!\n\u0928\u092e\u0938\u094d\u0924\u0947!\n\u0bb5\u0ba3\u0b95\u0bcd\u0b95\u0bae\u0bcd!',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 38,
@@ -233,7 +233,7 @@ class _WorkerLanguageSelectionPageState extends State<WorkerLanguageSelectionPag
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   child: Text(
-                    _selectedCode == 'hi' ? 'हिंदी चुनें' : 'SELECT ${selected.title.toUpperCase()}',
+                    _selectedCode == 'hi' ? '\u0939\u093f\u0928\u094d\u0926\u0940 \u091a\u0941\u0928\u0947\u0902' : 'SELECT ${selected.title.toUpperCase()}',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,

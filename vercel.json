@@ -1,0 +1,154 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company"
+    },
+    {
+      "source": "/about",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/about"
+    },
+    {
+      "source": "/pricing",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/pricing"
+    },
+    {
+      "source": "/search",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/search"
+    },
+    {
+      "source": "/contact",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/contact"
+    },
+    {
+      "source": "/panel",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/panel"
+    },
+    {
+      "source": "/panel/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/panel/:path*"
+    },
+    {
+      "source": "/job-post",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/job-post"
+    },
+    {
+      "source": "/company-registration",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/company-registration"
+    },
+    {
+      "source": "/signin",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/signin"
+    },
+    {
+      "source": "/reset-password",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/reset-password"
+    },
+    {
+      "source": "/checkout",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/checkout"
+    },
+    {
+      "source": "/privacy-policy",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/privacy-policy"
+    },
+    {
+      "source": "/terms-of-service",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/terms-of-service"
+    },
+    {
+      "source": "/user-data-deletion",
+      "has": [
+        {
+          "type": "host",
+          "value": "rozgar.scalevyapar.in"
+        }
+      ],
+      "destination": "/labour/company/user-data-deletion"
+    }
+  ]
+}

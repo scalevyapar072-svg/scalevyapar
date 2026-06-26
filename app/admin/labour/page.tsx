@@ -2649,6 +2649,25 @@ export default function LabourExchangeAdminPage() {
     }))
   }
 
+  const handleJobPostConnectedPlanChange = (value: string) => {
+    const selectedPlan = getCompanyPlanByName(value)
+    setJobPostDraft(current => {
+      const nextPublishedAt = current.publishedAt || getTodayDateValue()
+      const nextValidityDays = selectedPlan
+        ? getJobPostLiveDays(selectedPlan)
+        : resolveJobPostValidityDays(current.validityDays, 3)
+      const normalizedValidityDays = resolveJobPostValidityDays(nextValidityDays, 3)
+
+      return {
+        ...current,
+        connectedPlan: value,
+        validityDays: normalizedValidityDays,
+        publishedAt: nextPublishedAt,
+        expiresAt: selectedPlan ? addDays(nextPublishedAt, normalizedValidityDays) : current.expiresAt
+      }
+    })
+  }
+
   const persistEntity = async (
     method: 'POST' | 'PUT',
     entityType: LabourEntityType,
@@ -4289,7 +4308,9 @@ export default function LabourExchangeAdminPage() {
       validityDays: generatedValidityDays,
       status: jobPostDraft.status || 'draft',
       publishedAt,
-      expiresAt: jobPostDraft.expiresAt || addDays(publishedAt, generatedValidityDays)
+      expiresAt: selectedCompanyPlanLiveDays > 0
+        ? addDays(publishedAt, generatedValidityDays)
+        : jobPostDraft.expiresAt || addDays(publishedAt, generatedValidityDays)
     }
 
     const ok = await persistEntity(
@@ -6340,7 +6361,7 @@ export default function LabourExchangeAdminPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div>
                       <label style={labelStyle}>Connected Plan</label>
-                      <select value={jobPostDraft.connectedPlan} onChange={event => setJobPostDraft(current => ({ ...current, connectedPlan: event.target.value }))} style={inputStyle}>
+                      <select value={jobPostDraft.connectedPlan} onChange={event => handleJobPostConnectedPlanChange(event.target.value)} style={inputStyle}>
                         <option value="">Select connected plan</option>
                         {activeCompanyPlans.map(plan => (
                           <option key={plan.id} value={plan.name}>{plan.name}</option>

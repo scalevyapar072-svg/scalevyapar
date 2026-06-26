@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import styles from './company-site.module.css'
@@ -183,6 +183,7 @@ type CompanyDashboardResponse = {
     profile?: CompanySessionProfile
     jobs?: CompanyDashboardJob[]
     currentJobPostingPlan?: CompanyJobPostingPlanSummary | null
+    currentJobPostingPlans?: CompanyJobPostingPlanSummary[]
   }
 }
 
@@ -331,8 +332,9 @@ export function CompanyJobPostForm({
   const [companyPlanValidFrom, setCompanyPlanValidFrom] = useState('')
   const [companyPlanValidUntil, setCompanyPlanValidUntil] = useState('')
   const [autofillState, setAutofillState] = useState<'idle' | 'loading' | 'ready' | 'not-found'>('loading')
-  const [submitMode, setSubmitMode] = useState<'publish' | 'draft'>('publish')
+  const [submitMode, setSubmitMode] = useState<'publish' | 'draft' | 'checkout'>('publish')
   const [submitting, setSubmitting] = useState(false)
+  const submitInFlightRef = useRef(false)
   const [successState, setSuccessState] = useState<SuccessState | null>(null)
   const [prefillState, setPrefillState] = useState<'idle' | 'loading' | 'ready' | 'missing'>('idle')
   const [prefilledJobId, setPrefilledJobId] = useState('')
@@ -340,6 +342,7 @@ export function CompanyJobPostForm({
   const [isMounted, setIsMounted] = useState(false)
   const [companyJobs, setCompanyJobs] = useState<CompanyDashboardJob[]>([])
   const [currentJobPostingPlan, setCurrentJobPostingPlan] = useState<CompanyJobPostingPlanSummary | null>(null)
+  const [currentJobPostingPlans, setCurrentJobPostingPlans] = useState<CompanyJobPostingPlanSummary[]>([])
   const [uploads, setUploads] = useState<Record<UploadKey, UploadState>>({
     companyLogo: emptyUploadState(),
     workplacePhotos: emptyUploadState(),
@@ -404,19 +407,28 @@ export function CompanyJobPostForm({
         },
         form.businessType,
         form.industryType
-      ).filter(category => {
-        const selectedPlan = plans.find(plan => plan.id === form.selectedPlanId)
-        if (!selectedPlan || selectedPlan.labourCategoryIds.length === 0) return true
-        return selectedPlan.labourCategoryIds.includes(category.id)
-      }),
-    [businessTypeOptions, categories, categoryDependencies, form.businessType, form.industryType, industryCategoryOptions, form.selectedPlanId, plans]
+      ),
+    [businessTypeOptions, categories, categoryDependencies, form.businessType, form.industryType, industryCategoryOptions]
   )
   const selectedPlan = useMemo(
     () => plans.find(plan => plan.id === form.selectedPlanId) || null,
     [form.selectedPlanId, plans]
   )
-  const selectedCurrentPlan = selectedPlan && currentJobPostingPlan?.planId === selectedPlan.id
-    ? currentJobPostingPlan
+  const activeJobPostingPlanSummaries = useMemo(
+    () => currentJobPostingPlans.filter(plan => plan.status === 'active'),
+    [currentJobPostingPlans]
+  )
+  const connectedJobPostingPlans = useMemo(
+    () =>
+      activeJobPostingPlanSummaries
+        .map(summary => plans.find(plan => plan.id === summary.planId) || null)
+        .filter((plan): plan is PlanOption => Boolean(plan)),
+    [activeJobPostingPlanSummaries, plans]
+  )
+  const hasActiveConnectedPlans = connectedJobPostingPlans.length > 0
+  const selectableJobPostingPlans = hasActiveConnectedPlans ? connectedJobPostingPlans : plans
+  const selectedCurrentPlan = selectedPlan
+    ? currentJobPostingPlans.find(plan => plan.planId === selectedPlan.id) || null
     : null
   const selectedPlanUsedPosts = useMemo(() => {
     if (!selectedPlan || !companyProfileId) return 0
@@ -651,9 +663,15 @@ export function CompanyJobPostForm({
             const profile = dashboardData?.dashboard?.profile as CompanySessionProfile | undefined
             const jobs = Array.isArray(dashboardData?.dashboard?.jobs) ? dashboardData.dashboard.jobs as CompanyDashboardJob[] : []
             const resolvedCurrentPlan = dashboardData?.dashboard?.currentJobPostingPlan || null
+            const resolvedCurrentPlans = Array.isArray(dashboardData?.dashboard?.currentJobPostingPlans)
+              ? dashboardData.dashboard.currentJobPostingPlans
+              : resolvedCurrentPlan
+                ? [resolvedCurrentPlan]
+                : []
             if (profile) {
               setCompanyJobs(jobs)
               setCurrentJobPostingPlan(resolvedCurrentPlan)
+              setCurrentJobPostingPlans(resolvedCurrentPlans)
               applyCompanyProfile(profile, storedToken)
               return
             }
@@ -675,6 +693,11 @@ export function CompanyJobPostForm({
         const profile = data?.dashboard?.profile as CompanySessionProfile | undefined
         const jobs = Array.isArray(data?.dashboard?.jobs) ? data.dashboard.jobs as CompanyDashboardJob[] : []
         const resolvedCurrentPlan = data?.dashboard?.currentJobPostingPlan || null
+        const resolvedCurrentPlans = Array.isArray(data?.dashboard?.currentJobPostingPlans)
+          ? data.dashboard.currentJobPostingPlans
+          : resolvedCurrentPlan
+            ? [resolvedCurrentPlan]
+            : []
         const token = String(data?.token || '')
         if (!profile || !token) {
           if (!cancelled) {
@@ -689,6 +712,7 @@ export function CompanyJobPostForm({
 
         setCompanyJobs(jobs)
         setCurrentJobPostingPlan(resolvedCurrentPlan)
+        setCurrentJobPostingPlans(resolvedCurrentPlans)
         applyCompanyProfile(profile, token)
       } catch {
         if (!cancelled) {
@@ -784,8 +808,14 @@ export function CompanyJobPostForm({
 
         const jobs = Array.isArray(data?.dashboard?.jobs) ? data.dashboard.jobs as CompanyDashboardJob[] : []
         const resolvedCurrentPlan = data?.dashboard?.currentJobPostingPlan || null
+        const resolvedCurrentPlans = Array.isArray(data?.dashboard?.currentJobPostingPlans)
+          ? data.dashboard.currentJobPostingPlans
+          : resolvedCurrentPlan
+            ? [resolvedCurrentPlan]
+            : []
         setCompanyJobs(jobs)
         setCurrentJobPostingPlan(resolvedCurrentPlan)
+        setCurrentJobPostingPlans(resolvedCurrentPlans)
         const currentJob = jobs.find(job => job.id === prefillJobId)
 
         if (!currentJob) {
@@ -847,8 +877,9 @@ export function CompanyJobPostForm({
 
   useEffect(() => {
     if (isEditMode) return
+    if (!hasActiveConnectedPlans) return
 
-    const resolvedPlanId = currentJobPostingPlan?.planId || ''
+    const resolvedPlanId = activeJobPostingPlanSummaries[0]?.planId || currentJobPostingPlan?.planId || ''
     if (resolvedPlanId === form.selectedPlanId) return
 
     setForm(current => ({
@@ -856,7 +887,7 @@ export function CompanyJobPostForm({
       selectedPlanId: resolvedPlanId
     }))
     setErrors(current => ({ ...current, selectedPlanId: '', form: '' }))
-  }, [currentJobPostingPlan?.planId, form.selectedPlanId, isEditMode])
+  }, [activeJobPostingPlanSummaries, currentJobPostingPlan?.planId, form.selectedPlanId, hasActiveConnectedPlans, isEditMode])
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm(current => ({ ...current, [key]: value }))
@@ -950,12 +981,12 @@ export function CompanyJobPostForm({
     return missing
   }
 
-  const validate = (mode: 'publish' | 'draft') => {
+  const validate = (mode: 'publish' | 'draft' | 'checkout') => {
     const nextErrors: Partial<Record<keyof FormState | UploadKey | 'form', string>> = {}
 
     if (!form.jobTitle.trim()) nextErrors.jobTitle = 'Job title is required.'
     if (!form.labourCategoryId) nextErrors.labourCategoryId = 'Please select Labour Category.'
-    if (!form.selectedPlanId) nextErrors.selectedPlanId = 'Select a connected plan.'
+    if (!form.selectedPlanId) nextErrors.selectedPlanId = hasActiveConnectedPlans ? 'Select a connected plan.' : 'Select a job posting plan.'
     if (!form.workersRequired.trim()) nextErrors.workersRequired = 'Number of workers required is mandatory.'
     else if (Number(form.workersRequired) <= 0) nextErrors.workersRequired = 'Enter a valid number of workers.'
 
@@ -967,7 +998,7 @@ export function CompanyJobPostForm({
     if (selectedPlanCompatibilityError) nextErrors.selectedPlanId = selectedPlanCompatibilityError
 
     const missingCompanyProfileFields = getMissingCompanyProfileFields()
-    if (mode === 'publish' && missingCompanyProfileFields.length > 0) {
+    if (mode !== 'draft' && missingCompanyProfileFields.length > 0) {
       nextErrors.form = `Company profile details are missing. Please update your company profile: ${missingCompanyProfileFields.join(', ')}.`
     }
 
@@ -1064,16 +1095,21 @@ export function CompanyJobPostForm({
     }
   }
 
-  const executeSubmit = async (mode: 'publish' | 'draft') => {
+  const executeSubmit = async (mode: 'publish' | 'draft', options?: { redirectingToCheckout?: boolean }) => {
     if (isAccessLocked) {
       setErrors(current => ({
         ...current,
         form: 'Register & login to post a job. Please sign in with your company account first.'
       }))
-      return
+      return false
     }
 
-    setSubmitMode(mode)
+    if (submitInFlightRef.current) {
+      return false
+    }
+
+    submitInFlightRef.current = true
+    setSubmitMode(options?.redirectingToCheckout ? 'checkout' : mode)
     setSuccessState(null)
 
     setSubmitting(true)
@@ -1143,7 +1179,7 @@ export function CompanyJobPostForm({
                 ? 'job-post-limit-reached'
                 : 'plan-required'
           openPlanUpgradeModal(reason as PlanUpgradeReason, data.error || 'Please buy a plan to publish job requirements.')
-          return
+          return false
         }
         throw new Error(data.error || 'Failed to submit job requirement.')
       }
@@ -1155,40 +1191,49 @@ export function CompanyJobPostForm({
       })
 
       setErrors({})
-      setUploads({
-        companyLogo: emptyUploadState(),
-        workplacePhotos: emptyUploadState(),
-        requirementPdf: emptyUploadState(),
-        supportingDocuments: emptyUploadState()
-      })
-      setSubmissionId(`company-job-post-${Date.now()}`)
-      setForm(current => ({
-        ...initialFormState,
-        companyName: current.companyName,
-        contactPerson: current.contactPerson,
-        companyEmail: current.companyEmail,
-        mobile: current.mobile,
-        whatsAppNumber: current.whatsAppNumber,
-        industryType: current.industryType,
-        businessType: current.businessType,
-        companyAddress: current.companyAddress,
-        state: current.state,
-        city: current.city,
-        area: current.area,
-        pincode: current.pincode,
-        jobLocation: current.jobLocation
-      }))
+      if (!options?.redirectingToCheckout) {
+        setUploads({
+          companyLogo: emptyUploadState(),
+          workplacePhotos: emptyUploadState(),
+          requirementPdf: emptyUploadState(),
+          supportingDocuments: emptyUploadState()
+        })
+        setSubmissionId(`company-job-post-${Date.now()}`)
+        setForm(current => ({
+          ...initialFormState,
+          companyName: current.companyName,
+          contactPerson: current.contactPerson,
+          companyEmail: current.companyEmail,
+          mobile: current.mobile,
+          whatsAppNumber: current.whatsAppNumber,
+          industryType: current.industryType,
+          businessType: current.businessType,
+          companyAddress: current.companyAddress,
+          state: current.state,
+          city: current.city,
+          area: current.area,
+          pincode: current.pincode,
+          jobLocation: current.jobLocation
+        }))
+      }
+      return true
     } catch (error) {
       setErrors(current => ({
         ...current,
         form: error instanceof Error ? error.message : 'Failed to submit job requirement.'
       }))
+      return false
     } finally {
       setSubmitting(false)
+      submitInFlightRef.current = false
     }
   }
 
-  const submitForm = async (mode: 'publish' | 'draft') => {
+  const submitForm = async (mode: 'publish' | 'draft' | 'checkout') => {
+    if (submitInFlightRef.current || submitting) {
+      return
+    }
+
     if (isAccessLocked) {
       setErrors(current => ({
         ...current,
@@ -1207,6 +1252,22 @@ export function CompanyJobPostForm({
 
     if (mode === 'draft') {
       await executeSubmit('draft')
+      return
+    }
+
+    if (mode === 'checkout') {
+      if (!selectedPlan) {
+        setErrors(current => ({ ...current, selectedPlanId: 'Select a job posting plan before checkout.' }))
+        return
+      }
+
+      const saved = await executeSubmit('draft', { redirectingToCheckout: true })
+      if (!saved || typeof window === 'undefined') return
+
+      submitInFlightRef.current = true
+      setSubmitting(true)
+      setSubmitMode('checkout')
+      window.location.assign(resolveHref(`/labour/company/checkout?plan=${encodeURIComponent(getCheckoutPlanSlug(selectedPlan.name))}&billing=monthly`))
       return
     }
 
@@ -1330,7 +1391,7 @@ export function CompanyJobPostForm({
             className={styles.companyRegisterForm}
             onSubmit={event => {
               event.preventDefault()
-              void submitForm('publish')
+              void submitForm(hasActiveConnectedPlans ? 'publish' : 'checkout')
             }}
             noValidate
           >
@@ -1353,6 +1414,11 @@ export function CompanyJobPostForm({
                     <option value="">Select labour category</option>
                     {visibleLabourCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                   </select>
+                  {form.industryType && form.businessType && visibleLabourCategories.length === 0 ? (
+                    <p className={styles.jobPostPlanWarningHint}>
+                      No mapped labour categories found for this Industry Category and Business Type. Please update Category Mappings in Admin Masters.
+                    </p>
+                  ) : null}
                   {errors.labourCategoryId ? <p className={styles.companyRegisterFieldError}>{errors.labourCategoryId}</p> : null}
                 </div>
                 <div>
@@ -1361,28 +1427,28 @@ export function CompanyJobPostForm({
                     className={fieldClass('selectedPlanId')}
                     value={form.selectedPlanId}
                     onChange={event => setField('selectedPlanId', event.target.value)}
-                    disabled={jobLockedFields || (!isEditMode && !currentJobPostingPlan)}
+                    disabled={jobLockedFields || (!isEditMode && selectableJobPostingPlans.length === 0)}
                   >
-                    <option value="">{currentJobPostingPlan ? 'Select connected plan' : 'No active job posting plan available'}</option>
+                    <option value="">{hasActiveConnectedPlans ? 'Select connected plan' : 'Select plan to purchase'}</option>
                     {isEditMode && selectedPlan ? (
                       <option value={selectedPlan.id}>
                         {`${selectedPlan.name} - Plan valid ${getPlanValidityDays(selectedPlan)} days - Job live ${getJobPostLiveDays(selectedPlan)} days - Rs ${selectedPlan.planAmount}`}
                       </option>
                     ) : null}
-                    {!isEditMode && currentJobPostingPlan
-                      ? plans
-                        .filter(plan => plan.id === currentJobPostingPlan.planId)
-                        .map(plan => (
-                          <option key={plan.id} value={plan.id}>
-                            {`${plan.name} - Plan valid ${getPlanValidityDays(plan)} days - Job live ${getJobPostLiveDays(plan)} days - Rs ${plan.planAmount}`}
-                          </option>
-                        ))
+                    {!isEditMode
+                      ? selectableJobPostingPlans.map(plan => (
+                        <option key={plan.id} value={plan.id}>
+                          {hasActiveConnectedPlans
+                            ? `${plan.name} - Remaining ${currentJobPostingPlans.find(summary => summary.planId === plan.id)?.remainingJobPosts ?? Math.max(0, plan.jobPostLimit)} - Job live ${getJobPostLiveDays(plan)} days`
+                            : `${plan.name} - ${plan.jobPostLimit} posts - Job live ${getJobPostLiveDays(plan)} days - Rs ${plan.planAmount}`}
+                        </option>
+                      ))
                       : null}
                   </select>
                   {errors.selectedPlanId ? <p className={styles.companyRegisterFieldError}>{errors.selectedPlanId}</p> : null}
-                  {!isEditMode && !currentJobPostingPlan ? (
+                  {!isEditMode && !hasActiveConnectedPlans ? (
                     <p className={styles.jobPostPlanWarningHint}>
-                      No active job posting plan found. Please renew or purchase a plan to continue posting jobs.
+                      No active job posting plan is connected yet. Select a plan, save this requirement, then continue to checkout before publishing.
                     </p>
                   ) : null}
                 </div>
@@ -1404,7 +1470,9 @@ export function CompanyJobPostForm({
                         </p>
                       ) : null}
                       <p style={{ margin: 0, color: '#2563eb', fontSize: '13px', fontWeight: 700 }}>
-                        Active plan status: {selectedCurrentPlan ? selectedCurrentPlan.status.replace(/_/g, ' ') : 'inactive'}
+                        {selectedCurrentPlan
+                          ? `Active plan status: ${selectedCurrentPlan.status.replace(/_/g, ' ')}`
+                          : 'Purchase option: checkout is required before this job can be published.'}
                       </p>
                       <p style={{ margin: 0, color: '#475569', fontSize: '14px' }}>
                         {selectedPlanValidUntil
@@ -1604,7 +1672,13 @@ export function CompanyJobPostForm({
                 >
                   {submitting && submitMode === 'publish'
                     ? (isEditMode ? 'Updating Job Requirement...' : 'Submitting Job Requirement...')
-                    : (isEditMode ? 'Update Job Requirement' : 'Publish Job Requirement')}
+                    : submitting && submitMode === 'checkout'
+                      ? 'Preparing checkout...'
+                      : isEditMode
+                        ? 'Update Job Requirement'
+                        : hasActiveConnectedPlans
+                          ? 'Publish Job Requirement'
+                          : 'Checkout'}
                 </button>
               </div>
               {successState ? (
@@ -1628,8 +1702,10 @@ export function CompanyJobPostForm({
               ) : null}
               <p className={styles.companyRegisterSubmitNote}>
                 {isValid
-                  ? 'The requirement is ready to submit into ScaleVyapar worker admin for review and visibility control.'
-                  : 'Complete these required fields to publish: Job Title, Labour Category, Select Plan, Number of Workers Required, Salary Type, Salary Amount, and Job Description.'}
+                  ? hasActiveConnectedPlans
+                    ? 'The requirement is ready to submit into ScaleVyapar worker admin for review and visibility control.'
+                    : 'The requirement can be saved as draft and continued to checkout. It will not publish until payment/plan activation succeeds.'
+                  : 'Complete these required fields: Job Title, Labour Category, Select Plan, Number of Workers Required, Salary Type, Salary Amount, and Job Description.'}
               </p>
             </div>
           </form>

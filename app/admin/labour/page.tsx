@@ -2545,10 +2545,10 @@ export default function LabourExchangeAdminPage() {
       const currentConnectedPlan = getCompanyPlanByName(current.connectedPlan)
       const resolvedPlan = currentConnectedPlan || defaultCompanyPlan
       const generatedPublishedAt = current.publishedAt || getTodayDateValue()
-      const generatedValidityDays = resolveJobPostValidityDays(
-        current.validityDays,
-        resolvedPlan?.validityDays || 3
-      )
+      const resolvedPlanLiveDays = resolvedPlan ? getJobPostLiveDays(resolvedPlan) : 0
+      const generatedValidityDays = resolvedPlanLiveDays > 0
+        ? resolvedPlanLiveDays
+        : resolveJobPostValidityDays(current.validityDays, 3)
       const generatedExpiresAt = shouldSyncJobPostExpiry(
         current.expiresAt,
         current.publishedAt,
@@ -4266,10 +4266,10 @@ export default function LabourExchangeAdminPage() {
     const selectedCompany = getCompanyById(jobPostDraft.companyId)
     const selectedCompanyPlan = getCompanyPlanByName(jobPostDraft.connectedPlan) || getCompanyActivePlan(jobPostDraft.companyId)
     const publishedAt = jobPostDraft.publishedAt || getTodayDateValue()
-    const generatedValidityDays = resolveJobPostValidityDays(
-      jobPostDraft.validityDays,
-      selectedCompanyPlan?.validityDays || 3
-    )
+    const selectedCompanyPlanLiveDays = selectedCompanyPlan ? getJobPostLiveDays(selectedCompanyPlan) : 0
+    const generatedValidityDays = selectedCompanyPlanLiveDays > 0
+      ? selectedCompanyPlanLiveDays
+      : resolveJobPostValidityDays(jobPostDraft.validityDays, 3)
     const generatedCity = jobPostDraft.city.trim() || selectedCompany?.city.trim() || defaultAdminCity
     const generatedLocationLabel =
       jobPostDraft.locationLabel.trim() ||

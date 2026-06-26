@@ -31,6 +31,7 @@ export type LabourPlanPurchaseLike = {
   transactionType?: string
   reference?: string
   status?: string
+  note?: string
   createdAt?: string
 }
 
@@ -174,18 +175,43 @@ export const jobMatchesPlan = (
   return normalizeLookup(extractConnectedPlanLabel(job.description)) === normalizeLookup(planName)
 }
 
+const isPublishedPlanUsageJob = (job: LabourPlanUsageJobLike) => {
+  const status = normalizeLookup(job.status)
+  return status === 'live' || status === 'published' || status === 'active'
+}
+
 export const countUsedJobPostsForPlan = (
   jobs: LabourPlanUsageJobLike[],
   companyId: string,
   plan: LabourPlanRestrictionLike,
   excludeJobId = ''
 ) => {
-  return jobs.filter(job => job.id !== excludeJobId && jobMatchesPlan(job, companyId, plan)).length
+  return jobs.filter(job => job.id !== excludeJobId && isPublishedPlanUsageJob(job) && jobMatchesPlan(job, companyId, plan)).length
 }
 
 export const isPaidCompanyPlanPurchaseStatus = (status: unknown) => {
   const normalized = normalizeLookup(status)
   return !normalized || PAID_PLAN_PURCHASE_STATUSES.has(normalized)
+}
+
+const planMatchesPurchaseReference = (
+  transaction: LabourPlanPurchaseLike,
+  plan: LabourPlanRestrictionLike
+) => {
+  const reference = normalizeLookup(transaction.reference)
+  const planId = normalizeLookup(plan.id)
+  const planName = normalizeLookup(plan.name)
+  const note = normalizeLookup(transaction.note)
+
+  if (!reference) {
+    return !note || Boolean(planName && note.includes(planName))
+  }
+
+  return (
+    reference === planId ||
+    reference === planName ||
+    Boolean(planName && note.includes(planName))
+  )
 }
 
 export const resolveLatestCompanyPlanPurchase = (
@@ -203,9 +229,52 @@ export const resolveLatestCompanyPlanPurchase = (
       transaction.entityId === companyId &&
       transaction.transactionType === 'plan_purchase' &&
       isPaidCompanyPlanPurchaseStatus(transaction.status) &&
-      (!transaction.reference || transaction.reference === plan.id)
+      planMatchesPurchaseReference(transaction, plan)
     )
     .sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))[0] || null
+}
+
+export const resolveLatestPaidCompanyPlanPurchase = (
+  companyId: string,
+  plans: LabourPlanRestrictionLike[],
+  walletTransactions: LabourPlanPurchaseLike[]
+) => {
+  if (!companyId) {
+    return null
+  }
+
+  const companyPlans = plans.filter(plan => plan.audience === 'company' && plan.isActive !== false)
+  const planByReference = (transaction: LabourPlanPurchaseLike) => {
+    const reference = transaction.reference
+    const normalizedReference = normalizeLookup(reference)
+    const normalizedNote = normalizeLookup(transaction.note)
+    if (!normalizedReference) {
+      return companyPlans.find(plan => {
+        const planName = normalizeLookup(plan.name)
+        return Boolean(planName && normalizedNote.includes(planName))
+      }) || null
+    }
+
+    return companyPlans.find(plan =>
+      normalizedReference === normalizeLookup(plan.id) ||
+      normalizedReference === normalizeLookup(plan.name) ||
+      Boolean(normalizeLookup(plan.name) && normalizedNote.includes(normalizeLookup(plan.name)))
+    ) || null
+  }
+
+  return walletTransactions
+    .filter(transaction =>
+      transaction.entityType === 'company' &&
+      transaction.entityId === companyId &&
+      transaction.transactionType === 'plan_purchase' &&
+      isPaidCompanyPlanPurchaseStatus(transaction.status)
+    )
+    .map(transaction => ({
+      transaction,
+      plan: planByReference(transaction)
+    }))
+    .filter((item): item is { transaction: LabourPlanPurchaseLike; plan: LabourPlanRestrictionLike } => Boolean(item.plan?.id))
+    .sort((left, right) => String(right.transaction.createdAt || '').localeCompare(String(left.transaction.createdAt || '')))[0] || null
 }
 
 export const resolveCompanyPlanWindow = (
@@ -289,7 +358,7 @@ const resolveCompanyPlanFromJobs = (
   jobs: LabourPlanUsageJobLike[]
 ) => {
   const companyJobs = jobs
-    .filter(job => job.companyId === companyId)
+    .filter(job => job.companyId === companyId && isPublishedPlanUsageJob(job))
     .map(job => {
       const directPlan = String(job.planId || '').trim()
         ? plans.find(plan => String(plan.id || '').trim() === String(job.planId || '').trim()) || null
@@ -325,50 +394,69 @@ export const resolveCompanyCurrentJobPostingPlan = ({
   jobs: LabourPlanUsageJobLike[]
   today?: string
 }): CompanyJobPostingPlanSummary | null => {
+  return resolveCompanyJobPostingPlans({
+    companyId,
+    activePlanId,
+    plans,
+    walletTransactions,
+    jobs,
+    today
+  })[0] || null
+}
+
+export const resolveCompanyJobPostingPlans = ({
+  companyId,
+  activePlanId,
+  plans,
+  walletTransactions,
+  jobs,
+  today = formatLocalDateForPlan(new Date())
+}: {
+  companyId: string
+  activePlanId?: string
+  plans: LabourPlanRestrictionLike[]
+  walletTransactions: LabourPlanPurchaseLike[]
+  jobs: LabourPlanUsageJobLike[]
+  today?: string
+}): CompanyJobPostingPlanSummary[] => {
   const companyPlans = plans.filter(plan => plan.audience === 'company' && plan.isActive !== false)
+  const summaries: CompanyJobPostingPlanSummary[] = []
+  const seenPlanIds = new Set<string>()
+
+  const addSummary = (summary: CompanyJobPostingPlanSummary | null) => {
+    if (!summary?.planId || seenPlanIds.has(summary.planId)) {
+      return
+    }
+
+    summaries.push(summary)
+    seenPlanIds.add(summary.planId)
+  }
+
+  companyPlans.forEach(plan => {
+    const latestPaidPlanPurchase = resolveLatestCompanyPlanPurchase(companyId, plan, walletTransactions)
+    if (!latestPaidPlanPurchase?.createdAt) {
+      return
+    }
+
+    const planWindow = resolveCompanyPlanWindow(companyId, plan, walletTransactions)
+    addSummary(buildCompanyPlanSummary({
+      companyId,
+      plan,
+      jobs,
+      today,
+      validFrom: planWindow.startDate,
+      validUntil: planWindow.endDate,
+      hasPaidPurchase: true,
+      source: 'paid_plan'
+    }))
+  })
+
   const activePlan = activePlanId
     ? companyPlans.find(plan => String(plan.id || '').trim() === String(activePlanId || '').trim()) || null
     : null
 
-  if (activePlan) {
-    const planWindow = resolveCompanyPlanWindow(companyId, activePlan, walletTransactions)
-    const latestPaidPlanPurchase = resolveLatestCompanyPlanPurchase(companyId, activePlan, walletTransactions)
-
-    if (latestPaidPlanPurchase?.createdAt) {
-      return buildCompanyPlanSummary({
-        companyId,
-        plan: activePlan,
-        jobs,
-        today,
-        validFrom: planWindow.startDate,
-        validUntil: planWindow.endDate,
-        hasPaidPurchase: true,
-        source: 'paid_plan'
-      })
-    }
-  }
-
-  const inferredPlanMatch = resolveCompanyPlanFromJobs(companyId, companyPlans, jobs)
-  if (inferredPlanMatch?.plan) {
-    const validFrom = normalizeIsoDate(inferredPlanMatch.job.publishedAt) || normalizeIsoDate(inferredPlanMatch.job.createdAt)
-    const validUntil = validFrom
-      ? addDays(validFrom, getPlanValidityDays(inferredPlanMatch.plan))
-      : normalizeIsoDate(inferredPlanMatch.job.expiresAt)
-
-    return buildCompanyPlanSummary({
-      companyId,
-      plan: inferredPlanMatch.plan,
-      jobs,
-      today,
-      validFrom,
-      validUntil,
-      hasPaidPurchase: false,
-      source: 'job_history_inferred'
-    })
-  }
-
-  if (activePlan) {
-    return buildCompanyPlanSummary({
+  if (activePlan && !seenPlanIds.has(String(activePlan.id || '').trim())) {
+    addSummary(buildCompanyPlanSummary({
       companyId,
       plan: activePlan,
       jobs,
@@ -377,10 +465,38 @@ export const resolveCompanyCurrentJobPostingPlan = ({
       validUntil: '',
       hasPaidPurchase: false,
       source: 'assigned_plan'
-    })
+    }))
   }
 
-  return null
+  const inferredPlanMatch = resolveCompanyPlanFromJobs(companyId, companyPlans, jobs)
+  if (inferredPlanMatch?.plan && !seenPlanIds.has(String(inferredPlanMatch.plan.id || '').trim())) {
+    const validFrom = normalizeIsoDate(inferredPlanMatch.job.publishedAt) || normalizeIsoDate(inferredPlanMatch.job.createdAt)
+    const validUntil = validFrom
+      ? addDays(validFrom, getPlanValidityDays(inferredPlanMatch.plan))
+      : normalizeIsoDate(inferredPlanMatch.job.expiresAt)
+
+    addSummary(buildCompanyPlanSummary({
+      companyId,
+      plan: inferredPlanMatch.plan,
+      jobs,
+      today,
+      validFrom,
+      validUntil,
+      hasPaidPurchase: false,
+      source: 'job_history_inferred'
+    }))
+  }
+
+  return summaries.sort((left, right) => {
+    const statusRank = (summary: CompanyJobPostingPlanSummary) =>
+      summary.status === 'active' ? 0 : summary.status === 'limit_used' ? 1 : summary.status === 'expired' ? 2 : 3
+
+    return (
+      statusRank(left) - statusRank(right) ||
+      String(right.validFrom || '').localeCompare(String(left.validFrom || '')) ||
+      left.planName.localeCompare(right.planName)
+    )
+  })
 }
 
 function formatLocalDateForPlan(date: Date) {

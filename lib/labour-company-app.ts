@@ -9,7 +9,7 @@ import {
   LabourWorkerNotificationRecord,
   updateLabourEntity
 } from './labour-marketplace'
-import { resolveCompanyCurrentJobPostingPlan, resolveCompanyPlanWindow, type CompanyJobPostingPlanSummary } from './labour-plan-utils'
+import { resolveCompanyCurrentJobPostingPlan, resolveCompanyJobPostingPlans, resolveCompanyPlanWindow, type CompanyJobPostingPlanSummary } from './labour-plan-utils'
 import { sendWorkerPushNotification } from './labour-worker-push'
 import { buildCompanyBillingHistoryFromLedger, type CompanyBillingRecord } from './labour-company-billing'
 
@@ -99,6 +99,7 @@ export type CompanyAppJobPost = {
 export type CompanyAppDashboard = {
   profile: CompanyAppProfile
   currentJobPostingPlan: CompanyJobPostingPlanSummary | null
+  currentJobPostingPlans: CompanyJobPostingPlanSummary[]
   stats: {
     liveJobPosts: number
     totalApplications: number
@@ -123,6 +124,72 @@ export type CompanyBillingProfileUpdatePayload = {
 const normalizeName = (value: string) => value.trim().toLowerCase()
 const normalizeEmail = (value: string) => value.trim().toLowerCase()
 const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+const resolveBestCompanyAppLoginMatch = ({
+  companies,
+  normalizedEmail,
+  normalizedIdentity,
+  plans,
+  walletTransactions,
+  jobs
+}: {
+  companies: LabourCompanyRecord[]
+  normalizedEmail: string
+  normalizedIdentity?: string
+  plans: Awaited<ReturnType<typeof getLabourMarketplaceSnapshot>>['plans']
+  walletTransactions: Awaited<ReturnType<typeof getLabourMarketplaceSnapshot>>['walletTransactions']
+  jobs: Awaited<ReturnType<typeof getLabourMarketplaceSnapshot>>['jobPosts']
+}) => {
+  const candidates = companies.filter(company => {
+    if (normalizeEmail(company.email) !== normalizedEmail) {
+      return false
+    }
+
+    if (!normalizedIdentity) {
+      return true
+    }
+
+    return (
+      normalizeName(company.companyName) === normalizedIdentity ||
+      normalizeName(company.contactPerson) === normalizedIdentity
+    )
+  })
+
+  return candidates
+    .map((company, index) => {
+      const currentPlan = resolveCompanyCurrentJobPostingPlan({
+        companyId: company.id,
+        activePlanId: company.activePlan,
+        plans,
+        walletTransactions,
+        jobs: jobs
+          .filter(jobPost => jobPost.companyId === company.id)
+          .map(jobPost => ({
+            id: jobPost.id,
+            companyId: jobPost.companyId,
+            description: jobPost.description,
+            planId: jobPost.planId,
+            status: jobPost.status,
+            publishedAt: jobPost.publishedAt,
+            expiresAt: jobPost.expiresAt,
+            createdAt: jobPost.createdAt
+          }))
+      })
+
+      const score =
+        (company.status === 'active' ? 100 : 0) +
+        (currentPlan?.status === 'active' ? 50 : 0) +
+        (currentPlan ? 25 : 0) +
+        (company.activePlan ? 10 : 0)
+
+      return { company, index, score, updatedAt: company.updatedAt || company.createdAt || '' }
+    })
+    .sort((left, right) =>
+      right.score - left.score ||
+      String(right.updatedAt).localeCompare(String(left.updatedAt)) ||
+      left.index - right.index
+    )[0]?.company || null
+}
 
 const parseJobRequirementDetailMap = (description: string) => {
   const normalized = String(description || '').replace(/\r/g, '')
@@ -235,13 +302,14 @@ export const loginCompanyApp = async (email: string, identity: string) => {
   const normalizedEmail = normalizeEmail(email)
   const normalizedIdentity = normalizeName(identity)
 
-  const company = snapshot.companies.find(item =>
-    normalizeEmail(item.email) === normalizedEmail &&
-    (
-      normalizeName(item.companyName) === normalizedIdentity ||
-      normalizeName(item.contactPerson) === normalizedIdentity
-    )
-  )
+  const company = resolveBestCompanyAppLoginMatch({
+    companies: snapshot.companies,
+    normalizedEmail,
+    normalizedIdentity,
+    plans: snapshot.plans,
+    walletTransactions: snapshot.walletTransactions,
+    jobs: snapshot.jobPosts
+  })
 
   if (!company) {
     throw new Error('Company account not found. Use your registered company email and your company name or contact person. Password is not used on this screen.')
@@ -267,20 +335,24 @@ export const loginCompanyAppFromDashboard = async (email: string, fallbackIdenti
   const normalizedEmail = normalizeEmail(email)
   const normalizedFallbackIdentity = normalizeName(fallbackIdentity || '')
 
-  const company = snapshot.companies.find(item => {
-    if (normalizeEmail(item.email) !== normalizedEmail) {
-      return false
-    }
-
-    if (!normalizedFallbackIdentity) {
-      return true
-    }
-
-    return (
-      normalizeName(item.companyName) === normalizedFallbackIdentity ||
-      normalizeName(item.contactPerson) === normalizedFallbackIdentity
-    )
-  }) || snapshot.companies.find(item => normalizeEmail(item.email) === normalizedEmail)
+  const company = resolveBestCompanyAppLoginMatch({
+    companies: snapshot.companies,
+    normalizedEmail,
+    normalizedIdentity: normalizedFallbackIdentity,
+    plans: snapshot.plans,
+    walletTransactions: snapshot.walletTransactions,
+    jobs: snapshot.jobPosts
+  }) || (
+    normalizedFallbackIdentity
+      ? resolveBestCompanyAppLoginMatch({
+          companies: snapshot.companies,
+          normalizedEmail,
+          plans: snapshot.plans,
+          walletTransactions: snapshot.walletTransactions,
+          jobs: snapshot.jobPosts
+        })
+      : null
+  )
 
   if (!company) {
     throw new Error('No registered company was found for this dashboard account.')
@@ -347,6 +419,22 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 
   const currentJobPostingPlan = resolveCompanyCurrentJobPostingPlan({
+    companyId: company.id,
+    activePlanId: company.activePlan,
+    plans: snapshot.plans,
+    walletTransactions: snapshot.walletTransactions,
+    jobs: companyJobPosts.map(jobPost => ({
+      id: jobPost.id,
+      companyId: jobPost.companyId,
+      description: jobPost.description,
+      planId: jobPost.planId,
+      status: jobPost.status,
+      publishedAt: jobPost.publishedAt,
+      expiresAt: jobPost.expiresAt,
+      createdAt: jobPost.createdAt
+    }))
+  })
+  const currentJobPostingPlans = resolveCompanyJobPostingPlans({
     companyId: company.id,
     activePlanId: company.activePlan,
     plans: snapshot.plans,
@@ -461,6 +549,7 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
       activePlanWindow
     ),
     currentJobPostingPlan,
+    currentJobPostingPlans,
     stats: {
       liveJobPosts: jobs.filter(job => job.status === 'live').length,
       totalApplications: recentApplications.length ? jobs.reduce((sum, job) => sum + job.totalApplications, 0) : jobs.reduce((sum, job) => sum + job.totalApplications, 0),

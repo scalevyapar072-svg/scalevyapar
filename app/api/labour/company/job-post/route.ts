@@ -14,6 +14,7 @@ import {
   getPlanLabourCategoryIds,
   getPlanValidityDays,
   resolveCompanyCurrentJobPostingPlan,
+  resolveCompanyJobPostingPlans,
   resolveLatestCompanyPlanPurchase,
   resolveCompanyPlanWindow
 } from '@/lib/labour-plan-utils'
@@ -284,7 +285,7 @@ export async function POST(request: NextRequest) {
     }
 
     const allowedPlanCategoryIds = getPlanLabourCategoryIds(selectedPlan)
-    if (allowedPlanCategoryIds.length > 0 && !allowedPlanCategoryIds.includes(effectiveCategoryId)) {
+    if (mode !== 'draft' && allowedPlanCategoryIds.length > 0 && !allowedPlanCategoryIds.includes(effectiveCategoryId)) {
       return NextResponse.json({ error: 'This labour category is not allowed under the selected plan.' }, { status: 400 })
     }
 
@@ -321,13 +322,35 @@ export async function POST(request: NextRequest) {
         createdAt: jobPost.createdAt
       }))
     })
+    const currentPostingPlans = resolveCompanyJobPostingPlans({
+      companyId: company.id,
+      activePlanId: company.activePlan,
+      plans: snapshot.plans,
+      walletTransactions: snapshot.walletTransactions,
+      jobs: snapshot.jobPosts.map(jobPost => ({
+        id: jobPost.id,
+        companyId: jobPost.companyId,
+        description: jobPost.description,
+        planId: jobPost.planId,
+        status: jobPost.status,
+        publishedAt: jobPost.publishedAt,
+        expiresAt: jobPost.expiresAt,
+        createdAt: jobPost.createdAt
+      }))
+    })
+    const selectedPostingPlan = currentPostingPlans.find(plan => plan.planId === selectedPlan.id) || null
     const canUseSelectedPlanFromCurrentSummary =
-      currentPostingPlan?.planId === selectedPlan.id &&
-      currentPostingPlan.status !== 'inactive'
+      Boolean(selectedPostingPlan && selectedPostingPlan.status !== 'inactive') ||
+      (
+        currentPostingPlan?.planId === selectedPlan.id &&
+        currentPostingPlan.status !== 'inactive'
+      )
     const planWindow = latestPaidPlanPurchase?.createdAt
       ? resolveCompanyPlanWindow(company.id, selectedPlan, snapshot.walletTransactions)
-      : canUseSelectedPlanFromCurrentSummary
-        ? { startDate: currentPostingPlan.validFrom, endDate: currentPostingPlan.validUntil }
+      : selectedPostingPlan
+        ? { startDate: selectedPostingPlan.validFrom, endDate: selectedPostingPlan.validUntil }
+        : canUseSelectedPlanFromCurrentSummary && currentPostingPlan
+          ? { startDate: currentPostingPlan.validFrom, endDate: currentPostingPlan.validUntil }
         : { startDate: '', endDate: '' }
 
     if (mode !== 'draft' && !latestPaidPlanPurchase?.createdAt && !canUseSelectedPlanFromCurrentSummary) {
@@ -346,6 +369,7 @@ export async function POST(request: NextRequest) {
       !existingJob &&
       (
         usedJobPostsCount >= selectedPlan.jobPostLimit ||
+        selectedPostingPlan?.status === 'limit_used' ||
         (canUseSelectedPlanFromCurrentSummary && currentPostingPlan?.status === 'limit_used')
       )
     ) {
@@ -389,6 +413,7 @@ export async function POST(request: NextRequest) {
       !existingJob &&
       (
         (planWindow.endDate && new Date(planWindow.endDate).getTime() < new Date(today).getTime()) ||
+        selectedPostingPlan?.status === 'expired' ||
         (canUseSelectedPlanFromCurrentSummary && currentPostingPlan?.status === 'expired')
       )
     ) {
@@ -479,8 +504,7 @@ export async function POST(request: NextRequest) {
         success: true,
         message: mode === 'draft' ? 'Job requirement saved as draft successfully.' : 'Job requirement published successfully.',
         jobId: updatedJob.id,
-        statusLabel: formatStatusLabel(updatedJob.status),
-        snapshot: updatedSnapshot
+        statusLabel: formatStatusLabel(updatedJob.status)
       })
     }
 
@@ -516,8 +540,7 @@ export async function POST(request: NextRequest) {
         ? 'Job requirement saved as draft successfully.'
         : 'Job requirement published successfully.',
       jobId: createdJob?.id || '',
-      statusLabel: mode === 'draft' ? 'Draft' : formatStatusLabel(status),
-      snapshot: finalSnapshot
+      statusLabel: mode === 'draft' ? 'Draft' : formatStatusLabel(status)
     })
   } catch (error) {
     console.error('Company job post failed:', error)

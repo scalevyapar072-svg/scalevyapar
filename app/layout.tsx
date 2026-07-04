@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
+import Script from 'next/script'
 import './globals.css'
 import FloatingWhatsApp from '@/components/FloatingWhatsApp'
 import MobileBottomBar from '@/components/MobileBottomBar'
@@ -8,6 +9,7 @@ import { isRozgarSubdomainHost } from '@/lib/labour-company-host'
 
 const rozgarIconVersion = '20260627'
 const rozgarIconBasePath = '/images/rozgar/icons'
+const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim()
 
 export const metadata: Metadata = {
   title: 'ScaleVyapar — Business Automation Platform',
@@ -43,10 +45,16 @@ export default async function RootLayout({
     publicPathname.startsWith('/admin/') ||
     effectivePathname === '/admin' ||
     effectivePathname.startsWith('/admin/')
+  const isLoginRoute =
+    publicPathname === '/login' ||
+    publicPathname.startsWith('/login/') ||
+    effectivePathname === '/login' ||
+    effectivePathname.startsWith('/login/')
   const showFloatingWhatsApp = !isAdminRoute && !isSearchPath && !isRozgarHomePage
   const showMobileBottomBar = !isAdminRoute && !isRozgarHost
   const isRozgarRoute = isRozgarHost || isCanonicalRozgarPath
   const isRozgarHomeRoute = publicPathname === '/' || effectivePathname === '/labour/company'
+  const loadMetaPixel = Boolean(metaPixelId) && isRozgarRoute && !isAdminRoute && !isLoginRoute
 
   return (
     <html lang="en">
@@ -65,6 +73,37 @@ export default async function RootLayout({
         ) : null}
       </head>
       <body style={{ margin: 0, padding: 0, fontFamily: 'system-ui, sans-serif' }}>
+        {loadMetaPixel ? (
+          <>
+            <Script
+              id="rozgar-meta-pixel"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  !function(f,b,e,v,n,t,s)
+                  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+                  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+                  n.queue=[];t=b.createElement(e);t.async=!0;
+                  t.src=v;s=b.getElementsByTagName(e)[0];
+                  s.parentNode.insertBefore(t,s)}(window, document,'script',
+                  'https://connect.facebook.net/en_US/fbevents.js');
+                  fbq('init', '${metaPixelId}');
+                  fbq('track', 'PageView');
+                `
+              }}
+            />
+            <noscript>
+              <img
+                height="1"
+                width="1"
+                style={{ display: 'none' }}
+                src={`https://www.facebook.com/tr?id=${metaPixelId}&ev=PageView&noscript=1`}
+                alt=""
+              />
+            </noscript>
+          </>
+        ) : null}
         <SplashScreen />
         {children}
         {showFloatingWhatsApp ? (

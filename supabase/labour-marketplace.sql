@@ -38,10 +38,13 @@ create table if not exists public.labour_workers (
   industry_category text,
   business_type text,
   address text,
+  preferred_work_locations jsonb not null default '[]'::jsonb,
   profile_photo_path text not null default '',
   skills text[] not null default '{}',
   experience_years numeric(6, 2) not null default 0,
   expected_daily_wage numeric(10, 2) not null default 0,
+  minimum_expected_wage numeric(10, 2),
+  maximum_expected_wage numeric(10, 2),
   wallet_balance numeric(10, 2) not null default 0,
   registration_fee_paid boolean not null default false,
   active_plan text,
@@ -95,6 +98,9 @@ add column if not exists home_city text;
 
 alter table if exists public.labour_workers
 add column if not exists address text;
+
+alter table if exists public.labour_workers
+add column if not exists preferred_work_locations jsonb not null default '[]'::jsonb;
 
 alter table if exists public.labour_workers
 drop constraint if exists labour_workers_identity_proof_type_check;

@@ -93,10 +93,18 @@ export interface LabourWorkerRecord {
   industryCategory: string
   businessType: string
   address: string
+  preferredWorkLocations: Array<{
+    stateOptionId: string
+    stateLabel: string
+    cityOptionIds: string[]
+    cityLabels: string[]
+  }>
   profilePhotoPath: string
   skills: string[]
   experienceYears: number
   expectedDailyWage: number
+  minimumExpectedWage: number
+  maximumExpectedWage: number
   walletBalance: number
   registrationFeePaid: boolean
   activePlan: string
@@ -438,10 +446,13 @@ const defaultData: LabourMarketplaceData = {
       industryCategory: 'Textile',
       businessType: 'Textile Business',
       address: 'Textile Market, Surat',
+      preferredWorkLocations: [],
       profilePhotoPath: 'workers/worker-sajid/profile-photo-demo.jpg',
       skills: ['Ladies kurti stitching', 'Machine handling', 'Finishing'],
       experienceYears: 6,
       expectedDailyWage: 950,
+      minimumExpectedWage: 0,
+      maximumExpectedWage: 0,
       walletBalance: 40,
       registrationFeePaid: true,
       activePlan: 'plan-worker-basic',
@@ -473,10 +484,13 @@ const defaultData: LabourMarketplaceData = {
       industryCategory: 'Manufacturing',
       businessType: 'Manufacturer',
       address: 'Mansarovar, Jaipur',
+      preferredWorkLocations: [],
       profilePhotoPath: 'workers/worker-rahul/profile-photo-demo.jpg',
       skills: ['Site wiring', 'Repair work'],
       experienceYears: 3,
       expectedDailyWage: 800,
+      minimumExpectedWage: 0,
+      maximumExpectedWage: 0,
       walletBalance: 0,
       registrationFeePaid: false,
       activePlan: '',
@@ -1044,10 +1058,13 @@ const mapWorkerRow = (row: {
   industry_category: string | null
   business_type: string | null
   address: string | null
+  preferred_work_locations?: unknown[] | null
   profile_photo_path: string | null
   skills: string[] | null
   experience_years: number | null
   expected_daily_wage: number | null
+  minimum_expected_wage?: number | null
+  maximum_expected_wage?: number | null
   wallet_balance: number | null
   registration_fee_paid: boolean | null
   active_plan?: string | null
@@ -1078,10 +1095,13 @@ const mapWorkerRow = (row: {
   industryCategory: row.industry_category || '',
   businessType: row.business_type || '',
   address: row.address || '',
+  preferredWorkLocations: normalizePreferredWorkLocations(row.preferred_work_locations),
   profilePhotoPath: row.profile_photo_path || '',
   skills: row.skills || [],
   experienceYears: row.experience_years ?? 0,
   expectedDailyWage: row.expected_daily_wage ?? 0,
+  minimumExpectedWage: row.minimum_expected_wage ?? 0,
+  maximumExpectedWage: row.maximum_expected_wage ?? 0,
   walletBalance: row.wallet_balance ?? 0,
   registrationFeePaid: row.registration_fee_paid ?? false,
   activePlan: row.active_plan || '',
@@ -1514,6 +1534,7 @@ const normalizeWorker = (
     payload.salaryType !== undefined
       ? toOptionalText(payload.salaryType)
       : toOptionalText(existing?.salaryType)
+  const rawPayload = payload as Record<string, unknown>
   return {
     id: existing?.id || String(payload.id || createId('worker')),
     fullName: String(payload.fullName || existing?.fullName || '').trim(),
@@ -1525,10 +1546,15 @@ const normalizeWorker = (
     industryCategory: String(payload.industryCategory || existing?.industryCategory || '').trim(),
     businessType: String(payload.businessType || existing?.businessType || '').trim(),
     address: String(payload.address || existing?.address || '').trim(),
+    preferredWorkLocations: Array.isArray(payload.preferredWorkLocations)
+      ? normalizePreferredWorkLocations(payload.preferredWorkLocations)
+      : existing?.preferredWorkLocations || [],
     profilePhotoPath: String(payload.profilePhotoPath || existing?.profilePhotoPath || '').trim(),
     skills: toStringArray(payload.skills || existing?.skills || []),
     experienceYears: toNumber(payload.experienceYears, existing?.experienceYears ?? 0),
-    expectedDailyWage: toNumber(payload.expectedDailyWage, existing?.expectedDailyWage ?? 0),
+    expectedDailyWage: toNumber(payload.expectedDailyWage ?? rawPayload.expected_daily_wage, existing?.expectedDailyWage ?? 0),
+    minimumExpectedWage: toNumber(payload.minimumExpectedWage ?? rawPayload.minimum_expected_wage, existing?.minimumExpectedWage ?? 0),
+    maximumExpectedWage: toNumber(payload.maximumExpectedWage ?? rawPayload.maximum_expected_wage, existing?.maximumExpectedWage ?? 0),
     walletBalance: toNumber(payload.walletBalance, existing?.walletBalance ?? 0),
     registrationFeePaid: toBoolean(payload.registrationFeePaid, existing?.registrationFeePaid ?? false),
     activePlan: String(payload.activePlan || existing?.activePlan || '').trim(),
@@ -1594,6 +1620,82 @@ const isMissingWorkerProfileMappingColumnsError = (message: string) => {
     normalized.includes('industry_category') ||
     normalized.includes('business_type')
   )
+}
+
+const normalizePreferredWorkLocations = (value: unknown): LabourWorkerRecord['preferredWorkLocations'] => {
+  const locations = Array.isArray(value) ? value : []
+
+  return locations
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map(item => {
+      const cityOptionIds = Array.isArray(item.cityOptionIds)
+        ? item.cityOptionIds.map(id => String(id || '').trim()).filter(Boolean)
+        : [String(item.cityOptionId || '').trim()].filter(Boolean)
+      const cityLabels = Array.isArray(item.cityLabels)
+        ? item.cityLabels.map(label => String(label || '').trim()).filter(Boolean)
+        : [String(item.cityLabel || item.city || '').trim()].filter(Boolean)
+
+      return {
+        stateOptionId: String(item.stateOptionId || '').trim(),
+        stateLabel: String(item.stateLabel || item.state || '').trim(),
+        cityOptionIds,
+        cityLabels
+      }
+    })
+    .filter(location => location.cityLabels.length > 0)
+}
+
+const isMissingWorkerPreferredLocationColumnsError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  ) && normalized.includes('preferred_work_locations')
+}
+
+const isMissingWorkerExpectedWageRangeColumnsError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  ) && (
+    normalized.includes('minimum_expected_wage') ||
+    normalized.includes('maximum_expected_wage')
+  )
+}
+
+const stripUnsupportedWorkerColumnsForError = (payload: Record<string, unknown>, message: string) => {
+  const legacyWorkerPayload: Record<string, unknown> = { ...payload }
+  let changed = false
+
+  if (isMissingWorkerProfileMappingColumnsError(message)) {
+    delete legacyWorkerPayload.company_id
+    delete legacyWorkerPayload.industry_category
+    delete legacyWorkerPayload.business_type
+    changed = true
+  }
+
+  if (isMissingWorkerRegistrationFeePaidColumnError(message)) {
+    delete legacyWorkerPayload.registration_fee_paid
+    changed = true
+  }
+
+  if (isMissingWorkerPlanColumnsError(message)) {
+    delete legacyWorkerPayload.active_plan
+    delete legacyWorkerPayload.plan_valid_from
+    delete legacyWorkerPayload.plan_valid_until
+    delete legacyWorkerPayload.last_wallet_deduction_date
+    changed = true
+  }
+
+  if (isMissingWorkerPauseColumnsError(message)) {
+    delete legacyWorkerPayload.worker_paused_by_worker
+    delete legacyWorkerPayload.worker_paused_at
+    delete legacyWorkerPayload.worker_reactivated_at
+    changed = true
+  }
+
+  return changed ? legacyWorkerPayload : null
 }
 
 const isMissingCompanyContactMobileColumnError = (message: string) => {
@@ -2568,10 +2670,13 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     industry_category: worker.industryCategory || null,
     business_type: worker.businessType || null,
     address: worker.address,
+    preferred_work_locations: worker.preferredWorkLocations || [],
     profile_photo_path: worker.profilePhotoPath,
     skills: worker.skills,
     experience_years: worker.experienceYears,
     expected_daily_wage: worker.expectedDailyWage,
+    minimum_expected_wage: worker.minimumExpectedWage || null,
+    maximum_expected_wage: worker.maximumExpectedWage || null,
     wallet_balance: worker.walletBalance,
     registration_fee_paid: worker.registrationFeePaid,
     active_plan: worker.activePlan || null,
@@ -2985,6 +3090,7 @@ export const createLabourEntity = async (
         mobile: record.mobile,
         city: record.city,
         home_city: record.homeCity,
+        preferred_work_locations: record.preferredWorkLocations || [],
         salary_type: toOptionalText(record.salaryType) || null,
         company_id: record.companyId || null,
         industry_category: record.industryCategory || null,
@@ -2994,6 +3100,8 @@ export const createLabourEntity = async (
         skills: record.skills,
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
+        minimum_expected_wage: record.minimumExpectedWage || null,
+        maximum_expected_wage: record.maximumExpectedWage || null,
         wallet_balance: record.walletBalance,
         registration_fee_paid: record.registrationFeePaid,
         active_plan: record.activePlan || null,
@@ -3014,35 +3122,20 @@ export const createLabourEntity = async (
         created_at: record.createdAt,
         updated_at: record.updatedAt
       }
-      let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(workerPayload)
-      if (error && isMissingWorkerProfileMappingColumnsError(error.message)) {
-        const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
-        delete legacyWorkerPayload.company_id
-        delete legacyWorkerPayload.industry_category
-        delete legacyWorkerPayload.business_type
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(legacyWorkerPayload))
+      let workerPayloadToWrite: Record<string, unknown> = workerPayload
+      let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(workerPayloadToWrite)
+      for (let attempt = 0; error && attempt < 5; attempt += 1) {
+        const legacyWorkerPayload = stripUnsupportedWorkerColumnsForError(workerPayloadToWrite, error.message)
+        if (!legacyWorkerPayload) break
+        workerPayloadToWrite = legacyWorkerPayload
+        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(workerPayloadToWrite))
       }
-      if (error && isMissingWorkerRegistrationFeePaidColumnError(error.message)) {
-        const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
-        delete legacyWorkerPayload.registration_fee_paid
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(legacyWorkerPayload))
+      if (error) {
+        if (isMissingWorkerExpectedWageRangeColumnsError(error.message)) {
+          throw new Error(`Failed to create labour worker: salary range columns are missing from labour_workers schema cache (${error.message})`)
+        }
+        throw new Error(`Failed to create labour worker: ${error.message}`)
       }
-      if (error && isMissingWorkerPlanColumnsError(error.message)) {
-        const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
-        delete legacyWorkerPayload.active_plan
-        delete legacyWorkerPayload.plan_valid_from
-        delete legacyWorkerPayload.plan_valid_until
-        delete legacyWorkerPayload.last_wallet_deduction_date
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(legacyWorkerPayload))
-      }
-      if (error && isMissingWorkerPauseColumnsError(error.message)) {
-        const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
-        delete legacyWorkerPayload.worker_paused_by_worker
-        delete legacyWorkerPayload.worker_paused_at
-        delete legacyWorkerPayload.worker_reactivated_at
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).insert(legacyWorkerPayload))
-      }
-      if (error) throw new Error(`Failed to create labour worker: ${error.message}`)
       if (walletCreditTransaction) {
         const { error: transactionError } = await supabaseAdmin.from(STORAGE_TABLES.walletTransactions).insert({
           id: walletCreditTransaction.id,
@@ -3460,6 +3553,7 @@ export const updateLabourEntity = async (
         mobile: record.mobile,
         city: record.city,
         home_city: record.homeCity,
+        preferred_work_locations: record.preferredWorkLocations || [],
         salary_type: toOptionalText(record.salaryType) || null,
         company_id: record.companyId || null,
         industry_category: record.industryCategory || null,
@@ -3469,6 +3563,8 @@ export const updateLabourEntity = async (
         skills: record.skills,
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
+        minimum_expected_wage: record.minimumExpectedWage || null,
+        maximum_expected_wage: record.maximumExpectedWage || null,
         wallet_balance: record.walletBalance,
         registration_fee_paid: record.registrationFeePaid,
         active_plan: record.activePlan || null,
@@ -3488,35 +3584,30 @@ export const updateLabourEntity = async (
         registration_completed_at: record.registrationCompletedAt || null,
         updated_at: record.updatedAt
       }
-      let { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(workerPayload).eq('id', id)
-      if (error && isMissingWorkerProfileMappingColumnsError(error.message)) {
-        const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
-        delete legacyWorkerPayload.company_id
-        delete legacyWorkerPayload.industry_category
-        delete legacyWorkerPayload.business_type
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(legacyWorkerPayload).eq('id', id))
+      let workerPayloadToWrite: Record<string, unknown> = workerPayload
+      let { error } = await supabaseAdmin
+        .from(STORAGE_TABLES.workers)
+        .update(workerPayloadToWrite)
+        .eq('id', id)
+        .select('id,expected_daily_wage,minimum_expected_wage,maximum_expected_wage')
+        .single()
+      for (let attempt = 0; error && attempt < 5; attempt += 1) {
+        const legacyWorkerPayload = stripUnsupportedWorkerColumnsForError(workerPayloadToWrite, error.message)
+        if (!legacyWorkerPayload) break
+        workerPayloadToWrite = legacyWorkerPayload
+        ;({ error } = await supabaseAdmin
+          .from(STORAGE_TABLES.workers)
+          .update(workerPayloadToWrite)
+          .eq('id', id)
+          .select('id,expected_daily_wage,minimum_expected_wage,maximum_expected_wage')
+          .single())
       }
-      if (error && isMissingWorkerRegistrationFeePaidColumnError(error.message)) {
-        const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
-        delete legacyWorkerPayload.registration_fee_paid
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(legacyWorkerPayload).eq('id', id))
+      if (error) {
+        if (isMissingWorkerExpectedWageRangeColumnsError(error.message)) {
+          throw new Error(`Failed to update labour worker: salary range columns are missing from labour_workers schema cache (${error.message})`)
+        }
+        throw new Error(`Failed to update labour worker: ${error.message}`)
       }
-      if (error && isMissingWorkerPlanColumnsError(error.message)) {
-        const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
-        delete legacyWorkerPayload.active_plan
-        delete legacyWorkerPayload.plan_valid_from
-        delete legacyWorkerPayload.plan_valid_until
-        delete legacyWorkerPayload.last_wallet_deduction_date
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(legacyWorkerPayload).eq('id', id))
-      }
-      if (error && isMissingWorkerPauseColumnsError(error.message)) {
-        const legacyWorkerPayload: Record<string, unknown> = { ...workerPayload }
-        delete legacyWorkerPayload.worker_paused_by_worker
-        delete legacyWorkerPayload.worker_paused_at
-        delete legacyWorkerPayload.worker_reactivated_at
-        ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.workers).update(legacyWorkerPayload).eq('id', id))
-      }
-      if (error) throw new Error(`Failed to update labour worker: ${error.message}`)
       if (walletCreditTransaction) {
         const { error: transactionError } = await supabaseAdmin.from(STORAGE_TABLES.walletTransactions).insert({
           id: walletCreditTransaction.id,

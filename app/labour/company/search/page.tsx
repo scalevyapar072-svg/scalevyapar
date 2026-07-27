@@ -75,12 +75,15 @@ type WorkerRow = {
   mobile: string
   city: string | null
   home_city: string | null
+  preferred_work_locations?: unknown[] | null
   address: string | null
   profile_photo_path: string | null
   skills: string[] | null
   experience_years: number | null
   salary_type: string | null
   expected_daily_wage: number | null
+  minimum_expected_wage?: number | null
+  maximum_expected_wage?: number | null
   status: string | null
   availability: string | null
   is_visible: boolean | null
@@ -91,6 +94,11 @@ type WorkerRow = {
   identity_proof_number: string | null
   identity_proof_path: string | null
   created_at: string
+}
+
+type NormalizedPreferredWorkLocation = {
+  stateLabel: string
+  cityLabels: string[]
 }
 
 type SearchFilters = {
@@ -297,6 +305,57 @@ const withoutValues = (values: string[], excluded: string[]) => {
   return values.filter(value => !excludedKeys.has(normalizeValue(value)))
 }
 const sanitizePostgrestValue = (value: string) => String(value || '').replace(/,/g, ' ').trim()
+const getWorkerPreferredLocations = (worker: Pick<WorkerRow, 'preferred_work_locations'>): NormalizedPreferredWorkLocation[] => {
+  const locations = Array.isArray(worker.preferred_work_locations) ? worker.preferred_work_locations : []
+
+  return locations
+    .filter((location): location is Record<string, unknown> => Boolean(location) && typeof location === 'object')
+    .map(location => {
+      const stateLabel = String(location.stateLabel || location.state || '').trim()
+      const groupedCityLabels = Array.isArray(location.cityLabels)
+        ? location.cityLabels
+            .map(city => String(city || '').trim())
+            .filter(Boolean)
+        : []
+      const cities = Array.isArray(location.cities)
+        ? location.cities
+            .map(city => String(city || '').trim())
+            .filter(Boolean)
+        : []
+      const flatCityLabel = String(location.cityLabel || location.city || '').trim()
+      const cityLabels = uniqueValues([...groupedCityLabels, ...cities, flatCityLabel].filter(Boolean))
+
+      return { stateLabel, cityLabels }
+    })
+    .filter(location => location.cityLabels.length > 0)
+}
+const workerHasPreferredWorkLocations = (worker: Pick<WorkerRow, 'preferred_work_locations'>) =>
+  getWorkerPreferredLocations(worker).length > 0
+const workerMatchesPreferredLocation = (worker: Pick<WorkerRow, 'preferred_work_locations'>, city: string, state?: string) => {
+  const normalizedCity = normalizeValue(city)
+  const normalizedState = normalizeValue(state || '')
+  if (!normalizedCity) return false
+
+  return getWorkerPreferredLocations(worker).some(location => {
+    const stateMatches = !normalizedState || normalizeValue(location.stateLabel) === normalizedState
+    return stateMatches && location.cityLabels.some(cityLabel => normalizeValue(cityLabel) === normalizedCity)
+  })
+}
+const workerMatchesFallbackCity = (worker: Pick<WorkerRow, 'city' | 'home_city'>, city: string) => {
+  const normalizedCity = normalizeValue(city)
+  if (!normalizedCity) return false
+
+  return [worker.city, worker.home_city]
+    .filter((value): value is string => Boolean(String(value || '').trim()))
+    .some(value => normalizeValue(value) === normalizedCity)
+}
+const workerMatchesLocation = (worker: WorkerRow, city: string, state?: string) => {
+  if (workerHasPreferredWorkLocations(worker)) {
+    return workerMatchesPreferredLocation(worker, city, state)
+  }
+
+  return workerMatchesFallbackCity(worker, city)
+}
 const formatCategoryIdLabel = (categoryId: string) => {
   const trimmed = String(categoryId || '').trim()
   const withoutPrefix = trimmed.replace(/^cat[-_]/i, '')
@@ -399,7 +458,8 @@ const applyWorkerFilters = (
   }
 
   if (filters.city) {
-    nextQuery = nextQuery.or(`city.ilike.${filters.city},home_city.ilike.${filters.city}`)
+    // Preferred work locations are stored in JSON, so city filtering is finalized in memory.
+    // Keeping this query broad prevents excluding Ajmer-home workers who prefer Jaipur/Surat.
   }
 
   if (selectedCategoryIds.length > 0) {
@@ -465,7 +525,35 @@ const applyWorkerOrder = (query: SupabaseQuery, sortBy: string) => {
   }
 }
 
-const selectWorkerRows = (count: 'exact' | null = null) =>
+const isMissingPreferredWorkLocationsColumnError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return normalized.includes('preferred_work_locations') && (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  )
+}
+
+const isMissingSalaryRangeColumnError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return (
+    (normalized.includes('minimum_expected_wage') || normalized.includes('maximum_expected_wage')) &&
+    (normalized.includes('column') || normalized.includes('schema cache'))
+  )
+}
+
+const getWorkerOptionalColumnFlags = (message: string) => ({
+  includePreferredWorkLocations: !isMissingPreferredWorkLocationsColumnError(message),
+  includeSalaryRange: !isMissingSalaryRangeColumnError(message)
+})
+
+const selectWorkerRows = (
+  count: 'exact' | null = null,
+  options: { includePreferredWorkLocations?: boolean; includeSalaryRange?: boolean } = {}
+) => {
+  const includePreferredWorkLocations = options.includePreferredWorkLocations ?? true
+  const includeSalaryRange = options.includeSalaryRange ?? true
+
+  return (
   supabaseAdmin
     .from('labour_workers')
     .select(
@@ -475,12 +563,15 @@ const selectWorkerRows = (count: 'exact' | null = null) =>
         'mobile',
         'city',
         'home_city',
+        includePreferredWorkLocations ? 'preferred_work_locations' : '',
         'address',
         'profile_photo_path',
         'skills',
         'experience_years',
         'salary_type',
         'expected_daily_wage',
+        includeSalaryRange ? 'minimum_expected_wage' : '',
+        includeSalaryRange ? 'maximum_expected_wage' : '',
         'status',
         'availability',
         'is_visible',
@@ -491,9 +582,11 @@ const selectWorkerRows = (count: 'exact' | null = null) =>
         'identity_proof_number',
         'identity_proof_path',
         'created_at'
-      ].join(','),
+      ].filter(Boolean).join(','),
       count ? { count } : undefined
     )
+  )
+}
 
 const getWorkerCount = async (
   filters: SearchFilters,
@@ -525,17 +618,25 @@ const fetchWorkerRange = async (
     excludeCategoryIds?: string[]
   } = {}
 ) => {
-  let query = applyWorkerFilters(selectWorkerRows(), filters, selectedCategoryIds, statuses)
+  const buildQuery = (selectOptions?: { includePreferredWorkLocations?: boolean; includeSalaryRange?: boolean }) => {
+    let query = applyWorkerFilters(selectWorkerRows(null, selectOptions), filters, selectedCategoryIds, statuses)
 
-  if (options.matchingCategoryIds?.length) {
-    query = query.overlaps('category_ids', options.matchingCategoryIds)
+    if (options.matchingCategoryIds?.length) {
+      query = query.overlaps('category_ids', options.matchingCategoryIds)
+    }
+
+    if (options.excludeCategoryIds?.length) {
+      query = query.not('category_ids', 'ov', arrayLiteral(options.excludeCategoryIds))
+    }
+
+    return applyWorkerOrder(query, filters.sortBy).range(rangeStart, rangeEnd)
   }
 
-  if (options.excludeCategoryIds?.length) {
-    query = query.not('category_ids', 'ov', arrayLiteral(options.excludeCategoryIds))
-  }
+  let { data, error } = await buildQuery()
 
-  const { data, error } = await applyWorkerOrder(query, filters.sortBy).range(rangeStart, rangeEnd)
+  if (error && (isMissingPreferredWorkLocationsColumnError(error.message) || isMissingSalaryRangeColumnError(error.message))) {
+    ;({ data, error } = await buildQuery(getWorkerOptionalColumnFlags(error.message)))
+  }
 
   if (error) {
     throw new Error(`Failed to load workers: ${error.message}`)
@@ -605,11 +706,19 @@ const fetchWorkerBucketRange = async (
 ) => {
   if (bucket.includeCategoryIds && bucket.includeCategoryIds.length === 0) return [] as WorkerRow[]
 
-  const query = applyWorkerBucket(
-    applyWorkerFilters(selectWorkerRows(), filters, selectedCategoryIds, statuses),
-    bucket
-  )
-  const { data, error } = await applyWorkerOrder(query, filters.sortBy).range(rangeStart, rangeEnd)
+  const buildQuery = (selectOptions?: { includePreferredWorkLocations?: boolean; includeSalaryRange?: boolean }) => {
+    const query = applyWorkerBucket(
+      applyWorkerFilters(selectWorkerRows(null, selectOptions), filters, selectedCategoryIds, statuses),
+      bucket
+    )
+    return applyWorkerOrder(query, filters.sortBy).range(rangeStart, rangeEnd)
+  }
+
+  let { data, error } = await buildQuery()
+
+  if (error && (isMissingPreferredWorkLocationsColumnError(error.message) || isMissingSalaryRangeColumnError(error.message))) {
+    ;({ data, error } = await buildQuery(getWorkerOptionalColumnFlags(error.message)))
+  }
 
   if (error) {
     throw new Error(`Failed to load ${bucket.label} workers: ${error.message}`)
@@ -743,10 +852,7 @@ const workerMatchesBucket = (worker: WorkerRow, bucket: WorkerBucket) => {
   }
 
   if (bucket.city && bucket.cityMode) {
-    const normalizedCity = normalizeValue(bucket.city)
-    const cityMatches = [worker.city, worker.home_city]
-      .filter((value): value is string => Boolean(String(value || '').trim()))
-      .some(value => normalizeValue(value) === normalizedCity)
+    const cityMatches = workerMatchesLocation(worker, bucket.city)
 
     if (bucket.cityMode === 'only' && !cityMatches) return false
     if (bucket.cityMode === 'exclude' && cityMatches) return false
@@ -760,10 +866,16 @@ const loadOrderedWorkerRows = async (
   selectedCategoryIds: string[],
   jobContext: JobContextBucketInput | null
 ) => {
-  const { data, error } = await applyWorkerOrder(
-    applyWorkerFilters(selectWorkerRows(), filters, selectedCategoryIds),
+  const buildQuery = (selectOptions?: { includePreferredWorkLocations?: boolean; includeSalaryRange?: boolean }) => applyWorkerOrder(
+    applyWorkerFilters(selectWorkerRows(null, selectOptions), filters, selectedCategoryIds),
     filters.sortBy
   )
+
+  let { data, error } = await buildQuery()
+
+  if (error && (isMissingPreferredWorkLocationsColumnError(error.message) || isMissingSalaryRangeColumnError(error.message))) {
+    ;({ data, error } = await buildQuery(getWorkerOptionalColumnFlags(error.message)))
+  }
 
   if (error) {
     throw new Error(`Failed to load workers: ${error.message}`)
@@ -780,7 +892,8 @@ const loadOrderedWorkerRows = async (
     })
     .filter(worker =>
       matchesEffectiveWorkerStatusFilter(worker.effectiveStatus, filters.workerStatus) &&
-      matchesEffectiveAvailabilityFilter(worker.effectiveAvailability, filters.availability)
+      matchesEffectiveAvailabilityFilter(worker.effectiveAvailability, filters.availability) &&
+      (!filters.city || workerMatchesLocation(worker, filters.city))
     )
 
   const activeRows = effectiveRows.filter(worker => isActiveWorkerStatus(worker.effectiveStatus))
@@ -1048,11 +1161,14 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
       mobile: worker.mobile,
       city: worker.city || '',
       homeCity: worker.home_city || '',
+      preferredWorkLocations: getWorkerPreferredLocations(worker),
       address: worker.address || '',
       salaryType: worker.salary_type || '',
       skills: worker.skills || [],
       experienceYears: worker.experience_years ?? 0,
       expectedDailyWage: worker.expected_daily_wage ?? 0,
+      minimumExpectedWage: worker.minimum_expected_wage ?? 0,
+      maximumExpectedWage: worker.maximum_expected_wage ?? 0,
       availability: worker.availability || 'available_today',
       status: worker.status || 'pending',
       isVisible: worker.is_visible ?? true,

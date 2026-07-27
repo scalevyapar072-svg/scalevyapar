@@ -55,7 +55,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, snapshot: { ...snapshot, adminCategories } })
   } catch (error) {
     console.error('Labour marketplace create failed:', error)
-    return NextResponse.json({ error: 'Failed to create labour record' }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to create labour record' },
+      { status: 500 }
+    )
   }
 }
 
@@ -80,7 +83,10 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, snapshot: { ...snapshot, adminCategories } })
   } catch (error) {
     console.error('Labour marketplace update failed:', error)
-    return NextResponse.json({ error: 'Failed to update labour record' }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to update labour record' },
+      { status: 500 }
+    )
   }
 }
 

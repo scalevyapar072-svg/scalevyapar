@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BriefcaseBusiness, CheckCircle2, Download, Heart, MapPin, MessageCircle, Phone, Search, ShieldCheck, Sparkles, Users } from 'lucide-react'
+import { CheckCircle2, Download, Heart, MapPin, MessageCircle, Phone, Search, ShieldCheck, Sparkles, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import {
   filterBusinessTypesByIndustryDependency,
@@ -39,11 +39,20 @@ type WorkerItem = {
   mobile: string
   city: string
   homeCity: string
+  preferredWorkLocations?: Array<{
+    stateLabel: string
+    cityLabels?: string[] | null
+    cityLabel?: string | null
+    city?: string | null
+  }>
+  preferred_work_locations?: unknown[] | null
   address: string
   salaryType: string
   skills: string[]
   experienceYears: number
   expectedDailyWage: number
+  minimumExpectedWage?: number | null
+  maximumExpectedWage?: number | null
   availability: string
   status: string
   isVisible: boolean
@@ -226,6 +235,56 @@ const matchesValue = (left: string, right: string) => {
   return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight)
 }
 
+const workerHasPreferredLocations = (worker: WorkerItem) =>
+  getWorkerPreferredCityLabels(worker).length > 0
+
+const getWorkerPreferredCityLabels = (worker: WorkerItem) => {
+  const seen = new Set<string>()
+  const cities: string[] = []
+  const locations = [
+    ...(Array.isArray(worker.preferredWorkLocations) ? worker.preferredWorkLocations : []),
+    ...(Array.isArray(worker.preferred_work_locations) ? worker.preferred_work_locations : [])
+  ]
+
+  locations
+    .filter((location): location is Record<string, unknown> => Boolean(location) && typeof location === 'object')
+    .forEach(location => {
+      const cityLabels = [
+        ...(Array.isArray(location.cityLabels) ? location.cityLabels : []),
+        ...(Array.isArray(location.cities) ? location.cities : []),
+        location.cityLabel,
+        location.city
+      ]
+
+      cityLabels.forEach(cityLabel => {
+        const cityText = String(cityLabel || '').trim()
+        const normalizedCity = normalize(cityText)
+        if (!normalizedCity || seen.has(normalizedCity)) return
+        seen.add(normalizedCity)
+        cities.push(cityText)
+      })
+    })
+
+  return cities
+}
+
+const getWorkerAvailableLocationLabel = (worker: WorkerItem) => {
+  const preferredCities = getWorkerPreferredCityLabels(worker)
+  if (preferredCities.length) return preferredCities.join(', ')
+
+  return worker.city || worker.homeCity || 'Location not added'
+}
+
+const workerMatchesLocation = (worker: WorkerItem, city: string) => {
+  if (!city.trim()) return false
+
+  if (workerHasPreferredLocations(worker)) {
+    return getWorkerPreferredCityLabels(worker).some(cityLabel => matchesValue(cityLabel, city))
+  }
+
+  return matchesValue(worker.city, city) || matchesValue(worker.homeCity, city)
+}
+
 const getOptionMatchValues = (option: LabourMasterOption) => [option.id, option.value, option.slug, option.label]
 
 const getMatchingOptionIds = (options: LabourMasterOption[], selectedValue: string) => {
@@ -256,6 +315,7 @@ const workerMatchesMasterSelection = (selectedValue: string, workerValues: strin
 }
 
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
+const formatSalaryCurrency = (value: number) => `₹${Number(value || 0).toLocaleString('en-IN')}`
 
 const getWhatsappHref = (mobile: string, fallbackHref: string) => {
   const digits = mobile.replace(/\D/g, '')
@@ -313,8 +373,22 @@ const getWorkerSalaryTypeLabel = (salaryType: string) => {
   return 'Daily Wage'
 }
 
-const getWorkerSalaryDisplay = (worker: WorkerItem) =>
-  `${formatCurrency(worker.expectedDailyWage)} / ${getWorkerSalaryTypeLabel(worker.salaryType)}`.trim()
+const getWorkerSalaryDisplay = (worker: WorkerItem) => {
+  const minimumExpectedWage = Number(worker.minimumExpectedWage || 0)
+  const maximumExpectedWage = Number(worker.maximumExpectedWage || 0)
+  const fallbackExpectedWage = Number(worker.expectedDailyWage || 0)
+  const salaryTypeLabel = getWorkerSalaryTypeLabel(worker.salaryType)
+
+  if (minimumExpectedWage > 0 && maximumExpectedWage > 0 && minimumExpectedWage !== maximumExpectedWage) {
+    return `${formatSalaryCurrency(minimumExpectedWage)} - ${formatSalaryCurrency(maximumExpectedWage)} / ${salaryTypeLabel}`
+  }
+
+  const singleExpectedWage = minimumExpectedWage || maximumExpectedWage || fallbackExpectedWage
+
+  if (singleExpectedWage <= 0) return 'Not Available'
+
+  return `${formatSalaryCurrency(singleExpectedWage)} / ${salaryTypeLabel}`.trim()
+}
 
 const getWorkerCardToneClass = (isCategoryMatch: boolean, status: string) => {
   const isActiveStatus = normalize(status) === 'active'
@@ -1010,8 +1084,7 @@ export function LabourSearchClient({
       const workerCategoryIdSet = new Set(worker.categoryIds)
       const cityMatch = Boolean(
         effectiveJobContext.city &&
-        (normalize(worker.city) === normalize(effectiveJobContext.city) ||
-          normalize(worker.homeCity) === normalize(effectiveJobContext.city))
+        workerMatchesLocation(worker, effectiveJobContext.city)
       )
       const directIndustryMatch = Boolean(
         effectiveJobContext.industryCategory &&
@@ -1642,11 +1715,7 @@ export function LabourSearchClient({
                         <div className={styles.searchWorkerMetaRow}>
                           <span className={styles.searchWorkerMetaItem}>
                             <MapPin size={14} strokeWidth={2.1} />
-                            {worker.city || worker.homeCity || 'Location not added'}
-                          </span>
-                          <span className={styles.searchWorkerMetaItem}>
-                            <BriefcaseBusiness size={14} strokeWidth={2.1} />
-                            {worker.industryCategoryLabel}
+                            Required Work Location: {getWorkerAvailableLocationLabel(worker)}
                           </span>
                           <span className={styles.searchWorkerMetaItem}>
                             <Users size={14} strokeWidth={2.1} />
@@ -1668,8 +1737,12 @@ export function LabourSearchClient({
                                 <strong>{worker.experienceYears} years</strong>
                               </div>
                               <div className={styles.searchWorkerExpandedItem}>
+                                <span>Required Work Location</span>
+                                <strong>{getWorkerAvailableLocationLabel(worker)}</strong>
+                              </div>
+                              <div className={styles.searchWorkerExpandedItem}>
                                 <span>Home City</span>
-                                <strong>{worker.homeCity || 'Not added'}</strong>
+                                <strong>{worker.homeCity || worker.city || 'Not added'}</strong>
                               </div>
                               <div className={styles.searchWorkerExpandedItem}>
                                 <span>Address</span>

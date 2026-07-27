@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { completeWorkerAppRegistration, requireWorkerApp } from '@/lib/labour-worker-app'
 
 export async function POST(request: NextRequest) {
@@ -10,11 +10,16 @@ export async function POST(request: NextRequest) {
       city: String(payload.city || ''),
       homeCity: String(payload.homeCity || ''),
       address: String(payload.address || ''),
+      preferredWorkLocations: Array.isArray(payload.preferredWorkLocations)
+        ? payload.preferredWorkLocations
+        : [],
       salaryType: String(payload.salaryType || 'Daily Wage'),
       categoryIds: Array.isArray(payload.categoryIds) ? payload.categoryIds.map((item: unknown) => String(item)) : [],
       skills: Array.isArray(payload.skills) ? payload.skills.map((item: unknown) => String(item)) : [],
       experienceYears: Number(payload.experienceYears || 0),
       expectedDailyWage: Number(payload.expectedDailyWage || 0),
+      minimumExpectedWage: Number(payload.minimumExpectedWage || 0),
+      maximumExpectedWage: Number(payload.maximumExpectedWage || 0),
       availability: String(payload.availability || 'available_today'),
       profilePhotoPath: String(payload.profilePhotoPath || ''),
       identityProofType: payload.identityProofType || '',
@@ -30,3 +35,5 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+

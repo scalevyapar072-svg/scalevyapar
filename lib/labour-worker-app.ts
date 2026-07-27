@@ -63,6 +63,8 @@ type WorkerAppMasterData = {
   availableWorkerSalaryTypes: WorkerAppMasterOption[]
   industryBusinessDependencies: WorkerAppIndustryBusinessDependency[]
   categoryDependencies: WorkerAppCategoryDependency[]
+  availableStates: WorkerAppMasterOption[]
+  availableCitiesByState: WorkerAppStateCityGroup[]
   availableCities: string[]
   hasConfiguredCityOptions: boolean
   cityCoordinateLookup: Map<string, WorkerAppCityCoordinate>
@@ -114,6 +116,7 @@ export type WorkerAppProfile = {
   city: string
   homeCity: string
   address: string
+  preferredWorkLocations: WorkerAppPreferredWorkLocation[]
   salaryType: string
   profilePhotoPath: string
   categoryIds: string[]
@@ -121,6 +124,8 @@ export type WorkerAppProfile = {
   skills: string[]
   experienceYears: number
   expectedDailyWage: number
+  minimumExpectedWage: number
+  maximumExpectedWage: number
   availability: string
   walletBalance: number
   status: string
@@ -141,11 +146,14 @@ export type WorkerRegistrationPayload = {
   city: string
   homeCity: string
   address: string
+  preferredWorkLocations?: WorkerAppPreferredWorkLocation[]
   salaryType: string
   categoryIds: string[]
   skills: string[]
   experienceYears: number
   expectedDailyWage: number
+  minimumExpectedWage?: number
+  maximumExpectedWage?: number
   availability: string
   profilePhotoPath: string
   identityProofType: WorkerIdentityProofType
@@ -229,6 +237,23 @@ export type WorkerAppMasterOption = {
   slug: string
 }
 
+export type WorkerAppCityOption = WorkerAppMasterOption & {
+  stateOptionId: string
+}
+
+export type WorkerAppStateCityGroup = {
+  stateOptionId: string
+  state: WorkerAppMasterOption
+  cities: WorkerAppCityOption[]
+}
+
+export type WorkerAppPreferredWorkLocation = {
+  stateOptionId: string
+  stateLabel: string
+  cityOptionIds: string[]
+  cityLabels: string[]
+}
+
 export type WorkerAppIndustryBusinessDependency = {
   id: string
   industryCategory: WorkerAppMasterOption
@@ -289,6 +314,8 @@ export type WorkerAppDashboard = {
   availableWorkerSalaryTypes: WorkerAppMasterOption[]
   industryBusinessDependencies: WorkerAppIndustryBusinessDependency[]
   categoryDependencies: WorkerAppCategoryDependency[]
+  availableStates: WorkerAppMasterOption[]
+  availableCitiesByState: WorkerAppStateCityGroup[]
   availableCities: string[]
   popularCitySuggestions: string[]
   workerPlan: {
@@ -536,6 +563,88 @@ const asRecord = (value: unknown): Record<string, unknown> | null =>
     ? value as Record<string, unknown>
     : null
 
+const normalizeWorkerPreferredWorkLocations = (
+  rawLocations: unknown,
+  cityGroups: WorkerAppStateCityGroup[]
+): WorkerAppPreferredWorkLocation[] => {
+  if (!Array.isArray(rawLocations)) return []
+
+  const normalized: WorkerAppPreferredWorkLocation[] = []
+  const seenStates = new Set<string>()
+
+  for (const rawLocation of rawLocations) {
+    const record = asRecord(rawLocation)
+    if (!record) continue
+
+    const rawStateKeys = [
+      record.stateOptionId,
+      record.stateId,
+      record.stateLabel,
+      record.stateName
+    ].map(normalizeComparableKey).filter(Boolean)
+
+    const group = cityGroups.find(candidate => {
+      const candidateKeys = [
+        candidate.stateOptionId,
+        candidate.state.id,
+        candidate.state.value,
+        candidate.state.label,
+        candidate.state.slug
+      ].map(normalizeComparableKey).filter(Boolean)
+      return rawStateKeys.some(key => candidateKeys.includes(key))
+    })
+    if (!group) continue
+
+    const rawCityValues = [
+      ...(Array.isArray(record.cityOptionIds) ? record.cityOptionIds : []),
+      ...(Array.isArray(record.cityLabels) ? record.cityLabels : []),
+      record.cityOptionId,
+      record.cityId,
+      record.cityLabel,
+      record.cityName
+    ]
+    const rawCityKeys = rawCityValues.map(normalizeComparableKey).filter(Boolean)
+    const seenCities = new Set<string>()
+    const cities = group.cities.filter(candidate => {
+      const candidateKeys = [
+        candidate.id,
+        candidate.value,
+        candidate.label,
+        candidate.slug
+      ].map(normalizeComparableKey).filter(Boolean)
+      const matches = rawCityKeys.some(key => candidateKeys.includes(key))
+      const cityKey = normalizeComparableKey(candidate.id || candidate.label || candidate.value)
+      if (!matches || seenCities.has(cityKey)) return false
+      seenCities.add(cityKey)
+      return true
+    })
+    if (cities.length === 0) continue
+
+    const stateKey = normalizeComparableKey(group.stateOptionId || group.state.label || group.state.value)
+    if (seenStates.has(stateKey)) {
+      const existing = normalized.find(location => normalizeComparableKey(location.stateOptionId) === stateKey)
+      if (existing) {
+        for (const city of cities) {
+          const cityId = city.id
+          const cityLabel = city.label || city.value || city.slug
+          if (!existing.cityOptionIds.includes(cityId)) existing.cityOptionIds.push(cityId)
+          if (!existing.cityLabels.includes(cityLabel)) existing.cityLabels.push(cityLabel)
+        }
+      }
+      continue
+    }
+    seenStates.add(stateKey)
+    normalized.push({
+      stateOptionId: group.stateOptionId,
+      stateLabel: group.state.label || group.state.value || group.state.slug,
+      cityOptionIds: cities.map(city => city.id),
+      cityLabels: cities.map(city => city.label || city.value || city.slug)
+    })
+  }
+
+  return normalized
+}
+
 const parseCoordinateValue = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value
@@ -647,6 +756,18 @@ const toLabourMasterOption = (value: unknown): LabourMasterOption | null => {
     updatedAt: toStringValue(record.updatedAt) || new Date(0).toISOString()
   }
 }
+
+const toWorkerLocationMasterOption = (option: LabourMasterOption): WorkerAppMasterOption => ({
+  id: option.id,
+  label: option.label,
+  value: option.value,
+  slug: option.slug
+})
+
+const toWorkerCityOption = (option: LabourMasterOption): WorkerAppCityOption => ({
+  ...toWorkerLocationMasterOption(option),
+  stateOptionId: option.stateOptionId || ''
+})
 
 const buildWorkerSalaryTypeOption = (label: string): WorkerAppMasterOption => {
   const normalizedLabel = toStringValue(label) || DEFAULT_WORKER_SALARY_TYPE
@@ -847,6 +968,19 @@ const readLabourMasterData = async (
     .map(item => toStringValue(item.label || item.value))
     .filter(Boolean)
 
+  const availableStates = selectableCityOptions.activeStates.map(toWorkerLocationMasterOption)
+  const availableCitiesByState = selectableCityOptions.activeCitiesByState
+    .map(group => {
+      const state = selectableCityOptions.activeStates.find(option => option.id === group.stateOptionId)
+      if (!state) return null
+      return {
+        stateOptionId: group.stateOptionId,
+        state: toWorkerLocationMasterOption(state),
+        cities: group.cities.map(toWorkerCityOption)
+      } satisfies WorkerAppStateCityGroup
+    })
+    .filter((group): group is WorkerAppStateCityGroup => Boolean(group))
+
   const categoryLookup = new Map<string, LabourCategoryRecord>()
   for (const category of categories) {
     const keys = [category.id, category.slug, category.name]
@@ -914,6 +1048,8 @@ const readLabourMasterData = async (
       : DEFAULT_WORKER_SALARY_TYPE_LABELS.map(buildWorkerSalaryTypeOption),
     industryBusinessDependencies,
     categoryDependencies,
+    availableStates,
+    availableCitiesByState,
     hasConfiguredCityOptions,
     cityCoordinateLookup,
     availableCities: cityOptions.length > 0
@@ -1277,6 +1413,14 @@ const assertWorkerRegistrationPayload = (payload: WorkerRegistrationPayload) => 
   if (!payload.identityProofPath.trim()) {
     throw new Error('Identity proof upload is required.')
   }
+  const minimumExpectedWage = Number(payload.minimumExpectedWage || 0)
+  const maximumExpectedWage = Number(payload.maximumExpectedWage || 0)
+  if (minimumExpectedWage < 0 || maximumExpectedWage < 0) {
+    throw new Error('Expected wage cannot be negative.')
+  }
+  if (minimumExpectedWage > 0 && maximumExpectedWage > 0 && maximumExpectedWage < minimumExpectedWage) {
+    throw new Error('Maximum expected wage cannot be less than minimum expected wage.')
+  }
 }
 
 const isZeroChargeWorkerPlan = (workerPlan: LabourPlanRecord | null) =>
@@ -1623,6 +1767,7 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   city: worker.city,
   homeCity: worker.homeCity,
   address: worker.address,
+  preferredWorkLocations: worker.preferredWorkLocations || [],
   salaryType: resolveWorkerSalaryType(worker.salaryType),
   profilePhotoPath: worker.profilePhotoPath,
   categoryIds: worker.categoryIds,
@@ -1632,6 +1777,8 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   skills: worker.skills,
   experienceYears: worker.experienceYears,
   expectedDailyWage: worker.expectedDailyWage,
+  minimumExpectedWage: worker.minimumExpectedWage,
+  maximumExpectedWage: worker.maximumExpectedWage,
   availability: worker.availability,
   walletBalance: worker.walletBalance,
   status: worker.status,
@@ -2263,6 +2410,8 @@ const ensureWorkerExists = async (mobile: string) => {
       skills: [],
       experienceYears: 0,
       expectedDailyWage: 0,
+      minimumExpectedWage: 0,
+      maximumExpectedWage: 0,
       walletBalance: 0,
       registrationFeePaid: false,
       status: 'pending',
@@ -2647,6 +2796,8 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
     availableWorkerSalaryTypes: masterData.availableWorkerSalaryTypes,
     industryBusinessDependencies: masterData.industryBusinessDependencies,
     categoryDependencies: masterData.categoryDependencies,
+    availableStates: masterData.availableStates,
+    availableCitiesByState: masterData.availableCitiesByState,
     availableCities: allowedDashboardCities,
     popularCitySuggestions: filteredPopularCitySuggestions,
     workerPlan: workerPlan ? {
@@ -2710,10 +2861,19 @@ export const completeWorkerAppRegistration = async (
   payload: WorkerRegistrationPayload
 ) => {
   const snapshot = await getLabourMarketplaceSnapshot()
+  const adminSettings = await getLabourAdminSettings()
+  const masterData = await readLabourMasterData(
+    snapshot.categories,
+    adminSettings.settings.workerHomeControls.popularCitySuggestions
+  )
   const existing = findWorkerById(snapshot, workerId)
   if (!existing) {
     throw new Error('Worker account not found.')
   }
+  const preferredWorkLocations = normalizeWorkerPreferredWorkLocations(
+    payload.preferredWorkLocations,
+    masterData.availableCitiesByState
+  )
 
   const nextWorker: LabourWorkerRecord = {
     ...existing,
@@ -2721,11 +2881,14 @@ export const completeWorkerAppRegistration = async (
     city: payload.city.trim(),
     homeCity: payload.homeCity.trim(),
     address: payload.address.trim(),
+    preferredWorkLocations,
     salaryType: resolveWorkerSalaryType(payload.salaryType),
     categoryIds: payload.categoryIds,
     skills: payload.skills,
     experienceYears: payload.experienceYears,
     expectedDailyWage: payload.expectedDailyWage,
+    minimumExpectedWage: payload.minimumExpectedWage || 0,
+    maximumExpectedWage: payload.maximumExpectedWage || 0,
     availability: payload.availability as LabourWorkerRecord['availability'],
     profilePhotoPath: payload.profilePhotoPath.trim(),
     identityProofType: normalizeIdentityProofType(payload.identityProofType),
@@ -2750,11 +2913,14 @@ export const completeWorkerAppRegistration = async (
     city: nextWorker.city,
     homeCity: nextWorker.homeCity,
     address: nextWorker.address,
+    preferredWorkLocations: nextWorker.preferredWorkLocations,
     salaryType: nextWorker.salaryType,
     categoryIds: nextWorker.categoryIds,
     skills: nextWorker.skills,
     experienceYears: nextWorker.experienceYears,
     expectedDailyWage: nextWorker.expectedDailyWage,
+    minimumExpectedWage: nextWorker.minimumExpectedWage,
+    maximumExpectedWage: nextWorker.maximumExpectedWage,
     availability: nextWorker.availability,
     profilePhotoPath: nextWorker.profilePhotoPath,
     identityProofType: nextWorker.identityProofType,
@@ -2771,12 +2937,31 @@ export const completeWorkerAppRegistration = async (
 
 export const updateWorkerAppProfile = async (
   workerId: string,
-  payload: Partial<Pick<WorkerAppProfile, 'fullName' | 'city' | 'homeCity' | 'address' | 'salaryType' | 'categoryIds' | 'skills' | 'experienceYears' | 'expectedDailyWage' | 'availability'>>
+  payload: Partial<Pick<WorkerAppProfile, 'fullName' | 'city' | 'homeCity' | 'address' | 'preferredWorkLocations' | 'salaryType' | 'categoryIds' | 'skills' | 'experienceYears' | 'expectedDailyWage' | 'minimumExpectedWage' | 'maximumExpectedWage' | 'availability'>>
 ) => {
   const snapshot = await getLabourMarketplaceSnapshot()
+  const adminSettings = await getLabourAdminSettings()
+  const masterData = await readLabourMasterData(
+    snapshot.categories,
+    adminSettings.settings.workerHomeControls.popularCitySuggestions
+  )
   const existing = findWorkerById(snapshot, workerId)
   if (!existing) {
     throw new Error('Worker account not found.')
+  }
+  const preferredWorkLocations = payload.preferredWorkLocations === undefined
+    ? existing.preferredWorkLocations
+    : normalizeWorkerPreferredWorkLocations(
+        payload.preferredWorkLocations,
+        masterData.availableCitiesByState
+      )
+  const minimumExpectedWage = Number(payload.minimumExpectedWage ?? existing.minimumExpectedWage ?? 0)
+  const maximumExpectedWage = Number(payload.maximumExpectedWage ?? existing.maximumExpectedWage ?? 0)
+  if (minimumExpectedWage < 0 || maximumExpectedWage < 0) {
+    throw new Error('Expected wage cannot be negative.')
+  }
+  if (minimumExpectedWage > 0 && maximumExpectedWage > 0 && maximumExpectedWage < minimumExpectedWage) {
+    throw new Error('Maximum expected wage cannot be less than minimum expected wage.')
   }
 
   const mergedWorker: LabourWorkerRecord = {
@@ -2785,11 +2970,14 @@ export const updateWorkerAppProfile = async (
     city: payload.city ?? existing.city,
     homeCity: payload.homeCity ?? existing.homeCity,
     address: payload.address ?? existing.address,
+    preferredWorkLocations,
     salaryType: resolveWorkerSalaryType(payload.salaryType ?? existing.salaryType),
     categoryIds: payload.categoryIds ?? existing.categoryIds,
     skills: payload.skills ?? existing.skills,
     experienceYears: payload.experienceYears ?? existing.experienceYears,
     expectedDailyWage: payload.expectedDailyWage ?? existing.expectedDailyWage,
+    minimumExpectedWage,
+    maximumExpectedWage,
     availability: (payload.availability ?? existing.availability) as LabourWorkerRecord['availability']
   }
   const nextStatus = deriveWorkerStatus(
@@ -2803,11 +2991,14 @@ export const updateWorkerAppProfile = async (
     city: mergedWorker.city,
     homeCity: mergedWorker.homeCity,
     address: mergedWorker.address,
+    preferredWorkLocations: mergedWorker.preferredWorkLocations,
     salaryType: mergedWorker.salaryType,
     categoryIds: mergedWorker.categoryIds,
     skills: mergedWorker.skills,
     experienceYears: mergedWorker.experienceYears,
     expectedDailyWage: mergedWorker.expectedDailyWage,
+    minimumExpectedWage: mergedWorker.minimumExpectedWage,
+    maximumExpectedWage: mergedWorker.maximumExpectedWage,
     availability: mergedWorker.availability,
     isVisible: isWorkerRegistrationComplete(mergedWorker) && nextStatus === 'active',
     status: nextStatus

@@ -125,6 +125,12 @@ type LabourWorker = {
   mobile: string
   city: string
   homeCity: string
+  preferredWorkLocations: Array<{
+    stateOptionId: string
+    stateLabel: string
+    cityOptionIds: string[]
+    cityLabels: string[]
+  }>
   companyId: string
   industryCategory: string
   businessType: string
@@ -133,6 +139,8 @@ type LabourWorker = {
   experienceYears: number
   salaryType: string
   expectedDailyWage: number
+  minimumExpectedWage: number
+  maximumExpectedWage: number
   walletBalance: number
   activePlan: string
   planValidFrom: string
@@ -591,6 +599,7 @@ const blankWorker: LabourWorker = {
   mobile: '',
   city: '',
   homeCity: '',
+  preferredWorkLocations: [],
   companyId: '',
   industryCategory: '',
   businessType: '',
@@ -599,6 +608,8 @@ const blankWorker: LabourWorker = {
   experienceYears: 0,
   salaryType: '',
   expectedDailyWage: 0,
+  minimumExpectedWage: 0,
+  maximumExpectedWage: 0,
   walletBalance: 0,
   activePlan: '',
   planValidFrom: '',
@@ -931,6 +942,14 @@ const sectionNavItems: Array<{
 ]
 
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
+
+const formatWorkerExpectedWageRange = (worker: Pick<LabourWorker, 'expectedDailyWage' | 'minimumExpectedWage' | 'maximumExpectedWage'>) => {
+  const fallback = Number(worker.expectedDailyWage || 0)
+  const minimum = Number(worker.minimumExpectedWage || 0) || fallback
+  const maximum = Number(worker.maximumExpectedWage || 0) || fallback
+  if (!minimum && !maximum) return 'Rs 0 - 0/day'
+  return `${formatCurrency(minimum || maximum)} - ${Number(maximum || minimum).toLocaleString('en-IN')}/day`
+}
 
 const formatDateTime = (value: string) => {
   if (!value) return '-'
@@ -1482,6 +1501,9 @@ export default function LabourExchangeAdminPage() {
   const [saved, setSaved] = useState('')
   const [isWorkerCategoryMenuOpen, setIsWorkerCategoryMenuOpen] = useState(false)
   const [workerCategorySearch, setWorkerCategorySearch] = useState('')
+  const [workerHomeStateId, setWorkerHomeStateId] = useState('')
+  const [showAllWorkerPreferredStates, setShowAllWorkerPreferredStates] = useState(false)
+  const [expandedWorkerPreferredCityStates, setExpandedWorkerPreferredCityStates] = useState<string[]>([])
   const [activeSection, setActiveSection] = useState<LabourSection>('overview')
 
   const [categoryDraft, setCategoryDraft] = useState<LabourCategory>(blankCategory)
@@ -1809,6 +1831,246 @@ export default function LabourExchangeAdminPage() {
     return [normalizedSelectedCity, ...adminCityOptions]
   }
 
+  const workerStateOptions = labourLocationOptions.activeStates
+  const workerPreferredStateOptions = showAllWorkerPreferredStates
+    ? workerStateOptions
+    : workerStateOptions.slice(0, 5)
+
+  const getWorkerStateCities = (stateOptionId: string) =>
+    labourLocationOptions.activeCitiesByState.find(group => group.stateOptionId === stateOptionId)?.cities || []
+
+  const getWorkerHomeCityOptions = (stateOptionId: string, selectedCity = '') => {
+    const stateCities = getWorkerStateCities(stateOptionId)
+    const cityOptions = stateCities.reduce<string[]>((list, option) => {
+      const cityValue = option.value.trim() || option.label.trim()
+      if (!cityValue) return list
+      if (list.some(item => item.toLowerCase() === cityValue.toLowerCase())) return list
+      return [...list, cityValue]
+    }, [])
+    const normalizedSelectedCity = selectedCity.trim()
+    if (!normalizedSelectedCity) return cityOptions
+    if (cityOptions.some(city => city.toLowerCase() === normalizedSelectedCity.toLowerCase())) return cityOptions
+    return [normalizedSelectedCity, ...cityOptions]
+  }
+
+  const getUnknownRecord = (value: unknown): Record<string, unknown> | null =>
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null
+
+  const collectPreferredLocationValues = (
+    record: Record<string, unknown>,
+    keys: string[]
+  ) => keys.reduce<string[]>((values, key) => {
+    const value = record[key]
+    const nextValues = Array.isArray(value)
+      ? value.flatMap(item => {
+          if (typeof item === 'string' || typeof item === 'number') return [String(item)]
+          const itemRecord = getUnknownRecord(item)
+          return itemRecord
+            ? collectPreferredLocationValues(itemRecord, ['id', 'label', 'value', 'name', 'city', 'cityLabel', 'city_label'])
+            : []
+        })
+      : [String(value || '')]
+
+    for (const nextValue of nextValues) {
+      const trimmedValue = nextValue.trim()
+      if (trimmedValue && !values.some(item => normalizeComparableValue(item) === normalizeComparableValue(trimmedValue))) {
+        values.push(trimmedValue)
+      }
+    }
+    return values
+  }, [])
+
+  const optionMatchesPreferredValues = (
+    option: { id: string; label: string; value: string; slug: string },
+    values: string[]
+  ) => {
+    const optionTokens = [
+      option.id,
+      option.label,
+      option.value,
+      option.slug
+    ].flatMap(getComparableValueTokens)
+
+    return values.some(value =>
+      getComparableValueTokens(value).some(token => optionTokens.includes(token))
+    )
+  }
+
+  const normalizeWorkerPreferredLocationDraft = (rawLocations: unknown): LabourWorker['preferredWorkLocations'] => {
+    if (!Array.isArray(rawLocations)) return []
+
+    const normalizedLocations: LabourWorker['preferredWorkLocations'] = []
+
+    for (const rawLocation of rawLocations) {
+      const record = getUnknownRecord(rawLocation)
+      if (!record) continue
+
+      const stateValues = collectPreferredLocationValues(record, [
+        'stateOptionId',
+        'state_option_id',
+        'stateId',
+        'state_id',
+        'stateLabel',
+        'state_label',
+        'state',
+        'stateName',
+        'state_name'
+      ])
+      const stateOption = workerStateOptions.find(option => optionMatchesPreferredValues(option, stateValues))
+      const stateOptionId = stateOption?.id || String(record.stateOptionId || record.state_option_id || '').trim()
+      const stateLabel = stateOption?.label || String(record.stateLabel || record.state_label || record.state || '').trim()
+      if (!stateOptionId && !stateLabel) continue
+
+      const stateCities = stateOption ? getWorkerStateCities(stateOption.id) : []
+      const cityValues = collectPreferredLocationValues(record, [
+        'cityOptionIds',
+        'city_option_ids',
+        'cityLabels',
+        'city_labels',
+        'cities',
+        'cityOptionId',
+        'city_option_id',
+        'cityId',
+        'city_id',
+        'cityLabel',
+        'city_label',
+        'city',
+        'cityName',
+        'city_name'
+      ])
+      const matchedCities = stateCities.filter(option => optionMatchesPreferredValues(option, cityValues))
+      const cityOptionIds = matchedCities.length > 0
+        ? matchedCities.map(option => option.id)
+        : collectPreferredLocationValues(record, ['cityOptionIds', 'city_option_ids', 'cityOptionId', 'city_option_id'])
+      const cityLabels = matchedCities.length > 0
+        ? matchedCities.map(option => option.label || option.value)
+        : cityValues.filter(value => !stateValues.some(stateValue => normalizeComparableValue(stateValue) === normalizeComparableValue(value)))
+
+      const existingLocation = normalizedLocations.find(location =>
+        normalizeComparableValue(location.stateOptionId || location.stateLabel) === normalizeComparableValue(stateOptionId || stateLabel)
+      )
+      if (existingLocation) {
+        for (const cityOptionId of cityOptionIds) {
+          if (cityOptionId && !existingLocation.cityOptionIds.includes(cityOptionId)) {
+            existingLocation.cityOptionIds.push(cityOptionId)
+          }
+        }
+        for (const cityLabel of cityLabels) {
+          if (cityLabel && !existingLocation.cityLabels.includes(cityLabel)) {
+            existingLocation.cityLabels.push(cityLabel)
+          }
+        }
+      } else {
+        normalizedLocations.push({
+          stateOptionId,
+          stateLabel,
+          cityOptionIds,
+          cityLabels
+        })
+      }
+    }
+
+    return normalizedLocations.filter(location => location.stateOptionId || location.cityLabels.length > 0)
+  }
+
+  const inferWorkerHomeStateId = (cityValue: string) => {
+    const normalizedCity = cityValue.trim().toLowerCase()
+    if (!normalizedCity) return ''
+    return labourLocationOptions.activeCitiesByState.find(group =>
+      group.cities.some(city => {
+        const optionCity = (city.value.trim() || city.label.trim()).toLowerCase()
+        return optionCity === normalizedCity
+      })
+    )?.stateOptionId || ''
+  }
+
+  const getPreferredLocationForState = (stateOptionId: string) =>
+    workerDraft.preferredWorkLocations.find(location => location.stateOptionId === stateOptionId) || null
+
+  const isWorkerPreferredStateSelected = (stateOptionId: string) =>
+    Boolean(getPreferredLocationForState(stateOptionId))
+
+  const isWorkerPreferredCitySelected = (stateOptionId: string, cityOptionId: string) =>
+    Boolean(getPreferredLocationForState(stateOptionId)?.cityOptionIds.includes(cityOptionId))
+
+  const countWorkerPreferredCities = () =>
+    workerDraft.preferredWorkLocations.reduce((count, location) => count + location.cityOptionIds.length, 0)
+
+  const toggleWorkerPreferredState = (stateOptionId: string) => {
+    const stateOption = workerStateOptions.find(option => option.id === stateOptionId)
+    if (!stateOption) return
+    setWorkerDraft(current => {
+      const alreadySelected = current.preferredWorkLocations.some(location => location.stateOptionId === stateOptionId)
+      if (alreadySelected) {
+        return {
+          ...current,
+          preferredWorkLocations: current.preferredWorkLocations.filter(location => location.stateOptionId !== stateOptionId)
+        }
+      }
+      return {
+        ...current,
+        preferredWorkLocations: [
+          ...current.preferredWorkLocations,
+          {
+            stateOptionId,
+            stateLabel: stateOption.label,
+            cityOptionIds: [],
+            cityLabels: []
+          }
+        ]
+      }
+    })
+  }
+
+  const toggleWorkerPreferredCity = (stateOptionId: string, cityOptionId: string) => {
+    const stateOption = workerStateOptions.find(option => option.id === stateOptionId)
+    const cityOption = getWorkerStateCities(stateOptionId).find(option => option.id === cityOptionId)
+    if (!stateOption || !cityOption) return
+
+    setWorkerDraft(current => {
+      const existingLocation = current.preferredWorkLocations.find(location => location.stateOptionId === stateOptionId)
+      const cityLabel = cityOption.label || cityOption.value
+      const nextLocations = existingLocation
+        ? current.preferredWorkLocations.map(location => {
+            if (location.stateOptionId !== stateOptionId) return location
+            const alreadySelected = location.cityOptionIds.includes(cityOptionId)
+            return {
+              ...location,
+              cityOptionIds: alreadySelected
+                ? location.cityOptionIds.filter(id => id !== cityOptionId)
+                : [...location.cityOptionIds, cityOptionId],
+              cityLabels: alreadySelected
+                ? location.cityLabels.filter(label => label !== cityLabel)
+                : [...location.cityLabels, cityLabel]
+            }
+          })
+        : [
+            ...current.preferredWorkLocations,
+            {
+              stateOptionId,
+              stateLabel: stateOption.label,
+              cityOptionIds: [cityOptionId],
+              cityLabels: [cityLabel]
+            }
+          ]
+
+      return {
+        ...current,
+        preferredWorkLocations: nextLocations.filter(location => location.cityOptionIds.length > 0 || location.stateOptionId === stateOptionId)
+      }
+    })
+  }
+
+  const toggleWorkerPreferredCityExpansion = (stateOptionId: string) => {
+    setExpandedWorkerPreferredCityStates(current =>
+      current.includes(stateOptionId)
+        ? current.filter(id => id !== stateOptionId)
+        : [...current, stateOptionId]
+    )
+  }
+
   useEffect(() => {
     if (!defaultAdminCity) return
     setWorkerDraft(current => ({
@@ -1818,6 +2080,14 @@ export default function LabourExchangeAdminPage() {
     }))
     setJobPostDraft(current => (current.city.trim() ? current : { ...current, city: defaultAdminCity }))
   }, [defaultAdminCity])
+
+  useEffect(() => {
+    if (workerHomeStateId) return
+    const inferredStateId = inferWorkerHomeStateId(workerDraft.homeCity || workerDraft.city)
+    if (inferredStateId) {
+      setWorkerHomeStateId(inferredStateId)
+    }
+  }, [workerDraft.city, workerDraft.homeCity, workerHomeStateId, labourLocationOptions])
 
   const workerExperienceOptions = getMasterSelectOptions('worker_experience_years', [String(workerDraft.experienceYears)], ['0', '1', '2', '3', '5', '10'])
   const workerAvailabilitySelectOptions = getMasterSelectOptions('worker_status_availability', [workerDraft.availability], workerAvailabilityOptions)
@@ -2102,14 +2372,65 @@ export default function LabourExchangeAdminPage() {
       nextIndustryCategory || baseDraft.industryCategory,
       resolvedCategoryIds
     )
+    const minimumExpectedWage = baseDraft.minimumExpectedWage || baseDraft.expectedDailyWage || 0
+    const maximumExpectedWage = baseDraft.maximumExpectedWage || baseDraft.expectedDailyWage || 0
+    const rawBaseDraft = baseDraft as unknown as Record<string, unknown>
+    const preferredWorkLocations = normalizeWorkerPreferredLocationDraft(
+      rawBaseDraft.preferredWorkLocations || rawBaseDraft.preferred_work_locations
+    )
 
     return syncWorkerPlanDraft({
       ...baseDraft,
       categoryIds: resolvedCategoryIds,
       industryCategory: nextIndustryCategory,
       businessType: nextBusinessType,
+      preferredWorkLocations,
+      minimumExpectedWage,
+      maximumExpectedWage,
+      expectedDailyWage: minimumExpectedWage || maximumExpectedWage,
       salaryType: baseDraft.salaryType.trim() || DEFAULT_WORKER_SALARY_TYPE
     })
+  }
+
+  const buildWorkerSavePayload = (worker: LabourWorker): Record<string, unknown> => {
+    const minimumExpectedWage = Number(worker.minimumExpectedWage || 0)
+    const maximumExpectedWage = Number(worker.maximumExpectedWage || 0)
+    const expectedDailyWage = minimumExpectedWage || maximumExpectedWage || Number(worker.expectedDailyWage || 0)
+
+    return {
+      ...worker,
+      expectedDailyWage,
+      minimumExpectedWage,
+      maximumExpectedWage,
+      minimum_expected_wage: minimumExpectedWage || null,
+      maximum_expected_wage: maximumExpectedWage || null,
+      preferredWorkLocations: worker.preferredWorkLocations
+        .filter(location => location.cityLabels.length > 0 || location.cityOptionIds.length > 0)
+        .map(location => ({
+          state: location.stateLabel,
+          cities: location.cityLabels,
+          stateOptionId: location.stateOptionId,
+          stateLabel: location.stateLabel,
+          cityOptionIds: location.cityOptionIds,
+          cityLabels: location.cityLabels
+        }))
+    }
+  }
+
+  const getWorkerPreferredWorkCityLabels = (worker: LabourWorker) => {
+    const rawWorker = worker as unknown as Record<string, unknown>
+    const normalizedLocations = normalizeWorkerPreferredLocationDraft(
+      rawWorker.preferredWorkLocations || rawWorker.preferred_work_locations
+    )
+    const cityLabels = normalizedLocations.flatMap(location => location.cityLabels)
+
+    return Array.from(
+      new Set(
+        cityLabels
+          .map(label => label.trim())
+          .filter(Boolean)
+      )
+    )
   }
 
   const companyIndustryCategoryOptions = buildLabourMasterSelectOptions(
@@ -2761,6 +3082,9 @@ export default function LabourExchangeAdminPage() {
     setEditingWorkerId(null)
     setIsWorkerCategoryMenuOpen(false)
     setWorkerCategorySearch('')
+    setWorkerHomeStateId('')
+    setShowAllWorkerPreferredStates(false)
+    setExpandedWorkerPreferredCityStates([])
   }
 
   const resetCompanyDraft = () => {
@@ -3940,9 +4264,27 @@ export default function LabourExchangeAdminPage() {
     if (!isTenDigitMobile(draft.mobile)) return 'Worker mobile must be exactly 10 digits.'
     if (!draft.industryCategory.trim()) return 'Industry category is required.'
     if (!draft.businessType.trim()) return 'Business type is required.'
+    if (!draft.homeCity.trim()) return 'City is required.'
+    const preferredCityCount = draft.preferredWorkLocations.reduce((count, location) => count + location.cityOptionIds.length, 0)
+    if (!editingWorkerId && preferredCityCount === 0) {
+      return 'Select at least one preferred work city.'
+    }
     if (draft.categoryIds.length === 0) return 'Select at least one worker category.'
-    if (draft.experienceYears < 0 || draft.expectedDailyWage < 0 || draft.walletBalance < 0) {
+    if (
+      draft.experienceYears < 0 ||
+      draft.expectedDailyWage < 0 ||
+      draft.minimumExpectedWage < 0 ||
+      draft.maximumExpectedWage < 0 ||
+      draft.walletBalance < 0
+    ) {
       return 'Worker experience, wage and wallet balance must be non-negative.'
+    }
+    if (
+      draft.minimumExpectedWage > 0 &&
+      draft.maximumExpectedWage > 0 &&
+      draft.maximumExpectedWage < draft.minimumExpectedWage
+    ) {
+      return 'Maximum expected wage cannot be less than minimum expected wage.'
     }
 
     const duplicateMobile = snapshot.workers.find(
@@ -4081,7 +4423,7 @@ export default function LabourExchangeAdminPage() {
     const ok = await persistEntity(
       editingWorkerId ? 'PUT' : 'POST',
       'workers',
-      normalizedWorkerDraft,
+      buildWorkerSavePayload(normalizedWorkerDraft),
       editingWorkerId || undefined
     )
 
@@ -5418,40 +5760,161 @@ export default function LabourExchangeAdminPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>Looking Job City</label>
-                    <select value={workerDraft.city} onChange={event => setWorkerDraft(current => ({ ...current, city: event.target.value }))} style={inputStyle}>
-                      {getCitySelectOptions(workerDraft.city).map(city => (
-                        <option key={city} value={city}>{city}</option>
+                    <label style={labelStyle}>State *</label>
+                    <select
+                      value={workerHomeStateId}
+                      onChange={event => {
+                        const nextStateId = event.target.value
+                        setWorkerHomeStateId(nextStateId)
+                        setWorkerDraft(current => ({
+                          ...current,
+                          city: '',
+                          homeCity: ''
+                        }))
+                      }}
+                      style={inputStyle}
+                    >
+                      <option value="">Select state</option>
+                      {workerStateOptions.map(option => (
+                        <option key={option.id} value={option.id}>{option.label}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>Belongs To City</label>
-                    <select value={workerDraft.homeCity} onChange={event => setWorkerDraft(current => ({ ...current, homeCity: event.target.value }))} style={inputStyle}>
-                      {getCitySelectOptions(workerDraft.homeCity).map(city => (
+                    <label style={labelStyle}>City *</label>
+                    <select
+                      value={workerDraft.homeCity}
+                      onChange={event => {
+                        const nextCity = event.target.value
+                        setWorkerDraft(current => ({
+                          ...current,
+                          city: nextCity,
+                          homeCity: nextCity
+                        }))
+                      }}
+                      style={inputStyle}
+                      disabled={!workerHomeStateId}
+                    >
+                      <option value="">{workerHomeStateId ? 'Select city' : 'Select state first'}</option>
+                      {getWorkerHomeCityOptions(workerHomeStateId, workerDraft.homeCity).map(city => (
                         <option key={city} value={city}>{city}</option>
                       ))}
                     </select>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Address</label>
+                  <textarea
+                    value={workerDraft.address}
+                    onChange={event => setWorkerDraft(current => ({ ...current, address: event.target.value }))}
+                    rows={3}
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: '92px' }}
+                  />
+                </div>
+                <div style={{ border: '1px solid #dbe6f3', borderRadius: '18px', padding: '14px', background: '#f8fbff', display: 'grid', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>Address</label>
-                    <textarea
-                      value={workerDraft.address}
-                      onChange={event => setWorkerDraft(current => ({ ...current, address: event.target.value }))}
-                      rows={3}
-                      style={{ ...inputStyle, resize: 'vertical', minHeight: '92px' }}
-                    />
+                    <label style={{ ...labelStyle, marginBottom: '4px' }}>Where do you want to work? *</label>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.5 }}>
+                      Select multiple states and cities where worker is available for work.
+                    </p>
                   </div>
-                  <div>
-                    <label style={labelStyle}>Experience Years</label>
-                    <select value={String(workerDraft.experienceYears)} onChange={event => setWorkerDraft(current => ({ ...current, experienceYears: Number(event.target.value) || 0 }))} style={inputStyle}>
-                      {workerExperienceOptions.map(option => (
-                        <option key={option.id} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {workerPreferredStateOptions.map(option => {
+                      const selected = isWorkerPreferredStateSelected(option.id)
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => toggleWorkerPreferredState(option.id)}
+                          style={{
+                            border: `1px solid ${selected ? '#2563eb' : '#cbd5e1'}`,
+                            background: selected ? '#eff6ff' : '#ffffff',
+                            color: selected ? '#1d4ed8' : '#334155',
+                            borderRadius: '999px',
+                            padding: '8px 12px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {option.label}
+                        </button>
+                      )
+                    })}
                   </div>
+                  {workerStateOptions.length > 5 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllWorkerPreferredStates(current => !current)}
+                      style={{ ...subtleButtonStyle, justifySelf: 'flex-start', padding: '8px 12px' }}
+                    >
+                      {showAllWorkerPreferredStates ? '▲ View Less States' : '▼ View More States'}
+                    </button>
+                  ) : null}
+                  {workerDraft.preferredWorkLocations.length > 0 ? (
+                    <div style={{ display: 'grid', gap: '12px' }}>
+                      {workerDraft.preferredWorkLocations.map(location => {
+                        const cities = getWorkerStateCities(location.stateOptionId)
+                        const cityListExpanded = expandedWorkerPreferredCityStates.includes(location.stateOptionId)
+                        const visibleCities = cityListExpanded ? cities : cities.slice(0, 5)
+                        return (
+                          <div key={location.stateOptionId} style={{ border: '1px solid #d7dfeb', borderRadius: '14px', padding: '12px', background: '#ffffff', display: 'grid', gap: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center' }}>
+                              <strong style={{ color: '#0f172a', fontSize: '13px' }}>{location.stateLabel}</strong>
+                              <span style={{ color: '#64748b', fontSize: '12px' }}>{location.cityOptionIds.length} selected</span>
+                            </div>
+                            <div style={{ display: 'grid', gap: '8px' }}>
+                              {visibleCities.length === 0 ? (
+                                <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>No active cities mapped for this state.</p>
+                              ) : (
+                                visibleCities.map(city => (
+                                  <label key={city.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontSize: '13px' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isWorkerPreferredCitySelected(location.stateOptionId, city.id)}
+                                      onChange={() => toggleWorkerPreferredCity(location.stateOptionId, city.id)}
+                                    />
+                                    {city.label || city.value}
+                                  </label>
+                                ))
+                              )}
+                            </div>
+                            {cities.length > 5 ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleWorkerPreferredCityExpansion(location.stateOptionId)}
+                                style={{ ...subtleButtonStyle, justifySelf: 'flex-start', padding: '7px 10px', fontSize: '12px' }}
+                              >
+                                {cityListExpanded ? '▲ View Less Cities' : '▼ View More Cities'}
+                              </button>
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>Select at least one state, then choose one or more cities.</p>
+                  )}
+                  {countWorkerPreferredCities() > 0 ? (
+                    <div style={{ display: 'grid', gap: '6px', borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
+                      <strong style={{ color: '#0f172a', fontSize: '12px' }}>Available Work Locations</strong>
+                      {workerDraft.preferredWorkLocations
+                        .filter(location => location.cityLabels.length > 0)
+                        .map(location => (
+                          <p key={`summary-${location.stateOptionId}`} style={{ margin: 0, color: '#475569', fontSize: '12px' }}>
+                            {location.stateLabel}: {location.cityLabels.join(', ')}
+                          </p>
+                        ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div>
+                  <label style={labelStyle}>Experience Years *</label>
+                  <select value={String(workerDraft.experienceYears)} onChange={event => setWorkerDraft(current => ({ ...current, experienceYears: Number(event.target.value) || 0 }))} style={inputStyle}>
+                    {workerExperienceOptions.map(option => (
+                      <option key={option.id} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
                   <div>
@@ -5467,8 +5930,38 @@ export default function LabourExchangeAdminPage() {
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>Expected Salary/Wage</label>
-                    <input type="number" min="0" value={workerDraft.expectedDailyWage} onChange={event => setWorkerDraft(current => ({ ...current, expectedDailyWage: Number(event.target.value) }))} style={inputStyle} />
+                    <label style={labelStyle}>Minimum Expected Salary/Wage</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={workerDraft.minimumExpectedWage}
+                      onChange={event => {
+                        const nextMinimum = Number(event.target.value)
+                        setWorkerDraft(current => ({
+                          ...current,
+                          minimumExpectedWage: nextMinimum,
+                          expectedDailyWage: nextMinimum > 0 ? nextMinimum : current.maximumExpectedWage
+                        }))
+                      }}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Maximum Expected Salary/Wage</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={workerDraft.maximumExpectedWage}
+                      onChange={event => {
+                        const nextMaximum = Number(event.target.value)
+                        setWorkerDraft(current => ({
+                          ...current,
+                          maximumExpectedWage: nextMaximum,
+                          expectedDailyWage: current.minimumExpectedWage > 0 ? current.minimumExpectedWage : nextMaximum
+                        }))
+                      }}
+                      style={inputStyle}
+                    />
                   </div>
                   <div>
                     <label style={labelStyle}>Wallet Balance</label>
@@ -5510,14 +6003,18 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div>
                     <label style={labelStyle}>Registration Fee Status</label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', ...inputStyle }}>
-                      <input
-                        type="checkbox"
-                        checked={workerDraft.registrationFeePaid}
-                        onChange={event => setWorkerDraft(current => ({ ...current, registrationFeePaid: event.target.checked }))}
-                      />
-                      <span>{workerDraft.registrationFeePaid ? 'Registration fee paid' : 'Registration fee pending'}</span>
-                    </label>
+                    <select
+                      value={workerDraft.registrationFeePaid ? 'paid' : 'pending'}
+                      onChange={event => setWorkerDraft(current => ({
+                        ...current,
+                        registrationFeePaid: event.target.value === 'paid' || event.target.value === 'free'
+                      }))}
+                      style={inputStyle}
+                    >
+                      <option value="paid">Paid</option>
+                      <option value="pending">Pending</option>
+                      <option value="free">Free</option>
+                    </select>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -5758,6 +6255,18 @@ export default function LabourExchangeAdminPage() {
                       const kycTone = getWorkerKycTone(worker)
                       const effectiveWorkerStatus = getEffectiveWorkerStatus(worker)
                       const effectiveWorkerAvailability = getEffectiveWorkerAvailability(worker)
+                      const workerAvailabilityFallback =
+                        effectiveWorkerAvailability === 'available_today'
+                          ? 'Ready to Work today'
+                          : effectiveWorkerAvailability === 'available_this_week'
+                            ? 'Can join in 7 days'
+                            : 'Not available'
+                      const workerAvailabilityLabel = resolveLabourMasterLabel(
+                        masterOptionsByKey.worker_status_availability || [],
+                        effectiveWorkerAvailability,
+                        workerAvailabilityFallback
+                      )
+                      const preferredWorkCityLabels = getWorkerPreferredWorkCityLabels(worker)
                       return (
                         <div key={worker.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                           <div>
@@ -5768,10 +6277,15 @@ export default function LabourExchangeAdminPage() {
                               </span>
                             </div>
                             <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                              {worker.mobile} | Looking: {worker.city || 'No city'} | Belongs: {worker.homeCity || 'No city'} | {getWorkerStatusLabel(effectiveWorkerStatus)} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
+                              {worker.mobile} | City: {worker.homeCity || worker.city || 'No city'} | {getWorkerStatusLabel(effectiveWorkerStatus)} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
                             </p>
+                            {preferredWorkCityLabels.length > 0 ? (
+                              <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
+                                Required Work Location: {preferredWorkCityLabels.join(', ')}
+                              </p>
+                            ) : null}
                             <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
-                              Categories: {getWorkerCategoryLabel(worker)} | Wage {formatCurrency(worker.expectedDailyWage)} | Availability {resolveLabourMasterLabel(masterOptionsByKey.worker_status_availability || [], effectiveWorkerAvailability, effectiveWorkerAvailability === 'available_today' ? 'Ready to Work today' : effectiveWorkerAvailability === 'available_this_week' ? 'Can join in 7 days' : 'Not available')}
+                              Categories: {getWorkerCategoryLabel(worker)} | Wage {formatWorkerExpectedWageRange(worker)} | Availability {workerAvailabilityLabel}
                             </p>
                             <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
                               Address: {worker.address || 'No address added'}
@@ -5804,6 +6318,9 @@ export default function LabourExchangeAdminPage() {
                                 event.preventDefault()
                                 event.stopPropagation()
                                 setWorkerDraft(buildWorkerEditorDraft(worker))
+                                setWorkerHomeStateId(inferWorkerHomeStateId(worker.homeCity || worker.city))
+                                setShowAllWorkerPreferredStates(false)
+                                setExpandedWorkerPreferredCityStates([])
                                 setEditingWorkerId(worker.id)
                                 setIsWorkerCategoryMenuOpen(false)
                                 setWorkerCategorySearch('')

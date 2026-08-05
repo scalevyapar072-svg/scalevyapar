@@ -1521,6 +1521,7 @@ export default function LabourExchangeAdminPage() {
   const [selectedWorkerReviewId, setSelectedWorkerReviewId] = useState<string | null>(null)
   const [isWorkerKycReviewOpen, setIsWorkerKycReviewOpen] = useState(false)
   const [workerKycReviewDraft, setWorkerKycReviewDraft] = useState<WorkerKycReviewDraft>(blankWorkerKycReviewDraft)
+  const [workerKycReviewValidation, setWorkerKycReviewValidation] = useState('')
   const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string | null>(null)
   const [selectedCompanyAuditId, setSelectedCompanyAuditId] = useState<string | null>(null)
   const [selectedSavedJobId, setSelectedSavedJobId] = useState<string | null>(null)
@@ -4437,6 +4438,7 @@ export default function LabourExchangeAdminPage() {
     if (!worker) return
     setSelectedWorkerReviewId(workerId)
     setWorkerKycReviewDraft(buildWorkerKycReviewDraft(worker))
+    setWorkerKycReviewValidation('')
     setIsWorkerKycReviewOpen(true)
     setError('')
   }
@@ -4445,12 +4447,26 @@ export default function LabourExchangeAdminPage() {
     setIsWorkerKycReviewOpen(false)
     setSelectedWorkerReviewId(null)
     setWorkerKycReviewDraft(blankWorkerKycReviewDraft)
+    setWorkerKycReviewValidation('')
   }
 
   const saveWorkerKycReview = async () => {
     setError('')
+    setWorkerKycReviewValidation('')
     if (!selectedWorkerReview) {
       setError('Choose a worker from the list to review KYC details.')
+      return
+    }
+
+    const trimmedReviewRemark = workerKycReviewDraft.remarks.trim()
+
+    if (workerKycReviewDraft.decision === 'rejected' && !trimmedReviewRemark) {
+      setWorkerKycReviewValidation('Review reason is required when KYC is rejected.')
+      return
+    }
+
+    if (workerKycReviewDraft.decision === 'needs_correction' && !trimmedReviewRemark) {
+      setWorkerKycReviewValidation('Correction reason is required when KYC needs correction.')
       return
     }
 
@@ -4484,7 +4500,7 @@ export default function LabourExchangeAdminPage() {
         break
     }
 
-    const reviewRemark = workerKycReviewDraft.remarks.trim()
+    const reviewRemark = trimmedReviewRemark
     const ok = await persistEntity('PUT', 'workers', {
       status: nextStatus,
       isVisible: nextVisibility,
@@ -6482,7 +6498,10 @@ export default function LabourExchangeAdminPage() {
                             <button
                               type="button"
                               key={option.key}
-                              onClick={() => setWorkerKycReviewDraft(current => ({ ...current, decision: option.key }))}
+                              onClick={() => {
+                                setWorkerKycReviewDraft(current => ({ ...current, decision: option.key }))
+                                setWorkerKycReviewValidation('')
+                              }}
                               style={{
                                 borderRadius: '999px',
                                 border: `1px solid ${active ? option.border : '#d7dfeb'}`,
@@ -6504,11 +6523,19 @@ export default function LabourExchangeAdminPage() {
                         <label style={labelStyle}>Remarks / Review Reason</label>
                         <textarea
                           value={workerKycReviewDraft.remarks}
-                          onChange={event => setWorkerKycReviewDraft(current => ({ ...current, remarks: event.target.value }))}
+                          onChange={event => {
+                            setWorkerKycReviewDraft(current => ({ ...current, remarks: event.target.value }))
+                            setWorkerKycReviewValidation('')
+                          }}
                           rows={4}
-                          placeholder="Optional reason for rejection, correction request, or internal review note."
+                          placeholder="Enter the rejection, correction, or review reason."
                           style={{ ...inputStyle, resize: 'vertical', minHeight: '110px' }}
                         />
+                        {workerKycReviewValidation ? (
+                          <p style={{ margin: '6px 0 0', color: '#dc2626', fontSize: '12px', fontWeight: '700' }}>
+                            {workerKycReviewValidation}
+                          </p>
+                        ) : null}
                       </div>
 
                       {selectedWorkerKycAuditLog ? (
@@ -8667,7 +8694,10 @@ export default function LabourExchangeAdminPage() {
                                 <button
                                   type="button"
                                   key={option.key}
-                                  onClick={() => setWorkerKycReviewDraft(current => ({ ...current, decision: option.key }))}
+                                  onClick={() => {
+                                    setWorkerKycReviewDraft(current => ({ ...current, decision: option.key }))
+                                    setWorkerKycReviewValidation('')
+                                  }}
                                 style={{
                                   borderRadius: '999px',
                                   border: `1px solid ${active ? option.border : '#d7dfeb'}`,
@@ -8689,11 +8719,19 @@ export default function LabourExchangeAdminPage() {
                           <label style={labelStyle}>Remarks / Review Reason</label>
                           <textarea
                             value={workerKycReviewDraft.remarks}
-                            onChange={event => setWorkerKycReviewDraft(current => ({ ...current, remarks: event.target.value }))}
+                            onChange={event => {
+                              setWorkerKycReviewDraft(current => ({ ...current, remarks: event.target.value }))
+                              setWorkerKycReviewValidation('')
+                            }}
                             rows={4}
-                            placeholder="Optional reason for rejection, correction request, or internal review note."
+                            placeholder="Enter the rejection, correction, or review reason."
                             style={{ ...inputStyle, resize: 'vertical', minHeight: '110px' }}
                           />
+                          {workerKycReviewValidation ? (
+                            <p style={{ margin: '6px 0 0', color: '#dc2626', fontSize: '12px', fontWeight: '700' }}>
+                              {workerKycReviewValidation}
+                            </p>
+                          ) : null}
                         </div>
 
                         {selectedWorkerKycAuditLog ? (

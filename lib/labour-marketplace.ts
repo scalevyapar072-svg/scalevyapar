@@ -115,6 +115,8 @@ export interface LabourWorkerRecord {
   workerPausedAt: string
   workerReactivatedAt: string
   status: WorkerStatus
+  kycStatus: string
+  kycRemarks: string
   availability: WorkerAvailability
   isVisible: boolean
   categoryIds: string[]
@@ -463,6 +465,8 @@ const defaultData: LabourMarketplaceData = {
       workerPausedAt: '',
       workerReactivatedAt: '',
       status: 'active',
+      kycStatus: '',
+      kycRemarks: '',
       availability: 'available_today',
       isVisible: true,
       categoryIds: ['cat-stitching', 'cat-embroidery'],
@@ -501,6 +505,8 @@ const defaultData: LabourMarketplaceData = {
       workerPausedAt: '',
       workerReactivatedAt: '',
       status: 'inactive_wallet_empty',
+      kycStatus: '',
+      kycRemarks: '',
       availability: 'available_this_week',
       isVisible: false,
       categoryIds: ['cat-electrician'],
@@ -1075,6 +1081,8 @@ const mapWorkerRow = (row: {
   worker_paused_at?: string | null
   worker_reactivated_at?: string | null
   status: string | null
+  kyc_status?: string | null
+  kyc_remarks?: string | null
   availability: string | null
   is_visible: boolean | null
   category_ids: string[] | null
@@ -1112,6 +1120,8 @@ const mapWorkerRow = (row: {
   workerPausedAt: row.worker_paused_at || '',
   workerReactivatedAt: row.worker_reactivated_at || '',
   status: (row.status as WorkerStatus | null) || 'pending',
+  kycStatus: row.kyc_status || '',
+  kycRemarks: row.kyc_remarks || '',
   availability: (row.availability as WorkerAvailability | null) || 'available_today',
   isVisible: row.is_visible ?? true,
   categoryIds: toStringArray(row.category_ids),
@@ -1461,6 +1471,19 @@ const buildWorkerUpdateAuditSummary = (
     : `Updated worker KYC for ${worker.fullName}: ${kycReviewStatusLabel}`
 }
 
+const hasPayloadField = (payload: Record<string, unknown>, key: string) =>
+  Object.prototype.hasOwnProperty.call(payload, key)
+
+const normalizeKycStatusFromReviewLabel = (value: unknown) => {
+  const normalized = String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ')
+  if (!normalized) return ''
+  if (normalized === 'rejected') return 'rejected'
+  if (normalized === 'needs correction' || normalized === 'need correction') return 'needs_correction'
+  if (normalized === 'verified' || normalized === 'approved') return 'approved'
+  if (normalized === 'pending' || normalized === 'pending review') return 'pending_review'
+  return ''
+}
+
 const normalizeCategory = (
   payload: Partial<LabourCategoryRecord>,
   existing?: LabourCategoryRecord
@@ -1565,6 +1588,25 @@ const normalizeWorker = (
     workerPausedAt: String(payload.workerPausedAt || existing?.workerPausedAt || '').trim(),
     workerReactivatedAt: String(payload.workerReactivatedAt || existing?.workerReactivatedAt || '').trim(),
     status: (payload.status || existing?.status || 'pending') as WorkerStatus,
+    kycStatus: String(
+      hasPayloadField(payload, 'kycStatus')
+        ? payload.kycStatus
+        : hasPayloadField(payload, 'kyc_status')
+          ? rawPayload.kyc_status
+          : normalizeKycStatusFromReviewLabel(rawPayload.kycReviewStatusLabel) || existing?.kycStatus || ''
+    ).trim(),
+    kycRemarks:
+      payload.kycRemarks === null || rawPayload.kyc_remarks === null || rawPayload.kycReviewRemark === null
+        ? ''
+        : String(
+            hasPayloadField(payload, 'kycRemarks')
+              ? payload.kycRemarks
+              : hasPayloadField(payload, 'kyc_remarks')
+                ? rawPayload.kyc_remarks
+                : hasPayloadField(payload, 'kycReviewRemark')
+                  ? rawPayload.kycReviewRemark
+                  : existing?.kycRemarks || ''
+          ).trim(),
     availability: (payload.availability || existing?.availability || 'available_today') as WorkerAvailability,
     isVisible: toBoolean(payload.isVisible, existing?.isVisible ?? true),
     categoryIds: toStringArray(payload.categoryIds || existing?.categoryIds || []),
@@ -3112,6 +3154,8 @@ export const createLabourEntity = async (
         worker_paused_at: record.workerPausedAt || null,
         worker_reactivated_at: record.workerReactivatedAt || null,
         status: record.status,
+        kyc_status: record.kycStatus || null,
+        kyc_remarks: record.kycRemarks || null,
         availability: record.availability,
         is_visible: record.isVisible,
         category_ids: record.categoryIds,
@@ -3575,6 +3619,8 @@ export const updateLabourEntity = async (
         worker_paused_at: record.workerPausedAt || null,
         worker_reactivated_at: record.workerReactivatedAt || null,
         status: record.status,
+        kyc_status: record.kycStatus || null,
+        kyc_remarks: record.kycRemarks || null,
         availability: record.availability,
         is_visible: record.isVisible,
         category_ids: record.categoryIds,

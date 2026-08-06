@@ -129,6 +129,8 @@ export type WorkerAppProfile = {
   availability: string
   walletBalance: number
   status: string
+  kycStatus: string
+  kycRemarks: string
   isVisible: boolean
   isPausedByWorker: boolean
   pausedAt: string | null
@@ -1782,6 +1784,8 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   availability: worker.availability,
   walletBalance: worker.walletBalance,
   status: worker.status,
+  kycStatus: worker.kycStatus || '',
+  kycRemarks: worker.kycRemarks || '',
   isVisible: worker.isVisible,
   isPausedByWorker: worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker',
   pausedAt: worker.workerPausedAt || null,

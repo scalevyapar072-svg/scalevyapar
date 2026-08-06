@@ -149,6 +149,8 @@ type LabourWorker = {
   lastWalletDeductionDate: string
   registrationFeePaid: boolean
   status: WorkerStatus
+  kycStatus: string
+  kycRemarks: string
   availability: WorkerAvailability
   isVisible: boolean
   categoryIds: string[]
@@ -619,6 +621,8 @@ const blankWorker: LabourWorker = {
   lastWalletDeductionDate: '',
   registrationFeePaid: false,
   status: 'pending',
+  kycStatus: '',
+  kycRemarks: '',
   availability: 'available_today',
   isVisible: true,
   categoryIds: [],
@@ -857,6 +861,11 @@ const blankWorkerKycReviewDraft: WorkerKycReviewDraft = {
   decision: 'pending',
   remarks: ''
 }
+const KYC_DISPLAY_FALLBACK_MESSAGES = new Set([
+  'please contact support or review your kyc details.'
+])
+const isKycDisplayFallbackRemark = (value: string) =>
+  KYC_DISPLAY_FALLBACK_MESSAGES.has(value.trim().replace(/[“”]/g, '').toLowerCase())
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 const blankJobFilters: JobFilters = {
   search: '',
@@ -3233,7 +3242,7 @@ export default function LabourExchangeAdminPage() {
           : getWorkerKycState(worker) === 'approved'
             ? 'verified'
             : 'pending',
-    remarks: ''
+    remarks: String(worker.kycRemarks || '').trim()
   })
   const getWorkerDocumentHref = (storagePath: unknown) => {
     const normalizedPath = String(storagePath || '').trim()
@@ -4477,6 +4486,14 @@ export default function LabourExchangeAdminPage() {
 
     if (workerKycReviewDraft.decision === 'needs_correction' && !trimmedReviewRemark) {
       setWorkerKycReviewValidation('Correction reason is required when KYC needs correction.')
+      return
+    }
+
+    if (
+      (workerKycReviewDraft.decision === 'rejected' || workerKycReviewDraft.decision === 'needs_correction') &&
+      isKycDisplayFallbackRemark(trimmedReviewRemark)
+    ) {
+      setWorkerKycReviewValidation('Enter the actual admin review reason. The worker app fallback message cannot be saved as a KYC reason.')
       return
     }
 

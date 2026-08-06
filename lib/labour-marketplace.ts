@@ -1465,7 +1465,7 @@ const buildWorkerUpdateAuditSummary = (
     return `Updated worker ${worker.fullName}`
   }
 
-  const reviewRemark = String(payload.kycReviewRemark || '').trim()
+  const reviewRemark = normalizeKycReviewRemarkText(payload.kycReviewRemark)
   return reviewRemark
     ? `Updated worker KYC for ${worker.fullName}: ${kycReviewStatusLabel} - ${reviewRemark}`
     : `Updated worker KYC for ${worker.fullName}: ${kycReviewStatusLabel}`
@@ -1473,6 +1473,44 @@ const buildWorkerUpdateAuditSummary = (
 
 const hasPayloadField = (payload: Record<string, unknown>, key: string) =>
   Object.prototype.hasOwnProperty.call(payload, key)
+
+const KYC_REMARK_DISPLAY_FALLBACKS = new Set([
+  'please contact support or review your kyc details.'
+])
+
+const isKycReviewRemarkDisplayFallback = (value: unknown) => {
+  const remark = String(value || '').trim()
+  const normalized = remark.replace(/[“”]/g, '').toLowerCase()
+  return KYC_REMARK_DISPLAY_FALLBACKS.has(normalized)
+}
+
+const normalizeKycReviewRemarkText = (value: unknown) =>
+  isKycReviewRemarkDisplayFallback(value) ? '' : String(value || '').trim()
+
+const resolveWorkerKycRemarks = (
+  payload: Partial<LabourWorkerRecord>,
+  rawPayload: Record<string, unknown>,
+  existing?: LabourWorkerRecord
+) => {
+  if (payload.kycRemarks === null || rawPayload.kyc_remarks === null || rawPayload.kycReviewRemark === null) {
+    return ''
+  }
+  const candidate = hasPayloadField(payload, 'kycRemarks')
+    ? payload.kycRemarks
+    : hasPayloadField(payload, 'kyc_remarks')
+      ? rawPayload.kyc_remarks
+      : hasPayloadField(payload, 'kycReviewRemark')
+        ? rawPayload.kycReviewRemark
+        : undefined
+
+  if (candidate === undefined) {
+    return existing?.kycRemarks || ''
+  }
+
+  return isKycReviewRemarkDisplayFallback(candidate)
+    ? existing?.kycRemarks || ''
+    : String(candidate || '').trim()
+}
 
 const normalizeKycStatusFromReviewLabel = (value: unknown) => {
   const normalized = String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ')
@@ -1595,18 +1633,7 @@ const normalizeWorker = (
           ? rawPayload.kyc_status
           : normalizeKycStatusFromReviewLabel(rawPayload.kycReviewStatusLabel) || existing?.kycStatus || ''
     ).trim(),
-    kycRemarks:
-      payload.kycRemarks === null || rawPayload.kyc_remarks === null || rawPayload.kycReviewRemark === null
-        ? ''
-        : String(
-            hasPayloadField(payload, 'kycRemarks')
-              ? payload.kycRemarks
-              : hasPayloadField(payload, 'kyc_remarks')
-                ? rawPayload.kyc_remarks
-                : hasPayloadField(payload, 'kycReviewRemark')
-                  ? rawPayload.kycReviewRemark
-                  : existing?.kycRemarks || ''
-          ).trim(),
+    kycRemarks: resolveWorkerKycRemarks(payload, rawPayload, existing),
     availability: (payload.availability || existing?.availability || 'available_today') as WorkerAvailability,
     isVisible: toBoolean(payload.isVisible, existing?.isVisible ?? true),
     categoryIds: toStringArray(payload.categoryIds || existing?.categoryIds || []),

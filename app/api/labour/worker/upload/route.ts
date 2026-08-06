@@ -24,6 +24,9 @@ const ALLOWED_EXTENSIONS = new Map([
   ['pdf', 'application/pdf']
 ])
 
+const RESUME_ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png']
+const RESUME_MAX_SIZE_MB = 5
+
 const resolveUploadContentType = (file: File) => {
   const reportedType = String(file.type || '').trim().toLowerCase()
   if (ALLOWED_MIME_TYPES.has(reportedType)) {
@@ -38,10 +41,16 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireWorkerApp(request)
     const formData = await request.formData()
-    const documentKind = String(formData.get('documentKind') || '')
+    const requestedDocumentKind = String(formData.get('documentKind') || '').trim()
+    const documentKind =
+      requestedDocumentKind === 'resume'
+        ? 'resume_document'
+        : requestedDocumentKind === 'identity'
+          ? 'identity_proof'
+          : requestedDocumentKind
     const file = formData.get('file')
 
-    if (documentKind !== 'profile_photo' && documentKind !== 'identity_proof') {
+    if (documentKind !== 'profile_photo' && documentKind !== 'identity_proof' && documentKind !== 'resume_document') {
       return NextResponse.json({ error: 'Invalid document kind.' }, { status: 400 })
     }
 
@@ -56,11 +65,14 @@ export async function POST(request: NextRequest) {
 
     const settings = await getLabourAdminSettings()
     const extension = file.name.split('.').pop()?.trim().toLowerCase() || ''
-    const allowedExtensions = (
-      documentKind === 'profile_photo'
-        ? settings.settings.uploadRules.allowedPhotoExtensions
-        : settings.settings.uploadRules.allowedDocumentExtensions
-    ).map(item => item.toLowerCase())
+    const allowedExtensions =
+      documentKind === 'resume_document'
+        ? RESUME_ALLOWED_EXTENSIONS
+        : (
+            documentKind === 'profile_photo'
+              ? settings.settings.uploadRules.allowedPhotoExtensions
+              : settings.settings.uploadRules.allowedDocumentExtensions
+          ).map(item => item.toLowerCase())
 
     if (!allowedExtensions.includes(extension)) {
       return NextResponse.json(
@@ -69,22 +81,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const maxBytes =
-      (documentKind === 'profile_photo'
-        ? settings.settings.uploadRules.maxPhotoSizeMb
-        : settings.settings.uploadRules.maxDocumentSizeMb) * 1024 * 1024
-
-    if (file.size > maxBytes) {
-      const sizeMb =
-        documentKind === 'profile_photo'
+    const sizeMb =
+      documentKind === 'resume_document'
+        ? RESUME_MAX_SIZE_MB
+        : documentKind === 'profile_photo'
           ? settings.settings.uploadRules.maxPhotoSizeMb
           : settings.settings.uploadRules.maxDocumentSizeMb
+    const maxBytes = sizeMb * 1024 * 1024
+
+    if (file.size > maxBytes) {
       return NextResponse.json(
         {
           error:
             documentKind === 'profile_photo'
               ? `Photo must be smaller than ${sizeMb}MB.`
-              : `Document must be smaller than ${sizeMb}MB.`
+              : documentKind === 'resume_document'
+                ? `Resume must be smaller than ${sizeMb}MB.`
+                : `Document must be smaller than ${sizeMb}MB.`
         },
         { status: 400 }
       )

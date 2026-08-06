@@ -2823,7 +2823,7 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
 export const uploadWorkerRegistrationAsset = async (
   workerId: string,
   payload: {
-    documentKind: 'profile_photo' | 'identity_proof'
+    documentKind: 'profile_photo' | 'identity_proof' | 'resume_document'
     fileName: string
     contentType: string
     bytes: Buffer

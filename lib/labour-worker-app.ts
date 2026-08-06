@@ -138,6 +138,7 @@ export type WorkerAppProfile = {
   identityProofType: WorkerIdentityProofType
   identityProofNumber: string
   identityProofPath: string
+  resumeDocumentPath: string
   isRegistrationComplete: boolean
   canAccessApp: boolean
   registrationCompletedAt: string
@@ -161,6 +162,7 @@ export type WorkerRegistrationPayload = {
   identityProofType: WorkerIdentityProofType
   identityProofNumber: string
   identityProofPath: string
+  resumeDocumentPath?: string
 }
 
 export type WorkerAppWalletSummary = {
@@ -1328,6 +1330,14 @@ const canWorkerAccessApp = (worker: LabourWorkerRecord) =>
   Boolean(worker.registrationCompletedAt.trim()) ||
   worker.status !== 'pending'
 
+const isWorkerKycCorrectionStatus = (value: unknown) => {
+  const normalized = String(value || '').trim().toLowerCase()
+  return normalized === 'rejected' ||
+    normalized === 'needs_correction' ||
+    normalized === 'need_correction' ||
+    normalized === 'correction_required'
+}
+
 const deriveWorkerStatus = (
   worker: LabourWorkerRecord,
   workerPlan: LabourPlanRecord | null = null,
@@ -1793,6 +1803,7 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   identityProofType: worker.identityProofType,
   identityProofNumber: worker.identityProofNumber,
   identityProofPath: worker.identityProofPath,
+  resumeDocumentPath: worker.resumeDocumentPath,
   isRegistrationComplete: isWorkerRegistrationComplete(worker),
   canAccessApp: canWorkerAccessApp(worker),
   registrationCompletedAt: worker.registrationCompletedAt
@@ -2411,6 +2422,7 @@ const ensureWorkerExists = async (mobile: string) => {
     address: '',
     salaryType: DEFAULT_WORKER_SALARY_TYPE,
     profilePhotoPath: '',
+    resumeDocumentPath: '',
       skills: [],
       experienceYears: 0,
       expectedDailyWage: 0,
@@ -2878,6 +2890,15 @@ export const completeWorkerAppRegistration = async (
     payload.preferredWorkLocations,
     masterData.availableCitiesByState
   )
+  const incomingIdentityProofPath = payload.identityProofPath.trim()
+  const existingIdentityProofPath = existing.identityProofPath.trim()
+  const hasNewIdentityProof =
+    Boolean(incomingIdentityProofPath) &&
+    incomingIdentityProofPath !== existingIdentityProofPath
+  const shouldResetKycForReview =
+    hasNewIdentityProof &&
+    isWorkerKycCorrectionStatus(existing.kycStatus)
+  const nextResumeDocumentPath = String(payload.resumeDocumentPath || '').trim() || existing.resumeDocumentPath
 
   const nextWorker: LabourWorkerRecord = {
     ...existing,
@@ -2897,7 +2918,12 @@ export const completeWorkerAppRegistration = async (
     profilePhotoPath: payload.profilePhotoPath.trim(),
     identityProofType: normalizeIdentityProofType(payload.identityProofType),
     identityProofNumber: payload.identityProofNumber.trim(),
-    identityProofPath: payload.identityProofPath.trim(),
+    identityProofPath: incomingIdentityProofPath,
+    resumeDocumentPath: nextResumeDocumentPath,
+    status: shouldResetKycForReview ? 'pending' : existing.status,
+    kycStatus: shouldResetKycForReview ? 'pending_review' : existing.kycStatus,
+    kycRemarks: shouldResetKycForReview ? '' : existing.kycRemarks,
+    isVisible: shouldResetKycForReview ? false : existing.isVisible,
     registrationCompletedAt: existing.registrationCompletedAt || new Date().toISOString()
   }
 
@@ -2928,12 +2954,21 @@ export const completeWorkerAppRegistration = async (
     availability: nextWorker.availability,
     profilePhotoPath: nextWorker.profilePhotoPath,
     identityProofType: nextWorker.identityProofType,
-      identityProofNumber: nextWorker.identityProofNumber,
-      identityProofPath: nextWorker.identityProofPath,
-      registrationCompletedAt: nextWorker.registrationCompletedAt,
-      registrationFeePaid: existing.registrationFeePaid,
-      isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active',
-      status: nextStatus
+    identityProofNumber: nextWorker.identityProofNumber,
+    identityProofPath: nextWorker.identityProofPath,
+    resumeDocumentPath: nextWorker.resumeDocumentPath,
+    registrationCompletedAt: nextWorker.registrationCompletedAt,
+    registrationFeePaid: existing.registrationFeePaid,
+    isVisible: shouldResetKycForReview ? false : isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active',
+    status: shouldResetKycForReview ? 'pending' : nextStatus,
+    ...(shouldResetKycForReview
+      ? {
+          kycStatus: 'pending_review',
+          kycRemarks: null,
+          kycReviewStatusLabel: 'Pending Review',
+          kycReviewRemark: `Worker resubmitted KYC documents for review. Previous KYC status: ${existing.kycStatus || 'unknown'}`
+        }
+      : {})
   }, 'worker-app')
 
   return getWorkerAppDashboard(workerId)

@@ -100,6 +100,7 @@ export interface LabourWorkerRecord {
     cityLabels: string[]
   }>
   profilePhotoPath: string
+  resumeDocumentPath: string
   skills: string[]
   experienceYears: number
   expectedDailyWage: number
@@ -450,6 +451,7 @@ const defaultData: LabourMarketplaceData = {
       address: 'Textile Market, Surat',
       preferredWorkLocations: [],
       profilePhotoPath: 'workers/worker-sajid/profile-photo-demo.jpg',
+      resumeDocumentPath: '',
       skills: ['Ladies kurti stitching', 'Machine handling', 'Finishing'],
       experienceYears: 6,
       expectedDailyWage: 950,
@@ -490,6 +492,7 @@ const defaultData: LabourMarketplaceData = {
       address: 'Mansarovar, Jaipur',
       preferredWorkLocations: [],
       profilePhotoPath: 'workers/worker-rahul/profile-photo-demo.jpg',
+      resumeDocumentPath: '',
       skills: ['Site wiring', 'Repair work'],
       experienceYears: 3,
       expectedDailyWage: 800,
@@ -1066,6 +1069,7 @@ const mapWorkerRow = (row: {
   address: string | null
   preferred_work_locations?: unknown[] | null
   profile_photo_path: string | null
+  resume_document_path?: string | null
   skills: string[] | null
   experience_years: number | null
   expected_daily_wage: number | null
@@ -1105,6 +1109,7 @@ const mapWorkerRow = (row: {
   address: row.address || '',
   preferredWorkLocations: normalizePreferredWorkLocations(row.preferred_work_locations),
   profilePhotoPath: row.profile_photo_path || '',
+  resumeDocumentPath: row.resume_document_path || '',
   skills: row.skills || [],
   experienceYears: row.experience_years ?? 0,
   expectedDailyWage: row.expected_daily_wage ?? 0,
@@ -1512,6 +1517,25 @@ const resolveWorkerKycRemarks = (
     : String(candidate || '').trim()
 }
 
+const resolveWorkerResumeDocumentPath = (
+  payload: Partial<LabourWorkerRecord>,
+  rawPayload: Record<string, unknown>,
+  existing?: LabourWorkerRecord
+) => {
+  const candidate = hasPayloadField(payload, 'resumeDocumentPath')
+    ? payload.resumeDocumentPath
+    : hasPayloadField(payload, 'resume_document_path')
+      ? rawPayload.resume_document_path
+      : undefined
+
+  if (candidate === undefined) {
+    return existing?.resumeDocumentPath || ''
+  }
+
+  const trimmed = String(candidate || '').trim()
+  return trimmed || existing?.resumeDocumentPath || ''
+}
+
 const normalizeKycStatusFromReviewLabel = (value: unknown) => {
   const normalized = String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ')
   if (!normalized) return ''
@@ -1611,6 +1635,7 @@ const normalizeWorker = (
       ? normalizePreferredWorkLocations(payload.preferredWorkLocations)
       : existing?.preferredWorkLocations || [],
     profilePhotoPath: String(payload.profilePhotoPath || existing?.profilePhotoPath || '').trim(),
+    resumeDocumentPath: resolveWorkerResumeDocumentPath(payload, rawPayload, existing),
     skills: toStringArray(payload.skills || existing?.skills || []),
     experienceYears: toNumber(payload.experienceYears, existing?.experienceYears ?? 0),
     expectedDailyWage: toNumber(payload.expectedDailyWage ?? rawPayload.expected_daily_wage, existing?.expectedDailyWage ?? 0),
@@ -1733,6 +1758,14 @@ const isMissingWorkerExpectedWageRangeColumnsError = (message: string) => {
   )
 }
 
+const isMissingWorkerResumeDocumentPathColumnError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('column') ||
+    normalized.includes('schema cache')
+  ) && normalized.includes('resume_document_path')
+}
+
 const stripUnsupportedWorkerColumnsForError = (payload: Record<string, unknown>, message: string) => {
   const legacyWorkerPayload: Record<string, unknown> = { ...payload }
   let changed = false
@@ -1761,6 +1794,11 @@ const stripUnsupportedWorkerColumnsForError = (payload: Record<string, unknown>,
     delete legacyWorkerPayload.worker_paused_by_worker
     delete legacyWorkerPayload.worker_paused_at
     delete legacyWorkerPayload.worker_reactivated_at
+    changed = true
+  }
+
+  if (isMissingWorkerResumeDocumentPathColumnError(message)) {
+    delete legacyWorkerPayload.resume_document_path
     changed = true
   }
 
@@ -2741,6 +2779,7 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     address: worker.address,
     preferred_work_locations: worker.preferredWorkLocations || [],
     profile_photo_path: worker.profilePhotoPath,
+    resume_document_path: worker.resumeDocumentPath || null,
     skills: worker.skills,
     experience_years: worker.experienceYears,
     expected_daily_wage: worker.expectedDailyWage,
@@ -3166,6 +3205,7 @@ export const createLabourEntity = async (
         business_type: record.businessType || null,
         address: record.address,
         profile_photo_path: record.profilePhotoPath,
+        resume_document_path: record.resumeDocumentPath || null,
         skills: record.skills,
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,
@@ -3631,6 +3671,7 @@ export const updateLabourEntity = async (
         business_type: record.businessType || null,
         address: record.address,
         profile_photo_path: record.profilePhotoPath,
+        resume_document_path: record.resumeDocumentPath || null,
         skills: record.skills,
         experience_years: record.experienceYears,
         expected_daily_wage: record.expectedDailyWage,

@@ -40,6 +40,7 @@ create table if not exists public.labour_workers (
   address text,
   preferred_work_locations jsonb not null default '[]'::jsonb,
   profile_photo_path text not null default '',
+  resume_document_path text,
   skills text[] not null default '{}',
   experience_years numeric(6, 2) not null default 0,
   expected_daily_wage numeric(10, 2) not null default 0,
@@ -65,6 +66,9 @@ create table if not exists public.labour_workers (
 
 alter table if exists public.labour_workers
 add column if not exists profile_photo_path text not null default '';
+
+alter table if exists public.labour_workers
+add column if not exists resume_document_path text;
 
 alter table if exists public.labour_workers
 add column if not exists active_plan text;

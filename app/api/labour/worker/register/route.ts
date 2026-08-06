@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
       profilePhotoPath: String(payload.profilePhotoPath || ''),
       identityProofType: payload.identityProofType || '',
       identityProofNumber: String(payload.identityProofNumber || ''),
-      identityProofPath: String(payload.identityProofPath || '')
+      identityProofPath: String(payload.identityProofPath || ''),
+      resumeDocumentPath: String(payload.resumeDocumentPath || '')
     })
 
     return NextResponse.json({ success: true, dashboard })

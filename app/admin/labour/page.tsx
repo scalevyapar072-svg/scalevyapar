@@ -136,6 +136,7 @@ type LabourWorker = {
   businessType: string
   address: string
   profilePhotoPath: string
+  skills: string[]
   experienceYears: number
   salaryType: string
   expectedDailyWage: number
@@ -605,6 +606,7 @@ const blankWorker: LabourWorker = {
   businessType: '',
   address: '',
   profilePhotoPath: '',
+  skills: [],
   experienceYears: 0,
   salaryType: '',
   expectedDailyWage: 0,
@@ -2379,10 +2381,17 @@ export default function LabourExchangeAdminPage() {
     const preferredWorkLocations = normalizeWorkerPreferredLocationDraft(
       rawBaseDraft.preferredWorkLocations || rawBaseDraft.preferred_work_locations
     )
+    const skills = Array.isArray(rawBaseDraft.skills)
+      ? rawBaseDraft.skills.map(skill => String(skill || '').trim()).filter(Boolean)
+      : String(rawBaseDraft.skills || '')
+        .split(',')
+        .map(skill => skill.trim())
+        .filter(Boolean)
 
     return syncWorkerPlanDraft({
       ...baseDraft,
       categoryIds: resolvedCategoryIds,
+      skills,
       industryCategory: nextIndustryCategory,
       businessType: nextBusinessType,
       preferredWorkLocations,
@@ -2405,6 +2414,7 @@ export default function LabourExchangeAdminPage() {
       maximumExpectedWage,
       minimum_expected_wage: minimumExpectedWage || null,
       maximum_expected_wage: maximumExpectedWage || null,
+      skills: worker.skills.map(skill => skill.trim()).filter(Boolean),
       preferredWorkLocations: worker.preferredWorkLocations
         .filter(location => location.cityLabels.length > 0 || location.cityOptionIds.length > 0)
         .map(location => ({
@@ -6095,6 +6105,21 @@ export default function LabourExchangeAdminPage() {
                       ))}
                     </select>
                   </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Skills</label>
+                  <input
+                    value={workerDraft.skills.join(', ')}
+                    onChange={event => setWorkerDraft(current => ({
+                      ...current,
+                      skills: event.target.value
+                        .split(',')
+                        .map(skill => skill.trim())
+                        .filter(Boolean)
+                    }))}
+                    placeholder="Enter skills separated by comma"
+                    style={inputStyle}
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Categories *</label>

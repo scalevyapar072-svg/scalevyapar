@@ -653,6 +653,20 @@ export function LabourSearchClient({
     return query ? `${pathname}?${query}` : pathname
   }
 
+  const handlePageChange = (nextPage: number) => {
+    const safePage = Math.min(Math.max(nextPage, 1), pagination.totalPages)
+    const nextUrl = buildSearchUrl(safePage)
+    const currentUrl = typeof window === 'undefined' ? '' : `${window.location.pathname}${window.location.search}`
+
+    setCurrentPage(safePage)
+
+    if (nextUrl === currentUrl) return
+
+    startTransition(() => {
+      router.push(nextUrl, { scroll: false })
+    })
+  }
+
   useEffect(() => {
     if (!hasMountedRef.current) {
       hasMountedRef.current = true
@@ -1916,7 +1930,7 @@ export function LabourSearchClient({
                 <button
                   type="button"
                   className={styles.searchPaginationButton}
-                  onClick={() => setCurrentPage(current => Math.max(1, current - 1))}
+                  onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
                 >
                   Previous
@@ -1931,7 +1945,7 @@ export function LabourSearchClient({
                         key={item}
                         type="button"
                         className={item === currentPage ? styles.searchPaginationButtonActive : styles.searchPaginationButton}
-                        onClick={() => setCurrentPage(item)}
+                        onClick={() => handlePageChange(item)}
                       >
                         {item}
                       </button>
@@ -1942,7 +1956,7 @@ export function LabourSearchClient({
                 <button
                   type="button"
                   className={styles.searchPaginationButton}
-                  onClick={() => setCurrentPage(current => Math.min(totalPages, current + 1))}
+                  onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
                 >
                   Next

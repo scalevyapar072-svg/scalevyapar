@@ -1922,13 +1922,12 @@ export function LabourSearchClient({
                     Previous
                   </button>
                 ) : (
-                  <Link
+                  <a
                     className={styles.searchPaginationButton}
                     href={buildSearchUrl(currentPage - 1)}
-                    scroll={false}
                   >
                     Previous
-                  </Link>
+                  </a>
                 )}
 
                 <div className={styles.searchPaginationNumbers}>
@@ -1945,14 +1944,13 @@ export function LabourSearchClient({
                         {item}
                       </button>
                     ) : (
-                      <Link
+                      <a
                         key={item}
                         className={styles.searchPaginationButton}
                         href={buildSearchUrl(item)}
-                        scroll={false}
                       >
                         {item}
-                      </Link>
+                      </a>
                     )
                   ))}
                 </div>
@@ -1966,13 +1964,12 @@ export function LabourSearchClient({
                     Next
                   </button>
                 ) : (
-                  <Link
+                  <a
                     className={styles.searchPaginationButton}
                     href={buildSearchUrl(currentPage + 1)}
-                    scroll={false}
                   >
                     Next
-                  </Link>
+                  </a>
                 )}
               </div>
             ) : null}

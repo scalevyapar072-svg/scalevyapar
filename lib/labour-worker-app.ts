@@ -27,6 +27,7 @@ import { getLabourAdminSettings } from './labour-admin-settings'
 import { buildSelectableLabourCityOptions, LabourMasterOption, LabourMasterKey, slugifyLabourMaster } from './labour-masters-schema'
 import { sendWorkerPushNotification } from './labour-worker-push'
 import { sendCompanyApplicationEmail } from './labour-company-email'
+import { formatRozgarWorkLocations, sendNewWorkerRegisteredEmail } from './rozgar-notification-email'
 import {
   isWhatsappTemplateTranslationMissingError,
   sendWhatsappTemplateMessage,
@@ -2886,6 +2887,7 @@ export const completeWorkerAppRegistration = async (
   if (!existing) {
     throw new Error('Worker account not found.')
   }
+  const wasRegistrationCompleted = Boolean(existing.registrationCompletedAt)
   const preferredWorkLocations = normalizeWorkerPreferredWorkLocations(
     payload.preferredWorkLocations,
     masterData.availableCitiesByState
@@ -2970,6 +2972,26 @@ export const completeWorkerAppRegistration = async (
         }
       : {})
   }, 'worker-app')
+
+  if (!wasRegistrationCompleted) {
+    const jobCategories = nextWorker.categoryIds
+      .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name)
+      .filter((value): value is string => Boolean(value))
+
+    await sendNewWorkerRegisteredEmail({
+      workerId: nextWorker.id,
+      workerName: nextWorker.fullName,
+      mobile: nextWorker.mobile,
+      industryCategory: nextWorker.industryCategory,
+      businessType: nextWorker.businessType,
+      jobCategories,
+      skills: nextWorker.skills,
+      city: nextWorker.city || nextWorker.homeCity,
+      requiredWorkLocation: formatRozgarWorkLocations(nextWorker.preferredWorkLocations),
+      experienceYears: nextWorker.experienceYears,
+      registeredAt: nextWorker.registrationCompletedAt
+    })
+  }
 
   return getWorkerAppDashboard(workerId)
 }

@@ -20,6 +20,7 @@ import {
 } from '@/lib/labour-plan-utils'
 import { requireCompanyApp } from '@/lib/labour-company-app'
 import { createLabourEntity, getLabourMarketplaceSnapshot, updateLabourEntity } from '@/lib/labour-marketplace'
+import { sendNewJobPostedEmail } from '@/lib/rozgar-notification-email'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MOBILE_REGEX = /^\d{10}$/
@@ -533,6 +534,33 @@ export async function POST(request: NextRequest) {
     )
 
     const createdJob = [...finalSnapshot.jobPosts].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+
+    if (createdJob) {
+      await sendNewJobPostedEmail({
+        jobPostId: createdJob.id,
+        companyName: refreshedCompany.companyName || resolvedCompanyName,
+        companyId: refreshedCompany.id,
+        companyMobile: refreshedCompany.mobile || resolvedMobile,
+        jobTitle: createdJob.title,
+        industryCategory: resolvedIndustryType,
+        businessType: resolvedBusinessType,
+        workerCategory: labourCategory?.name || workerCategory,
+        workLocation: createdJob.city || resolvedJobLocation,
+        salary: createdJob.wageAmount,
+        salaryType,
+        workersRequired: createdJob.workersNeeded,
+        experience: experienceRequired,
+        genderPreference,
+        shift: shiftType,
+        facilities: [
+          foodFacility ? `Food: ${foodFacility}` : '',
+          accommodation ? `Accommodation: ${accommodation}` : '',
+          transportFacility ? `Transport: ${transportFacility}` : '',
+          overtimeAvailable ? `Overtime: ${overtimeAvailable}` : ''
+        ].filter(Boolean),
+        createdAt: createdJob.createdAt
+      })
+    }
 
     return NextResponse.json({
       success: true,

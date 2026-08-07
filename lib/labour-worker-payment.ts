@@ -1,5 +1,6 @@
 import { createLabourEntity, getLabourMarketplaceSnapshot, updateLabourEntity } from './labour-marketplace'
 import { getWorkerAppDashboard } from './labour-worker-app'
+import { sendPaymentReceivedEmail } from './rozgar-notification-email'
 
 const buildRazorpayTransactionId = (paymentId: string) =>
   `txn-worker-razorpay-${paymentId.replace(/[^a-z0-9_-]+/gi, '').slice(0, 60)}`
@@ -58,6 +59,18 @@ export const creditWorkerWalletFromRazorpay = async ({
     await updateLabourEntity('workers', worker.id, {
       walletBalance: worker.walletBalance + rechargeAmount
     }, 'worker-razorpay-payment')
+
+    await sendPaymentReceivedEmail({
+      paymentType: 'Worker Wallet Recharge',
+      entityName: worker.fullName || worker.mobile,
+      mobile: worker.mobile,
+      entityId: worker.id,
+      amount: rechargeAmount,
+      paymentGateway: 'Razorpay',
+      paymentReference: razorpayPaymentId,
+      status: 'completed',
+      paidAt: now
+    })
   }
 
   return getWorkerAppDashboard(worker.id)

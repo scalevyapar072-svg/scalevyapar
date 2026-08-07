@@ -2,6 +2,7 @@ import { createLabourEntity, getLabourMarketplaceSnapshot, type LabourMarketplac
 import { createPricingPlanSlug, type CheckoutSummary } from './labour-company-checkout'
 import { getCompanyAppDashboard } from './labour-company-app'
 import { supabaseAdmin } from './supabase-admin'
+import { sendPaymentReceivedEmail } from './rozgar-notification-email'
 
 const normalize = (value: unknown) =>
   String(value || '')
@@ -148,6 +149,19 @@ export const activateCompanyPlanFromRazorpay = async ({
       createdAt: now,
       updatedAt: now
     }, 'razorpay-payment')
+
+    await sendPaymentReceivedEmail({
+      paymentType: 'Company Plan Payment',
+      entityName: company.companyName || company.email,
+      mobile: company.mobile || company.contactMobile,
+      entityId: company.id,
+      plan: checkoutPlanTitle || plan.name,
+      amount,
+      paymentGateway: 'Razorpay',
+      paymentReference: razorpayPaymentId,
+      status: 'completed',
+      paidAt: now
+    })
   }
 
   return getCompanyAppDashboard(company.id)

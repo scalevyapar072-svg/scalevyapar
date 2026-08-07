@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { CheckCircle2, Download, Heart, MapPin, MessageCircle, Phone, Search, ShieldCheck, Sparkles, Users } from 'lucide-react'
+import { CheckCircle2, Heart, MessageCircle, Phone, Search, ShieldCheck, Sparkles, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import {
   filterBusinessTypesByIndustryDependency,
@@ -317,9 +317,51 @@ const workerMatchesMasterSelection = (selectedValue: string, workerValues: strin
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
 const formatSalaryCurrency = (value: number) => `₹${Number(value || 0).toLocaleString('en-IN')}`
 
-const getWhatsappHref = (mobile: string, fallbackHref: string) => {
+const buildCompanyToWorkerWhatsappMessage = (worker: WorkerItem) => {
+  const workerSkill = worker.categoryLabels[0] || worker.skills[0] || 'Skilled Worker'
+  const workerCity = getWorkerAvailableLocationLabel(worker)
+
+  return [
+    `Hello ${worker.fullName},`,
+    '',
+    'I found your profile on Rozgar App by ScaleVyapar.',
+    '',
+    'I am interested in your work opportunity.',
+    '',
+    'Worker Details:',
+    '',
+    'Skill:',
+    workerSkill,
+    '',
+    'Location:',
+    workerCity,
+    '',
+    'Please contact me.',
+    '',
+    'Thank you.',
+    '',
+    'Rozgar App',
+    'By ScaleVyapar'
+  ].join('\n')
+}
+
+const getWhatsappHrefWithMessage = (mobile: string, fallbackHref: string, message: string) => {
   const digits = mobile.replace(/\D/g, '')
-  return digits ? `https://wa.me/91${digits}` : fallbackHref
+  if (!digits) return fallbackHref
+  return `https://wa.me/91${digits}?text=${encodeURIComponent(message)}`
+}
+
+const getTelHref = (mobile: string) => {
+  const digits = mobile.replace(/\D/g, '')
+  if (!digits) return ''
+  return digits.length === 10 ? `tel:+91${digits}` : `tel:+${digits}`
+}
+
+const getWorkerSkillTags = (worker: WorkerItem) => {
+  const mainCategory = worker.categoryLabels[0] || ''
+  return Array.from(new Set(worker.skills.filter(Boolean)))
+    .filter(skill => normalize(skill) !== normalize(mainCategory))
+    .slice(0, 5)
 }
 
 const getAvailabilityMeta = (availability: string, status = 'active') => {
@@ -1306,24 +1348,29 @@ export function LabourSearchClient({
     )
   }
 
-  const toggleContact = (workerId: string) => {
-    setRevealedContactWorkerIds(current =>
-      current.includes(workerId)
-        ? current.filter(id => id !== workerId)
-        : [...current, workerId]
-    )
-  }
-
-  const openIdentityProof = async (worker: WorkerItem) => {
-    if (typeof window === 'undefined' || !worker.identityProofPath) return
-
-    const cachedUrl = identityProofUrls[worker.id]
-    if (cachedUrl) {
-      window.open(cachedUrl, '_blank', 'noopener,noreferrer')
+  const handleContactClick = (worker: WorkerItem) => {
+    if (!revealedContactWorkerIds.includes(worker.id)) {
+      setRevealedContactWorkerIds(current =>
+        current.includes(worker.id) ? current : [...current, worker.id]
+      )
       return
     }
 
-    if (identityProofLoadingIds.includes(worker.id)) return
+    const telHref = getTelHref(worker.mobile)
+    if (telHref && typeof window !== 'undefined') {
+      window.location.href = telHref
+    }
+  }
+
+  const getIdentityProofUrl = async (worker: WorkerItem) => {
+    if (!worker.identityProofPath) return ''
+
+    const cachedUrl = identityProofUrls[worker.id]
+    if (cachedUrl) {
+      return cachedUrl
+    }
+
+    if (identityProofLoadingIds.includes(worker.id)) return ''
     setIdentityProofLoadingIds(current => [...current, worker.id])
 
     try {
@@ -1335,12 +1382,36 @@ export function LabourSearchClient({
         throw new Error(payload?.error || 'Unable to open identity proof')
       }
       setIdentityProofUrls(current => ({ ...current, [worker.id]: payload.url }))
-      window.open(payload.url, '_blank', 'noopener,noreferrer')
+      return payload.url as string
     } catch (error) {
       window.alert(error instanceof Error ? error.message : 'Unable to open identity proof')
+      return ''
     } finally {
       setIdentityProofLoadingIds(current => current.filter(id => id !== worker.id))
     }
+  }
+
+  const openIdentityProof = async (worker: WorkerItem) => {
+    if (typeof window === 'undefined' || !worker.identityProofPath) return
+
+    const url = await getIdentityProofUrl(worker)
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  const downloadIdentityProof = async (worker: WorkerItem) => {
+    if (typeof window === 'undefined' || !worker.identityProofPath) return
+
+    const url = await getIdentityProofUrl(worker)
+    if (!url) return
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${worker.fullName || 'worker'}-identity-proof`
+    anchor.rel = 'noreferrer'
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
   }
 
   const openCompanyPanel = async () => {
@@ -1645,7 +1716,8 @@ export function LabourSearchClient({
                 {paginatedWorkers.map(({ worker, matchMeta }) => {
                   const availabilityMeta = getAvailabilityMeta(worker.availability, worker.status)
                   const statusMeta = getWorkerStatusMeta(worker.status)
-                  const workerTags = Array.from(new Set([...worker.categoryLabels, ...worker.skills])).slice(0, 4)
+                  const mainCategory = worker.categoryLabels[0] || worker.businessTypeLabel || 'Skilled Worker'
+                  const skillTags = getWorkerSkillTags(worker)
                   const isExpanded = expandedWorkerIds.includes(worker.id)
                   const isShortlisted = shortlistedWorkerIds.includes(worker.id)
                   const hasCategoryPriority = Boolean(effectiveJobContext)
@@ -1653,6 +1725,8 @@ export function LabourSearchClient({
                   const matchBadgeLabel = isCategoryMatch ? 'Category Match' : 'Other Category'
                   const cardToneClass = getWorkerCardToneClass(isCategoryMatch, worker.status)
                   const lockedAccessCopy = getLockedAccessCopy(worker)
+                  const workLocation = getWorkerAvailableLocationLabel(worker)
+                  const isContactRevealed = revealedContactWorkerIds.includes(worker.id)
 
                   return (
                     <article
@@ -1708,76 +1782,64 @@ export function LabourSearchClient({
                                 {statusMeta.label}
                               </span>
                             </div>
-                            <p className={styles.searchWorkerRole}>{worker.categoryLabels[0] || worker.businessTypeLabel || 'Skilled Worker'}</p>
+                            <p className={styles.searchWorkerRole}>{mainCategory}</p>
                           </div>
                         </div>
 
-                        <div className={styles.searchWorkerMetaRow}>
-                          <span className={styles.searchWorkerMetaItem}>
-                            <MapPin size={14} strokeWidth={2.1} />
-                            Required Work Location: {getWorkerAvailableLocationLabel(worker)}
+                        <div className={styles.searchWorkerCategorySkillRow}>
+                          <span className={styles.searchWorkerCategorySkillItem}>
+                            <strong>Category:</strong>
+                            <span className={styles.searchWorkerMainCategoryText}>{mainCategory}</span>
                           </span>
-                          <span className={styles.searchWorkerMetaItem}>
-                            <Users size={14} strokeWidth={2.1} />
-                            {worker.businessTypeLabel}
+                          <span className={styles.searchWorkerCategorySkillItem}>
+                            <strong>Skills:</strong>
+                            <span className={styles.searchWorkerSkillText}>
+                              {skillTags.length ? skillTags.join(', ') : 'Not added'}
+                            </span>
                           </span>
                         </div>
 
-                        <div className={styles.searchWorkerChipRow}>
-                          {workerTags.map(tag => (
-                            <span key={`${worker.id}-${tag}`} className={styles.searchWorkerChip}>{tag}</span>
-                          ))}
+                        <div className={styles.searchWorkerCompactInfoGrid}>
+                          <p><span>Experience:</span> <strong>{worker.experienceYears} Years</strong></p>
+                          <p><span>Work Location:</span> <strong>{workLocation}</strong></p>
+                          <p><span>Home City:</span> <strong>{worker.homeCity || 'Not added'}</strong></p>
+                          <p><span>Address:</span> <strong>{worker.address || 'Not added'}</strong></p>
                         </div>
 
                         {isExpanded ? (
                           <div className={styles.searchWorkerExpandedPanel}>
-                            <div className={`${styles.searchWorkerExpandedGrid} ${styles.searchWorkerExpandedGridDesktopOnly}`}>
-                              <div className={styles.searchWorkerExpandedItem}>
-                                <span>Experience</span>
-                                <strong>{worker.experienceYears} years</strong>
+                            <div className={styles.searchWorkerDocumentsCard}>
+                              <p className={styles.searchWorkerDocumentsTitle}>Documents</p>
+                              <div className={styles.searchWorkerDocumentRow}>
+                                <span>{worker.identityProofType || 'Aadhaar Card'}</span>
+                                {worker.identityProofPath ? (
+                                  <div className={styles.searchWorkerDocumentActions}>
+                                    <button
+                                      type="button"
+                                      onClick={() => openIdentityProof(worker)}
+                                      className={styles.searchWorkerDocumentButton}
+                                      disabled={identityProofLoadingIds.includes(worker.id)}
+                                    >
+                                      {identityProofLoadingIds.includes(worker.id) ? 'Opening...' : 'View'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => downloadIdentityProof(worker)}
+                                      className={styles.searchWorkerDocumentButton}
+                                      disabled={identityProofLoadingIds.includes(worker.id)}
+                                    >
+                                      Download
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className={styles.searchWorkerEmptyText}>Not Available</span>
+                                )}
                               </div>
-                              <div className={styles.searchWorkerExpandedItem}>
-                                <span>Required Work Location</span>
-                                <strong>{getWorkerAvailableLocationLabel(worker)}</strong>
-                              </div>
-                              <div className={styles.searchWorkerExpandedItem}>
-                                <span>Home City</span>
-                                <strong>{worker.homeCity || worker.city || 'Not added'}</strong>
-                              </div>
-                              <div className={styles.searchWorkerExpandedItem}>
-                                <span>Address</span>
-                                <strong>{worker.address || 'Not added yet'}</strong>
+                              <div className={styles.searchWorkerDocumentRow}>
+                                <span>Resume</span>
+                                <span className={styles.searchWorkerEmptyText}>Resume Not Available</span>
                               </div>
                             </div>
-                            {(worker.identityProofType || worker.identityProofNumber || worker.identityProofPath) ? (
-                              <div className={`${styles.searchWorkerProofCard} ${styles.searchWorkerProofCardDesktopOnly}`}>
-                                <div className={styles.searchWorkerProofMeta}>
-                                  {worker.identityProofType ? (
-                                    <p>
-                                      <span>Identity proof</span>
-                                      <strong>{worker.identityProofType}</strong>
-                                    </p>
-                                  ) : null}
-                                  {worker.identityProofNumber ? (
-                                    <p>
-                                      <span>Proof number</span>
-                                      <strong>{worker.identityProofNumber}</strong>
-                                    </p>
-                                  ) : null}
-                                </div>
-                                {worker.identityProofPath ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => openIdentityProof(worker)}
-                                    className={styles.searchWorkerProofButton}
-                                    disabled={identityProofLoadingIds.includes(worker.id)}
-                                  >
-                                    <Download size={15} strokeWidth={2.2} />
-                                    {identityProofLoadingIds.includes(worker.id) ? 'Opening...' : 'View Identity Proof'}
-                                  </button>
-                                ) : null}
-                              </div>
-                            ) : null}
                             <div
                               className={`${styles.searchWorkerExpandedActions} ${
                                 canViewWorkerContacts && workerCanAccessDirectly(worker)
@@ -1787,29 +1849,21 @@ export function LabourSearchClient({
                             >
                               {canViewWorkerContacts && workerCanAccessDirectly(worker) ? (
                                 <>
-                                  {revealedContactWorkerIds.includes(worker.id) ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleContact(worker.id)}
-                                      className={`${styles.workerActionPrimary} ${styles.searchWorkerContactButton}`}
-                                      style={{ background: accentColor, color: '#ffffff', border: '1px solid transparent' }}
-                                    >
-                                      <Phone size={14} strokeWidth={2.3} />
-                                      {worker.mobile}
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleContact(worker.id)}
-                                      className={`${styles.workerActionPrimary} ${styles.searchWorkerContactButton}`}
-                                      style={{ background: accentColor, color: '#ffffff', border: '1px solid transparent' }}
-                                    >
-                                      <Phone size={14} strokeWidth={2.3} />
-                                      View Contact
-                                    </button>
-                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleContactClick(worker)}
+                                    className={`${styles.workerActionPrimary} ${styles.searchWorkerContactButton}`}
+                                    style={{ background: accentColor, color: '#ffffff', border: '1px solid transparent' }}
+                                  >
+                                    <Phone size={14} strokeWidth={2.3} />
+                                    {isContactRevealed ? worker.mobile : 'View Contact'}
+                                  </button>
                                   <a
-                                    href={getWhatsappHref(worker.mobile, resolveHref('/labour/company/contact'))}
+                                    href={getWhatsappHrefWithMessage(
+                                      worker.mobile,
+                                      resolveHref('/labour/company/contact'),
+                                      buildCompanyToWorkerWhatsappMessage(worker)
+                                    )}
                                     target="_blank"
                                     rel="noreferrer"
                                     className={`${styles.whatsappButtonCompact} ${styles.searchWorkerWhatsappButtonCompact}`}

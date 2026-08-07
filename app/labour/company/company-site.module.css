@@ -10962,14 +10962,14 @@
 
 .searchWorkerCard {
   display: grid;
-  grid-template-columns: 176px minmax(0, 1fr) 210px;
-  gap: 20px;
+  grid-template-columns: 132px minmax(0, 1fr) 178px;
+  gap: 16px;
   align-items: start;
-  padding: 20px;
-  border-radius: 28px;
+  padding: 16px;
+  border-radius: 22px;
   border: 1px solid rgba(226, 232, 240, 0.98);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 251, 255, 0.96) 100%);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
 }
 
 .searchWorkerCardMatch,
@@ -11018,19 +11018,19 @@
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  width: 176px;
+  width: 132px;
   flex-shrink: 0;
   align-self: start;
 }
 
 .searchWorkerAvatarWrap {
   position: relative;
-  width: 176px;
-  height: 220px;
-  min-height: 220px;
+  width: 132px;
+  height: 164px;
+  min-height: 164px;
   flex-shrink: 0;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 18px;
   border: 1px solid rgba(219, 226, 234, 0.95);
   background: linear-gradient(135deg, #e0ecff 0%, #dbeafe 100%);
 }
@@ -11051,7 +11051,7 @@
   align-items: center;
   justify-content: center;
   color: #1d4ed8;
-  font-size: 34px;
+  font-size: 28px;
   line-height: 1;
   font-weight: 700;
 }
@@ -11089,7 +11089,7 @@
 .searchWorkerBody {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -11110,7 +11110,7 @@
 .searchWorkerName {
   margin: 0;
   color: #0f172a;
-  font-size: 22px;
+  font-size: 19px;
   line-height: 1.08;
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -11176,7 +11176,7 @@
 .searchWorkerRole {
   margin: 4px 0 0;
   color: #334155;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.45;
   font-weight: 500;
 }
@@ -11205,7 +11205,7 @@
 .searchWorkerChipRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 7px;
 }
 
 .searchWorkerChip {
@@ -11222,11 +11222,143 @@
   font-weight: 600;
 }
 
+.searchWorkerCategorySkillRow {
+  display: flex;
+  align-items: center;
+  gap: 10px 18px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.searchWorkerCategorySkillItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  color: #334155;
+  font-size: 12.5px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.searchWorkerCategorySkillItem strong {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.searchWorkerMainCategoryText {
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.searchWorkerSkillText {
+  color: #475569;
+  font-weight: 650;
+}
+
+.searchWorkerEmptyText {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.searchWorkerCompactInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 14px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.searchWorkerCompactInfoGrid p {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.searchWorkerCompactInfoGrid span {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.searchWorkerCompactInfoGrid strong {
+  color: #0f172a;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .searchWorkerCategorySkillRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+}
+
 .searchWorkerExpandedPanel {
   display: grid;
-  gap: 14px;
-  padding-top: 8px;
+  gap: 10px;
+  padding-top: 4px;
   border-top: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.searchWorkerDocumentsCard {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: rgba(248, 250, 252, 0.88);
+}
+
+.searchWorkerDocumentsTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.searchWorkerDocumentRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.searchWorkerDocumentActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.searchWorkerDocumentButton {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.searchWorkerDocumentButton:disabled {
+  cursor: wait;
+  opacity: 0.68;
 }
 
 .searchWorkerExpandedGrid {

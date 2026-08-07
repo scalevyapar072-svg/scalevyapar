@@ -653,20 +653,6 @@ export function LabourSearchClient({
     return query ? `${pathname}?${query}` : pathname
   }
 
-  const handlePageChange = (nextPage: number) => {
-    const safePage = Math.min(Math.max(nextPage, 1), pagination.totalPages)
-    const nextUrl = buildSearchUrl(safePage)
-    const currentUrl = typeof window === 'undefined' ? '' : `${window.location.pathname}${window.location.search}`
-
-    setCurrentPage(safePage)
-
-    if (nextUrl === currentUrl) return
-
-    startTransition(() => {
-      router.push(nextUrl, { scroll: false })
-    })
-  }
-
   useEffect(() => {
     if (!hasMountedRef.current) {
       hasMountedRef.current = true
@@ -1927,40 +1913,67 @@ export function LabourSearchClient({
 
             {pagination.totalCount > pagination.pageSize ? (
               <div className={styles.searchPagination}>
-                <button
-                  type="button"
-                  className={styles.searchPaginationButton}
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </button>
+                {currentPage === 1 ? (
+                  <button
+                    type="button"
+                    className={styles.searchPaginationButton}
+                    disabled
+                  >
+                    Previous
+                  </button>
+                ) : (
+                  <Link
+                    className={styles.searchPaginationButton}
+                    href={buildSearchUrl(currentPage - 1)}
+                    scroll={false}
+                  >
+                    Previous
+                  </Link>
+                )}
 
                 <div className={styles.searchPaginationNumbers}>
                   {paginationItems.map(item => (
                     item === 'ellipsis-left' || item === 'ellipsis-right' ? (
                       <span key={item} className={styles.searchPaginationEllipsis}>...</span>
-                    ) : (
+                    ) : item === currentPage ? (
                       <button
                         key={item}
                         type="button"
-                        className={item === currentPage ? styles.searchPaginationButtonActive : styles.searchPaginationButton}
-                        onClick={() => handlePageChange(item)}
+                        className={styles.searchPaginationButtonActive}
+                        aria-current="page"
                       >
                         {item}
                       </button>
+                    ) : (
+                      <Link
+                        key={item}
+                        className={styles.searchPaginationButton}
+                        href={buildSearchUrl(item)}
+                        scroll={false}
+                      >
+                        {item}
+                      </Link>
                     )
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  className={styles.searchPaginationButton}
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </button>
+                {currentPage === totalPages ? (
+                  <button
+                    type="button"
+                    className={styles.searchPaginationButton}
+                    disabled
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <Link
+                    className={styles.searchPaginationButton}
+                    href={buildSearchUrl(currentPage + 1)}
+                    scroll={false}
+                  >
+                    Next
+                  </Link>
+                )}
               </div>
             ) : null}
           </div>

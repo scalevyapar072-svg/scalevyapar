@@ -647,7 +647,7 @@ export function LabourSearchClient({
     if (wage.trim()) params.set('wage', wage.trim())
     if (sortBy !== 'relevance') params.set('sort', sortBy)
     if (requestedJobId.trim()) params.set('jobId', requestedJobId.trim())
-    if (nextPage > 1) params.set('page', String(nextPage))
+    params.set('page', String(Math.max(nextPage, 1)))
 
     const query = params.toString()
     return query ? `${pathname}?${query}` : pathname

@@ -98,10 +98,11 @@ export async function middleware(request: NextRequest) {
     '/privacy/scalevyapar-rozgar'
   ]
   const isPublicRozgarVanityRoute = pathname.startsWith('/panel/')
+  const isPublicReferralRoute = pathname.startsWith('/r/')
   const isPublicLabourCompanyRoute =
     pathname === '/labour/company' || pathname.startsWith('/labour/company/')
 
-  if (publicPages.includes(pathname) || isPublicRozgarVanityRoute || isPublicLabourCompanyRoute) {
+  if (publicPages.includes(pathname) || isPublicRozgarVanityRoute || isPublicReferralRoute || isPublicLabourCompanyRoute) {
     return NextResponse.next({
       request: {
         headers: withRequestPathHeaders(request),

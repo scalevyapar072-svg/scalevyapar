@@ -11,25 +11,21 @@ export const revalidate = 0
 
 export const metadata: Metadata = {
   title: 'Referral Registration Context | Rozgar',
-  description: 'Referral category selections prepared for Rozgar registration.'
+  description: 'Referral category selection prepared for Rozgar registration.'
 }
 
 export default async function ReferralContinuePage({ params, searchParams }: Props) {
   const [{ code }, { category }] = await Promise.all([params, searchParams])
   const referral = await getPublicReferralLandingData(code)
-  const requestedSlugs = (Array.isArray(category) ? category : [category])
-    .map(item => String(item || '').trim())
-    .filter(Boolean)
-  const uniqueRequestedSlugs = [...new Set(requestedSlugs)]
-  const selectedCategories = referral.status === 'valid'
-    ? uniqueRequestedSlugs
-      .map(slug => referral.categories.find(item => item.slug === slug) || null)
-      .filter(categoryItem => categoryItem !== null)
-    : []
+  const requestedSlug = Array.isArray(category) ? '' : String(category || '').trim()
+  const selectedCategory = referral.status === 'valid'
+    ? referral.categories.find(item => item.slug === requestedSlug) || null
+    : null
   const hasInvalidSelection =
     referral.status !== 'valid' ||
-    uniqueRequestedSlugs.length === 0 ||
-    selectedCategories.length !== uniqueRequestedSlugs.length
+    !requestedSlug ||
+    Array.isArray(category) ||
+    !selectedCategory
   const canPrepareContext = referral.status === 'valid' && !hasInvalidSelection
 
   return (
@@ -44,20 +40,14 @@ export default async function ReferralContinuePage({ params, searchParams }: Pro
         {canPrepareContext ? (
           <>
             <p style={{ margin: '0 0 16px', color: '#475569', fontSize: '16px', lineHeight: 1.6 }}>
-              Referral Code <strong>{referral.referralCode}</strong> is valid for the selected work categories.
+              Referral Code <strong>{referral.referralCode}</strong> is valid for <strong>{selectedCategory?.name}</strong>.
             </p>
             <div style={{ border: '1px solid #dbe6f4', borderRadius: '18px', padding: '14px', background: '#f8fbff', marginBottom: '18px' }}>
-              <strong style={{ display: 'block', marginBottom: '10px', color: '#0f172a' }}>Selected Work Categories</strong>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '8px' }}>
-                {selectedCategories.map(categoryItem => (
-                  <li key={categoryItem.slug} style={{ color: '#334155', fontSize: '15px', lineHeight: 1.4 }}>
-                    ✓ {categoryItem.name}
-                  </li>
-                ))}
-              </ul>
+              <strong style={{ display: 'block', marginBottom: '10px', color: '#0f172a' }}>Selected Referral Category</strong>
+              <p style={{ margin: 0, color: '#334155', fontSize: '15px', lineHeight: 1.4 }}>{selectedCategory?.name}</p>
             </div>
             <p style={{ margin: '0 0 18px', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
-              Registration attribution is intentionally not connected in Phase 3. Phase 4 will revalidate this referral code and every selected category before creating any referral record.
+              Registration attribution is intentionally not connected in Phase 3. Phase 4 will revalidate this referral code and category before creating any referral record.
             </p>
             <a
               href="https://play.google.com/store/apps/details?id=in.scalevyapar.rozgar"
@@ -68,7 +58,7 @@ export default async function ReferralContinuePage({ params, searchParams }: Pro
           </>
         ) : (
           <p style={{ margin: '0 0 18px', color: '#475569', fontSize: '16px', lineHeight: 1.6 }}>
-            This referral category selection is not available. Please go back and choose one or more eligible categories.
+            This referral category selection is not available. Please go back and choose one eligible category.
           </p>
         )}
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>

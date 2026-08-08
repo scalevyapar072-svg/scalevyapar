@@ -17,25 +17,44 @@ export default function ReferralSelectionClient({
   referralCode: string
   categories: ReferralCategory[]
 }) {
-  const [selectedSlug, setSelectedSlug] = useState(categories[0]?.slug || '')
-  const selectedCategory = useMemo(
-    () => categories.find(category => category.slug === selectedSlug) || null,
-    [categories, selectedSlug]
+  const [selectedSlugs, setSelectedSlugs] = useState<string[]>([])
+  const selectedCategories = useMemo(
+    () => categories.filter(category => selectedSlugs.includes(category.slug)),
+    [categories, selectedSlugs]
   )
-  const continueHref = selectedCategory
-    ? `/r/${encodeURIComponent(referralCode)}/continue?category=${encodeURIComponent(selectedCategory.slug)}`
-    : ''
+  const continueHref = useMemo(() => {
+    if (selectedCategories.length === 0) {
+      return ''
+    }
+
+    const params = new URLSearchParams()
+    selectedCategories.forEach(category => params.append('category', category.slug))
+    return `/r/${encodeURIComponent(referralCode)}/continue?${params.toString()}`
+  }, [referralCode, selectedCategories])
+
+  const toggleCategory = (slug: string) => {
+    setSelectedSlugs(current =>
+      current.includes(slug)
+        ? current.filter(item => item !== slug)
+        : [...current, slug]
+    )
+  }
 
   return (
     <section style={{ display: 'grid', gap: '16px' }}>
+      <p style={{ margin: 0, color: '#475569', fontSize: '14px', fontWeight: 800 }}>
+        {selectedCategories.length === 0
+          ? 'Select at least one category to continue'
+          : `${selectedCategories.length} ${selectedCategories.length === 1 ? 'category' : 'categories'} selected`}
+      </p>
       <div style={{ display: 'grid', gap: '10px' }}>
         {categories.map(category => {
-          const selected = selectedSlug === category.slug
+          const selected = selectedSlugs.includes(category.slug)
           return (
             <button
               key={category.slug}
               type="button"
-              onClick={() => setSelectedSlug(category.slug)}
+              onClick={() => toggleCategory(category.slug)}
               style={{
                 border: selected ? '2px solid #0a2f75' : '1px solid #d9e2ef',
                 background: selected ? '#eef5ff' : '#ffffff',
@@ -56,12 +75,15 @@ export default function ReferralSelectionClient({
                   style={{
                     width: '22px',
                     height: '22px',
-                    borderRadius: '999px',
-                    border: selected ? '6px solid #0a2f75' : '2px solid #9aa8ba',
-                    background: '#fff',
+                    borderRadius: '6px',
+                    border: selected ? '2px solid #0a2f75' : '2px solid #9aa8ba',
+                    background: selected ? '#0a2f75' : '#fff',
+                    color: '#fff',
                     flex: '0 0 auto'
                   }}
-                />
+                >
+                  {selected ? '✓' : ''}
+                </span>
                 <span style={{ minWidth: 0 }}>
                   <strong style={{ display: 'block', color: '#0f172a', fontSize: '16px' }}>{category.name}</strong>
                   <span style={{ color: '#667085', fontSize: '13px' }}>
@@ -70,7 +92,7 @@ export default function ReferralSelectionClient({
                 </span>
               </span>
               <span style={{ color: selected ? '#0a2f75' : '#94a3b8', fontWeight: 800 }}>
-                {selected ? 'Selected' : 'Choose'}
+                {selected ? 'Selected' : 'Select'}
               </span>
             </button>
           )
@@ -79,17 +101,17 @@ export default function ReferralSelectionClient({
 
       <a
         href={continueHref || undefined}
-        aria-disabled={!selectedCategory}
+        aria-disabled={selectedCategories.length === 0}
         style={{
           borderRadius: '16px',
-          background: selectedCategory ? '#0a2f75' : '#94a3b8',
+          background: selectedCategories.length > 0 ? '#0a2f75' : '#94a3b8',
           color: '#fff',
           padding: '15px 18px',
           fontSize: '16px',
           fontWeight: 800,
           textDecoration: 'none',
           textAlign: 'center',
-          pointerEvents: selectedCategory ? 'auto' : 'none',
+          pointerEvents: selectedCategories.length > 0 ? 'auto' : 'none',
           boxShadow: '0 16px 32px rgba(10, 47, 117, 0.22)'
         }}
       >

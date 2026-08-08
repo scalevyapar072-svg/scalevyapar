@@ -3,7 +3,7 @@ import { getPublicReferralLandingData } from '../referral-public-data'
 
 type Props = {
   params: Promise<{ code: string }>
-  searchParams: Promise<{ category?: string }>
+  searchParams: Promise<{ category?: string | string[] }>
 }
 
 export const dynamic = 'force-dynamic'
@@ -11,15 +11,26 @@ export const revalidate = 0
 
 export const metadata: Metadata = {
   title: 'Referral Registration Context | Rozgar',
-  description: 'Referral category selection prepared for Rozgar registration.'
+  description: 'Referral category selections prepared for Rozgar registration.'
 }
 
 export default async function ReferralContinuePage({ params, searchParams }: Props) {
   const [{ code }, { category }] = await Promise.all([params, searchParams])
   const referral = await getPublicReferralLandingData(code)
-  const selectedCategory = referral.status === 'valid'
-    ? referral.categories.find(item => item.slug === String(category || '').trim())
-    : null
+  const requestedSlugs = (Array.isArray(category) ? category : [category])
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+  const uniqueRequestedSlugs = [...new Set(requestedSlugs)]
+  const selectedCategories = referral.status === 'valid'
+    ? uniqueRequestedSlugs
+      .map(slug => referral.categories.find(item => item.slug === slug) || null)
+      .filter(categoryItem => categoryItem !== null)
+    : []
+  const hasInvalidSelection =
+    referral.status !== 'valid' ||
+    uniqueRequestedSlugs.length === 0 ||
+    selectedCategories.length !== uniqueRequestedSlugs.length
+  const canPrepareContext = referral.status === 'valid' && !hasInvalidSelection
 
   return (
     <main style={{ minHeight: '100vh', background: 'linear-gradient(145deg, #eaf3ff 0%, #ffffff 52%, #fff4e6 100%)', padding: '24px 16px', boxSizing: 'border-box' }}>
@@ -28,20 +39,36 @@ export default async function ReferralContinuePage({ params, searchParams }: Pro
           Rozgar by ScaleVyapar
         </p>
         <h1 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '30px', lineHeight: 1.12 }}>
-          {referral.status === 'valid' && selectedCategory ? 'Referral context prepared' : 'Referral Selection Unavailable'}
+          {canPrepareContext ? 'Referral context prepared' : 'Referral Selection Unavailable'}
         </h1>
-        {referral.status === 'valid' && selectedCategory ? (
+        {canPrepareContext ? (
           <>
             <p style={{ margin: '0 0 16px', color: '#475569', fontSize: '16px', lineHeight: 1.6 }}>
-              Referral Code <strong>{referral.referralCode}</strong> is valid for <strong>{selectedCategory.name}</strong>.
+              Referral Code <strong>{referral.referralCode}</strong> is valid for the selected work categories.
             </p>
+            <div style={{ border: '1px solid #dbe6f4', borderRadius: '18px', padding: '14px', background: '#f8fbff', marginBottom: '18px' }}>
+              <strong style={{ display: 'block', marginBottom: '10px', color: '#0f172a' }}>Selected Work Categories</strong>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '8px' }}>
+                {selectedCategories.map(categoryItem => (
+                  <li key={categoryItem.slug} style={{ color: '#334155', fontSize: '15px', lineHeight: 1.4 }}>
+                    ✓ {categoryItem.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
             <p style={{ margin: '0 0 18px', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
-              Registration attribution is intentionally not connected in Phase 3. Phase 4 will revalidate this referral code and category before creating any referral record.
+              Registration attribution is intentionally not connected in Phase 3. Phase 4 will revalidate this referral code and every selected category before creating any referral record.
             </p>
+            <a
+              href="https://play.google.com/store/apps/details?id=in.scalevyapar.rozgar"
+              style={{ display: 'block', borderRadius: '16px', background: '#0a2f75', color: '#fff', padding: '15px 18px', fontSize: '16px', fontWeight: 800, textDecoration: 'none', textAlign: 'center', boxShadow: '0 16px 32px rgba(10, 47, 117, 0.22)', marginBottom: '16px' }}
+            >
+              Continue to Rozgar Registration
+            </a>
           </>
         ) : (
           <p style={{ margin: '0 0 18px', color: '#475569', fontSize: '16px', lineHeight: 1.6 }}>
-            This referral category selection is not available. Please go back and choose an eligible category.
+            This referral category selection is not available. Please go back and choose one or more eligible categories.
           </p>
         )}
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>

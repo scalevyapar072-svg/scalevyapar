@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { code } = await params
   return {
     title: `Rozgar Referral ${String(code || '').toUpperCase()} | ScaleVyapar`,
-    description: 'Choose your Rozgar work category from an approved referral invitation.'
+    description: 'Choose your Rozgar work categories from an approved referral invitation.'
   }
 }
 
@@ -116,7 +116,7 @@ export default async function PublicReferralLandingPage({ params }: Props) {
         </p>
         <h1 style={{ margin: '0 0 10px', fontSize: '34px', lineHeight: 1.08 }}>You have been invited to join Rozgar</h1>
         <p style={{ margin: '0 0 18px', color: '#475569', fontSize: '16px', lineHeight: 1.6 }}>
-          Invited by {referral.invitedBy}. Choose one work category to prepare your referral registration context.
+          Invited by {referral.invitedBy}. Choose one or more work categories to prepare your referral registration.
         </p>
         <div style={{ border: '1px solid #dbe6f4', borderRadius: '18px', padding: '14px', background: '#f8fbff', marginBottom: '20px' }}>
           <span style={{ display: 'block', color: '#64748b', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -124,7 +124,10 @@ export default async function PublicReferralLandingPage({ params }: Props) {
           </span>
           <strong style={{ color: '#0a2f75', fontSize: '22px', letterSpacing: '0.04em' }}>{referral.referralCode}</strong>
         </div>
-        <h2 style={{ margin: '0 0 12px', fontSize: '20px' }}>Choose your work category</h2>
+        <h2 style={{ margin: '0 0 6px', fontSize: '20px' }}>Choose one or more work categories</h2>
+        <p style={{ margin: '0 0 12px', color: '#64748b', fontSize: '14px', lineHeight: 1.5 }}>
+          Select all categories that match your skills.
+        </p>
         <ReferralSelectionClient referralCode={referral.referralCode} categories={referral.categories} />
         <p style={{ margin: '16px 0 0', color: '#667085', fontSize: '12px', lineHeight: 1.5 }}>
           Phase 3 note: registration attribution and Play Store deferred referral tracking are not active yet. Your selection is prepared for the next step only.

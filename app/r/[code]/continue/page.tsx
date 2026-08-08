@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getPublicReferralLandingData } from '../referral-public-data'
+import { buildRozgarPlayStoreReferralUrl } from '@/lib/rozgar-referral-context'
 
 type Props = {
   params: Promise<{ code: string }>
@@ -27,6 +28,12 @@ export default async function ReferralContinuePage({ params, searchParams }: Pro
     Array.isArray(category) ||
     !selectedCategory
   const canPrepareContext = referral.status === 'valid' && !hasInvalidSelection
+  const playStoreUrl = canPrepareContext && selectedCategory
+    ? buildRozgarPlayStoreReferralUrl({
+        referralCode: referral.referralCode,
+        categorySlug: selectedCategory.slug
+      })
+    : 'https://play.google.com/store/apps/details?id=in.scalevyapar.rozgar'
 
   return (
     <main style={{ minHeight: '100vh', background: 'linear-gradient(145deg, #eaf3ff 0%, #ffffff 52%, #fff4e6 100%)', padding: '24px 16px', boxSizing: 'border-box' }}>
@@ -47,10 +54,10 @@ export default async function ReferralContinuePage({ params, searchParams }: Pro
               <p style={{ margin: 0, color: '#334155', fontSize: '15px', lineHeight: 1.4 }}>{selectedCategory?.name}</p>
             </div>
             <p style={{ margin: '0 0 18px', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
-              Registration attribution is intentionally not connected in Phase 3. Phase 4 will revalidate this referral code and category before creating any referral record.
+              Rozgar will verify this referral code and selected category after app registration before creating any referral record.
             </p>
             <a
-              href="https://play.google.com/store/apps/details?id=in.scalevyapar.rozgar"
+              href={playStoreUrl}
               style={{ display: 'block', borderRadius: '16px', background: '#0a2f75', color: '#fff', padding: '15px 18px', fontSize: '16px', fontWeight: 800, textDecoration: 'none', textAlign: 'center', boxShadow: '0 16px 32px rgba(10, 47, 117, 0.22)', marginBottom: '16px' }}
             >
               Continue to Rozgar Registration
@@ -65,7 +72,7 @@ export default async function ReferralContinuePage({ params, searchParams }: Pro
           <a href={`/r/${encodeURIComponent(String(code || ''))}`} style={{ color: '#0a2f75', fontWeight: 800, textDecoration: 'none' }}>
             Back to referral page
           </a>
-          <a href="https://play.google.com/store/apps/details?id=in.scalevyapar.rozgar" style={{ color: '#0a2f75', fontWeight: 800, textDecoration: 'none' }}>
+          <a href={playStoreUrl} style={{ color: '#0a2f75', fontWeight: 800, textDecoration: 'none' }}>
             Download Rozgar App
           </a>
         </div>

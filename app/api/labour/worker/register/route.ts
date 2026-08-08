@@ -1,11 +1,15 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { completeWorkerAppRegistration, requireWorkerApp } from '@/lib/labour-worker-app'
+import { parseRozgarRegistrationReferralContext } from '@/lib/rozgar-referral-context'
 
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireWorkerApp(request)
     const payload = await request.json()
-    const dashboard = await completeWorkerAppRegistration(auth.workerId, {
+    const parsedReferralContext = payload.referralContext
+      ? parseRozgarRegistrationReferralContext(payload.referralContext)
+      : null
+    const result = await completeWorkerAppRegistration(auth.workerId, {
       fullName: String(payload.fullName || ''),
       city: String(payload.city || ''),
       homeCity: String(payload.homeCity || ''),
@@ -25,10 +29,16 @@ export async function POST(request: NextRequest) {
       identityProofType: payload.identityProofType || '',
       identityProofNumber: String(payload.identityProofNumber || ''),
       identityProofPath: String(payload.identityProofPath || ''),
-      resumeDocumentPath: String(payload.resumeDocumentPath || '')
+      resumeDocumentPath: String(payload.resumeDocumentPath || ''),
+      referralContext: parsedReferralContext?.ok ? parsedReferralContext.context : undefined,
+      referralContextInvalid: Boolean(parsedReferralContext && !parsedReferralContext.ok)
     })
 
-    return NextResponse.json({ success: true, dashboard })
+    return NextResponse.json({
+      success: true,
+      dashboard: result.dashboard,
+      referral: result.referral
+    })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to complete worker registration.' },
@@ -36,5 +46,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-

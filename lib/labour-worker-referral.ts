@@ -252,12 +252,16 @@ export const createLabourWorkerReferralService = (repository: WorkerReferralRepo
     referralCode,
     referredWorkerId,
     categoryId,
-    attributedAt = nowIso()
+    attributedAt = nowIso(),
+    referralStatus = 'attributed',
+    registeredAt = ''
   }: {
     referralCode: string
     referredWorkerId: string
     categoryId: string
     attributedAt?: string
+    referralStatus?: Extract<ReferralStatus, 'attributed' | 'registered'>
+    registeredAt?: string
   }) => {
     const normalizedCode = normalizeReferralCode(referralCode)
     const normalizedReferredWorkerId = normalizeId(referredWorkerId, 'Referred worker ID')
@@ -301,10 +305,10 @@ export const createLabourWorkerReferralService = (repository: WorkerReferralRepo
       referralCodeSnapshot: normalizedCode,
       categoryId: normalizedCategoryId,
       rewardAmountSnapshot: eligibility.rewardAmount,
-      referralStatus: 'attributed',
+      referralStatus,
       rewardStatus: 'pending',
       attributedAt,
-      registeredAt: '',
+      registeredAt,
       qualifiedAt: '',
       rewardedAt: '',
       rejectedAt: '',

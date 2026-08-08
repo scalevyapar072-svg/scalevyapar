@@ -35,6 +35,8 @@ import {
 } from './labour-whatsapp'
 import { supabaseAdmin } from './supabase-admin'
 import { sendTwoFactorOtp } from './two-factor'
+import { createReferralAttribution } from './labour-worker-referral'
+import { RozgarReferralContext } from './rozgar-referral-context'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
 const OTP_SESSION_ENCRYPTION_KEY = createHash('sha256')
@@ -164,6 +166,13 @@ export type WorkerRegistrationPayload = {
   identityProofNumber: string
   identityProofPath: string
   resumeDocumentPath?: string
+  referralContext?: RozgarReferralContext
+  referralContextInvalid?: boolean
+}
+
+export type WorkerRegistrationReferralResult = {
+  status: 'none' | 'accepted' | 'ignored' | 'invalid'
+  code?: string
 }
 
 export type WorkerAppWalletSummary = {
@@ -2973,6 +2982,42 @@ export const completeWorkerAppRegistration = async (
       : {})
   }, 'worker-app')
 
+  let referral: WorkerRegistrationReferralResult = { status: 'none' }
+  if (payload.referralContextInvalid) {
+    referral = { status: 'invalid', code: 'invalid-context' }
+  } else if (payload.referralContext) {
+    if (wasRegistrationCompleted) {
+      referral = { status: 'ignored', code: 'not-first-registration' }
+    } else {
+      const selectedCategory = snapshot.categories.find(category =>
+        category.slug === payload.referralContext?.categorySlug ||
+        category.id === payload.referralContext?.categorySlug
+      )
+      const registeredCategoryId = nextWorker.categoryIds.length === 1 ? nextWorker.categoryIds[0] : ''
+
+      if (!selectedCategory || !registeredCategoryId || selectedCategory.id !== registeredCategoryId) {
+        referral = { status: 'invalid', code: 'category-mismatch' }
+      } else {
+        try {
+          await createReferralAttribution({
+            referralCode: payload.referralContext.referralCode,
+            referredWorkerId: workerId,
+            categoryId: selectedCategory.id,
+            attributedAt: nextWorker.registrationCompletedAt,
+            referralStatus: 'registered',
+            registeredAt: nextWorker.registrationCompletedAt
+          })
+          referral = { status: 'accepted' }
+        } catch (error) {
+          referral = {
+            status: 'invalid',
+            code: error instanceof Error ? error.message : 'referral-attribution-failed'
+          }
+        }
+      }
+    }
+  }
+
   if (!wasRegistrationCompleted) {
     const jobCategories = nextWorker.categoryIds
       .map(categoryId => snapshot.categories.find(category => category.id === categoryId)?.name)
@@ -2993,7 +3038,8 @@ export const completeWorkerAppRegistration = async (
     })
   }
 
-  return getWorkerAppDashboard(workerId)
+  const dashboard = await getWorkerAppDashboard(workerId)
+  return { dashboard, referral }
 }
 
 export const updateWorkerAppProfile = async (

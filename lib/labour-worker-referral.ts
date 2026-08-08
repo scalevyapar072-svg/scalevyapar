@@ -10,7 +10,11 @@ export type ReferralStatus =
   | 'invalid'
 
 export type ReferralRewardStatus = 'pending' | 'available' | 'reversed'
-export type ReferralLedgerEntryType = 'reward_credit' | 'reward_reversal'
+export type ReferralLedgerEntryType =
+  | 'reward_credit'
+  | 'reward_reversal'
+  | 'withdrawal_debit'
+  | 'withdrawal_reversal'
 export type ReferralLedgerStatus = 'pending' | 'available' | 'reversed'
 
 export class LabourWorkerReferralError extends Error {
@@ -372,7 +376,7 @@ export const createLabourWorkerReferralService = (repository: WorkerReferralRepo
     const cleanAmount = normalizeAmount(amount, 'Ledger amount')
     const currentBalance = await getReferralBalance(normalizedWorkerId)
     const balanceAfter =
-      entryType === 'reward_credit'
+      entryType === 'reward_credit' || entryType === 'withdrawal_reversal'
         ? currentBalance + cleanAmount
         : currentBalance - cleanAmount
 

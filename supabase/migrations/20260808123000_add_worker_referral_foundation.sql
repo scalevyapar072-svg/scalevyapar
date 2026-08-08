@@ -123,7 +123,12 @@ create table if not exists public.worker_referral_ledger (
     on delete restrict,
   constraint worker_referral_ledger_reference_key unique (reference),
   constraint worker_referral_ledger_entry_type_check
-    check (entry_type in ('reward_credit', 'reward_reversal')),
+    check (entry_type in (
+      'reward_credit',
+      'reward_reversal',
+      'withdrawal_debit',
+      'withdrawal_reversal'
+    )),
   constraint worker_referral_ledger_amount_check
     check (amount > 0),
   constraint worker_referral_ledger_balance_after_check
@@ -150,11 +155,20 @@ create index if not exists worker_referrals_referrer_worker_idx
 create index if not exists worker_referrals_referred_worker_idx
   on public.worker_referrals(referred_worker_id);
 
+create index if not exists worker_referrals_referral_status_idx
+  on public.worker_referrals(referral_status);
+
+create index if not exists worker_referrals_reward_status_idx
+  on public.worker_referrals(reward_status);
+
 create index if not exists worker_referral_ledger_worker_created_idx
   on public.worker_referral_ledger(worker_id, created_at desc);
 
 create index if not exists worker_referral_ledger_referral_idx
   on public.worker_referral_ledger(referral_id);
+
+create index if not exists worker_referral_ledger_reference_idx
+  on public.worker_referral_ledger(reference);
 
 alter table public.worker_referral_profiles enable row level security;
 alter table public.worker_referral_category_eligibility enable row level security;

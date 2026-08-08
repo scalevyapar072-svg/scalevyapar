@@ -56,6 +56,7 @@ type RechargeRequestStatus = 'open' | 'contacted' | 'resolved' | 'closed'
 type LabourSection =
   | 'overview'
   | 'workers'
+  | 'referrals'
   | 'companies'
   | 'categories'
   | 'jobPosts'
@@ -73,6 +74,7 @@ type LabourSection =
   | 'settings'
   | 'auditLogs'
 type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'jobApplications' | 'savedJobs' | 'workerNotifications' | 'walletTransactions' | 'rechargeRequests'
+type ReferralAdminTab = 'dashboard' | 'referrers' | 'tracking' | 'ledger' | 'settings'
 type CategoryDependencyRow = {
   id: string
   categoryId: string
@@ -274,6 +276,77 @@ type AuditLog = {
   summary: string
   actor: string
   createdAt: string
+}
+
+type ReferralAdminProfile = {
+  id: string
+  workerId: string
+  referralCode: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+type ReferralAdminEligibility = {
+  id: string
+  referralProfileId: string
+  categoryId: string
+  rewardAmount: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+type ReferralAdminReferral = {
+  id: string
+  referrerWorkerId: string
+  referredWorkerId: string
+  referralProfileId: string
+  referralCodeSnapshot: string
+  categoryId: string
+  rewardAmountSnapshot: number
+  referralStatus: string
+  rewardStatus: string
+  attributedAt: string
+  registeredAt: string
+  qualifiedAt: string
+  rewardedAt: string
+  rejectedAt: string
+  invalidatedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+type ReferralAdminLedgerEntry = {
+  id: string
+  workerId: string
+  referralId: string
+  entryType: string
+  amount: number
+  balanceAfter: number
+  status: string
+  reference: string
+  remarks: string
+  createdAt: string
+}
+
+type ReferralAdminSnapshot = {
+  profiles: ReferralAdminProfile[]
+  eligibility: ReferralAdminEligibility[]
+  referrals: ReferralAdminReferral[]
+  ledger: ReferralAdminLedgerEntry[]
+  stats: {
+    totalReferrers: number
+    activeReferrers: number
+    totalReferrals: number
+    registered: number
+    kycPending: number
+    qualified: number
+    rejectedInvalid: number
+    rewardsCredited: number
+    availableReferralEarningsLiability: number
+    reversedRewards: number
+  }
 }
 
 type LabourSnapshot = {
@@ -742,6 +815,25 @@ const blankWorkerNotificationDraft: WorkerNotificationDraft = {
   relatedCompanyId: ''
 }
 
+const blankReferralAdminSnapshot: ReferralAdminSnapshot = {
+  profiles: [],
+  eligibility: [],
+  referrals: [],
+  ledger: [],
+  stats: {
+    totalReferrers: 0,
+    activeReferrers: 0,
+    totalReferrals: 0,
+    registered: 0,
+    kycPending: 0,
+    qualified: 0,
+    rejectedInvalid: 0,
+    rewardsCredited: 0,
+    availableReferralEarningsLiability: 0,
+    reversedRewards: 0
+  }
+}
+
 const blankLabourAdminSettings: LabourAdminSettings = {
   notificationTemplates: {
     applicationSubmittedTitle: 'Application received',
@@ -909,6 +1001,7 @@ const blankCompanyBillingHistoryFilters: CompanyBillingHistoryFilters = {
 const sectionLabels: Record<LabourSection, string> = {
   overview: 'Dashboard',
   workers: 'Workers',
+  referrals: 'Refer & Earn',
   companies: 'Companies',
   categories: 'Categories',
   jobPosts: 'Job Posts',
@@ -934,6 +1027,7 @@ const sectionNavItems: Array<{
 }> = [
   { key: 'overview', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'workers', label: 'Workers', icon: Users },
+  { key: 'referrals', label: 'Refer & Earn', icon: HandCoins },
   { key: 'companies', label: 'Companies', icon: Building2 },
   { key: 'categories', label: 'Categories', icon: Shapes },
   { key: 'jobPosts', label: 'Job Posts', icon: BriefcaseBusiness },
@@ -953,6 +1047,12 @@ const sectionNavItems: Array<{
 ]
 
 const formatCurrency = (value: number) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`
+
+const maskMobile = (value: string) => {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (digits.length < 4) return '-'
+  return `${digits.slice(0, 2)}******${digits.slice(-2)}`
+}
 
 const formatWorkerExpectedWageRange = (worker: Pick<LabourWorker, 'expectedDailyWage' | 'minimumExpectedWage' | 'maximumExpectedWage'>) => {
   const fallback = Number(worker.expectedDailyWage || 0)
@@ -1503,10 +1603,13 @@ const buildJobPostDescription = (jobPost: LabourJobPost) => {
 
 export default function LabourExchangeAdminPage() {
   const [snapshot, setSnapshot] = useState<LabourSnapshot | null>(null)
+  const [referralSnapshot, setReferralSnapshot] = useState<ReferralAdminSnapshot>(blankReferralAdminSnapshot)
   const [mastersSnapshot, setMastersSnapshot] = useState<LabourMastersSnapshot | null>(null)
   const [settingsDraft, setSettingsDraft] = useState<LabourAdminSettings>(blankLabourAdminSettings)
   const [settingsStorage, setSettingsStorage] = useState<'supabase' | 'json'>('json')
   const [loading, setLoading] = useState(true)
+  const [referralLoading, setReferralLoading] = useState(true)
+  const [referralSaving, setReferralSaving] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
@@ -1516,6 +1619,11 @@ export default function LabourExchangeAdminPage() {
   const [showAllWorkerPreferredStates, setShowAllWorkerPreferredStates] = useState(false)
   const [expandedWorkerPreferredCityStates, setExpandedWorkerPreferredCityStates] = useState<string[]>([])
   const [activeSection, setActiveSection] = useState<LabourSection>('overview')
+  const [referralAdminTab, setReferralAdminTab] = useState<ReferralAdminTab>('dashboard')
+  const [referralWorkerSearch, setReferralWorkerSearch] = useState('')
+  const [selectedReferralWorkerId, setSelectedReferralWorkerId] = useState('')
+  const [selectedReferralCategoryIds, setSelectedReferralCategoryIds] = useState<string[]>([])
+  const [referralRewardDraft, setReferralRewardDraft] = useState<Record<string, string>>({})
 
   const [categoryDraft, setCategoryDraft] = useState<LabourCategory>(blankCategory)
   const [planDraft, setPlanDraft] = useState<LabourPlan>(blankPlan)
@@ -1684,10 +1792,30 @@ export default function LabourExchangeAdminPage() {
     }
   }
 
+  const fetchReferralSnapshot = async () => {
+    setReferralLoading(true)
+
+    try {
+      const response = await fetch('/api/admin/labour/referrals', { cache: 'no-store' })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to load referral data.')
+      }
+
+      setReferralSnapshot(data)
+    } catch {
+      setError(current => current || 'Unable to load Refer & Earn data right now.')
+      setReferralSnapshot(blankReferralAdminSnapshot)
+    } finally {
+      setReferralLoading(false)
+    }
+  }
+
   useEffect(() => {
     void fetchSnapshot()
     void fetchSettings()
     void fetchMasters()
+    void fetchReferralSnapshot()
   }, [])
 
   const showSaved = (message: string) => {
@@ -3184,6 +3312,89 @@ export default function LabourExchangeAdminPage() {
   const getPlanName = (planId: string) => getPlanById(planId)?.name || planId || 'No plan'
   const activeCompanyPlans = snapshot.plans.filter(plan => plan.audience === 'company' && plan.isActive)
   const getWorkerById = (workerId: string) => snapshot.workers.find(worker => worker.id === workerId)
+  const getReferralProfileByWorkerId = (workerId: string) =>
+    referralSnapshot.profiles.find(profile => profile.workerId === workerId) || null
+  const getReferralEligibilityByProfileId = (referralProfileId: string) =>
+    referralSnapshot.eligibility.filter(eligibility => eligibility.referralProfileId === referralProfileId)
+  const openReferralWorker = (workerId: string, nextReferralSnapshot = referralSnapshot) => {
+    setSelectedReferralWorkerId(workerId)
+    const profile = nextReferralSnapshot.profiles.find(item => item.workerId === workerId)
+    const eligibility = profile
+      ? nextReferralSnapshot.eligibility.filter(item => item.referralProfileId === profile.id)
+      : []
+    setSelectedReferralCategoryIds(eligibility.filter(item => item.isActive).map(item => item.categoryId))
+    setReferralRewardDraft(Object.fromEntries(eligibility.map(item => [item.categoryId, String(item.rewardAmount || 0)])))
+    setReferralAdminTab('referrers')
+  }
+  const saveReferralProfileActive = async (workerId: string, isActive: boolean) => {
+    setError('')
+    setReferralSaving(true)
+
+    try {
+      const response = await fetch('/api/admin/labour/referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-profile-active', workerId, isActive })
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save referral profile.')
+      }
+
+      setReferralSnapshot(data.snapshot || blankReferralAdminSnapshot)
+      openReferralWorker(workerId, data.snapshot || blankReferralAdminSnapshot)
+      showSaved(isActive ? 'Refer & Earn enabled for worker' : 'Refer & Earn disabled for worker')
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save referral profile.')
+    } finally {
+      setReferralSaving(false)
+    }
+  }
+  const saveReferralEligibility = async () => {
+    const profile = getReferralProfileByWorkerId(selectedReferralWorkerId)
+    if (!profile) {
+      setError('Enable Refer & Earn for this worker before assigning categories.')
+      return
+    }
+
+    setError('')
+    setReferralSaving(true)
+
+    const activeCategoryIds = new Set(selectedReferralCategoryIds)
+    const existingCategoryIds = new Set(getReferralEligibilityByProfileId(profile.id).map(item => item.categoryId))
+    const categoryIds = Array.from(new Set([
+      ...Array.from(activeCategoryIds),
+      ...Array.from(existingCategoryIds)
+    ]))
+
+    try {
+      const response = await fetch('/api/admin/labour/referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'set-eligibility',
+          referralProfileId: profile.id,
+          entries: categoryIds.map(categoryId => ({
+            categoryId,
+            rewardAmount: Number(referralRewardDraft[categoryId] || 0),
+            isActive: activeCategoryIds.has(categoryId)
+          }))
+        })
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save referral categories.')
+      }
+
+      setReferralSnapshot(data.snapshot || blankReferralAdminSnapshot)
+      openReferralWorker(selectedReferralWorkerId, data.snapshot || blankReferralAdminSnapshot)
+      showSaved('Referral category eligibility saved')
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save referral categories.')
+    } finally {
+      setReferralSaving(false)
+    }
+  }
   const getCompanyName = (companyId: string) =>
     snapshot.companies.find(company => company.id === companyId)?.companyName || companyId
   const getCompanyById = (companyId: string) => snapshot.companies.find(company => company.id === companyId)
@@ -4184,6 +4395,44 @@ export default function LabourExchangeAdminPage() {
     { label: 'Unread Alerts', value: unreadWorkerNotificationsCount, accent: '#b45309' },
     { label: 'Wallet Revenue', value: formatCurrency(walletRevenue), accent: '#0f172a' },
     { label: 'Registration Revenue', value: formatCurrency(registrationRevenue), accent: '#1d4ed8' }
+  ]
+  const referralSearchTerm = referralWorkerSearch.trim().toLowerCase()
+  const referralWorkerRows = snapshot.workers
+    .filter(worker => {
+      if (!referralSearchTerm) return true
+      return [
+        worker.id,
+        worker.fullName,
+        worker.mobile,
+        worker.city,
+        worker.homeCity
+      ].some(value => String(value || '').toLowerCase().includes(referralSearchTerm))
+    })
+    .slice(0, 40)
+  const selectedReferralWorker = selectedReferralWorkerId ? getWorkerById(selectedReferralWorkerId) || null : null
+  const selectedReferralProfile = selectedReferralWorker
+    ? getReferralProfileByWorkerId(selectedReferralWorker.id)
+    : null
+  const selectedReferralEligibility = selectedReferralProfile
+    ? getReferralEligibilityByProfileId(selectedReferralProfile.id)
+    : []
+  const selectedReferralEligibilityByCategory = new Map(
+    selectedReferralEligibility.map(item => [item.categoryId, item])
+  )
+  const referralCategoryOptions = (snapshot.adminCategories || snapshot.categories)
+    .filter(category => category.isActive)
+    .sort((left, right) => left.name.localeCompare(right.name))
+  const referralMetricCards = [
+    { label: 'Total Referrers', value: referralSnapshot.stats.totalReferrers, accent: '#2563eb' },
+    { label: 'Active Referrers', value: referralSnapshot.stats.activeReferrers, accent: '#10b981' },
+    { label: 'Total Referrals', value: referralSnapshot.stats.totalReferrals, accent: '#0f766e' },
+    { label: 'Registered', value: referralSnapshot.stats.registered, accent: '#7c3aed' },
+    { label: 'KYC Pending', value: referralSnapshot.stats.kycPending, accent: '#f59e0b' },
+    { label: 'Qualified', value: referralSnapshot.stats.qualified, accent: '#047857' },
+    { label: 'Rejected / Invalid', value: referralSnapshot.stats.rejectedInvalid, accent: '#dc2626' },
+    { label: 'Rewards Credited', value: referralSnapshot.stats.rewardsCredited, accent: '#1d4ed8' },
+    { label: 'Available Liability', value: formatCurrency(referralSnapshot.stats.availableReferralEarningsLiability), accent: '#0f172a' },
+    { label: 'Reversed Rewards', value: formatCurrency(referralSnapshot.stats.reversedRewards), accent: '#be123c' }
   ]
 
   const downloadReportFile = (fileName: string, content: string, mimeType: string) => {
@@ -6613,6 +6862,277 @@ export default function LabourExchangeAdminPage() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {activeSection === 'referrals' && (
+          <div style={{ display: 'grid', gap: '20px' }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <div>
+                  <h2 style={{ margin: 0, color: '#0f172a', fontSize: '20px' }}>Refer & Earn</h2>
+                  <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '13px' }}>
+                    Manage referral profiles and category rewards without changing workers, wallets, KYC, or registration flows.
+                  </p>
+                </div>
+                <button onClick={() => void fetchReferralSnapshot()} style={subtleButtonStyle} disabled={referralLoading}>
+                  <RefreshCw size={16} /> Refresh Referrals
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {([
+                  ['dashboard', 'Dashboard'],
+                  ['referrers', 'Referrer Workers'],
+                  ['tracking', 'Referral Tracking'],
+                  ['ledger', 'Reward Ledger'],
+                  ['settings', 'Referral Settings']
+                ] as Array<[ReferralAdminTab, string]>).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setReferralAdminTab(key)}
+                    style={referralAdminTab === key ? primaryButtonStyle : subtleButtonStyle}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {referralAdminTab === 'dashboard' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px' }}>
+                {referralMetricCards.map(card => (
+                  <div key={card.label} style={{ ...cardStyle, padding: '16px' }}>
+                    <p style={{ margin: '0 0 8px', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+                      {card.label}
+                    </p>
+                    <p style={{ margin: 0, color: card.accent, fontSize: '24px', fontWeight: 800 }}>
+                      {card.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {referralAdminTab === 'referrers' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
+                <div style={cardStyle}>
+                  <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '18px' }}>Select Worker 1</h3>
+                  <input
+                    value={referralWorkerSearch}
+                    onChange={event => setReferralWorkerSearch(event.target.value)}
+                    placeholder="Search by worker name, ID, mobile, or city"
+                    style={{ ...inputStyle, marginBottom: '12px' }}
+                  />
+                  <div style={{ display: 'grid', gap: '10px', maxHeight: '520px', overflowY: 'auto' }}>
+                    {referralWorkerRows.map(worker => {
+                      const profile = getReferralProfileByWorkerId(worker.id)
+                      return (
+                        <button
+                          key={worker.id}
+                          onClick={() => openReferralWorker(worker.id)}
+                          style={{
+                            ...subtleButtonStyle,
+                            alignItems: 'flex-start',
+                            justifyContent: 'space-between',
+                            textAlign: 'left',
+                            borderColor: selectedReferralWorkerId === worker.id ? '#2563eb' : '#d7dfeb'
+                          }}
+                        >
+                          <span>
+                            <strong>{worker.fullName || worker.id}</strong>
+                            <span style={{ display: 'block', color: '#64748b', fontSize: '12px', marginTop: '3px' }}>
+                              {worker.mobile} | KYC {worker.kycStatus || getWorkerKycLabel(worker)}
+                            </span>
+                          </span>
+                          <span style={{ color: profile?.isActive ? '#047857' : '#64748b', fontSize: '12px' }}>
+                            {profile?.isActive ? 'Enabled' : profile ? 'Disabled' : 'Not enabled'}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  {!selectedReferralWorker ? (
+                    <p style={{ margin: 0, color: '#64748b' }}>Select a worker to manage their permanent referral link and eligible categories.</p>
+                  ) : (
+                    <div style={{ display: 'grid', gap: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                        <div>
+                          <h3 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '18px' }}>{selectedReferralWorker.fullName}</h3>
+                          <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                            ID: {selectedReferralWorker.id} | Mobile: {selectedReferralWorker.mobile} | KYC: {selectedReferralWorker.kycStatus || getWorkerKycLabel(selectedReferralWorker)}
+                          </p>
+                          <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '13px' }}>
+                            Current worker categories: {getWorkerCategoryIds(selectedReferralWorker).map(getCategoryName).join(', ') || 'None'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => void saveReferralProfileActive(selectedReferralWorker.id, !selectedReferralProfile?.isActive)}
+                          disabled={referralSaving}
+                          style={selectedReferralProfile?.isActive ? subtleButtonStyle : primaryButtonStyle}
+                        >
+                          {selectedReferralProfile?.isActive ? 'Disable Refer & Earn' : 'Enable Refer & Earn'}
+                        </button>
+                      </div>
+
+                      {selectedReferralProfile ? (
+                        <>
+                          <div style={{ ...compactFilterPanelStyle, alignItems: 'center' }}>
+                            <div style={{ flex: '1 1 180px' }}>
+                              <label style={labelStyle}>Referral Code</label>
+                              <strong style={{ color: '#0f172a', fontSize: '18px' }}>{selectedReferralProfile.referralCode}</strong>
+                            </div>
+                            <div style={{ flex: '2 1 320px' }}>
+                              <label style={labelStyle}>Future Referral Link</label>
+                              <code style={{ color: '#334155', fontSize: '13px', wordBreak: 'break-all' }}>
+                                https://rozgar.scalevyapar.in/r/{selectedReferralProfile.referralCode}
+                              </code>
+                              <p style={{ margin: '5px 0 0', color: '#94a3b8', fontSize: '12px' }}>
+                                Public landing page comes in Phase 3; this is display-only in Phase 2.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'grid', gap: '10px' }}>
+                            <h4 style={{ margin: 0, color: '#0f172a', fontSize: '15px' }}>Eligible Categories & Rewards</h4>
+                            {referralCategoryOptions.map(category => {
+                              const existing = selectedReferralEligibilityByCategory.get(category.id)
+                              const selected = selectedReferralCategoryIds.includes(category.id)
+                              return (
+                                <div key={category.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 150px', gap: '10px', alignItems: 'center' }}>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontSize: '13px', fontWeight: 600 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={selected}
+                                      onChange={event => setSelectedReferralCategoryIds(current =>
+                                        event.target.checked
+                                          ? Array.from(new Set([...current, category.id]))
+                                          : current.filter(id => id !== category.id)
+                                      )}
+                                    />
+                                    {category.name}
+                                    {existing && !existing.isActive ? <span style={{ color: '#94a3b8', fontSize: '12px' }}>(inactive mapping)</span> : null}
+                                  </label>
+                                  <input
+                                    value={referralRewardDraft[category.id] ?? String(existing?.rewardAmount || 0)}
+                                    onChange={event => setReferralRewardDraft(current => ({ ...current, [category.id]: event.target.value.replace(/[^\d.]/g, '') }))}
+                                    placeholder="Reward Rs"
+                                    style={inputStyle}
+                                    disabled={!selected}
+                                  />
+                                </div>
+                              )
+                            })}
+                            <button onClick={() => void saveReferralEligibility()} disabled={referralSaving} style={primaryButtonStyle}>
+                              Save Category Eligibility
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <p style={{ margin: 0, color: '#64748b' }}>Enable Refer & Earn to generate one permanent server-side referral code.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {referralAdminTab === 'tracking' && (
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '18px' }}>Referral Tracking</h3>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr>
+                        {['Referral Date', 'Worker 1', 'Worker 1 Mobile', 'Referral Code', 'Worker 2', 'Worker 2 Mobile', 'Category', 'Referral Status', 'KYC Status', 'Reward Snapshot', 'Reward Status', 'Qualified At'].map(label => (
+                          <th key={label} style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>{label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {referralSnapshot.referrals.length === 0 ? (
+                        <tr><td colSpan={12} style={{ padding: '14px', color: '#64748b' }}>No referral attributions yet.</td></tr>
+                      ) : referralSnapshot.referrals.map(referral => {
+                        const referrer = getWorkerById(referral.referrerWorkerId)
+                        const referred = getWorkerById(referral.referredWorkerId)
+                        return (
+                          <tr key={referral.id}>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{formatDateTime(referral.attributedAt)}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referrer?.fullName || referral.referrerWorkerId}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referrer?.mobile || '-'}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referral.referralCodeSnapshot}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referred?.fullName || referral.referredWorkerId}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{maskMobile(referred?.mobile || '')}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{getCategoryName(referral.categoryId)}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referral.referralStatus}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referred?.kycStatus || '-'}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{formatCurrency(referral.rewardAmountSnapshot)}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referral.rewardStatus}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referral.qualifiedAt ? formatDateTime(referral.qualifiedAt) : '-'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {referralAdminTab === 'ledger' && (
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '18px' }}>Reward Ledger</h3>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr>
+                        {['Date/Time', 'Worker', 'Referral ID', 'Entry Type', 'Amount', 'Balance After', 'Status', 'Reference', 'Remarks'].map(label => (
+                          <th key={label} style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>{label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {referralSnapshot.ledger.length === 0 ? (
+                        <tr><td colSpan={9} style={{ padding: '14px', color: '#64748b' }}>No referral ledger entries yet.</td></tr>
+                      ) : referralSnapshot.ledger.map(entry => {
+                        const worker = getWorkerById(entry.workerId)
+                        return (
+                          <tr key={entry.id}>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{formatDateTime(entry.createdAt)}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{worker?.fullName || entry.workerId}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{entry.referralId}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{entry.entryType}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{formatCurrency(entry.amount)}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{formatCurrency(entry.balanceAfter)}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{entry.status}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{entry.reference}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{entry.remarks || '-'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {referralAdminTab === 'settings' && (
+              <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 10px', color: '#0f172a', fontSize: '18px' }}>Referral Settings</h3>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
+                  Referral Program: ON/OFF global persistence is not created in Phase 2 because no separate settings table was approved in Phase 1.
+                </p>
+                <p style={{ margin: '10px 0 0', color: '#64748b', fontSize: '13px' }}>
+                  Category-specific rewards are managed per referrer worker in the Referrer Workers tab.
+                </p>
+                <div style={{ ...compactFilterPanelStyle, marginTop: '14px' }}>
+                  <strong style={{ color: '#0f172a' }}>Withdrawal Requests</strong>
+                  <span style={{ color: '#64748b' }}>Coming later. No payout or withdrawal functionality is active in Phase 2.</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -9786,7 +10306,7 @@ export default function LabourExchangeAdminPage() {
               <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation and linked tools</h3>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-                  {(['overview', 'workers', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'supportRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                  {(['overview', 'workers', 'referrals', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'supportRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
                     <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
                       Open {sectionLabels[section]}
                     </button>

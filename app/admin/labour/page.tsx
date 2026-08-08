@@ -1621,6 +1621,9 @@ export default function LabourExchangeAdminPage() {
   const [activeSection, setActiveSection] = useState<LabourSection>('overview')
   const [referralAdminTab, setReferralAdminTab] = useState<ReferralAdminTab>('dashboard')
   const [referralWorkerSearch, setReferralWorkerSearch] = useState('')
+  const [referralCategorySearch, setReferralCategorySearch] = useState('')
+  const [referralIndustryFilter, setReferralIndustryFilter] = useState('')
+  const [referralBusinessTypeFilter, setReferralBusinessTypeFilter] = useState('')
   const [selectedReferralWorkerId, setSelectedReferralWorkerId] = useState('')
   const [selectedReferralCategoryIds, setSelectedReferralCategoryIds] = useState<string[]>([])
   const [referralRewardDraft, setReferralRewardDraft] = useState<Record<string, string>>({})
@@ -4419,9 +4422,88 @@ export default function LabourExchangeAdminPage() {
   const selectedReferralEligibilityByCategory = new Map(
     selectedReferralEligibility.map(item => [item.categoryId, item])
   )
-  const referralCategoryOptions = (snapshot.adminCategories || snapshot.categories)
+  const referralIndustryOptions = buildLabourMasterSelectOptions(
+    visibleWorkerIndustryMasterOptions,
+    referralIndustryFilter ? [referralIndustryFilter] : []
+  )
+  const referralBusinessTypeOptions = buildLabourMasterSelectOptions(
+    filterBusinessTypesByIndustryDependency(
+      masterOptionsByKey.business_type || [],
+      masterOptionsByKey.industry_category || [],
+      mastersSnapshot?.industryBusinessDependencies || [],
+      referralIndustryFilter
+    ),
+    referralBusinessTypeFilter ? [referralBusinessTypeFilter] : []
+  )
+  const selectedReferralIndustryOption = referralIndustryFilter
+    ? findMatchingMasterOption(visibleWorkerIndustryMasterOptions, referralIndustryFilter)
+    : null
+  const selectedReferralBusinessTypeOption = referralBusinessTypeFilter
+    ? findMatchingMasterOption(visibleWorkerBusinessTypeMasterOptions, referralBusinessTypeFilter)
+    : null
+  const activeReferralCategories = (snapshot.adminCategories || snapshot.categories)
     .filter(category => category.isActive)
-    .sort((left, right) => left.name.localeCompare(right.name))
+  const activeReferralCategoryById = new Map(activeReferralCategories.map(category => [category.id, category]))
+  const selectedReferralCategorySummaries = selectedReferralCategoryIds
+    .map(categoryId => {
+      const category = activeReferralCategoryById.get(categoryId) || snapshot.categories.find(item => item.id === categoryId)
+      if (!category) return null
+      const existing = selectedReferralEligibilityByCategory.get(categoryId)
+      return {
+        id: categoryId,
+        name: category.name,
+        reward: referralRewardDraft[categoryId] ?? String(existing?.rewardAmount || 0)
+      }
+    })
+    .filter((item): item is { id: string; name: string; reward: string } => Boolean(item))
+  const referralCategorySearchTerm = referralCategorySearch.trim().toLowerCase()
+  const referralCategoryResultGroups = Object.values(
+    (mastersSnapshot?.categoryDependencies || []).reduce<Record<string, {
+      key: string
+      industryLabel: string
+      businessTypeLabel: string
+      rows: LabourCategory[]
+    }>>((groups, dependency) => {
+      if (!dependency.isActive) return groups
+      const category = activeReferralCategoryById.get(dependency.categoryId)
+      if (!category) return groups
+      const dependencyRows = categoryDependencyRowsByCategoryId[dependency.categoryId] || []
+      const dependencyRow = dependencyRows.find(row => row.id === dependency.id)
+      if (!dependencyRow?.isIndustryBusinessVisible || !dependencyRow.isIndustryOptionVisible || !dependencyRow.isBusinessTypeOptionVisible) {
+        return groups
+      }
+      if (selectedReferralIndustryOption && dependency.industryCategoryOptionId !== selectedReferralIndustryOption.id) return groups
+      if (selectedReferralBusinessTypeOption && dependency.businessTypeOptionId !== selectedReferralBusinessTypeOption.id) return groups
+
+      const searchableText = [
+        dependencyRow.industryCategoryLabel,
+        dependencyRow.businessTypeLabel,
+        category.name
+      ].join(' ').toLowerCase()
+      if (referralCategorySearchTerm && !searchableText.includes(referralCategorySearchTerm)) return groups
+
+      const key = `${dependency.industryCategoryOptionId}::${dependency.businessTypeOptionId}`
+      if (!groups[key]) {
+        groups[key] = {
+          key,
+          industryLabel: dependencyRow.industryCategoryLabel,
+          businessTypeLabel: dependencyRow.businessTypeLabel,
+          rows: []
+        }
+      }
+      if (!groups[key].rows.some(row => row.id === category.id)) {
+        groups[key].rows.push(category)
+      }
+      return groups
+    }, {})
+  )
+    .map(group => ({
+      ...group,
+      rows: group.rows.sort((left, right) => left.name.localeCompare(right.name))
+    }))
+    .sort((left, right) =>
+      `${left.industryLabel} ${left.businessTypeLabel}`.localeCompare(`${right.industryLabel} ${right.businessTypeLabel}`)
+    )
   const referralMetricCards = [
     { label: 'Total Referrers', value: referralSnapshot.stats.totalReferrers, accent: '#2563eb' },
     { label: 'Active Referrers', value: referralSnapshot.stats.activeReferrers, accent: '#10b981' },
@@ -6996,36 +7078,122 @@ export default function LabourExchangeAdminPage() {
                             </div>
                           </div>
 
-                          <div style={{ display: 'grid', gap: '10px' }}>
+                          <div style={{ display: 'grid', gap: '12px' }}>
                             <h4 style={{ margin: 0, color: '#0f172a', fontSize: '15px' }}>Eligible Categories & Rewards</h4>
-                            {referralCategoryOptions.map(category => {
-                              const existing = selectedReferralEligibilityByCategory.get(category.id)
-                              const selected = selectedReferralCategoryIds.includes(category.id)
-                              return (
-                                <div key={category.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 150px', gap: '10px', alignItems: 'center' }}>
-                                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontSize: '13px', fontWeight: 600 }}>
-                                    <input
-                                      type="checkbox"
-                                      checked={selected}
-                                      onChange={event => setSelectedReferralCategoryIds(current =>
-                                        event.target.checked
-                                          ? Array.from(new Set([...current, category.id]))
-                                          : current.filter(id => id !== category.id)
-                                      )}
-                                    />
-                                    {category.name}
-                                    {existing && !existing.isActive ? <span style={{ color: '#94a3b8', fontSize: '12px' }}>(inactive mapping)</span> : null}
-                                  </label>
-                                  <input
-                                    value={referralRewardDraft[category.id] ?? String(existing?.rewardAmount || 0)}
-                                    onChange={event => setReferralRewardDraft(current => ({ ...current, [category.id]: event.target.value.replace(/[^\d.]/g, '') }))}
-                                    placeholder="Reward Rs"
-                                    style={inputStyle}
-                                    disabled={!selected}
-                                  />
+                            <div style={{ ...compactFilterPanelStyle, alignItems: 'flex-end' }}>
+                              <div style={{ flex: '2 1 260px' }}>
+                                <label style={labelStyle}>Search</label>
+                                <input
+                                  value={referralCategorySearch}
+                                  onChange={event => setReferralCategorySearch(event.target.value)}
+                                  placeholder="Search industry, business type or worker category..."
+                                  style={inputStyle}
+                                />
+                              </div>
+                              <div style={{ flex: '1 1 190px' }}>
+                                <label style={labelStyle}>Industry Category</label>
+                                <select
+                                  value={referralIndustryFilter}
+                                  onChange={event => {
+                                    setReferralIndustryFilter(event.target.value)
+                                    setReferralBusinessTypeFilter('')
+                                  }}
+                                  style={inputStyle}
+                                >
+                                  <option value="">All Industries</option>
+                                  {referralIndustryOptions.map(option => (
+                                    <option key={option.id} value={option.value}>{option.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div style={{ flex: '1 1 190px' }}>
+                                <label style={labelStyle}>Business Type</label>
+                                <select
+                                  value={referralBusinessTypeFilter}
+                                  onChange={event => setReferralBusinessTypeFilter(event.target.value)}
+                                  style={inputStyle}
+                                  disabled={!referralIndustryFilter}
+                                >
+                                  <option value="">{referralIndustryFilter ? 'All Business Types' : 'Select Industry first'}</option>
+                                  {referralBusinessTypeOptions.map(option => (
+                                    <option key={option.id} value={option.value}>{option.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '18px', padding: '12px', background: '#f8fafc' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
+                                <strong style={{ color: '#0f172a', fontSize: '13px' }}>Selected Categories ({selectedReferralCategorySummaries.length})</strong>
+                                <span style={{ color: '#64748b', fontSize: '12px' }}>Selections stay saved while you filter.</span>
+                              </div>
+                              {selectedReferralCategorySummaries.length === 0 ? (
+                                <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>No referral categories selected yet.</p>
+                              ) : (
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                  {selectedReferralCategorySummaries.map(category => (
+                                    <span key={category.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1d4ed8', borderRadius: '999px', padding: '7px 10px', fontSize: '12px', fontWeight: 700 }}>
+                                      {category.name} - {formatCurrency(Number(category.reward || 0))}
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedReferralCategoryIds(current => current.filter(id => id !== category.id))}
+                                        style={{ border: '0', background: 'transparent', color: '#1d4ed8', cursor: 'pointer', fontWeight: 800, padding: 0 }}
+                                        aria-label={`Remove ${category.name}`}
+                                      >
+                                        x
+                                      </button>
+                                    </span>
+                                  ))}
                                 </div>
-                              )
-                            })}
+                              )}
+                            </div>
+
+                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '18px', overflow: 'hidden', background: '#fff' }}>
+                              <div style={{ display: 'grid', gap: '0', maxHeight: '430px', overflowY: 'auto' }}>
+                                {referralCategoryResultGroups.length === 0 ? (
+                                  <p style={{ margin: 0, padding: '16px', color: '#64748b', fontSize: '13px' }}>
+                                    No mapped worker categories found for the current search/filter.
+                                  </p>
+                                ) : referralCategoryResultGroups.map(group => (
+                                  <div key={group.key} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                    <div style={{ padding: '12px 14px', background: '#f8fafc' }}>
+                                      <strong style={{ display: 'block', color: '#0f172a', fontSize: '13px' }}>{group.industryLabel}</strong>
+                                      <span style={{ color: '#64748b', fontSize: '12px' }}>{group.businessTypeLabel}</span>
+                                    </div>
+                                    <div style={{ display: 'grid' }}>
+                                      {group.rows.map(category => {
+                                        const existing = selectedReferralEligibilityByCategory.get(category.id)
+                                        const selected = selectedReferralCategoryIds.includes(category.id)
+                                        return (
+                                          <div key={category.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 140px', gap: '10px', alignItems: 'center', padding: '10px 14px', borderTop: '1px solid #f1f5f9' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontSize: '13px', fontWeight: 600 }}>
+                                              <input
+                                                type="checkbox"
+                                                checked={selected}
+                                                onChange={event => setSelectedReferralCategoryIds(current =>
+                                                  event.target.checked
+                                                    ? Array.from(new Set([...current, category.id]))
+                                                    : current.filter(id => id !== category.id)
+                                                )}
+                                              />
+                                              {category.name}
+                                              {existing && !existing.isActive ? <span style={{ color: '#94a3b8', fontSize: '12px' }}>(inactive mapping)</span> : null}
+                                            </label>
+                                            <input
+                                              value={referralRewardDraft[category.id] ?? String(existing?.rewardAmount || 0)}
+                                              onChange={event => setReferralRewardDraft(current => ({ ...current, [category.id]: event.target.value.replace(/[^\d.]/g, '') }))}
+                                              placeholder="Reward Rs"
+                                              style={inputStyle}
+                                              disabled={!selected}
+                                            />
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                             <button onClick={() => void saveReferralEligibility()} disabled={referralSaving} style={primaryButtonStyle}>
                               Save Category Eligibility
                             </button>

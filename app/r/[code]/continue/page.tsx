@@ -28,7 +28,7 @@ export default async function ReferralContinuePage({ params, searchParams }: Pro
           Rozgar by ScaleVyapar
         </p>
         <h1 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '30px', lineHeight: 1.12 }}>
-          Referral context prepared
+          {referral.status === 'valid' && selectedCategory ? 'Referral context prepared' : 'Referral Selection Unavailable'}
         </h1>
         {referral.status === 'valid' && selectedCategory ? (
           <>

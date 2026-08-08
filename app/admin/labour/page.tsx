@@ -75,6 +75,7 @@ type LabourSection =
   | 'auditLogs'
 type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'jobApplications' | 'savedJobs' | 'workerNotifications' | 'walletTransactions' | 'rechargeRequests'
 type ReferralAdminTab = 'dashboard' | 'referrers' | 'tracking' | 'ledger' | 'settings'
+type ReferralWorkerStatusFilter = 'all' | 'enabled' | 'not_enabled'
 type CategoryDependencyRow = {
   id: string
   categoryId: string
@@ -1621,6 +1622,7 @@ export default function LabourExchangeAdminPage() {
   const [activeSection, setActiveSection] = useState<LabourSection>('overview')
   const [referralAdminTab, setReferralAdminTab] = useState<ReferralAdminTab>('dashboard')
   const [referralWorkerSearch, setReferralWorkerSearch] = useState('')
+  const [referralWorkerStatusFilter, setReferralWorkerStatusFilter] = useState<ReferralWorkerStatusFilter>('all')
   const [referralCategorySearch, setReferralCategorySearch] = useState('')
   const [referralIndustryFilter, setReferralIndustryFilter] = useState('')
   const [referralBusinessTypeFilter, setReferralBusinessTypeFilter] = useState('')
@@ -4400,8 +4402,19 @@ export default function LabourExchangeAdminPage() {
     { label: 'Registration Revenue', value: formatCurrency(registrationRevenue), accent: '#1d4ed8' }
   ]
   const referralSearchTerm = referralWorkerSearch.trim().toLowerCase()
+  const enabledReferralWorkerIds = new Set(
+    referralSnapshot.profiles.filter(profile => profile.isActive).map(profile => profile.workerId)
+  )
+  const referralWorkerStatusFilterOptions: Array<{ key: ReferralWorkerStatusFilter; label: string; count: number }> = [
+    { key: 'all', label: 'All Workers', count: snapshot.workers.length },
+    { key: 'enabled', label: 'Enabled', count: snapshot.workers.filter(worker => enabledReferralWorkerIds.has(worker.id)).length },
+    { key: 'not_enabled', label: 'Not Enabled', count: snapshot.workers.filter(worker => !enabledReferralWorkerIds.has(worker.id)).length }
+  ]
   const referralWorkerRows = snapshot.workers
     .filter(worker => {
+      const isEnabledReferralWorker = enabledReferralWorkerIds.has(worker.id)
+      if (referralWorkerStatusFilter === 'enabled' && !isEnabledReferralWorker) return false
+      if (referralWorkerStatusFilter === 'not_enabled' && isEnabledReferralWorker) return false
       if (!referralSearchTerm) return true
       return [
         worker.id,
@@ -7006,6 +7019,22 @@ export default function LabourExchangeAdminPage() {
                     placeholder="Search by worker name, ID, mobile, or city"
                     style={{ ...inputStyle, marginBottom: '12px' }}
                   />
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                    {referralWorkerStatusFilterOptions.map(option => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setReferralWorkerStatusFilter(option.key)}
+                        style={{
+                          ...(referralWorkerStatusFilter === option.key ? primaryButtonStyle : subtleButtonStyle),
+                          padding: '8px 10px',
+                          fontSize: '12px'
+                        }}
+                      >
+                        {option.label} ({option.count})
+                      </button>
+                    ))}
+                  </div>
                   <div style={{ display: 'grid', gap: '10px', maxHeight: '520px', overflowY: 'auto' }}>
                     {referralWorkerRows.map(worker => {
                       const profile = getReferralProfileByWorkerId(worker.id)

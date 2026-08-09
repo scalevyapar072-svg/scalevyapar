@@ -35,7 +35,7 @@ import {
 } from './labour-whatsapp'
 import { supabaseAdmin } from './supabase-admin'
 import { sendTwoFactorOtp } from './two-factor'
-import { createReferralAttribution } from './labour-worker-referral'
+import { createReferralAttribution, getReferralProfileByCode, listReferralEligibleCategories } from './labour-worker-referral'
 import { RozgarReferralContext } from './rozgar-referral-context'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
@@ -281,6 +281,17 @@ export type WorkerAppCategoryDependency = {
   categoryId: string
   categoryName: string
   categorySlug: string
+}
+
+export type WorkerRegistrationReferralEligibility = {
+  referralValid: boolean
+  eligibleCategories: Array<{
+    categoryId: string
+    categorySlug: string
+    categoryName: string
+    industryId: string
+    businessTypeId: string
+  }>
 }
 
 export type WorkerApplicationDeliveryDebugItem = {
@@ -2882,6 +2893,50 @@ export const uploadWorkerRegistrationAsset = async (
   }
 }
 
+export const getWorkerRegistrationReferralEligibility = async (
+  referralCode: string
+): Promise<WorkerRegistrationReferralEligibility> => {
+  const profile = await getReferralProfileByCode(referralCode)
+  if (!profile || !profile.isActive) {
+    return { referralValid: false, eligibleCategories: [] }
+  }
+
+  const [snapshot, adminSettings, eligibilityRows] = await Promise.all([
+    getLabourMarketplaceSnapshot(),
+    getLabourAdminSettings(),
+    listReferralEligibleCategories(profile.id)
+  ])
+  const masterData = await readLabourMasterData(
+    snapshot.categories,
+    adminSettings.settings.workerHomeControls.popularCitySuggestions
+  )
+  const activeEligibleCategoryIds = new Set(
+    eligibilityRows
+      .filter(row => row.isActive)
+      .map(row => normalizeComparableKey(row.categoryId))
+      .filter(Boolean)
+  )
+
+  if (activeEligibleCategoryIds.size === 0) {
+    return { referralValid: false, eligibleCategories: [] }
+  }
+
+  const eligibleCategories = masterData.categoryDependencies
+    .filter(dependency => activeEligibleCategoryIds.has(normalizeComparableKey(dependency.categoryId)))
+    .map(dependency => ({
+      categoryId: dependency.categoryId,
+      categorySlug: dependency.categorySlug,
+      categoryName: dependency.categoryName,
+      industryId: dependency.industryCategory.id,
+      businessTypeId: dependency.businessType?.id || ''
+    }))
+
+  return {
+    referralValid: eligibleCategories.length > 0,
+    eligibleCategories
+  }
+}
+
 export const completeWorkerAppRegistration = async (
   workerId: string,
   payload: WorkerRegistrationPayload
@@ -2989,20 +3044,16 @@ export const completeWorkerAppRegistration = async (
     if (wasRegistrationCompleted) {
       referral = { status: 'ignored', code: 'not-first-registration' }
     } else {
-      const selectedCategory = snapshot.categories.find(category =>
-        category.slug === payload.referralContext?.categorySlug ||
-        category.id === payload.referralContext?.categorySlug
-      )
       const registeredCategoryId = nextWorker.categoryIds.length === 1 ? nextWorker.categoryIds[0] : ''
 
-      if (!selectedCategory || !registeredCategoryId || selectedCategory.id !== registeredCategoryId) {
-        referral = { status: 'invalid', code: 'category-mismatch' }
+      if (!registeredCategoryId) {
+        referral = { status: 'invalid', code: 'category-missing' }
       } else {
         try {
           await createReferralAttribution({
             referralCode: payload.referralContext.referralCode,
             referredWorkerId: workerId,
-            categoryId: selectedCategory.id,
+            categoryId: registeredCategoryId,
             attributedAt: nextWorker.registrationCompletedAt,
             referralStatus: 'registered',
             registeredAt: nextWorker.registrationCompletedAt

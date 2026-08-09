@@ -1,7 +1,7 @@
 export type RozgarReferralContext = {
-  version: 1
+  version: 1 | 2
   referralCode: string
-  categorySlug: string
+  suggestedCategorySlug?: string
   source?: 'play_install_referrer'
 }
 
@@ -38,33 +38,36 @@ export const parseRozgarPlayReferrerPayload = (payload: string): RozgarReferralP
     return { ok: false, reason: 'malformed' }
   }
 
-  if (
-    params.getAll('v').length !== 1 ||
-    params.getAll('rzg_ref').length !== 1 ||
-    params.getAll('cat').length !== 1
-  ) {
+  if (params.getAll('v').length !== 1 || params.getAll('rzg_ref').length !== 1) {
     return { ok: false, reason: 'duplicate-or-missing' }
   }
 
-  if (params.get('v') !== '1') {
+  const version = Number(params.get('v'))
+  if (version !== 1 && version !== 2) {
     return { ok: false, reason: 'unsupported-version' }
+  }
+  if (version === 1 && params.getAll('cat').length !== 1) {
+    return { ok: false, reason: 'duplicate-or-missing' }
+  }
+  if (version === 2 && params.getAll('cat').length > 1) {
+    return { ok: false, reason: 'duplicate-or-missing' }
   }
 
   const referralCode = normalizeRozgarReferralCode(params.get('rzg_ref'))
-  const categorySlug = normalizeCategoryReference(params.get('cat'))
+  const suggestedCategorySlug = normalizeCategoryReference(params.get('cat'))
   if (!REFERRAL_CODE_PATTERN.test(referralCode)) {
     return { ok: false, reason: 'invalid-referral-code' }
   }
-  if (!CATEGORY_REFERENCE_PATTERN.test(categorySlug)) {
+  if (suggestedCategorySlug && !CATEGORY_REFERENCE_PATTERN.test(suggestedCategorySlug)) {
     return { ok: false, reason: 'invalid-category' }
   }
 
   return {
     ok: true,
     context: {
-      version: 1,
+      version,
       referralCode,
-      categorySlug,
+      ...(suggestedCategorySlug ? { suggestedCategorySlug } : {}),
       source: 'play_install_referrer'
     }
   }
@@ -76,17 +79,18 @@ export const parseRozgarRegistrationReferralContext = (value: unknown): RozgarRe
   }
 
   const input = value as Record<string, unknown>
-  if (Number(input.version) !== 1) {
+  const version = Number(input.version)
+  if (version !== 1 && version !== 2) {
     return { ok: false, reason: 'unsupported-version' }
   }
 
   const referralCode = normalizeRozgarReferralCode(input.referralCode)
-  const categorySlug = normalizeCategoryReference(input.categorySlug)
+  const suggestedCategorySlug = normalizeCategoryReference(input.suggestedCategorySlug || input.categorySlug)
   const source = String(input.source || '').trim()
   if (!REFERRAL_CODE_PATTERN.test(referralCode)) {
     return { ok: false, reason: 'invalid-referral-code' }
   }
-  if (!CATEGORY_REFERENCE_PATTERN.test(categorySlug)) {
+  if (suggestedCategorySlug && !CATEGORY_REFERENCE_PATTERN.test(suggestedCategorySlug)) {
     return { ok: false, reason: 'invalid-category' }
   }
   if (source && source !== 'play_install_referrer') {
@@ -96,9 +100,9 @@ export const parseRozgarRegistrationReferralContext = (value: unknown): RozgarRe
   return {
     ok: true,
     context: {
-      version: 1,
+      version,
       referralCode,
-      categorySlug,
+      ...(suggestedCategorySlug ? { suggestedCategorySlug } : {}),
       source: 'play_install_referrer'
     }
   }
@@ -106,18 +110,23 @@ export const parseRozgarRegistrationReferralContext = (value: unknown): RozgarRe
 
 export const buildRozgarPlayReferrerPayload = (input: {
   referralCode: string
-  categorySlug: string
+  categorySlug?: string
+  version?: 1 | 2
 }) => {
   const params = new URLSearchParams()
-  params.set('v', '1')
+  params.set('v', String(input.version || (input.categorySlug ? 1 : 2)))
   params.set('rzg_ref', normalizeRozgarReferralCode(input.referralCode))
-  params.set('cat', normalizeCategoryReference(input.categorySlug))
+  const categorySlug = normalizeCategoryReference(input.categorySlug)
+  if (categorySlug) {
+    params.set('cat', categorySlug)
+  }
   return params.toString()
 }
 
 export const buildRozgarPlayStoreReferralUrl = (input: {
   referralCode: string
-  categorySlug: string
+  categorySlug?: string
+  version?: 1 | 2
 }) => {
   const url = new URL(PLAY_STORE_URL)
   url.searchParams.set('id', ROZGAR_PACKAGE)

@@ -5,6 +5,7 @@ import {
   getLabourMastersSnapshot,
   purgeInactiveLabourCategoryDependenciesForCategory
 } from './labour-masters'
+import { qualifyWorkerReferralAfterKycApproval } from './labour-worker-referral'
 import { supabaseAdmin } from './supabase-admin'
 
 export type LabourEntityType =
@@ -298,6 +299,11 @@ const STORAGE_TABLES = {
   rechargeRequests: 'labour_recharge_requests',
   auditLogs: 'labour_audit_logs'
 } as const
+
+const REFERRED_WORKER_DELETE_MESSAGE =
+  'This worker cannot be deleted because the worker was registered through Refer & Earn history. Deactivate the worker instead.'
+const REFERRER_WORKER_DELETE_MESSAGE =
+  'This worker cannot be deleted because the worker has Refer & Earn history. Deactivate the worker instead.'
 
 const defaultData: LabourMarketplaceData = {
   categories: [
@@ -2328,6 +2334,65 @@ const buildCategoryDeletionBlockedMessage = (
   return `Cannot delete category ${categoryName} (${categorySlug}). Linked records found: ${details.join(', ')}.${mappingSummary}${nextStepSummary}`
 }
 
+const getReferralWorkerDeleteConflictMessage = async (workerId: string) => {
+  const [
+    { count: referredWorkerCount, error: referredWorkerError },
+    { count: referrerWorkerCount, error: referrerWorkerError },
+    { count: referralProfileCount, error: referralProfileError },
+    { count: referralLedgerCount, error: referralLedgerError }
+  ] = await Promise.all([
+    supabaseAdmin.from('worker_referrals').select('id', { count: 'exact', head: true }).eq('referred_worker_id', workerId),
+    supabaseAdmin.from('worker_referrals').select('id', { count: 'exact', head: true }).eq('referrer_worker_id', workerId),
+    supabaseAdmin.from('worker_referral_profiles').select('id', { count: 'exact', head: true }).eq('worker_id', workerId),
+    supabaseAdmin.from('worker_referral_ledger').select('id', { count: 'exact', head: true }).eq('worker_id', workerId)
+  ])
+
+  if (referredWorkerError) throw new Error(`Failed to check referred worker history: ${referredWorkerError.message}`)
+  if (referrerWorkerError) throw new Error(`Failed to check referrer worker history: ${referrerWorkerError.message}`)
+  if (referralProfileError) throw new Error(`Failed to check referral profile history: ${referralProfileError.message}`)
+  if (referralLedgerError) throw new Error(`Failed to check referral ledger history: ${referralLedgerError.message}`)
+
+  if ((referredWorkerCount || 0) > 0) return REFERRED_WORKER_DELETE_MESSAGE
+  if ((referrerWorkerCount || 0) > 0 || (referralProfileCount || 0) > 0 || (referralLedgerCount || 0) > 0) {
+    return REFERRER_WORKER_DELETE_MESSAGE
+  }
+
+  return ''
+}
+
+const getReferralWorkerDeleteConstraintMessage = (error: unknown) => {
+  const postgresError = error as {
+    code?: string
+    message?: string
+    details?: string
+    hint?: string
+  }
+
+  if (postgresError.code !== '23503') return ''
+
+  const errorText = `${postgresError.message || ''} ${postgresError.details || ''} ${postgresError.hint || ''}`.toLowerCase()
+  if (errorText.includes('worker_referrals_referred_worker_fkey') || errorText.includes('referred_worker_id')) {
+    return REFERRED_WORKER_DELETE_MESSAGE
+  }
+
+  if (
+    errorText.includes('worker_referrals_referrer_worker_fkey') ||
+    errorText.includes('worker_referral_profiles_worker_id_fkey') ||
+    errorText.includes('worker_referral_ledger_worker_fkey') ||
+    errorText.includes('referrer_worker_id') ||
+    errorText.includes('worker_referral_profiles') ||
+    errorText.includes('worker_referral_ledger')
+  ) {
+    return REFERRER_WORKER_DELETE_MESSAGE
+  }
+
+  if (errorText.includes('worker_referrals')) {
+    return REFERRED_WORKER_DELETE_MESSAGE
+  }
+
+  return ''
+}
+
 const assertCategoryDeletionIsSafe = async (id: string, actor: string) => {
   const snapshot = await readSupabaseData()
   const category = snapshot.categories.find(record => record.id === id)
@@ -3742,6 +3807,13 @@ export const updateLabourEntity = async (
         if (transactionError) throw new Error(`Failed to create worker plan wallet credit transaction: ${transactionError.message}`)
       }
       await writeSupabaseAuditLog('update', entityType, id, buildWorkerUpdateAuditSummary(record, payload), actor)
+      if (existing.kycStatus !== 'approved' && record.kycStatus === 'approved') {
+        try {
+          await qualifyWorkerReferralAfterKycApproval(id)
+        } catch (qualificationError) {
+          console.error('Worker referral qualification after KYC approval failed:', qualificationError)
+        }
+      }
       break
     }
     case 'companies': {
@@ -4082,8 +4154,18 @@ export const deleteLabourEntity = async (
       const existing = (await readSupabaseData()).workers.find(record => record.id === id)
       if (!existing) return null
       summary = `Deleted worker ${existing.fullName}`
+      const referralDeleteConflictMessage = await getReferralWorkerDeleteConflictMessage(id)
+      if (referralDeleteConflictMessage) {
+        throw new LabourEntityConflictError(referralDeleteConflictMessage)
+      }
       const { error } = await supabaseAdmin.from(STORAGE_TABLES.workers).delete().eq('id', id)
-      if (error) throw new Error(`Failed to delete labour worker: ${error.message}`)
+      if (error) {
+        const referralConstraintMessage = getReferralWorkerDeleteConstraintMessage(error)
+        if (referralConstraintMessage) {
+          throw new LabourEntityConflictError(referralConstraintMessage)
+        }
+        throw new Error(`Failed to delete labour worker: ${error.message}`)
+      }
       break
     }
     case 'companies': {

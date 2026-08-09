@@ -107,6 +107,7 @@ export interface WorkerReferralRepository {
   ): Promise<WorkerReferralCategoryEligibility>
   findReferralByReferredWorkerId(workerId: string): Promise<WorkerReferral | null>
   insertReferral(referral: WorkerReferral): Promise<WorkerReferral>
+  qualifyReferral(referralId: string, qualifiedAt: string): Promise<WorkerReferral | null>
   listReferralsByReferrer(workerId: string): Promise<WorkerReferral[]>
   findLedgerByReference(reference: string): Promise<WorkerReferralLedgerEntry | null>
   listLedgerByWorker(workerId: string): Promise<WorkerReferralLedgerEntry[]>
@@ -339,6 +340,17 @@ export const createLabourWorkerReferralService = (repository: WorkerReferralRepo
   const getReferralForReferredWorker = async (workerId: string) =>
     repository.findReferralByReferredWorkerId(normalizeId(workerId, 'Worker ID'))
 
+  const qualifyReferralAfterKycApproval = async (workerId: string) => {
+    const referral = await repository.findReferralByReferredWorkerId(normalizeId(workerId, 'Worker ID'))
+    if (!referral) return null
+    if (referral.referralStatus === 'qualified') return referral
+    if (referral.referralStatus !== 'registered') return referral
+    if (referral.rewardStatus !== 'pending') return referral
+
+    const qualifiedAt = referral.qualifiedAt || nowIso()
+    return repository.qualifyReferral(referral.id, qualifiedAt)
+  }
+
   const listReferralsForReferrer = async (workerId: string) =>
     repository.listReferralsByReferrer(normalizeId(workerId, 'Worker ID'))
 
@@ -464,6 +476,7 @@ export const createLabourWorkerReferralService = (repository: WorkerReferralRepo
     setReferralCategoryEligibility,
     createReferralAttribution,
     getReferralForReferredWorker,
+    qualifyReferralAfterKycApproval,
     listReferralsForReferrer,
     getReferralLedger,
     getReferralBalance,
@@ -481,6 +494,7 @@ const isUniqueViolation = (error: unknown) => {
 type SupabaseQueryBuilderLike = {
   select(columns?: string): SupabaseQueryBuilderLike
   insert(payload: unknown): SupabaseQueryBuilderLike
+  update(payload: unknown): SupabaseQueryBuilderLike
   upsert(payload: unknown, options?: unknown): SupabaseQueryBuilderLike
   eq(column: string, value: string): SupabaseQueryBuilderLike
   maybeSingle(): unknown
@@ -658,6 +672,22 @@ export const createSupabaseWorkerReferralRepository = (client: SupabaseClientLik
       }).select('*').single(),
       rowToReferral
     ),
+  qualifyReferral: async (referralId, qualifiedAt) =>
+    unwrapSingle(
+      client
+        .from('worker_referrals')
+        .update({
+          referral_status: 'qualified',
+          qualified_at: qualifiedAt,
+          updated_at: qualifiedAt
+        })
+        .eq('id', referralId)
+        .eq('referral_status', 'registered')
+        .eq('reward_status', 'pending')
+        .select('*')
+        .maybeSingle(),
+      rowToReferral
+    ),
   listReferralsByReferrer: async workerId =>
     unwrapList(
       client.from('worker_referrals').select('*').eq('referrer_worker_id', workerId),
@@ -720,6 +750,9 @@ export const createReferralAttribution = async (
 
 export const getReferralForReferredWorker = async (workerId: string) =>
   (await getDefaultService()).getReferralForReferredWorker(workerId)
+
+export const qualifyWorkerReferralAfterKycApproval = async (workerId: string) =>
+  (await getDefaultService()).qualifyReferralAfterKycApproval(workerId)
 
 export const listReferralsForReferrer = async (workerId: string) =>
   (await getDefaultService()).listReferralsForReferrer(workerId)

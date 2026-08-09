@@ -78,6 +78,25 @@ const makeRepository = () => {
       state.referrals.set(referral.id, referral)
       return referral
     },
+    async qualifyReferral(referralId, qualifiedAt) {
+      const referral = state.referrals.get(referralId)
+      if (
+        !referral ||
+        referral.referralStatus !== 'registered' ||
+        referral.rewardStatus !== 'pending'
+      ) {
+        return null
+      }
+
+      const updated = {
+        ...referral,
+        referralStatus: 'qualified',
+        qualifiedAt,
+        updatedAt: qualifiedAt
+      }
+      state.referrals.set(referralId, updated)
+      return updated
+    },
     async listReferralsByReferrer(workerId) {
       return [...state.referrals.values()].filter(referral => referral.referrerWorkerId === workerId)
     },
@@ -253,6 +272,64 @@ const run = async () => {
   assert.equal(await service.getReferralBalance('worker-1'), 0, 'referral balance reflects reversal')
   assert.equal(repository.state.walletBalance.get('worker-1'), 500, 'existing main wallet remains unchanged')
   assert.equal(repository.state.walletTransactions.length, 0, 'labour_wallet_transactions remains untouched')
+
+  const phase5Repository = makeRepository()
+  const phase5Service = createLabourWorkerReferralService(phase5Repository)
+  const phase5Profile = await phase5Service.ensureReferralProfileForWorker('worker-1')
+  await phase5Service.setReferralCategoryEligibility({
+    referralProfileId: phase5Profile.id,
+    categoryId: 'cat-active-a',
+    rewardAmount: 50
+  })
+  const registeredReferral = await phase5Service.createReferralAttribution({
+    referralCode: phase5Profile.referralCode,
+    referredWorkerId: 'worker-2',
+    categoryId: 'cat-active-a',
+    referralStatus: 'registered',
+    registeredAt: '2026-08-10T00:00:00.000Z'
+  })
+
+  const qualifiedReferral = await phase5Service.qualifyReferralAfterKycApproval('worker-2')
+  assert.equal(qualifiedReferral.referralStatus, 'qualified', 'KYC approval qualifies registered referral')
+  assert.equal(qualifiedReferral.rewardStatus, 'pending', 'qualification keeps reward pending')
+  assert.ok(qualifiedReferral.qualifiedAt, 'qualification timestamp is set')
+  assert.equal(phase5Repository.state.ledger.size, 0, 'qualification does not create referral ledger rows')
+  assert.equal(phase5Repository.state.walletBalance.get('worker-1'), 500, 'qualification does not change main wallet')
+  assert.equal(phase5Repository.state.walletTransactions.length, 0, 'qualification does not create labour wallet transactions')
+
+  const firstQualifiedAt = qualifiedReferral.qualifiedAt
+  const repeatedQualification = await phase5Service.qualifyReferralAfterKycApproval('worker-2')
+  assert.equal(repeatedQualification.qualifiedAt, firstQualifiedAt, 'repeated KYC approval keeps qualified_at unchanged')
+  assert.equal(phase5Repository.state.referrals.size, 1, 'repeated KYC approval does not duplicate referral')
+
+  const noReferralQualification = await phase5Service.qualifyReferralAfterKycApproval('worker-3')
+  assert.equal(noReferralQualification, null, 'worker with no referral is ignored')
+
+  const pendingReferral = {
+    ...registeredReferral,
+    id: 'referral-pending',
+    referredWorkerId: 'worker-3',
+    referralStatus: 'registered',
+    rewardStatus: 'available',
+    qualifiedAt: '',
+    updatedAt: registeredReferral.updatedAt
+  }
+  phase5Repository.state.referrals.set(pendingReferral.id, pendingReferral)
+  const rewardAvailableResult = await phase5Service.qualifyReferralAfterKycApproval('worker-3')
+  assert.equal(rewardAvailableResult.rewardStatus, 'available', 'non-pending reward status is not qualified')
+  assert.equal(rewardAvailableResult.referralStatus, 'registered', 'rewarded or available referral is not downgraded or rewritten')
+
+  const rejectedReferral = {
+    ...registeredReferral,
+    id: 'referral-rejected',
+    referredWorkerId: 'worker-rejected',
+    referralStatus: 'rejected',
+    qualifiedAt: ''
+  }
+  phase5Repository.state.workers.set('worker-rejected', { id: 'worker-rejected' })
+  phase5Repository.state.referrals.set(rejectedReferral.id, rejectedReferral)
+  const rejectedResult = await phase5Service.qualifyReferralAfterKycApproval('worker-rejected')
+  assert.equal(rejectedResult.referralStatus, 'rejected', 'rejected referral is not qualified')
 
   console.log('PASS referral foundation tests')
 }

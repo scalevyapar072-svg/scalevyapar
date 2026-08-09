@@ -1552,6 +1552,23 @@ const normalizeKycStatusFromReviewLabel = (value: unknown) => {
   return ''
 }
 
+export const resolveWorkerKycStatus = (
+  payload: Partial<LabourWorkerRecord>,
+  rawPayload: Record<string, unknown>,
+  existing?: LabourWorkerRecord
+) => {
+  const reviewStatus = normalizeKycStatusFromReviewLabel(rawPayload.kycReviewStatusLabel)
+  if (reviewStatus) return reviewStatus
+
+  const explicitKycStatus = hasPayloadField(payload, 'kycStatus')
+    ? String(payload.kycStatus || '').trim()
+    : hasPayloadField(payload, 'kyc_status')
+      ? String(rawPayload.kyc_status || '').trim()
+      : ''
+
+  return explicitKycStatus || existing?.kycStatus || ''
+}
+
 const normalizeCategory = (
   payload: Partial<LabourCategoryRecord>,
   existing?: LabourCategoryRecord
@@ -1657,13 +1674,7 @@ const normalizeWorker = (
     workerPausedAt: String(payload.workerPausedAt || existing?.workerPausedAt || '').trim(),
     workerReactivatedAt: String(payload.workerReactivatedAt || existing?.workerReactivatedAt || '').trim(),
     status: (payload.status || existing?.status || 'pending') as WorkerStatus,
-    kycStatus: String(
-      hasPayloadField(payload, 'kycStatus')
-        ? payload.kycStatus
-        : hasPayloadField(payload, 'kyc_status')
-          ? rawPayload.kyc_status
-          : normalizeKycStatusFromReviewLabel(rawPayload.kycReviewStatusLabel) || existing?.kycStatus || ''
-    ).trim(),
+    kycStatus: resolveWorkerKycStatus(payload, rawPayload, existing),
     kycRemarks: resolveWorkerKycRemarks(payload, rawPayload, existing),
     availability: (payload.availability || existing?.availability || 'available_today') as WorkerAvailability,
     isVisible: toBoolean(payload.isVisible, existing?.isVisible ?? true),

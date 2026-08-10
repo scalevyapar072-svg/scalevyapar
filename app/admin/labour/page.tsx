@@ -1630,6 +1630,7 @@ export default function LabourExchangeAdminPage() {
   const [selectedReferralCategoryIds, setSelectedReferralCategoryIds] = useState<string[]>([])
   const [referralRewardDraft, setReferralRewardDraft] = useState<Record<string, string>>({})
   const [referralTrackingFilters, setReferralTrackingFilters] = useState({ search: '', agentWorkerId: 'all' })
+  const [creditingReferralId, setCreditingReferralId] = useState('')
 
   const [categoryDraft, setCategoryDraft] = useState<LabourCategory>(blankCategory)
   const [planDraft, setPlanDraft] = useState<LabourPlan>(blankPlan)
@@ -3399,6 +3400,47 @@ export default function LabourExchangeAdminPage() {
       setError(saveError instanceof Error ? saveError.message : 'Failed to save referral categories.')
     } finally {
       setReferralSaving(false)
+    }
+  }
+  const creditReferralReward = async (referral: ReferralAdminReferral) => {
+    const referrer = getWorkerById(referral.referrerWorkerId)
+    const referred = getWorkerById(referral.referredWorkerId)
+    const confirmed = window.confirm([
+      'Credit referral reward?',
+      '',
+      `Agent: ${referrer?.fullName || referral.referrerWorkerId}`,
+      `Worker: ${referred?.mobile || referral.referredWorkerId}`,
+      `Category: ${getCategoryName(referral.categoryId)}`,
+      `Reward: ${formatCurrency(referral.rewardAmountSnapshot)}`,
+      '',
+      "This will credit the Agent's separate referral earnings ledger."
+    ].join('\n'))
+
+    if (!confirmed) return
+
+    setError('')
+    setCreditingReferralId(referral.id)
+
+    try {
+      const response = await fetch('/api/admin/labour/referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'credit-qualified-reward',
+          referralId: referral.id
+        })
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to credit referral reward.')
+      }
+
+      setReferralSnapshot(data.snapshot || blankReferralAdminSnapshot)
+      showSaved('Referral reward credited successfully.')
+    } catch (creditError) {
+      setError(creditError instanceof Error ? creditError.message : 'Failed to credit referral reward.')
+    } finally {
+      setCreditingReferralId('')
     }
   }
   const getCompanyName = (companyId: string) =>
@@ -7309,17 +7351,19 @@ export default function LabourExchangeAdminPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                       <tr>
-                        {['Referral Date', 'Worker 1', 'Worker 1 Mobile', 'Referral Code', 'Worker 2', 'Worker 2 Mobile', 'Category', 'Referral Status', 'KYC Status', 'Reward Snapshot', 'Reward Status', 'Qualified At'].map(label => (
+                        {['Referral Date', 'Worker 1', 'Worker 1 Mobile', 'Referral Code', 'Worker 2', 'Worker 2 Mobile', 'Category', 'Referral Status', 'KYC Status', 'Reward Snapshot', 'Reward Status', 'Qualified At', 'Action'].map(label => (
                           <th key={label} style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>{label}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {filteredReferralTrackingRows.length === 0 ? (
-                        <tr><td colSpan={12} style={{ padding: '14px', color: '#64748b' }}>{hasReferralTrackingFilters ? 'No referrals found for the selected filters.' : 'No referrals found yet.'}</td></tr>
+                        <tr><td colSpan={13} style={{ padding: '14px', color: '#64748b' }}>{hasReferralTrackingFilters ? 'No referrals found for the selected filters.' : 'No referrals found yet.'}</td></tr>
                       ) : filteredReferralTrackingRows.map(referral => {
                         const referrer = getWorkerById(referral.referrerWorkerId)
                         const referred = getWorkerById(referral.referredWorkerId)
+                        const canCreditReward = referral.referralStatus === 'qualified' && referral.rewardStatus === 'pending'
+                        const isCreditingReward = creditingReferralId === referral.id
                         return (
                           <tr key={referral.id}>
                             <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{formatDateTime(referral.attributedAt)}</td>
@@ -7334,6 +7378,25 @@ export default function LabourExchangeAdminPage() {
                             <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{formatCurrency(referral.rewardAmountSnapshot)}</td>
                             <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referral.rewardStatus}</td>
                             <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referral.qualifiedAt ? formatDateTime(referral.qualifiedAt) : '-'}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>
+                              {canCreditReward ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void creditReferralReward(referral)}
+                                  disabled={Boolean(creditingReferralId)}
+                                  style={{
+                                    ...primaryButtonStyle,
+                                    padding: '7px 10px',
+                                    borderRadius: '10px',
+                                    fontSize: '12px',
+                                    opacity: isCreditingReward ? 0.72 : 1,
+                                    cursor: creditingReferralId ? 'not-allowed' : 'pointer'
+                                  }}
+                                >
+                                  {isCreditingReward ? 'Crediting...' : 'Credit Reward'}
+                                </button>
+                              ) : '-'}
+                            </td>
                           </tr>
                         )
                       })}

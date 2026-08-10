@@ -90,6 +90,14 @@ export interface WorkerReferralLedgerEntry {
   createdAt: string
 }
 
+export interface WorkerReferralCreditResult {
+  referral: WorkerReferral | null
+  ledgerEntry: WorkerReferralLedgerEntry | null
+  credited: boolean
+  alreadyCredited: boolean
+  reason: string
+}
+
 export interface WorkerReferralRepository {
   findWorkerById(workerId: string): Promise<ReferralWorker | null>
   findCategoryById(categoryId: string): Promise<ReferralCategory | null>
@@ -112,6 +120,7 @@ export interface WorkerReferralRepository {
   findLedgerByReference(reference: string): Promise<WorkerReferralLedgerEntry | null>
   listLedgerByWorker(workerId: string): Promise<WorkerReferralLedgerEntry[]>
   insertLedgerEntry(entry: WorkerReferralLedgerEntry): Promise<WorkerReferralLedgerEntry>
+  creditQualifiedReferralReward(referralId: string): Promise<WorkerReferralCreditResult>
 }
 
 const REFERRAL_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -468,6 +477,9 @@ export const createLabourWorkerReferralService = (repository: WorkerReferralRepo
       status: 'reversed'
     })
 
+  const creditQualifiedReferralReward = async (referralId: string) =>
+    repository.creditQualifiedReferralReward(normalizeId(referralId, 'Referral ID'))
+
   return {
     getReferralProfileForWorker,
     ensureReferralProfileForWorker,
@@ -482,7 +494,8 @@ export const createLabourWorkerReferralService = (repository: WorkerReferralRepo
     getReferralBalance,
     addReferralLedgerEntry,
     creditReferralReward,
-    reverseReferralReward
+    reverseReferralReward,
+    creditQualifiedReferralReward
   }
 }
 
@@ -504,6 +517,7 @@ type SupabaseQueryBuilderLike = {
 
 type SupabaseClientLike = {
   from(table: string): SupabaseQueryBuilderLike
+  rpc(functionName: string, params?: Record<string, unknown>): unknown
 }
 
 const rowToProfile = (row: Record<string, unknown>): WorkerReferralProfile => ({
@@ -556,6 +570,18 @@ const rowToLedger = (row: Record<string, unknown>): WorkerReferralLedgerEntry =>
   reference: String(row.reference || ''),
   remarks: String(row.remarks || ''),
   createdAt: String(row.created_at || '')
+})
+
+const rowToCreditResult = (row: Record<string, unknown> | null): WorkerReferralCreditResult => ({
+  referral: row?.referral && typeof row.referral === 'object'
+    ? rowToReferral(row.referral as Record<string, unknown>)
+    : null,
+  ledgerEntry: row?.ledgerEntry && typeof row.ledgerEntry === 'object'
+    ? rowToLedger(row.ledgerEntry as Record<string, unknown>)
+    : null,
+  credited: Boolean(row?.credited),
+  alreadyCredited: Boolean(row?.alreadyCredited),
+  reason: String(row?.reason || '')
 })
 
 const unwrapSingle = async <T>(query: unknown, mapper: (row: Record<string, unknown>) => T) => {
@@ -718,7 +744,15 @@ export const createSupabaseWorkerReferralRepository = (client: SupabaseClientLik
         created_at: entry.createdAt
       }).select('*').single(),
       rowToLedger
-    )
+    ),
+  creditQualifiedReferralReward: async referralId => {
+    const { data, error } = await client.rpc('credit_worker_referral_reward', { p_referral_id: referralId }) as {
+      data: Record<string, unknown> | null
+      error: unknown
+    }
+    if (error) throw error
+    return rowToCreditResult(data)
+  }
 })
 
 const getDefaultService = async () => {
@@ -759,6 +793,9 @@ export const listReferralsForReferrer = async (workerId: string) =>
 
 export const getReferralLedger = async (workerId: string) =>
   (await getDefaultService()).getReferralLedger(workerId)
+
+export const creditQualifiedReferralReward = async (referralId: string) =>
+  (await getDefaultService()).creditQualifiedReferralReward(referralId)
 
 export const getReferralBalance = async (workerId: string) =>
   (await getDefaultService()).getReferralBalance(workerId)

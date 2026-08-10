@@ -21,6 +21,7 @@ const makeRepository = () => {
     eligibilities: new Map(),
     referrals: new Map(),
     ledger: new Map(),
+    creditLocks: new Map(),
     walletBalance: new Map([
       ['worker-1', 500],
       ['worker-2', 0],
@@ -112,6 +113,89 @@ const makeRepository = () => {
       }
       state.ledger.set(entry.reference, entry)
       return entry
+    },
+    async creditQualifiedReferralReward(referralId) {
+      if (state.creditLocks.has(referralId)) {
+        return state.creditLocks.get(referralId)
+      }
+
+      const creditPromise = (async () => {
+        const referral = state.referrals.get(referralId)
+        const reference = `reward-credit-${referralId}`
+        const existingLedger = state.ledger.get(reference) || null
+
+        if (!referral) {
+          return { referral: null, ledgerEntry: null, credited: false, alreadyCredited: false, reason: 'referral-not-found' }
+        }
+
+        if (existingLedger) {
+          const updatedReferral = referral.rewardStatus === 'pending'
+            ? {
+                ...referral,
+                rewardStatus: 'available',
+                rewardedAt: referral.rewardedAt || existingLedger.createdAt,
+                updatedAt: existingLedger.createdAt
+              }
+            : referral
+          state.referrals.set(referralId, updatedReferral)
+          return { referral: updatedReferral, ledgerEntry: existingLedger, credited: false, alreadyCredited: true, reason: 'already-credited' }
+        }
+
+        if (referral.referralStatus !== 'qualified') {
+          return { referral, ledgerEntry: null, credited: false, alreadyCredited: false, reason: 'not-qualified' }
+        }
+        if (referral.rewardStatus !== 'pending' || referral.rewardedAt) {
+          return { referral, ledgerEntry: null, credited: false, alreadyCredited: false, reason: 'reward-not-pending' }
+        }
+        if (!referral.qualifiedAt) {
+          return { referral, ledgerEntry: null, credited: false, alreadyCredited: false, reason: 'missing-qualified-at' }
+        }
+        if (referral.rewardAmountSnapshot <= 0) {
+          return { referral, ledgerEntry: null, credited: false, alreadyCredited: false, reason: 'invalid-reward-amount' }
+        }
+        if (!state.workers.has(referral.referrerWorkerId)) {
+          return { referral, ledgerEntry: null, credited: false, alreadyCredited: false, reason: 'referrer-not-found' }
+        }
+
+        const createdAt = new Date().toISOString()
+        const currentBalance = [...state.ledger.values()]
+          .filter(entry => entry.workerId === referral.referrerWorkerId)
+          .reduce((balance, entry) => {
+            if (entry.entryType === 'reward_credit' || entry.entryType === 'withdrawal_reversal') return balance + entry.amount
+            if (entry.entryType === 'reward_reversal' || entry.entryType === 'withdrawal_debit') return balance - entry.amount
+            return balance
+          }, 0)
+        const ledgerEntry = {
+          id: `ref-ledger-reward-credit-${referralId}`,
+          workerId: referral.referrerWorkerId,
+          referralId,
+          entryType: 'reward_credit',
+          amount: referral.rewardAmountSnapshot,
+          balanceAfter: currentBalance + referral.rewardAmountSnapshot,
+          status: 'available',
+          reference,
+          remarks: 'Referral reward credited after referred worker KYC qualification.',
+          createdAt
+        }
+        state.ledger.set(reference, ledgerEntry)
+
+        const updatedReferral = {
+          ...referral,
+          rewardStatus: 'available',
+          rewardedAt: createdAt,
+          updatedAt: createdAt
+        }
+        state.referrals.set(referralId, updatedReferral)
+
+        return { referral: updatedReferral, ledgerEntry, credited: true, alreadyCredited: false, reason: 'credited' }
+      })()
+
+      state.creditLocks.set(referralId, creditPromise)
+      try {
+        return await creditPromise
+      } finally {
+        state.creditLocks.delete(referralId)
+      }
     }
   }
 }
@@ -330,6 +414,116 @@ const run = async () => {
   phase5Repository.state.referrals.set(rejectedReferral.id, rejectedReferral)
   const rejectedResult = await phase5Service.qualifyReferralAfterKycApproval('worker-rejected')
   assert.equal(rejectedResult.referralStatus, 'rejected', 'rejected referral is not qualified')
+
+  const phase6Repository = makeRepository()
+  const phase6Service = createLabourWorkerReferralService(phase6Repository)
+  const phase6Profile = await phase6Service.ensureReferralProfileForWorker('worker-1')
+  await phase6Service.setReferralCategoryEligibility({
+    referralProfileId: phase6Profile.id,
+    categoryId: 'cat-active-a',
+    rewardAmount: 50
+  })
+  const phase6Referral = await phase6Service.createReferralAttribution({
+    referralCode: phase6Profile.referralCode,
+    referredWorkerId: 'worker-2',
+    categoryId: 'cat-active-a',
+    referralStatus: 'registered',
+    registeredAt: '2026-08-10T00:00:00.000Z'
+  })
+  const phase6Qualified = await phase6Service.qualifyReferralAfterKycApproval('worker-2')
+  const phase6Credit = await phase6Service.creditQualifiedReferralReward(phase6Referral.id)
+  assert.equal(phase6Credit.credited, true, 'qualified pending referral is credited once')
+  assert.equal(phase6Credit.referral.referralStatus, 'qualified', 'reward credit keeps referral status qualified')
+  assert.equal(phase6Credit.referral.rewardStatus, 'available', 'reward credit marks reward available')
+  assert.ok(phase6Credit.referral.rewardedAt, 'rewarded_at is set')
+  assert.equal(phase6Credit.referral.qualifiedAt, phase6Qualified.qualifiedAt, 'qualified_at is unchanged')
+  assert.equal(phase6Credit.ledgerEntry.entryType, 'reward_credit', 'ledger entry is a reward credit')
+  assert.equal(phase6Credit.ledgerEntry.amount, 50, 'ledger amount uses snapshot reward')
+  assert.equal(phase6Credit.ledgerEntry.status, 'available', 'ledger credit is available')
+  assert.equal(phase6Repository.state.ledger.size, 1, 'one ledger row is created')
+  assert.equal(phase6Repository.state.walletBalance.get('worker-1'), 500, 'reward credit does not change main worker wallet')
+  assert.equal(phase6Repository.state.walletBalance.get('worker-2'), 0, 'reward credit does not change Worker 2 wallet')
+  assert.equal(phase6Repository.state.walletTransactions.length, 0, 'reward credit does not create labour wallet transaction')
+
+  const repeatedPhase6Credit = await phase6Service.creditQualifiedReferralReward(phase6Referral.id)
+  assert.equal(repeatedPhase6Credit.alreadyCredited, true, 'repeated reward credit returns existing credit')
+  assert.equal(repeatedPhase6Credit.ledgerEntry.id, phase6Credit.ledgerEntry.id, 'repeated reward credit returns same ledger row')
+  assert.equal(phase6Repository.state.ledger.size, 1, 'repeated reward credit does not duplicate ledger rows')
+
+  for (let retryIndex = 0; retryIndex < 10; retryIndex += 1) {
+    await phase6Service.creditQualifiedReferralReward(phase6Referral.id)
+  }
+  assert.equal(phase6Repository.state.ledger.size, 1, 'ten reward credit retries do not duplicate ledger rows')
+
+  const concurrentRepository = makeRepository()
+  const concurrentService = createLabourWorkerReferralService(concurrentRepository)
+  const concurrentProfile = await concurrentService.ensureReferralProfileForWorker('worker-1')
+  await concurrentService.setReferralCategoryEligibility({
+    referralProfileId: concurrentProfile.id,
+    categoryId: 'cat-active-a',
+    rewardAmount: 75
+  })
+  const concurrentReferral = await concurrentService.createReferralAttribution({
+    referralCode: concurrentProfile.referralCode,
+    referredWorkerId: 'worker-2',
+    categoryId: 'cat-active-a',
+    referralStatus: 'registered',
+    registeredAt: '2026-08-10T00:00:00.000Z'
+  })
+  await concurrentService.qualifyReferralAfterKycApproval('worker-2')
+  const concurrentResults = await Promise.all([
+    concurrentService.creditQualifiedReferralReward(concurrentReferral.id),
+    concurrentService.creditQualifiedReferralReward(concurrentReferral.id)
+  ])
+  assert.equal(concurrentRepository.state.ledger.size, 1, 'concurrent reward credit does not duplicate ledger rows')
+  assert.equal(
+    new Set(concurrentResults.map(result => result.ledgerEntry.id)).size,
+    1,
+    'concurrent reward credit returns one ledger identity'
+  )
+
+  const unqualifiedReferral = {
+    ...phase6Referral,
+    id: 'referral-unqualified',
+    referredWorkerId: 'worker-3',
+    referralStatus: 'registered',
+    rewardStatus: 'pending',
+    qualifiedAt: '',
+    rewardedAt: ''
+  }
+  phase6Repository.state.referrals.set(unqualifiedReferral.id, unqualifiedReferral)
+  const unqualifiedCredit = await phase6Service.creditQualifiedReferralReward(unqualifiedReferral.id)
+  assert.equal(unqualifiedCredit.reason, 'not-qualified', 'registered but unqualified referral is not credited')
+
+  const phase6RejectedReferral = {
+    ...phase6Referral,
+    id: 'referral-phase6-rejected',
+    referredWorkerId: 'worker-rejected',
+    referralStatus: 'rejected',
+    rewardStatus: 'pending',
+    qualifiedAt: '',
+    rewardedAt: ''
+  }
+  phase6Repository.state.workers.set('worker-rejected', { id: 'worker-rejected' })
+  phase6Repository.state.referrals.set(phase6RejectedReferral.id, phase6RejectedReferral)
+  const rejectedCredit = await phase6Service.creditQualifiedReferralReward(phase6RejectedReferral.id)
+  assert.equal(rejectedCredit.reason, 'not-qualified', 'rejected referral is not credited')
+
+  const zeroRewardReferral = {
+    ...phase6Qualified,
+    id: 'referral-zero-reward',
+    referredWorkerId: 'worker-3',
+    rewardAmountSnapshot: 0,
+    rewardStatus: 'pending',
+    rewardedAt: ''
+  }
+  phase6Repository.state.referrals.set(zeroRewardReferral.id, zeroRewardReferral)
+  const zeroRewardCredit = await phase6Service.creditQualifiedReferralReward(zeroRewardReferral.id)
+  assert.equal(zeroRewardCredit.reason, 'invalid-reward-amount', 'zero reward snapshot is blocked')
+
+  const missingReferralCredit = await phase6Service.creditQualifiedReferralReward('referral-missing')
+  assert.equal(missingReferralCredit.reason, 'referral-not-found', 'missing referral is ignored without credit')
+  assert.equal(phase6Repository.state.ledger.size, 1, 'blocked reward cases do not add ledger rows')
 
   console.log('PASS referral foundation tests')
 }

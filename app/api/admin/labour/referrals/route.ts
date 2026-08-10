@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { requireAdmin } from '@/lib/auth'
 import {
+  creditQualifiedReferralReward,
   ensureReferralProfileForWorker,
   LabourWorkerReferralError
 } from '@/lib/labour-worker-referral'
@@ -246,6 +247,11 @@ export async function POST(request: NextRequest) {
       const entries = Array.isArray(body.entries) ? body.entries : []
       await setEligibility(normalizeText(body.referralProfileId), entries)
       return NextResponse.json({ success: true, snapshot: await fetchReferralSnapshot() })
+    }
+
+    if (action === 'credit-qualified-reward') {
+      const result = await creditQualifiedReferralReward(normalizeText(body.referralId))
+      return NextResponse.json({ success: true, result, snapshot: await fetchReferralSnapshot() })
     }
 
     return NextResponse.json({ error: 'Unsupported referral admin action.' }, { status: 400 })

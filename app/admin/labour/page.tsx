@@ -1119,7 +1119,95 @@ const sanitizeExportValue = (value: unknown) => {
   return /^[=+\-@]/.test(text) ? `'${text}` : text
 }
 
-const createReferralLedgerExcelXml = (headers: string[], rows: Array<Record<string, string | number>>) => {
+const createCrc32Table = () => {
+  const table = new Uint32Array(256)
+  for (let index = 0; index < 256; index += 1) {
+    let value = index
+    for (let bit = 0; bit < 8; bit += 1) {
+      value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1
+    }
+    table[index] = value >>> 0
+  }
+  return table
+}
+
+const crc32Table = createCrc32Table()
+
+const calculateCrc32 = (bytes: Uint8Array) => {
+  let crc = 0xffffffff
+  bytes.forEach(byte => {
+    crc = crc32Table[(crc ^ byte) & 0xff] ^ (crc >>> 8)
+  })
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+const writeUint16 = (target: number[], value: number) => {
+  target.push(value & 0xff, (value >>> 8) & 0xff)
+}
+
+const writeUint32 = (target: number[], value: number) => {
+  target.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff)
+}
+
+const createZipArchive = (files: Array<{ name: string; content: string }>) => {
+  const encoder = new TextEncoder()
+  const output: number[] = []
+  const centralDirectory: number[] = []
+
+  files.forEach(file => {
+    const nameBytes = encoder.encode(file.name)
+    const contentBytes = encoder.encode(file.content)
+    const crc = calculateCrc32(contentBytes)
+    const localHeaderOffset = output.length
+
+    writeUint32(output, 0x04034b50)
+    writeUint16(output, 20)
+    writeUint16(output, 0)
+    writeUint16(output, 0)
+    writeUint16(output, 0)
+    writeUint16(output, 0)
+    writeUint32(output, crc)
+    writeUint32(output, contentBytes.length)
+    writeUint32(output, contentBytes.length)
+    writeUint16(output, nameBytes.length)
+    writeUint16(output, 0)
+    output.push(...Array.from(nameBytes), ...Array.from(contentBytes))
+
+    writeUint32(centralDirectory, 0x02014b50)
+    writeUint16(centralDirectory, 20)
+    writeUint16(centralDirectory, 20)
+    writeUint16(centralDirectory, 0)
+    writeUint16(centralDirectory, 0)
+    writeUint16(centralDirectory, 0)
+    writeUint16(centralDirectory, 0)
+    writeUint32(centralDirectory, crc)
+    writeUint32(centralDirectory, contentBytes.length)
+    writeUint32(centralDirectory, contentBytes.length)
+    writeUint16(centralDirectory, nameBytes.length)
+    writeUint16(centralDirectory, 0)
+    writeUint16(centralDirectory, 0)
+    writeUint16(centralDirectory, 0)
+    writeUint16(centralDirectory, 0)
+    writeUint32(centralDirectory, 0)
+    writeUint32(centralDirectory, localHeaderOffset)
+    centralDirectory.push(...Array.from(nameBytes))
+  })
+
+  const centralDirectoryOffset = output.length
+  output.push(...centralDirectory)
+  writeUint32(output, 0x06054b50)
+  writeUint16(output, 0)
+  writeUint16(output, 0)
+  writeUint16(output, files.length)
+  writeUint16(output, files.length)
+  writeUint32(output, centralDirectory.length)
+  writeUint32(output, centralDirectoryOffset)
+  writeUint16(output, 0)
+
+  return new Uint8Array(output)
+}
+
+const createReferralLedgerXlsx = (headers: string[], rows: Array<Record<string, string | number>>) => {
   const columnWidths = headers.map(header => Math.min(Math.max(header.length + 4, 14), 36))
   rows.forEach(row => {
     headers.forEach((header, index) => {
@@ -1130,31 +1218,112 @@ const createReferralLedgerExcelXml = (headers: string[], rows: Array<Record<stri
     })
   })
 
-  const renderCell = (value: unknown, isHeader = false) => {
-    const text = sanitizeExportValue(value)
-    const styleId = isHeader ? 'sHeader' : typeof value === 'number' ? 'sNumber' : 'sText'
-    return `<Cell ss:StyleID="${styleId}"><Data ss:Type="${typeof value === 'number' ? 'Number' : 'String'}">${escapeXml(text)}</Data></Cell>`
+  const columnName = (index: number) => {
+    let column = ''
+    let value = index + 1
+    while (value > 0) {
+      const remainder = (value - 1) % 26
+      column = String.fromCharCode(65 + remainder) + column
+      value = Math.floor((value - remainder) / 26)
+    }
+    return column
   }
 
-  return `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Styles>
-  <Style ss:ID="sHeader"><Font ss:Bold="1"/><Interior ss:Color="#E2E8F0" ss:Pattern="Solid"/></Style>
-  <Style ss:ID="sText"><Alignment ss:Vertical="Top" ss:WrapText="1"/></Style>
-  <Style ss:ID="sNumber"><NumberFormat ss:Format="0.00"/></Style>
- </Styles>
- <Worksheet ss:Name="Reward Ledger">
-  <Table>
-   ${columnWidths.map(width => `<Column ss:Width="${width * 7}"/>`).join('\n   ')}
-   <Row>${headers.map(header => renderCell(header, true)).join('')}</Row>
-   ${rows.map(row => `<Row>${headers.map(header => renderCell(row[header])).join('')}</Row>`).join('\n   ')}
-  </Table>
- </Worksheet>
-</Workbook>`
+  const renderCell = (value: unknown, isHeader = false) => {
+    if (!isHeader && typeof value === 'number') {
+      return `<c s="2"><v>${value}</v></c>`
+    }
+    return `<c t="inlineStr" s="${isHeader ? 1 : 0}"><is><t>${escapeXml(sanitizeExportValue(value))}</t></is></c>`
+  }
+
+  const sheetRows = [
+    `<row r="1">${headers.map((header, index) => `<c r="${columnName(index)}1" t="inlineStr" s="1"><is><t>${escapeXml(header)}</t></is></c>`).join('')}</row>`,
+    ...rows.map((row, rowIndex) => {
+      const rowNumber = rowIndex + 2
+      return `<row r="${rowNumber}">${headers.map((header, columnIndex) => {
+        const rendered = renderCell(row[header])
+        return rendered.replace('<c ', `<c r="${columnName(columnIndex)}${rowNumber}" `)
+      }).join('')}</row>`
+    })
+  ]
+
+  const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <cols>${columnWidths.map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join('')}</cols>
+  <sheetData>${sheetRows.join('')}</sheetData>
+</worksheet>`
+
+  return createZipArchive([
+    {
+      name: '[Content_Types].xml',
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`
+    },
+    {
+      name: '_rels/.rels',
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`
+    },
+    {
+      name: 'docProps/core.xml',
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>Rozgar Referral Ledger</dc:title>
+  <dc:creator>ScaleVyapar Admin</dc:creator>
+  <dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:created>
+</cp:coreProperties>`
+    },
+    {
+      name: 'docProps/app.xml',
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>Rozgar Admin</Application>
+</Properties>`
+    },
+    {
+      name: 'xl/workbook.xml',
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Reward Ledger" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`
+    },
+    {
+      name: 'xl/_rels/workbook.xml.rels',
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`
+    },
+    {
+      name: 'xl/styles.xml',
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>
+  <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2E8F0"/><bgColor indexed="64"/></patternFill></fill></fills>
+  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`
+    },
+    {
+      name: 'xl/worksheets/sheet1.xml',
+      content: worksheet
+    }
+  ])
 }
 
 const createReferralLedgerPdf = (title: string, filterSummary: string[], headers: string[], rows: Array<Record<string, string | number>>) => {
@@ -4887,9 +5056,9 @@ export default function LabourExchangeAdminPage() {
 
   const exportReferralLedgerExcel = () => {
     downloadReportFile(
-      `rozgar-referral-ledger-${formatFileDate()}.xls`,
-      createReferralLedgerExcelXml(referralLedgerExportHeaders, referralLedgerExportRows),
-      'application/vnd.ms-excel;charset=utf-8;'
+      `rozgar-referral-ledger-${formatFileDate()}.xlsx`,
+      createReferralLedgerXlsx(referralLedgerExportHeaders, referralLedgerExportRows),
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     showSaved('Filtered referral ledger Excel exported')
   }

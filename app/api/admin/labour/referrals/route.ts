@@ -114,7 +114,7 @@ const fetchReferralSnapshot = async () => {
       kycPending: referrals.filter(referral => referral.referralStatus === 'kyc_pending').length,
       qualified: referrals.filter(referral => referral.referralStatus === 'qualified').length,
       rejectedInvalid: referrals.filter(referral => referral.referralStatus === 'rejected' || referral.referralStatus === 'invalid').length,
-      rewardsCredited: referrals.filter(referral => referral.referralStatus === 'reward_credited').length,
+      rewardsCredited: ledger.filter(entry => entry.entryType === 'reward_credit' && entry.status === 'available').length,
       availableReferralEarningsLiability: ledger
         .filter(entry => entry.entryType === 'reward_credit' && entry.status === 'available')
         .reduce((sum, entry) => sum + entry.amount, 0),

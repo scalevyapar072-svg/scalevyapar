@@ -13,6 +13,7 @@ import {
   Database,
   FileText,
   HandCoins,
+  CheckCircle,
   LayoutDashboard,
   LifeBuoy,
   RefreshCw,
@@ -76,6 +77,16 @@ type LabourSection =
 type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'jobApplications' | 'savedJobs' | 'workerNotifications' | 'walletTransactions' | 'rechargeRequests'
 type ReferralAdminTab = 'dashboard' | 'referrers' | 'tracking' | 'ledger' | 'settings'
 type ReferralWorkerStatusFilter = 'all' | 'enabled' | 'not_enabled'
+type ReferralLedgerFilters = {
+  search: string
+  agentWorkerId: string
+  referredWorkerId: string
+  categoryId: string
+  entryType: string
+  status: string
+  dateFrom: string
+  dateTo: string
+}
 type CategoryDependencyRow = {
   id: string
   categoryId: string
@@ -835,6 +846,17 @@ const blankReferralAdminSnapshot: ReferralAdminSnapshot = {
   }
 }
 
+const blankReferralLedgerFilters: ReferralLedgerFilters = {
+  search: '',
+  agentWorkerId: 'all',
+  referredWorkerId: 'all',
+  categoryId: 'all',
+  entryType: 'all',
+  status: 'all',
+  dateFrom: '',
+  dateTo: ''
+}
+
 const blankLabourAdminSettings: LabourAdminSettings = {
   notificationTemplates: {
     applicationSubmittedTitle: 'Application received',
@@ -1073,6 +1095,109 @@ const formatDate = (value: string) => {
   if (!value) return '-'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString()
+}
+
+const formatFileDate = () => new Date().toISOString().slice(0, 10)
+
+const escapeXml = (value: unknown) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+
+const escapePdfText = (value: unknown) =>
+  String(value ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/\r?\n/g, ' ')
+
+const sanitizeExportValue = (value: unknown) => {
+  const text = String(value ?? '')
+  return /^[=+\-@]/.test(text) ? `'${text}` : text
+}
+
+const createReferralLedgerExcelXml = (headers: string[], rows: Array<Record<string, string | number>>) => {
+  const columnWidths = headers.map(header => Math.min(Math.max(header.length + 4, 14), 36))
+  rows.forEach(row => {
+    headers.forEach((header, index) => {
+      columnWidths[index] = Math.min(
+        Math.max(columnWidths[index], String(row[header] ?? '').length + 2),
+        48
+      )
+    })
+  })
+
+  const renderCell = (value: unknown, isHeader = false) => {
+    const text = sanitizeExportValue(value)
+    const styleId = isHeader ? 'sHeader' : typeof value === 'number' ? 'sNumber' : 'sText'
+    return `<Cell ss:StyleID="${styleId}"><Data ss:Type="${typeof value === 'number' ? 'Number' : 'String'}">${escapeXml(text)}</Data></Cell>`
+  }
+
+  return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="sHeader"><Font ss:Bold="1"/><Interior ss:Color="#E2E8F0" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="sText"><Alignment ss:Vertical="Top" ss:WrapText="1"/></Style>
+  <Style ss:ID="sNumber"><NumberFormat ss:Format="0.00"/></Style>
+ </Styles>
+ <Worksheet ss:Name="Reward Ledger">
+  <Table>
+   ${columnWidths.map(width => `<Column ss:Width="${width * 7}"/>`).join('\n   ')}
+   <Row>${headers.map(header => renderCell(header, true)).join('')}</Row>
+   ${rows.map(row => `<Row>${headers.map(header => renderCell(row[header])).join('')}</Row>`).join('\n   ')}
+  </Table>
+ </Worksheet>
+</Workbook>`
+}
+
+const createReferralLedgerPdf = (title: string, filterSummary: string[], headers: string[], rows: Array<Record<string, string | number>>) => {
+  const lines = [
+    'Rozgar by ScaleVyapar',
+    title,
+    `Generated: ${new Date().toLocaleString()}`,
+    '',
+    'Applied Filters:',
+    ...filterSummary,
+    '',
+    headers.join(' | '),
+    ...rows.map(row => headers.map(header => String(row[header] ?? '')).join(' | '))
+  ]
+  const pageWidth = 842
+  const pageHeight = 595
+  const left = 36
+  const top = 548
+  const lineHeight = 13
+  const maxChars = 150
+  const textCommands = lines.flatMap(line => {
+    const chunks = String(line || ' ')
+      .replace(/\s+/g, ' ')
+      .match(new RegExp(`.{1,${maxChars}}`, 'g')) || ['']
+    return chunks
+  }).slice(0, 38).map((line, index) => `BT /F1 ${index < 2 ? 14 : 8} Tf ${left} ${top - index * lineHeight} Td (${escapePdfText(line)}) Tj ET`)
+  const stream = textCommands.join('\n')
+  const objects = [
+    '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+    '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+    `3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj`,
+    '4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
+    `5 0 obj << /Length ${stream.length} >> stream\n${stream}\nendstream endobj`
+  ]
+  let offset = '%PDF-1.4\n'.length
+  const xref = ['0000000000 65535 f ']
+  const body = objects.map(object => {
+    xref.push(`${String(offset).padStart(10, '0')} 00000 n `)
+    offset += object.length + 1
+    return object
+  }).join('\n')
+  const xrefOffset = offset
+  return `%PDF-1.4\n${body}\nxref\n0 ${xref.length}\n${xref.join('\n')}\ntrailer << /Size ${xref.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
 }
 
 const slugify = (value: string) =>
@@ -1630,6 +1755,7 @@ export default function LabourExchangeAdminPage() {
   const [selectedReferralCategoryIds, setSelectedReferralCategoryIds] = useState<string[]>([])
   const [referralRewardDraft, setReferralRewardDraft] = useState<Record<string, string>>({})
   const [referralTrackingFilters, setReferralTrackingFilters] = useState({ search: '', agentWorkerId: 'all' })
+  const [referralLedgerFilters, setReferralLedgerFilters] = useState<ReferralLedgerFilters>(blankReferralLedgerFilters)
   const [creditingReferralId, setCreditingReferralId] = useState('')
 
   const [categoryDraft, setCategoryDraft] = useState<LabourCategory>(blankCategory)
@@ -4506,6 +4632,134 @@ export default function LabourExchangeAdminPage() {
 
     return matchesSearch && matchesAgent
   })
+  const referralById = new Map(referralSnapshot.referrals.map(referral => [referral.id, referral]))
+  const referralLedgerRows = referralSnapshot.ledger.map(entry => {
+    const referral = referralById.get(entry.referralId) || null
+    const agent = referral ? getWorkerById(referral.referrerWorkerId) || null : getWorkerById(entry.workerId) || null
+    const referred = referral ? getWorkerById(referral.referredWorkerId) || null : null
+
+    return {
+      entry,
+      referral,
+      agent,
+      referred,
+      categoryName: referral ? getCategoryName(referral.categoryId) : '-',
+      referralCode: referral?.referralCodeSnapshot || '-'
+    }
+  })
+  const referralLedgerAgentOptions = Array.from(
+    new Map(
+      referralLedgerRows.map(row => {
+        const workerId = row.referral?.referrerWorkerId || row.entry.workerId
+        return [workerId, {
+          id: workerId,
+          label: row.agent?.fullName || workerId,
+          mobile: row.agent?.mobile || ''
+        }]
+      })
+    ).values()
+  ).sort((left, right) => left.label.localeCompare(right.label))
+  const referralLedgerReferredWorkerOptions = Array.from(
+    new Map(
+      referralLedgerRows
+        .filter(row => row.referral)
+        .map(row => [row.referral?.referredWorkerId || '', {
+          id: row.referral?.referredWorkerId || '',
+          label: row.referred?.fullName || row.referral?.referredWorkerId || '',
+          mobile: row.referred?.mobile || ''
+        }])
+    ).values()
+  ).filter(option => option.id).sort((left, right) => left.label.localeCompare(right.label))
+  const referralLedgerCategoryOptions = Array.from(
+    new Map(
+      referralLedgerRows
+        .filter(row => row.referral?.categoryId)
+        .map(row => [row.referral?.categoryId || '', {
+          id: row.referral?.categoryId || '',
+          label: row.categoryName
+        }])
+    ).values()
+  ).filter(option => option.id).sort((left, right) => left.label.localeCompare(right.label))
+  const referralLedgerEntryTypeOptions = Array.from(new Set(referralSnapshot.ledger.map(entry => entry.entryType).filter(Boolean))).sort()
+  const referralLedgerStatusOptions = Array.from(new Set(referralSnapshot.ledger.map(entry => entry.status).filter(Boolean))).sort()
+  const referralLedgerSearchTerm = referralLedgerFilters.search.trim().toLowerCase()
+  const filteredReferralLedgerRows = referralLedgerRows.filter(row => {
+    const createdAt = row.entry.createdAt ? new Date(row.entry.createdAt) : null
+    const dateFrom = referralLedgerFilters.dateFrom ? new Date(`${referralLedgerFilters.dateFrom}T00:00:00`) : null
+    const dateTo = referralLedgerFilters.dateTo ? new Date(`${referralLedgerFilters.dateTo}T23:59:59`) : null
+    const matchesSearch = !referralLedgerSearchTerm || [
+      row.agent?.fullName,
+      row.agent?.mobile,
+      row.referred?.fullName,
+      row.referred?.mobile,
+      row.referralCode,
+      row.entry.referralId,
+      row.entry.reference
+    ].some(value => String(value || '').toLowerCase().includes(referralLedgerSearchTerm))
+    const matchesAgent =
+      referralLedgerFilters.agentWorkerId === 'all' ||
+      (row.referral?.referrerWorkerId || row.entry.workerId) === referralLedgerFilters.agentWorkerId
+    const matchesReferred =
+      referralLedgerFilters.referredWorkerId === 'all' ||
+      row.referral?.referredWorkerId === referralLedgerFilters.referredWorkerId
+    const matchesCategory =
+      referralLedgerFilters.categoryId === 'all' ||
+      row.referral?.categoryId === referralLedgerFilters.categoryId
+    const matchesEntryType =
+      referralLedgerFilters.entryType === 'all' ||
+      row.entry.entryType === referralLedgerFilters.entryType
+    const matchesStatus =
+      referralLedgerFilters.status === 'all' ||
+      row.entry.status === referralLedgerFilters.status
+    const matchesDateFrom = !dateFrom || Boolean(createdAt && createdAt >= dateFrom)
+    const matchesDateTo = !dateTo || Boolean(createdAt && createdAt <= dateTo)
+
+    return matchesSearch && matchesAgent && matchesReferred && matchesCategory && matchesEntryType && matchesStatus && matchesDateFrom && matchesDateTo
+  })
+  const hasReferralLedgerFilters = Object.entries(referralLedgerFilters).some(([key, value]) =>
+    key === 'search' ? Boolean(value.trim()) : value !== 'all' && Boolean(value)
+  )
+  const referralLedgerExportHeaders = [
+    'Date/Time',
+    'Agent Name',
+    'Agent Mobile',
+    'Worker 2 Name',
+    'Worker 2 Mobile',
+    'Referral Code',
+    'Category',
+    'Referral ID',
+    'Entry Type',
+    'Amount',
+    'Balance After',
+    'Status',
+    'Reference',
+    'Remarks'
+  ]
+  const referralLedgerExportRows = filteredReferralLedgerRows.map(row => ({
+    'Date/Time': formatDateTime(row.entry.createdAt),
+    'Agent Name': row.agent?.fullName || row.entry.workerId,
+    'Agent Mobile': row.agent?.mobile || '',
+    'Worker 2 Name': row.referred?.fullName || row.referral?.referredWorkerId || '',
+    'Worker 2 Mobile': row.referred?.mobile || '',
+    'Referral Code': row.referralCode,
+    'Category': row.categoryName,
+    'Referral ID': row.entry.referralId,
+    'Entry Type': row.entry.entryType,
+    Amount: Number(row.entry.amount || 0),
+    'Balance After': Number(row.entry.balanceAfter || 0),
+    Status: row.entry.status,
+    Reference: row.entry.reference,
+    Remarks: row.entry.remarks || ''
+  }))
+  const referralLedgerFilterSummary = [
+    `Search: ${referralLedgerFilters.search.trim() || 'All'}`,
+    `Agent: ${referralLedgerAgentOptions.find(option => option.id === referralLedgerFilters.agentWorkerId)?.label || 'All Agents'}`,
+    `Worker 2: ${referralLedgerReferredWorkerOptions.find(option => option.id === referralLedgerFilters.referredWorkerId)?.label || 'All Referred Workers'}`,
+    `Category: ${referralLedgerCategoryOptions.find(option => option.id === referralLedgerFilters.categoryId)?.label || 'All Categories'}`,
+    `Entry Type: ${referralLedgerFilters.entryType === 'all' ? 'All Entry Types' : referralLedgerFilters.entryType}`,
+    `Status: ${referralLedgerFilters.status === 'all' ? 'All Statuses' : referralLedgerFilters.status}`,
+    `Date Range: ${referralLedgerFilters.dateFrom || 'Any'} to ${referralLedgerFilters.dateTo || 'Any'}`
+  ]
   const referralIndustryOptions = buildLabourMasterSelectOptions(
     visibleWorkerIndustryMasterOptions,
     referralIndustryFilter ? [referralIndustryFilter] : []
@@ -4601,7 +4855,7 @@ export default function LabourExchangeAdminPage() {
     { label: 'Reversed Rewards', value: formatCurrency(referralSnapshot.stats.reversedRewards), accent: '#be123c' }
   ]
 
-  const downloadReportFile = (fileName: string, content: string, mimeType: string) => {
+  const downloadReportFile = (fileName: string, content: BlobPart, mimeType: string) => {
     const blob = new Blob([content], { type: mimeType })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -4629,6 +4883,29 @@ export default function LabourExchangeAdminPage() {
       'application/json;charset=utf-8;'
     )
     showSaved('Full labour snapshot exported')
+  }
+
+  const exportReferralLedgerExcel = () => {
+    downloadReportFile(
+      `rozgar-referral-ledger-${formatFileDate()}.xls`,
+      createReferralLedgerExcelXml(referralLedgerExportHeaders, referralLedgerExportRows),
+      'application/vnd.ms-excel;charset=utf-8;'
+    )
+    showSaved('Filtered referral ledger Excel exported')
+  }
+
+  const exportReferralLedgerPdf = () => {
+    downloadReportFile(
+      `rozgar-referral-ledger-${formatFileDate()}.pdf`,
+      createReferralLedgerPdf(
+        'Refer & Earn - Reward Ledger',
+        referralLedgerFilterSummary,
+        ['Date/Time', 'Agent Name', 'Worker 2 Name', 'Referral Code', 'Category', 'Entry Type', 'Amount', 'Balance After', 'Status'],
+        referralLedgerExportRows
+      ),
+      'application/pdf'
+    )
+    showSaved('Filtered referral ledger PDF exported')
   }
 
   const validateCategory = () => {
@@ -7363,6 +7640,7 @@ export default function LabourExchangeAdminPage() {
                         const referrer = getWorkerById(referral.referrerWorkerId)
                         const referred = getWorkerById(referral.referredWorkerId)
                         const canCreditReward = referral.referralStatus === 'qualified' && referral.rewardStatus === 'pending'
+                        const isRewardCredited = referral.referralStatus === 'qualified' && referral.rewardStatus === 'available'
                         const isCreditingReward = creditingReferralId === referral.id
                         return (
                           <tr key={referral.id}>
@@ -7395,6 +7673,20 @@ export default function LabourExchangeAdminPage() {
                                 >
                                   {isCreditingReward ? 'Crediting...' : 'Credit Reward'}
                                 </button>
+                              ) : isRewardCredited ? (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '6px 9px',
+                                  borderRadius: '999px',
+                                  background: '#dcfce7',
+                                  color: '#166534',
+                                  fontSize: '12px',
+                                  fontWeight: '700'
+                                }}>
+                                  <CheckCircle size={14} /> Reward Credited
+                                </span>
                               ) : '-'}
                             </td>
                           </tr>
@@ -7409,24 +7701,104 @@ export default function LabourExchangeAdminPage() {
             {referralAdminTab === 'ledger' && (
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '18px' }}>Reward Ledger</h3>
+                <div style={compactFilterPanelStyle}>
+                  <div style={{ minWidth: '260px', flex: '1 1 320px' }}>
+                    <label style={labelStyle}>Search</label>
+                    <input
+                      value={referralLedgerFilters.search}
+                      onChange={event => setReferralLedgerFilters(current => ({ ...current, search: event.target.value }))}
+                      placeholder="Search agent, Worker 2, mobile, referral code..."
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div style={{ minWidth: '170px', flex: '1 1 190px' }}>
+                    <label style={labelStyle}>Agent</label>
+                    <select value={referralLedgerFilters.agentWorkerId} onChange={event => setReferralLedgerFilters(current => ({ ...current, agentWorkerId: event.target.value }))} style={inputStyle}>
+                      <option value="all">All Agents</option>
+                      {referralLedgerAgentOptions.map(agent => (
+                        <option key={agent.id} value={agent.id}>{agent.label}{agent.mobile ? ` - ${agent.mobile}` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ minWidth: '170px', flex: '1 1 190px' }}>
+                    <label style={labelStyle}>Worker 2</label>
+                    <select value={referralLedgerFilters.referredWorkerId} onChange={event => setReferralLedgerFilters(current => ({ ...current, referredWorkerId: event.target.value }))} style={inputStyle}>
+                      <option value="all">All Referred Workers</option>
+                      {referralLedgerReferredWorkerOptions.map(worker => (
+                        <option key={worker.id} value={worker.id}>{worker.label}{worker.mobile ? ` - ${worker.mobile}` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ minWidth: '170px', flex: '1 1 190px' }}>
+                    <label style={labelStyle}>Category</label>
+                    <select value={referralLedgerFilters.categoryId} onChange={event => setReferralLedgerFilters(current => ({ ...current, categoryId: event.target.value }))} style={inputStyle}>
+                      <option value="all">All Categories</option>
+                      {referralLedgerCategoryOptions.map(category => (
+                        <option key={category.id} value={category.id}>{category.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ minWidth: '150px', flex: '1 1 160px' }}>
+                    <label style={labelStyle}>Entry Type</label>
+                    <select value={referralLedgerFilters.entryType} onChange={event => setReferralLedgerFilters(current => ({ ...current, entryType: event.target.value }))} style={inputStyle}>
+                      <option value="all">All Entry Types</option>
+                      {referralLedgerEntryTypeOptions.map(entryType => (
+                        <option key={entryType} value={entryType}>{entryType}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ minWidth: '140px', flex: '1 1 150px' }}>
+                    <label style={labelStyle}>Status</label>
+                    <select value={referralLedgerFilters.status} onChange={event => setReferralLedgerFilters(current => ({ ...current, status: event.target.value }))} style={inputStyle}>
+                      <option value="all">All Statuses</option>
+                      {referralLedgerStatusOptions.map(status => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ minWidth: '140px', flex: '1 1 150px' }}>
+                    <label style={labelStyle}>Date From</label>
+                    <input type="date" value={referralLedgerFilters.dateFrom} onChange={event => setReferralLedgerFilters(current => ({ ...current, dateFrom: event.target.value }))} style={inputStyle} />
+                  </div>
+                  <div style={{ minWidth: '140px', flex: '1 1 150px' }}>
+                    <label style={labelStyle}>Date To</label>
+                    <input type="date" value={referralLedgerFilters.dateTo} onChange={event => setReferralLedgerFilters(current => ({ ...current, dateTo: event.target.value }))} style={inputStyle} />
+                  </div>
+                  <button type="button" onClick={() => setReferralLedgerFilters(blankReferralLedgerFilters)} style={{ ...subtleButtonStyle, alignSelf: 'flex-end' }}>
+                    Clear Filters
+                  </button>
+                  <button type="button" onClick={exportReferralLedgerExcel} style={{ ...subtleButtonStyle, alignSelf: 'flex-end' }}>
+                    Export Excel
+                  </button>
+                  <button type="button" onClick={exportReferralLedgerPdf} style={{ ...subtleButtonStyle, alignSelf: 'flex-end' }}>
+                    Export PDF
+                  </button>
+                  <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 600, alignSelf: 'center' }}>
+                    Showing {filteredReferralLedgerRows.length} of {referralSnapshot.ledger.length} ledger entries
+                  </span>
+                </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                       <tr>
-                        {['Date/Time', 'Worker', 'Referral ID', 'Entry Type', 'Amount', 'Balance After', 'Status', 'Reference', 'Remarks'].map(label => (
+                        {['Date/Time', 'Agent / Worker 1', 'Agent Mobile', 'Worker 2', 'Worker 2 Mobile', 'Referral Code', 'Category', 'Referral ID', 'Entry Type', 'Amount', 'Balance After', 'Status', 'Reference', 'Remarks'].map(label => (
                           <th key={label} style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>{label}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {referralSnapshot.ledger.length === 0 ? (
-                        <tr><td colSpan={9} style={{ padding: '14px', color: '#64748b' }}>No referral ledger entries yet.</td></tr>
-                      ) : referralSnapshot.ledger.map(entry => {
-                        const worker = getWorkerById(entry.workerId)
+                      {filteredReferralLedgerRows.length === 0 ? (
+                        <tr><td colSpan={14} style={{ padding: '14px', color: '#64748b' }}>{hasReferralLedgerFilters ? 'No reward ledger entries found for the selected filters.' : 'No referral ledger entries yet.'}</td></tr>
+                      ) : filteredReferralLedgerRows.map(({ entry, referral, agent, referred, categoryName, referralCode }) => {
                         return (
                           <tr key={entry.id}>
                             <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{formatDateTime(entry.createdAt)}</td>
-                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{worker?.fullName || entry.workerId}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{agent?.fullName || entry.workerId}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{agent?.mobile || '-'}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referred?.fullName || referral?.referredWorkerId || '-'}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referred?.mobile || '-'}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{referralCode}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{categoryName}</td>
                             <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{entry.referralId}</td>
                             <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{entry.entryType}</td>
                             <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{formatCurrency(entry.amount)}</td>

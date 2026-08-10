@@ -1629,6 +1629,7 @@ export default function LabourExchangeAdminPage() {
   const [selectedReferralWorkerId, setSelectedReferralWorkerId] = useState('')
   const [selectedReferralCategoryIds, setSelectedReferralCategoryIds] = useState<string[]>([])
   const [referralRewardDraft, setReferralRewardDraft] = useState<Record<string, string>>({})
+  const [referralTrackingFilters, setReferralTrackingFilters] = useState({ search: '', agentWorkerId: 'all' })
 
   const [categoryDraft, setCategoryDraft] = useState<LabourCategory>(blankCategory)
   const [planDraft, setPlanDraft] = useState<LabourPlan>(blankPlan)
@@ -4435,6 +4436,34 @@ export default function LabourExchangeAdminPage() {
   const selectedReferralEligibilityByCategory = new Map(
     selectedReferralEligibility.map(item => [item.categoryId, item])
   )
+  const referralTrackingAgentOptions = Array.from(
+    new Map(
+      referralSnapshot.referrals.map(referral => {
+        const referrer = getWorkerById(referral.referrerWorkerId)
+        return [referral.referrerWorkerId, {
+          id: referral.referrerWorkerId,
+          label: referrer?.fullName || referral.referrerWorkerId,
+          mobile: referrer?.mobile || ''
+        }]
+      })
+    ).values()
+  ).sort((left, right) => left.label.localeCompare(right.label))
+  const referralTrackingSearchTerm = referralTrackingFilters.search.trim().toLowerCase()
+  const hasReferralTrackingFilters =
+    Boolean(referralTrackingSearchTerm) || referralTrackingFilters.agentWorkerId !== 'all'
+  const filteredReferralTrackingRows = referralSnapshot.referrals.filter(referral => {
+    const referrer = getWorkerById(referral.referrerWorkerId)
+    const matchesSearch = !referralTrackingSearchTerm || [
+      referrer?.fullName,
+      referrer?.mobile,
+      referral.referralCodeSnapshot
+    ].some(value => String(value || '').toLowerCase().includes(referralTrackingSearchTerm))
+    const matchesAgent =
+      referralTrackingFilters.agentWorkerId === 'all' ||
+      referral.referrerWorkerId === referralTrackingFilters.agentWorkerId
+
+    return matchesSearch && matchesAgent
+  })
   const referralIndustryOptions = buildLabourMasterSelectOptions(
     visibleWorkerIndustryMasterOptions,
     referralIndustryFilter ? [referralIndustryFilter] : []
@@ -7240,6 +7269,42 @@ export default function LabourExchangeAdminPage() {
             {referralAdminTab === 'tracking' && (
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '18px' }}>Referral Tracking</h3>
+                <div style={compactFilterPanelStyle}>
+                  <div style={{ minWidth: '260px', flex: '1 1 320px' }}>
+                    <label style={labelStyle}>Search Agent</label>
+                    <input
+                      value={referralTrackingFilters.search}
+                      onChange={event => setReferralTrackingFilters(current => ({ ...current, search: event.target.value }))}
+                      placeholder="Search agent name, mobile or referral code..."
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div style={{ minWidth: '180px', flex: '0 1 240px' }}>
+                    <label style={labelStyle}>Agent</label>
+                    <select
+                      value={referralTrackingFilters.agentWorkerId}
+                      onChange={event => setReferralTrackingFilters(current => ({ ...current, agentWorkerId: event.target.value }))}
+                      style={inputStyle}
+                    >
+                      <option value="all">All Agents</option>
+                      {referralTrackingAgentOptions.map(agent => (
+                        <option key={agent.id} value={agent.id}>
+                          {agent.label}{agent.mobile ? ` - ${agent.mobile}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReferralTrackingFilters({ search: '', agentWorkerId: 'all' })}
+                    style={{ ...subtleButtonStyle, alignSelf: 'flex-end' }}
+                  >
+                    Clear Filters
+                  </button>
+                  <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 600, alignSelf: 'center' }}>
+                    Showing {filteredReferralTrackingRows.length} of {referralSnapshot.referrals.length} referrals
+                  </span>
+                </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
@@ -7250,9 +7315,9 @@ export default function LabourExchangeAdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {referralSnapshot.referrals.length === 0 ? (
-                        <tr><td colSpan={12} style={{ padding: '14px', color: '#64748b' }}>No referral attributions yet.</td></tr>
-                      ) : referralSnapshot.referrals.map(referral => {
+                      {filteredReferralTrackingRows.length === 0 ? (
+                        <tr><td colSpan={12} style={{ padding: '14px', color: '#64748b' }}>{hasReferralTrackingFilters ? 'No referrals found for the selected filters.' : 'No referrals found yet.'}</td></tr>
+                      ) : filteredReferralTrackingRows.map(referral => {
                         const referrer = getWorkerById(referral.referrerWorkerId)
                         const referred = getWorkerById(referral.referredWorkerId)
                         return (

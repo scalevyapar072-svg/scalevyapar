@@ -4853,9 +4853,6 @@ export default function LabourExchangeAdminPage() {
   const referralLedgerStatusOptions = Array.from(new Set(referralSnapshot.ledger.map(entry => entry.status).filter(Boolean))).sort()
   const referralLedgerSearchTerm = referralLedgerFilters.search.trim().toLowerCase()
   const filteredReferralLedgerRows = referralLedgerRows.filter(row => {
-    const createdAt = row.entry.createdAt ? new Date(row.entry.createdAt) : null
-    const dateFrom = referralLedgerFilters.dateFrom ? new Date(`${referralLedgerFilters.dateFrom}T00:00:00`) : null
-    const dateTo = referralLedgerFilters.dateTo ? new Date(`${referralLedgerFilters.dateTo}T23:59:59`) : null
     const matchesSearch = !referralLedgerSearchTerm || [
       row.agent?.fullName,
       row.agent?.mobile,
@@ -4880,10 +4877,9 @@ export default function LabourExchangeAdminPage() {
     const matchesStatus =
       referralLedgerFilters.status === 'all' ||
       row.entry.status === referralLedgerFilters.status
-    const matchesDateFrom = !dateFrom || Boolean(createdAt && createdAt >= dateFrom)
-    const matchesDateTo = !dateTo || Boolean(createdAt && createdAt <= dateTo)
+    const matchesLedgerDateRange = matchesDateRange(row.entry.createdAt, referralLedgerFilters.dateFrom, referralLedgerFilters.dateTo)
 
-    return matchesSearch && matchesAgent && matchesReferred && matchesCategory && matchesEntryType && matchesStatus && matchesDateFrom && matchesDateTo
+    return matchesSearch && matchesAgent && matchesReferred && matchesCategory && matchesEntryType && matchesStatus && matchesLedgerDateRange
   })
   const hasReferralLedgerFilters = Object.entries(referralLedgerFilters).some(([key, value]) =>
     key === 'search' ? Boolean(value.trim()) : value !== 'all' && Boolean(value)
@@ -7927,11 +7923,23 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div style={{ minWidth: '140px', flex: '1 1 150px' }}>
                     <label style={labelStyle}>Date From</label>
-                    <input type="date" value={referralLedgerFilters.dateFrom} onChange={event => setReferralLedgerFilters(current => ({ ...current, dateFrom: event.target.value }))} style={inputStyle} />
+                    <input
+                      type="date"
+                      value={referralLedgerFilters.dateFrom}
+                      onInput={event => setReferralLedgerFilters(current => ({ ...current, dateFrom: event.currentTarget.value }))}
+                      onChange={event => setReferralLedgerFilters(current => ({ ...current, dateFrom: event.target.value }))}
+                      style={inputStyle}
+                    />
                   </div>
                   <div style={{ minWidth: '140px', flex: '1 1 150px' }}>
                     <label style={labelStyle}>Date To</label>
-                    <input type="date" value={referralLedgerFilters.dateTo} onChange={event => setReferralLedgerFilters(current => ({ ...current, dateTo: event.target.value }))} style={inputStyle} />
+                    <input
+                      type="date"
+                      value={referralLedgerFilters.dateTo}
+                      onInput={event => setReferralLedgerFilters(current => ({ ...current, dateTo: event.currentTarget.value }))}
+                      onChange={event => setReferralLedgerFilters(current => ({ ...current, dateTo: event.target.value }))}
+                      style={inputStyle}
+                    />
                   </div>
                   <button type="button" onClick={() => setReferralLedgerFilters(blankReferralLedgerFilters)} style={{ ...subtleButtonStyle, alignSelf: 'flex-end' }}>
                     Clear Filters

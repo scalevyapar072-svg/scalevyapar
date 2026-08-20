@@ -98,6 +98,12 @@ export interface WorkerReferralCreditResult {
   reason: string
 }
 
+type WorkerReferralNotificationHooks = {
+  onReferralJoined?: (referral: WorkerReferral) => Promise<void>
+  onReferralQualified?: (referral: WorkerReferral) => Promise<void>
+  onRewardCredited?: (result: WorkerReferralCreditResult) => Promise<void>
+}
+
 export interface WorkerReferralRepository {
   findWorkerById(workerId: string): Promise<ReferralWorker | null>
   findCategoryById(categoryId: string): Promise<ReferralCategory | null>
@@ -189,7 +195,10 @@ const assertActiveCategory = async (repository: WorkerReferralRepository, catego
   return category
 }
 
-export const createLabourWorkerReferralService = (repository: WorkerReferralRepository) => {
+export const createLabourWorkerReferralService = (
+  repository: WorkerReferralRepository,
+  notificationHooks: WorkerReferralNotificationHooks = {},
+) => {
   const getReferralProfileForWorker = async (workerId: string) =>
     repository.findProfileByWorkerId(normalizeId(workerId, 'Worker ID'))
 
@@ -328,7 +337,21 @@ export const createLabourWorkerReferralService = (repository: WorkerReferralRepo
     }
 
     try {
-      return await repository.insertReferral(referral)
+      const createdReferral = await repository.insertReferral(referral)
+      if (notificationHooks.onReferralJoined) {
+        try {
+          await notificationHooks.onReferralJoined(createdReferral)
+        } catch (notificationError) {
+          console.error('Referral joined email enqueue failed:', {
+            referralId: createdReferral.id,
+            error:
+              notificationError instanceof Error
+                ? notificationError.message
+                : 'unknown-error',
+          })
+        }
+      }
+      return createdReferral
     } catch (error) {
       const raced = await repository.findReferralByReferredWorkerId(normalizedReferredWorkerId)
       if (
@@ -357,7 +380,21 @@ export const createLabourWorkerReferralService = (repository: WorkerReferralRepo
     if (referral.rewardStatus !== 'pending') return referral
 
     const qualifiedAt = referral.qualifiedAt || nowIso()
-    return repository.qualifyReferral(referral.id, qualifiedAt)
+    const qualifiedReferral = await repository.qualifyReferral(referral.id, qualifiedAt)
+    if (qualifiedReferral && notificationHooks.onReferralQualified) {
+      try {
+        await notificationHooks.onReferralQualified(qualifiedReferral)
+      } catch (notificationError) {
+        console.error('Referral qualified email enqueue failed:', {
+          referralId: qualifiedReferral.id,
+          error:
+            notificationError instanceof Error
+              ? notificationError.message
+              : 'unknown-error',
+        })
+      }
+    }
+    return qualifiedReferral
   }
 
   const listReferralsForReferrer = async (workerId: string) =>
@@ -477,8 +514,33 @@ export const createLabourWorkerReferralService = (repository: WorkerReferralRepo
       status: 'reversed'
     })
 
-  const creditQualifiedReferralReward = async (referralId: string) =>
-    repository.creditQualifiedReferralReward(normalizeId(referralId, 'Referral ID'))
+  const creditQualifiedReferralReward = async (referralId: string) => {
+    const result = await repository.creditQualifiedReferralReward(
+      normalizeId(referralId, 'Referral ID'),
+    )
+
+    if (
+      result.credited &&
+      result.referral &&
+      result.ledgerEntry &&
+      notificationHooks.onRewardCredited
+    ) {
+      try {
+        await notificationHooks.onRewardCredited(result)
+      } catch (notificationError) {
+        console.error('Referral reward credited email enqueue failed:', {
+          referralId: result.referral.id,
+          ledgerReference: result.ledgerEntry.reference,
+          error:
+            notificationError instanceof Error
+              ? notificationError.message
+              : 'unknown-error',
+        })
+      }
+    }
+
+    return result
+  }
 
   return {
     getReferralProfileForWorker,
@@ -757,8 +819,34 @@ export const createSupabaseWorkerReferralRepository = (client: SupabaseClientLik
 
 const getDefaultService = async () => {
   const { supabaseAdmin } = await import('./supabase-admin')
+  const {
+    enqueueReferralJoinedAdminEmail,
+    enqueueReferralQualifiedAdminEmail,
+    enqueueReferralRewardCreditedAdminEmail,
+  } = await import('./labour-worker-referral-email-outbox')
   return createLabourWorkerReferralService(
-    createSupabaseWorkerReferralRepository(supabaseAdmin as unknown as SupabaseClientLike)
+    createSupabaseWorkerReferralRepository(supabaseAdmin as unknown as SupabaseClientLike),
+    {
+      onReferralJoined: async referral => {
+        await enqueueReferralJoinedAdminEmail({ referralId: referral.id })
+      },
+      onReferralQualified: async referral => {
+        await enqueueReferralQualifiedAdminEmail({ referralId: referral.id })
+      },
+      onRewardCredited: async result => {
+        if (!result.referral || !result.ledgerEntry) {
+          return
+        }
+
+        await enqueueReferralRewardCreditedAdminEmail({
+          referralId: result.referral.id,
+          ledgerReference: result.ledgerEntry.reference,
+          rewardAmount: result.ledgerEntry.amount,
+          availableBalance: result.ledgerEntry.balanceAfter,
+          creditedAt: result.referral.rewardedAt || result.ledgerEntry.createdAt,
+        })
+      },
+    },
   )
 }
 

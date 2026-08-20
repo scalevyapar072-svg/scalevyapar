@@ -75,7 +75,7 @@ type LabourSection =
   | 'settings'
   | 'auditLogs'
 type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'jobApplications' | 'savedJobs' | 'workerNotifications' | 'walletTransactions' | 'rechargeRequests'
-type ReferralAdminTab = 'dashboard' | 'referrers' | 'tracking' | 'ledger' | 'settings'
+type ReferralAdminTab = 'dashboard' | 'referrers' | 'tracking' | 'ledger' | 'settings' | 'withdrawals'
 type ReferralWorkerStatusFilter = 'all' | 'enabled' | 'not_enabled'
 type ReferralLedgerFilters = {
   search: string
@@ -86,6 +86,12 @@ type ReferralLedgerFilters = {
   status: string
   dateFrom: string
   dateTo: string
+}
+type ReferralWithdrawalReviewAction = 'approve' | 'reject' | 'mark-paid'
+type ReferralWithdrawalFilters = {
+  search: string
+  status: string
+  payoutMethod: string
 }
 type CategoryDependencyRow = {
   id: string
@@ -358,6 +364,63 @@ type ReferralAdminSnapshot = {
     rewardsCredited: number
     availableReferralEarningsLiability: number
     reversedRewards: number
+  }
+}
+
+type ReferralAdminSettings = {
+  id: string
+  minimumWithdrawalAmount: number
+  createdAt: string
+  updatedAt: string
+}
+
+type ReferralAdminWithdrawalItem = {
+  id: string
+  workerId: string
+  agentName: string
+  mobile: string
+  referralCode: string
+  kycStatus: string
+  amount: number
+  payoutMethod: 'bank' | 'upi'
+  maskedDestination: string
+  status: 'requested' | 'approved' | 'processing' | 'paid' | 'rejected' | 'failed' | 'cancelled'
+  requestedAt: string
+  approvedAt: string
+  rejectedAt: string
+  rejectionReason: string
+  paidAt: string
+  paymentReference: string
+  createdAt: string
+  updatedAt: string
+}
+
+type ReferralAdminWithdrawalPaymentDetails = {
+  requestId: string
+  amount: number
+  payoutMethod: 'bank' | 'upi'
+  maskedDestination: string
+  approvedAt: string
+  bank: {
+    accountHolderName: string
+    accountNumber: string
+    ifsc: string
+  } | null
+  upi: {
+    upiId: string
+  } | null
+}
+
+type ReferralAdminWithdrawalSnapshot = {
+  withdrawals: ReferralAdminWithdrawalItem[]
+  summary: {
+    requestedCount: number
+    approvedCount: number
+    paidCount: number
+    rejectedCount: number
+    totalRequestedAmount: number
+    totalApprovedAmount: number
+    totalPaidAmount: number
   }
 }
 
@@ -846,6 +909,26 @@ const blankReferralAdminSnapshot: ReferralAdminSnapshot = {
   }
 }
 
+const blankReferralAdminSettings: ReferralAdminSettings = {
+  id: 'global',
+  minimumWithdrawalAmount: 250,
+  createdAt: '',
+  updatedAt: ''
+}
+
+const blankReferralAdminWithdrawalSnapshot: ReferralAdminWithdrawalSnapshot = {
+  withdrawals: [],
+  summary: {
+    requestedCount: 0,
+    approvedCount: 0,
+    paidCount: 0,
+    rejectedCount: 0,
+    totalRequestedAmount: 0,
+    totalApprovedAmount: 0,
+    totalPaidAmount: 0
+  }
+}
+
 const blankReferralLedgerFilters: ReferralLedgerFilters = {
   search: '',
   agentWorkerId: 'all',
@@ -855,6 +938,12 @@ const blankReferralLedgerFilters: ReferralLedgerFilters = {
   status: 'all',
   dateFrom: '',
   dateTo: ''
+}
+
+const blankReferralWithdrawalFilters: ReferralWithdrawalFilters = {
+  search: '',
+  status: 'all',
+  payoutMethod: 'all'
 }
 
 const blankLabourAdminSettings: LabourAdminSettings = {
@@ -1899,12 +1988,20 @@ const buildJobPostDescription = (jobPost: LabourJobPost) => {
 export default function LabourExchangeAdminPage() {
   const [snapshot, setSnapshot] = useState<LabourSnapshot | null>(null)
   const [referralSnapshot, setReferralSnapshot] = useState<ReferralAdminSnapshot>(blankReferralAdminSnapshot)
+  const [referralWithdrawalSnapshot, setReferralWithdrawalSnapshot] = useState<ReferralAdminWithdrawalSnapshot>(blankReferralAdminWithdrawalSnapshot)
+  const [withdrawalPaymentDetails, setWithdrawalPaymentDetails] = useState<ReferralAdminWithdrawalPaymentDetails | null>(null)
+  const [referralSettingsDraft, setReferralSettingsDraft] = useState<ReferralAdminSettings>(blankReferralAdminSettings)
   const [mastersSnapshot, setMastersSnapshot] = useState<LabourMastersSnapshot | null>(null)
   const [settingsDraft, setSettingsDraft] = useState<LabourAdminSettings>(blankLabourAdminSettings)
   const [settingsStorage, setSettingsStorage] = useState<'supabase' | 'json'>('json')
   const [loading, setLoading] = useState(true)
   const [referralLoading, setReferralLoading] = useState(true)
+  const [referralWithdrawalsLoading, setReferralWithdrawalsLoading] = useState(true)
   const [referralSaving, setReferralSaving] = useState(false)
+  const [referralWithdrawalSaving, setReferralWithdrawalSaving] = useState(false)
+  const [withdrawalPaymentDetailsLoading, setWithdrawalPaymentDetailsLoading] = useState(false)
+  const [referralSettingsLoading, setReferralSettingsLoading] = useState(true)
+  const [referralSettingsSaving, setReferralSettingsSaving] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
@@ -1925,7 +2022,15 @@ export default function LabourExchangeAdminPage() {
   const [referralRewardDraft, setReferralRewardDraft] = useState<Record<string, string>>({})
   const [referralTrackingFilters, setReferralTrackingFilters] = useState({ search: '', agentWorkerId: 'all' })
   const [referralLedgerFilters, setReferralLedgerFilters] = useState<ReferralLedgerFilters>(blankReferralLedgerFilters)
+  const [referralWithdrawalFilters, setReferralWithdrawalFilters] = useState<ReferralWithdrawalFilters>(blankReferralWithdrawalFilters)
   const [creditingReferralId, setCreditingReferralId] = useState('')
+  const [withdrawalReviewDraft, setWithdrawalReviewDraft] = useState<{
+    requestId: string
+    action: ReferralWithdrawalReviewAction
+    rejectionReason: string
+    paymentReference: string
+    paymentConfirmed: boolean
+  } | null>(null)
 
   const [categoryDraft, setCategoryDraft] = useState<LabourCategory>(blankCategory)
   const [planDraft, setPlanDraft] = useState<LabourPlan>(blankPlan)
@@ -2113,11 +2218,51 @@ export default function LabourExchangeAdminPage() {
     }
   }
 
+  const fetchReferralSettings = async () => {
+    setReferralSettingsLoading(true)
+
+    try {
+      const response = await fetch('/api/admin/labour/referral-settings', { cache: 'no-store' })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to load referral settings.')
+      }
+
+      setReferralSettingsDraft(data.settings || blankReferralAdminSettings)
+    } catch {
+      setError(current => current || 'Unable to load Refer & Earn settings right now.')
+      setReferralSettingsDraft(blankReferralAdminSettings)
+    } finally {
+      setReferralSettingsLoading(false)
+    }
+  }
+
+  const fetchReferralWithdrawals = async () => {
+    setReferralWithdrawalsLoading(true)
+
+    try {
+      const response = await fetch('/api/admin/labour/withdrawals', { cache: 'no-store' })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to load withdrawal requests.')
+      }
+
+      setReferralWithdrawalSnapshot(data || blankReferralAdminWithdrawalSnapshot)
+    } catch {
+      setError(current => current || 'Unable to load Refer & Earn withdrawal requests right now.')
+      setReferralWithdrawalSnapshot(blankReferralAdminWithdrawalSnapshot)
+    } finally {
+      setReferralWithdrawalsLoading(false)
+    }
+  }
+
   useEffect(() => {
     void fetchSnapshot()
     void fetchSettings()
     void fetchMasters()
     void fetchReferralSnapshot()
+    void fetchReferralSettings()
+    void fetchReferralWithdrawals()
   }, [])
 
   const showSaved = (message: string) => {
@@ -3652,6 +3797,43 @@ export default function LabourExchangeAdminPage() {
       setReferralSaving(false)
     }
   }
+
+  const saveReferralSettings = async () => {
+    setError('')
+    setReferralSettingsSaving(true)
+
+    const amount = Number(referralSettingsDraft.minimumWithdrawalAmount || 0)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Minimum withdrawal amount must be greater than zero.')
+      setReferralSettingsSaving(false)
+      return
+    }
+
+    try {
+      const response = await fetch('/api/admin/labour/referral-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings: {
+            minimumWithdrawalAmount: amount
+          }
+        })
+      })
+
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        setError(data.error || 'Failed to save referral settings.')
+        return
+      }
+
+      setReferralSettingsDraft(data.settings || blankReferralAdminSettings)
+      showSaved('Settings saved successfully.')
+    } catch {
+      setError('Failed to save referral settings.')
+    } finally {
+      setReferralSettingsSaving(false)
+    }
+  }
   const saveReferralEligibility = async () => {
     const profile = getReferralProfileByWorkerId(selectedReferralWorkerId)
     if (!profile) {
@@ -3697,6 +3879,111 @@ export default function LabourExchangeAdminPage() {
       setReferralSaving(false)
     }
   }
+
+  const submitReferralWithdrawalReview = async () => {
+    if (!withdrawalReviewDraft) return
+    const trimmedReason = withdrawalReviewDraft.rejectionReason.trim()
+    const trimmedPaymentReference = withdrawalReviewDraft.paymentReference.trim().replace(/\s+/g, ' ')
+
+    if (withdrawalReviewDraft.action === 'reject' && !trimmedReason) {
+      setError('Rejection reason is required.')
+      return
+    }
+
+    if (trimmedReason.length > 500) {
+      setError('Rejection reason must be 500 characters or less.')
+      return
+    }
+
+    if (withdrawalReviewDraft.action === 'mark-paid' && !trimmedPaymentReference) {
+      setError('Payment reference / UTR is required.')
+      return
+    }
+
+    if (trimmedPaymentReference.length > 120) {
+      setError('Payment reference must be 120 characters or less.')
+      return
+    }
+
+    if (withdrawalReviewDraft.action === 'mark-paid' && !withdrawalReviewDraft.paymentConfirmed) {
+      setError('Confirm the manual payment before marking this withdrawal as paid.')
+      return
+    }
+
+    setError('')
+    setReferralWithdrawalSaving(true)
+
+    try {
+      const response = await fetch('/api/admin/labour/withdrawals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId: withdrawalReviewDraft.requestId,
+          action: withdrawalReviewDraft.action,
+          rejectionReason: trimmedReason,
+          paymentReference: trimmedPaymentReference,
+        })
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to review withdrawal request.')
+      }
+
+      setReferralWithdrawalSnapshot(data.snapshot || blankReferralAdminWithdrawalSnapshot)
+      setWithdrawalReviewDraft(null)
+      setWithdrawalPaymentDetails(null)
+      showSaved(
+        withdrawalReviewDraft.action === 'approve'
+          ? 'Withdrawal request approved.'
+          : withdrawalReviewDraft.action === 'reject'
+            ? 'Withdrawal request rejected.'
+            : 'Withdrawal marked paid successfully.'
+      )
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : 'Failed to review withdrawal request.')
+    } finally {
+      setReferralWithdrawalSaving(false)
+    }
+  }
+
+  const openWithdrawalReview = (requestId: string, action: ReferralWithdrawalReviewAction) => {
+    setWithdrawalReviewDraft({
+      requestId,
+      action,
+      rejectionReason: '',
+      paymentReference: '',
+      paymentConfirmed: false,
+    })
+    setWithdrawalPaymentDetails(null)
+    setError('')
+  }
+
+  const loadWithdrawalPaymentDetails = async (requestId: string) => {
+    setWithdrawalPaymentDetailsLoading(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/admin/labour/withdrawals/payment-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ requestId }),
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load payment details.')
+      }
+
+      setWithdrawalPaymentDetails(
+        (data.paymentDetails as ReferralAdminWithdrawalPaymentDetails | undefined) || null,
+      )
+    } catch (detailsError) {
+      setError(detailsError instanceof Error ? detailsError.message : 'Failed to load payment details.')
+    } finally {
+      setWithdrawalPaymentDetailsLoading(false)
+    }
+  }
+
   const creditReferralReward = async (referral: ReferralAdminReferral) => {
     const referrer = getWorkerById(referral.referrerWorkerId)
     const referred = getWorkerById(referral.referredWorkerId)
@@ -5018,6 +5305,77 @@ export default function LabourExchangeAdminPage() {
     { label: 'Rewards Credited', value: referralSnapshot.stats.rewardsCredited, accent: '#1d4ed8' },
     { label: 'Available Liability', value: formatCurrency(referralSnapshot.stats.availableReferralEarningsLiability), accent: '#0f172a' },
     { label: 'Reversed Rewards', value: formatCurrency(referralSnapshot.stats.reversedRewards), accent: '#be123c' }
+  ]
+  const referralWithdrawalById = new Map(
+    referralWithdrawalSnapshot.withdrawals.map(withdrawal => [withdrawal.id, withdrawal])
+  )
+  const selectedWithdrawalReview = withdrawalReviewDraft
+    ? referralWithdrawalById.get(withdrawalReviewDraft.requestId) || null
+    : null
+  const referralWithdrawalStatusOptions = Array.from(
+    new Set(referralWithdrawalSnapshot.withdrawals.map(item => item.status).filter(Boolean))
+  ).sort()
+  const referralWithdrawalMethodOptions = Array.from(
+    new Set(referralWithdrawalSnapshot.withdrawals.map(item => item.payoutMethod).filter(Boolean))
+  ).sort()
+  const referralWithdrawalSearchTerm = referralWithdrawalFilters.search.trim().toLowerCase()
+  const filteredReferralWithdrawalRows = referralWithdrawalSnapshot.withdrawals.filter(withdrawal => {
+    const matchesSearch =
+      !referralWithdrawalSearchTerm ||
+      [
+        withdrawal.agentName,
+        withdrawal.mobile,
+        withdrawal.referralCode,
+        withdrawal.id,
+      ].some(value => String(value || '').toLowerCase().includes(referralWithdrawalSearchTerm))
+    const matchesStatus =
+      referralWithdrawalFilters.status === 'all' ||
+      withdrawal.status === referralWithdrawalFilters.status
+    const matchesMethod =
+      referralWithdrawalFilters.payoutMethod === 'all' ||
+      withdrawal.payoutMethod === referralWithdrawalFilters.payoutMethod
+
+    return matchesSearch && matchesStatus && matchesMethod
+  })
+  const hasReferralWithdrawalFilters = Object.entries(referralWithdrawalFilters).some(
+    ([key, value]) => (key === 'search' ? Boolean(value.trim()) : value !== 'all' && Boolean(value)),
+  )
+  const referralWithdrawalMetricCards = [
+    {
+      label: 'Requested',
+      value: referralWithdrawalSnapshot.summary.requestedCount,
+      accent: '#b45309',
+    },
+    {
+      label: 'Approved',
+      value: referralWithdrawalSnapshot.summary.approvedCount,
+      accent: '#047857',
+    },
+    {
+      label: 'Paid',
+      value: referralWithdrawalSnapshot.summary.paidCount,
+      accent: '#1d4ed8',
+    },
+    {
+      label: 'Rejected',
+      value: referralWithdrawalSnapshot.summary.rejectedCount,
+      accent: '#b91c1c',
+    },
+    {
+      label: 'Total Requested Amount',
+      value: formatCurrency(referralWithdrawalSnapshot.summary.totalRequestedAmount),
+      accent: '#0f172a',
+    },
+    {
+      label: 'Total Approved Amount',
+      value: formatCurrency(referralWithdrawalSnapshot.summary.totalApprovedAmount),
+      accent: '#1d4ed8',
+    },
+    {
+      label: 'Total Paid Amount',
+      value: formatCurrency(referralWithdrawalSnapshot.summary.totalPaidAmount),
+      accent: '#0369a1',
+    }
   ]
 
   const downloadReportFile = (fileName: string, content: BlobPart, mimeType: string) => {
@@ -7483,7 +7841,14 @@ export default function LabourExchangeAdminPage() {
                     Manage referral profiles and category rewards without changing workers, wallets, KYC, or registration flows.
                   </p>
                 </div>
-                <button onClick={() => void fetchReferralSnapshot()} style={subtleButtonStyle} disabled={referralLoading}>
+                <button
+                  onClick={() => {
+                    void fetchReferralSnapshot()
+                    void fetchReferralWithdrawals()
+                  }}
+                  style={subtleButtonStyle}
+                  disabled={referralLoading || referralWithdrawalsLoading}
+                >
                   <RefreshCw size={16} /> Refresh Referrals
                 </button>
               </div>
@@ -7494,7 +7859,8 @@ export default function LabourExchangeAdminPage() {
                   ['referrers', 'Referrer Workers'],
                   ['tracking', 'Referral Tracking'],
                   ['ledger', 'Reward Ledger'],
-                  ['settings', 'Referral Settings']
+                  ['settings', 'Referral Settings'],
+                  ['withdrawals', 'Withdrawal Requests']
                 ] as Array<[ReferralAdminTab, string]>).map(([key, label]) => (
                   <button
                     key={key}
@@ -7926,8 +8292,10 @@ export default function LabourExchangeAdminPage() {
                     <input
                       type="date"
                       value={referralLedgerFilters.dateFrom}
-                      onInput={event => setReferralLedgerFilters(current => ({ ...current, dateFrom: event.currentTarget.value }))}
-                      onChange={event => setReferralLedgerFilters(current => ({ ...current, dateFrom: event.target.value }))}
+                      onChange={event => {
+                        const value = event.currentTarget.value
+                        setReferralLedgerFilters(current => ({ ...current, dateFrom: value }))
+                      }}
                       style={inputStyle}
                     />
                   </div>
@@ -7936,8 +8304,10 @@ export default function LabourExchangeAdminPage() {
                     <input
                       type="date"
                       value={referralLedgerFilters.dateTo}
-                      onInput={event => setReferralLedgerFilters(current => ({ ...current, dateTo: event.currentTarget.value }))}
-                      onChange={event => setReferralLedgerFilters(current => ({ ...current, dateTo: event.target.value }))}
+                      onChange={event => {
+                        const value = event.currentTarget.value
+                        setReferralLedgerFilters(current => ({ ...current, dateTo: value }))
+                      }}
                       style={inputStyle}
                     />
                   </div>
@@ -7996,14 +8366,231 @@ export default function LabourExchangeAdminPage() {
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 10px', color: '#0f172a', fontSize: '18px' }}>Referral Settings</h3>
                 <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
-                  Referral Program: ON/OFF global persistence is not created in Phase 2 because no separate settings table was approved in Phase 1.
+                  Configure the live Refer & Earn withdrawal threshold without changing payout processing, reward logic, or worker eligibility rules.
                 </p>
-                <p style={{ margin: '10px 0 0', color: '#64748b', fontSize: '13px' }}>
-                  Category-specific rewards are managed per referrer worker in the Referrer Workers tab.
-                </p>
-                <div style={{ ...compactFilterPanelStyle, marginTop: '14px' }}>
-                  <strong style={{ color: '#0f172a' }}>Withdrawal Requests</strong>
-                  <span style={{ color: '#64748b' }}>Coming later. No payout or withdrawal functionality is active in Phase 2.</span>
+                <div style={{ ...compactFilterPanelStyle, marginTop: '16px', alignItems: 'end', gridTemplateColumns: 'minmax(220px, 320px) 1fr auto' }}>
+                  <div>
+                    <label style={labelStyle}>Minimum Withdrawal Amount</label>
+                    <div style={{ position: 'relative' }}>
+                      <span
+                        style={{
+                          position: 'absolute',
+                          left: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          color: '#475569',
+                          fontWeight: 700
+                        }}
+                      >
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        step="1"
+                        value={String(referralSettingsDraft.minimumWithdrawalAmount || '')}
+                        onChange={event => setReferralSettingsDraft(current => ({
+                          ...current,
+                          minimumWithdrawalAmount: Number(event.target.value || 0)
+                        }))}
+                        style={{ ...inputStyle, paddingLeft: '32px' }}
+                        placeholder="250"
+                        disabled={referralSettingsLoading}
+                      />
+                    </div>
+                    <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: '12px', lineHeight: 1.5 }}>
+                      Minimum referral earnings required before an Agent can submit a withdrawal request.
+                    </p>
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: '12px', lineHeight: 1.6 }}>
+                    <div><strong style={{ color: '#0f172a' }}>Source:</strong> live referral settings table</div>
+                    <div><strong style={{ color: '#0f172a' }}>Last updated:</strong> {referralSettingsDraft.updatedAt || 'Just now after first save'}</div>
+                    <div>Category-specific rewards remain managed per referrer worker in the Referrer Workers tab.</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void saveReferralSettings()}
+                    disabled={referralSettingsLoading || referralSettingsSaving}
+                    style={primaryButtonStyle}
+                  >
+                    Save Settings
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {referralAdminTab === 'withdrawals' && (
+              <div style={{ display: 'grid', gap: '16px' }}>
+                <div style={cardStyle}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div>
+                      <h3 style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '18px' }}>Withdrawal Requests</h3>
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '13px', lineHeight: 1.6 }}>
+                        Review Agent referral withdrawal requests. Approval reserves the amount for payout, then approved withdrawals can be marked paid after manual transfer.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void fetchReferralWithdrawals()}
+                      style={subtleButtonStyle}
+                      disabled={referralWithdrawalsLoading || referralWithdrawalSaving}
+                    >
+                      <RefreshCw size={16} /> Refresh Requests
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px' }}>
+                  {referralWithdrawalMetricCards.map(card => (
+                    <div key={card.label} style={{ ...cardStyle, padding: '16px' }}>
+                      <p style={{ margin: '0 0 8px', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+                        {card.label}
+                      </p>
+                      <p style={{ margin: 0, color: card.accent, fontSize: '24px', fontWeight: 800 }}>
+                        {card.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={compactFilterPanelStyle}>
+                    <div style={{ minWidth: '240px', flex: '2 1 260px' }}>
+                      <label style={labelStyle}>Search</label>
+                      <input
+                        value={referralWithdrawalFilters.search}
+                        onChange={event => setReferralWithdrawalFilters(current => ({ ...current, search: event.target.value }))}
+                        placeholder="Agent name, mobile, referral code, request ID"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div style={{ minWidth: '150px', flex: '1 1 160px' }}>
+                      <label style={labelStyle}>Status</label>
+                      <select
+                        value={referralWithdrawalFilters.status}
+                        onChange={event => setReferralWithdrawalFilters(current => ({ ...current, status: event.target.value }))}
+                        style={inputStyle}
+                      >
+                        <option value="all">All Statuses</option>
+                        {referralWithdrawalStatusOptions.map(status => (
+                          <option key={status} value={status}>{titleCase(status)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ minWidth: '150px', flex: '1 1 160px' }}>
+                      <label style={labelStyle}>Payout Method</label>
+                      <select
+                        value={referralWithdrawalFilters.payoutMethod}
+                        onChange={event => setReferralWithdrawalFilters(current => ({ ...current, payoutMethod: event.target.value }))}
+                        style={inputStyle}
+                      >
+                        <option value="all">All Methods</option>
+                        {referralWithdrawalMethodOptions.map(method => (
+                          <option key={method} value={method}>{method === 'bank' ? 'Bank Account' : 'UPI'}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReferralWithdrawalFilters(blankReferralWithdrawalFilters)}
+                      style={{ ...subtleButtonStyle, alignSelf: 'flex-end' }}
+                    >
+                      Clear Filters
+                    </button>
+                    <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 600, alignSelf: 'center' }}>
+                      Showing {filteredReferralWithdrawalRows.length} of {referralWithdrawalSnapshot.withdrawals.length} withdrawal requests
+                    </span>
+                  </div>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <thead>
+                        <tr>
+                          {['Request Date', 'Agent', 'Mobile', 'Referral Code', 'Amount', 'Method', 'Destination', 'Status', 'Actions'].map(label => (
+                            <th key={label} style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>{label}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredReferralWithdrawalRows.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} style={{ padding: '14px', color: '#64748b' }}>
+                              {hasReferralWithdrawalFilters ? 'No withdrawal requests found for the selected filters.' : 'No withdrawal requests yet.'}
+                            </td>
+                          </tr>
+                        ) : filteredReferralWithdrawalRows.map(withdrawal => (
+                          <tr key={withdrawal.id}>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{formatDateTime(withdrawal.requestedAt)}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>
+                              <div style={{ display: 'grid', gap: '4px' }}>
+                                <strong style={{ color: '#0f172a' }}>{withdrawal.agentName || withdrawal.workerId}</strong>
+                                <span style={{ color: '#64748b', fontSize: '12px' }}>KYC {withdrawal.kycStatus || '-'}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{withdrawal.mobile || '-'}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{withdrawal.referralCode || '-'}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', fontWeight: 700 }}>{formatCurrency(withdrawal.amount)}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{withdrawal.payoutMethod === 'bank' ? 'Bank Account' : 'UPI'}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{withdrawal.maskedDestination}</td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>
+                              <div style={{ display: 'grid', gap: '4px' }}>
+                                <span style={{ fontWeight: 700, color: withdrawal.status === 'rejected' ? '#b91c1c' : withdrawal.status === 'approved' ? '#047857' : '#0f172a' }}>
+                                  {titleCase(withdrawal.status)}
+                                </span>
+                                {withdrawal.status === 'paid' && withdrawal.paidAt ? (
+                                  <span style={{ color: '#64748b', fontSize: '12px', lineHeight: 1.5 }}>
+                                    Paid at: {formatDateTime(withdrawal.paidAt)}
+                                  </span>
+                                ) : null}
+                                {withdrawal.status === 'paid' && withdrawal.paymentReference ? (
+                                  <span style={{ color: '#64748b', fontSize: '12px', lineHeight: 1.5 }}>
+                                    Ref: {withdrawal.paymentReference}
+                                  </span>
+                                ) : null}
+                                {withdrawal.status === 'rejected' && withdrawal.rejectionReason ? (
+                                  <span style={{ color: '#64748b', fontSize: '12px', lineHeight: 1.5 }}>
+                                    Reason: {withdrawal.rejectionReason}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>
+                              {withdrawal.status === 'requested' ? (
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => openWithdrawalReview(withdrawal.id, 'approve')}
+                                    style={primaryButtonStyle}
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openWithdrawalReview(withdrawal.id, 'reject')}
+                                    style={subtleButtonStyle}
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              ) : withdrawal.status === 'approved' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openWithdrawalReview(withdrawal.id, 'mark-paid')}
+                                  style={{ ...primaryButtonStyle, background: '#0f766e' }}
+                                >
+                                  Pay / Mark Paid
+                                </button>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>
+                                  {withdrawal.status === 'paid' ? 'Paid recorded' : 'No action'}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -11327,6 +11914,208 @@ export default function LabourExchangeAdminPage() {
             </div>
           </div>
         )}
+
+        {withdrawalReviewDraft && selectedWithdrawalReview ? (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.48)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px',
+              zIndex: 80
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '560px',
+                background: '#ffffff',
+                borderRadius: '20px',
+                border: '1px solid #dce4ef',
+                boxShadow: '0 28px 70px rgba(15, 23, 42, 0.18)',
+                padding: '22px',
+                display: 'grid',
+                gap: '16px'
+              }}
+            >
+              <div>
+                <h3 style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '20px' }}>
+                  {withdrawalReviewDraft.action === 'approve'
+                    ? 'Approve Withdrawal Request?'
+                    : withdrawalReviewDraft.action === 'reject'
+                      ? 'Reject Withdrawal Request'
+                      : 'Manual Payout'}
+                </h3>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '13px', lineHeight: 1.6 }}>
+                  {withdrawalReviewDraft.action === 'approve'
+                    ? 'The amount will remain reserved for payout. Payment is not completed in this step.'
+                    : withdrawalReviewDraft.action === 'reject'
+                      ? 'Rejecting this request releases the reserved amount back to the Agent withdrawal balance.'
+                      : 'Record a payout that has already been completed manually outside Rozgar.'}
+                </p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Agent</div>
+                  <div style={{ color: '#0f172a', fontSize: '15px', fontWeight: 700, marginTop: '6px' }}>{selectedWithdrawalReview.agentName}</div>
+                  <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>{selectedWithdrawalReview.mobile || '-'}</div>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Referral Code</div>
+                  <div style={{ color: '#0f172a', fontSize: '15px', fontWeight: 700, marginTop: '6px' }}>{selectedWithdrawalReview.referralCode || '-'}</div>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Amount</div>
+                  <div style={{ color: '#0f172a', fontSize: '18px', fontWeight: 800, marginTop: '6px' }}>{formatCurrency(selectedWithdrawalReview.amount)}</div>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Method</div>
+                  <div style={{ color: '#0f172a', fontSize: '15px', fontWeight: 700, marginTop: '6px' }}>
+                    {selectedWithdrawalReview.payoutMethod === 'bank' ? 'Bank Account' : 'UPI'}
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>{selectedWithdrawalReview.maskedDestination}</div>
+                </div>
+                {withdrawalReviewDraft.action === 'mark-paid' ? (
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                    <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Approved Date</div>
+                    <div style={{ color: '#0f172a', fontSize: '15px', fontWeight: 700, marginTop: '6px' }}>
+                      {selectedWithdrawalReview.approvedAt ? formatDateTime(selectedWithdrawalReview.approvedAt) : '-'}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {withdrawalReviewDraft.action === 'reject' ? (
+                <div>
+                  <label style={labelStyle}>Reason</label>
+                  <textarea
+                    value={withdrawalReviewDraft.rejectionReason}
+                    onChange={event => setWithdrawalReviewDraft(current =>
+                      current
+                        ? { ...current, rejectionReason: event.target.value.slice(0, 500) }
+                        : current
+                    )}
+                    rows={4}
+                    placeholder="Write why this request is being rejected"
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: '110px', lineHeight: 1.6 }}
+                  />
+                  <div style={{ marginTop: '6px', color: '#94a3b8', fontSize: '11px' }}>
+                    {withdrawalReviewDraft.rejectionReason.trim().length}/500 characters
+                  </div>
+                </div>
+              ) : withdrawalReviewDraft.action === 'mark-paid' ? (
+                <div style={{ display: 'grid', gap: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ color: '#64748b', fontSize: '13px', lineHeight: 1.6 }}>
+                      Admin can reveal the original payout destination stored in the immutable withdrawal snapshot for this approved request only.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void loadWithdrawalPaymentDetails(selectedWithdrawalReview.id)}
+                      style={subtleButtonStyle}
+                      disabled={withdrawalPaymentDetailsLoading}
+                    >
+                      {withdrawalPaymentDetailsLoading ? 'Loading...' : 'View Payment Details'}
+                    </button>
+                  </div>
+
+                  {withdrawalPaymentDetails ? (
+                    <div style={{ border: '1px solid #dbeafe', borderRadius: '16px', padding: '16px', background: '#f8fbff', display: 'grid', gap: '12px' }}>
+                      <div style={{ color: '#0f172a', fontSize: '13px', fontWeight: 700 }}>
+                        Use these details only to complete this approved withdrawal.
+                      </div>
+                      {withdrawalPaymentDetails.bank ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
+                          <div>
+                            <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Account Holder</div>
+                            <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 700, marginTop: '6px', wordBreak: 'break-word' }}>{withdrawalPaymentDetails.bank.accountHolderName}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Account Number</div>
+                            <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 700, marginTop: '6px', wordBreak: 'break-word' }}>{withdrawalPaymentDetails.bank.accountNumber}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>IFSC</div>
+                            <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 700, marginTop: '6px', wordBreak: 'break-word' }}>{withdrawalPaymentDetails.bank.ifsc}</div>
+                          </div>
+                        </div>
+                      ) : null}
+                      {withdrawalPaymentDetails.upi ? (
+                        <div>
+                          <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>UPI ID</div>
+                          <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 700, marginTop: '6px', wordBreak: 'break-word' }}>{withdrawalPaymentDetails.upi.upiId}</div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <label style={labelStyle}>Payment Reference / UTR</label>
+                    <input
+                      value={withdrawalReviewDraft.paymentReference}
+                      onChange={event => setWithdrawalReviewDraft(current =>
+                        current
+                          ? { ...current, paymentReference: event.target.value.slice(0, 120) }
+                          : current
+                      )}
+                      placeholder="Enter UPI reference, UTR, IMPS, or NEFT reference"
+                      style={inputStyle}
+                    />
+                    <div style={{ marginTop: '6px', color: '#94a3b8', fontSize: '11px' }}>
+                      {withdrawalReviewDraft.paymentReference.trim().length}/120 characters
+                    </div>
+                  </div>
+
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', color: '#334155', fontSize: '13px', lineHeight: 1.5 }}>
+                    <input
+                      type="checkbox"
+                      checked={withdrawalReviewDraft.paymentConfirmed}
+                      onChange={event => setWithdrawalReviewDraft(current =>
+                        current
+                          ? { ...current, paymentConfirmed: event.target.checked }
+                          : current
+                      )}
+                      style={{ marginTop: '3px' }}
+                    />
+                    <span>I confirm that this payment has been completed manually and this action will permanently debit the Agent&apos;s referral earnings.</span>
+                  </label>
+                </div>
+              ) : null}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWithdrawalReviewDraft(null)
+                    setWithdrawalPaymentDetails(null)
+                  }}
+                  style={subtleButtonStyle}
+                  disabled={referralWithdrawalSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void submitReferralWithdrawalReview()}
+                  style={withdrawalReviewDraft.action === 'approve' ? primaryButtonStyle : { ...primaryButtonStyle, background: '#b91c1c' }}
+                  disabled={referralWithdrawalSaving}
+                >
+                  {referralWithdrawalSaving
+                    ? 'Saving...'
+                    : withdrawalReviewDraft.action === 'approve'
+                      ? 'Approve Request'
+                      : withdrawalReviewDraft.action === 'reject'
+                        ? 'Reject Request'
+                        : 'Mark As Paid'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
           </div>
         </main>

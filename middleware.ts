@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AUTH_COOKIE_NAME, LEGACY_AUTH_COOKIE_NAME, verifyToken } from '@/lib/auth-token'
+import { isLabourAgentSubdomainHost, LABOUR_AGENT_CANONICAL_PREFIX } from '@/lib/labour-agent-host'
 import { isRozgarSubdomainHost, ROZGAR_CANONICAL_PREFIX } from '@/lib/labour-company-host'
 
 function withRequestPathHeaders(request: NextRequest, resolvedPathname?: string) {
@@ -21,6 +22,9 @@ export async function middleware(request: NextRequest) {
   const isLocalDev =
     process.env.NODE_ENV !== 'production' &&
     (hostname === '127.0.0.1' || hostname === 'localhost')
+  const isPreviewReferEarnPayoutQaRoute =
+    process.env.VERCEL_ENV === 'preview' &&
+    pathname === '/qa/refer-earn-payout'
 
   if (process.env.NODE_ENV === 'production' && hostname === 'scalevyapar.in') {
     const redirectUrl = request.nextUrl.clone()
@@ -29,7 +33,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl, 308)
   }
 
-  if (pathname === '/search') {
+  if (pathname === '/search' && !isLabourAgentSubdomainHost(hostname)) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = `${ROZGAR_CANONICAL_PREFIX}/search`
     return NextResponse.redirect(redirectUrl, 307)
@@ -77,8 +81,34 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  if (isLabourAgentSubdomainHost(hostname)) {
+    const passthroughPrefixes = ['/api', '/_next', '/images', '/assets', '/public']
+    const isCanonicalAgentRoute =
+      pathname === LABOUR_AGENT_CANONICAL_PREFIX ||
+      pathname.startsWith(`${LABOUR_AGENT_CANONICAL_PREFIX}/`)
+    const isPassthroughRoute =
+      isCanonicalAgentRoute ||
+      passthroughPrefixes.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`)) ||
+      pathname === '/favicon.ico'
+
+    if (!isPassthroughRoute) {
+      const rewriteUrl = request.nextUrl.clone()
+      rewriteUrl.pathname =
+        pathname === '/'
+          ? LABOUR_AGENT_CANONICAL_PREFIX
+          : `${LABOUR_AGENT_CANONICAL_PREFIX}${pathname}`
+
+      return NextResponse.rewrite(rewriteUrl, {
+        request: {
+          headers: withRequestPathHeaders(request, rewriteUrl.pathname),
+        },
+      })
+    }
+  }
+
   const publicPages = [
     '/',
+    '/app/referral',
     '/tools',
     '/pricing',
     '/about',
@@ -101,8 +131,18 @@ export async function middleware(request: NextRequest) {
   const isPublicReferralRoute = pathname.startsWith('/r/')
   const isPublicLabourCompanyRoute =
     pathname === '/labour/company' || pathname.startsWith('/labour/company/')
+  const isPublicLabourAgentRoute =
+    pathname === LABOUR_AGENT_CANONICAL_PREFIX ||
+    pathname.startsWith(`${LABOUR_AGENT_CANONICAL_PREFIX}/`)
 
-  if (publicPages.includes(pathname) || isPublicRozgarVanityRoute || isPublicReferralRoute || isPublicLabourCompanyRoute) {
+  if (
+    isPreviewReferEarnPayoutQaRoute ||
+    publicPages.includes(pathname) ||
+    isPublicRozgarVanityRoute ||
+    isPublicReferralRoute ||
+    isPublicLabourCompanyRoute ||
+    isPublicLabourAgentRoute
+  ) {
     return NextResponse.next({
       request: {
         headers: withRequestPathHeaders(request),

@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAuthCookie, generateToken } from '@/lib/auth-token'
 import { getUserByEmail } from '@/lib/db'
 
+const isPreviewClientsTableGap = (error: unknown) =>
+  process.env.VERCEL_ENV === 'preview' &&
+  error instanceof Error &&
+  /public\.clients/i.test(error.message) &&
+  /(schema cache|could not find the table)/i.test(error.message)
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()
@@ -60,6 +66,13 @@ export async function POST(request: NextRequest) {
 
     return response
   } catch (error) {
+    if (isPreviewClientsTableGap(error)) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      )
+    }
+
     console.error('Login error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },

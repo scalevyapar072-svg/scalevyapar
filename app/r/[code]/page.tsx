@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import ReferralSelectionClient from './referral-selection-client'
 import { getPublicReferralLandingData } from './referral-public-data'
+import styles from './public-referral.module.css'
 
 type Props = {
   params: Promise<{ code: string }>
@@ -9,38 +11,17 @@ type Props = {
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+type ValidReferralLandingData = Extract<
+  Awaited<ReturnType<typeof getPublicReferralLandingData>>,
+  { status: 'valid' }
+>
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { code } = await params
   return {
     title: `Rozgar Referral ${String(code || '').toUpperCase()} | ScaleVyapar`,
     description: 'Choose your Rozgar work category from an approved referral invitation.'
   }
-}
-
-const pageShellStyle = {
-  minHeight: '100vh',
-  background: 'linear-gradient(145deg, #eaf3ff 0%, #ffffff 48%, #fff4e6 100%)',
-  color: '#0f172a',
-  padding: '24px 16px',
-  boxSizing: 'border-box' as const
-}
-
-const cardStyle = {
-  width: '100%',
-  maxWidth: '620px',
-  margin: '0 auto',
-  border: '1px solid #dbe6f4',
-  borderRadius: '28px',
-  background: 'rgba(255, 255, 255, 0.94)',
-  boxShadow: '0 24px 70px rgba(10, 47, 117, 0.14)',
-  padding: '24px',
-  boxSizing: 'border-box' as const
-}
-
-const secondaryLinkStyle = {
-  color: '#0a2f75',
-  fontWeight: 800,
-  textDecoration: 'none'
 }
 
 function StatusPage({
@@ -53,21 +34,32 @@ function StatusPage({
   code: string
 }) {
   return (
-    <main style={pageShellStyle}>
-      <section style={cardStyle}>
-        <p style={{ margin: '0 0 10px', color: '#ef5b2a', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          Rozgar by ScaleVyapar
-        </p>
-        <h1 style={{ margin: '0 0 12px', fontSize: '30px', lineHeight: 1.1 }}>{title}</h1>
-        <p style={{ margin: '0 0 18px', color: '#475569', fontSize: '16px', lineHeight: 1.6 }}>{message}</p>
+    <main className={styles.statusWrap}>
+      <section className={styles.statusCard}>
+        <Image
+          src="/images/rozgar/rozgar-logo-main.png"
+          alt="Rozgar by ScaleVyapar"
+          width={240}
+          height={72}
+          priority
+          className={styles.statusLogo}
+        />
+        <p className={styles.statusEyebrow}>Rozgar by ScaleVyapar</p>
+        <h1 className={styles.statusTitle}>{title}</h1>
+        <p className={styles.statusMessage}>{message}</p>
         {code ? (
-          <p style={{ margin: '0 0 18px', color: '#64748b', fontSize: '14px' }}>
-            Referral Code: <strong style={{ color: '#0f172a' }}>{code}</strong>
+          <p className={styles.statusCode}>
+            Referral Code: <strong>{code}</strong>
           </p>
         ) : null}
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <a href="/labour/company" style={secondaryLinkStyle}>Go to Rozgar</a>
-          <a href="https://play.google.com/store/apps/details?id=in.scalevyapar.rozgar" style={secondaryLinkStyle}>Download Rozgar App</a>
+        <div className={styles.statusActions}>
+          <a href="/labour/company" className={`${styles.secondaryLink} ${styles.secondaryLinkPrimary}`}>Go to Rozgar</a>
+          <a
+            href="https://play.google.com/store/apps/details?id=in.scalevyapar.rozgar"
+            className={`${styles.secondaryLink} ${styles.secondaryLinkGhost}`}
+          >
+            Download Rozgar App
+          </a>
         </div>
       </section>
     </main>
@@ -108,31 +100,13 @@ export default async function PublicReferralLandingPage({ params }: Props) {
     )
   }
 
+  const validReferral = referral as ValidReferralLandingData
+
   return (
-    <main style={pageShellStyle}>
-      <section style={cardStyle}>
-        <p style={{ margin: '0 0 10px', color: '#ef5b2a', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          Rozgar by ScaleVyapar
-        </p>
-        <h1 style={{ margin: '0 0 10px', fontSize: '34px', lineHeight: 1.08 }}>You have been invited to join Rozgar</h1>
-        <p style={{ margin: '0 0 18px', color: '#475569', fontSize: '16px', lineHeight: 1.6 }}>
-          Invited by {referral.invitedBy}. Choose the category that matches your work skill.
-        </p>
-        <div style={{ border: '1px solid #dbe6f4', borderRadius: '18px', padding: '14px', background: '#f8fbff', marginBottom: '20px' }}>
-          <span style={{ display: 'block', color: '#64748b', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Referral Code
-          </span>
-          <strong style={{ color: '#0a2f75', fontSize: '22px', letterSpacing: '0.04em' }}>{referral.referralCode}</strong>
-        </div>
-        <h2 style={{ margin: '0 0 6px', fontSize: '20px' }}>Choose your work category</h2>
-        <p style={{ margin: '0 0 12px', color: '#64748b', fontSize: '14px', lineHeight: 1.5 }}>
-          Choose the category that matches your work skill.
-        </p>
-        <ReferralSelectionClient referralCode={referral.referralCode} categories={referral.categories} />
-        <p style={{ margin: '16px 0 0', color: '#667085', fontSize: '12px', lineHeight: 1.5 }}>
-          Phase 3 note: registration attribution and Play Store deferred referral tracking are not active yet. Your selection is prepared for the next step only.
-        </p>
-      </section>
-    </main>
+    <ReferralSelectionClient
+      referralCode={validReferral.referralCode}
+      invitedBy={validReferral.invitedBy}
+      categories={validReferral.categories}
+    />
   )
 }

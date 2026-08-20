@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "in.scalevyapar.rozgar",
+      "sha256_cert_fingerprints": [
+        "52:5E:33:B2:0C:E2:9A:86:70:F8:AD:A8:32:80:BF:E5:6B:40:01:B7:5E:40:1E:6B:5E:E3:33:EB:19:05:E6:E3"
+      ]
+    }
+  }
+]

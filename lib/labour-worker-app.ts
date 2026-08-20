@@ -51,6 +51,8 @@ const OTP_LENGTH = 6
 const OTP_PROVIDER = (process.env.OTP_PROVIDER || '').trim().toLowerCase()
 const DEV_OTP_CODE = (process.env.LABOUR_WORKER_STATIC_OTP || '').trim()
 const ALLOW_STATELESS_DEMO_OTP = process.env.NODE_ENV !== 'production' && DEV_OTP_CODE.length > 0
+const PREVIEW_SYNTHETIC_AGENT_OTP = '246810'
+const PREVIEW_SYNTHETIC_AGENT_MOBILES = new Set(['0000000001', '0000000002', '0000000003'])
 const WORKER_UPLOAD_BUCKET = 'labour-worker-files'
 const LABOUR_ADMIN_SETTINGS_TABLE = 'labour_admin_settings'
 
@@ -93,6 +95,7 @@ type StoredWorkerOtpState = {
   failedAttempts: number
   provider: 'legacy' | 'local-demo' | '2factor'
   providerSessionId?: string
+  purpose?: 'worker_app' | 'agent'
 }
 
 type WorkerOtpSessionTokenPayload = {
@@ -104,7 +107,10 @@ type WorkerOtpSessionTokenPayload = {
   provider: 'legacy' | 'local-demo' | '2factor'
   providerSessionId?: string
   expiresAt: string
+  purpose?: 'worker_app' | 'agent'
 }
+
+type WorkerOtpSessionPurpose = 'worker_app' | 'agent'
 
 export type WorkerAppTokenPayload = {
   workerId: string
@@ -381,6 +387,11 @@ const writeJsonOtpStore = async (store: WorkerAuthStore) => {
 
 const supportsStatelessDemoOtp = () => ALLOW_STATELESS_DEMO_OTP
 
+const isPreviewRuntime = () => process.env.VERCEL_ENV === 'preview'
+
+const isPreviewSyntheticAgentMobile = (mobile: string) =>
+  isPreviewRuntime() && PREVIEW_SYNTHETIC_AGENT_MOBILES.has(sanitizeMobile(mobile))
+
 const isMissingSupabaseTableError = (message: string | undefined) =>
   typeof message === 'string' && (
     message.includes('schema cache') ||
@@ -470,7 +481,8 @@ const parseStoredWorkerOtpState = (value: string): StoredWorkerOtpState => {
     return {
       code: '',
       failedAttempts: 0,
-      provider: 'legacy'
+      provider: 'legacy',
+      purpose: 'worker_app'
     }
   }
 
@@ -488,6 +500,8 @@ const parseStoredWorkerOtpState = (value: string): StoredWorkerOtpState => {
         providerSessionId: typeof parsed.providerSessionId === 'string'
           ? parsed.providerSessionId
           : undefined
+        ,
+        purpose: parsed.purpose === 'agent' ? 'agent' : 'worker_app'
       }
     }
   } catch {
@@ -497,7 +511,8 @@ const parseStoredWorkerOtpState = (value: string): StoredWorkerOtpState => {
   return {
     code: normalized,
     failedAttempts: 0,
-    provider: 'legacy'
+    provider: 'legacy',
+    purpose: 'worker_app'
   }
 }
 
@@ -516,7 +531,8 @@ const generateWorkerOtpSessionToken = async (
     failedAttempts: state.failedAttempts,
     provider: state.provider,
     providerSessionId: state.providerSessionId,
-    expiresAt: session.expiresAt
+    expiresAt: session.expiresAt,
+    purpose: state.purpose || 'worker_app'
   } satisfies WorkerOtpSessionTokenPayload)
     .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
     .setIssuedAt()
@@ -537,8 +553,13 @@ const verifyWorkerOtpSessionToken = async (token: string): Promise<WorkerOtpSess
     const provider = payload.provider === '2factor' || payload.provider === 'local-demo'
       ? payload.provider
       : 'legacy'
+    const purpose = payload.purpose === 'agent' ? 'agent' : 'worker_app'
 
-    if (!mobile || !workerId || !otpCode || !expiresAt) {
+    if (!mobile || !otpCode || !expiresAt) {
+      return null
+    }
+
+    if (purpose === 'worker_app' && !workerId) {
       return null
     }
 
@@ -554,7 +575,8 @@ const verifyWorkerOtpSessionToken = async (token: string): Promise<WorkerOtpSess
       providerSessionId: typeof payload.providerSessionId === 'string'
         ? payload.providerSessionId
         : undefined,
-      expiresAt
+      expiresAt,
+      purpose
     }
   } catch {
     return null
@@ -1091,6 +1113,10 @@ const sanitizeMobile = (mobile: string) => mobile.replace(/\D/g, '').slice(-10)
 const resolveCompanyContactMobile = (company: LabourCompanyRecord | undefined) => company?.contactMobile || company?.mobile || ''
 const formatCategorySummary = (categories: string[]) => categories.length ? categories.slice(0, 3).join(', ') : 'Not specified'
 const formatAppliedAtLabel = (value: string) => new Date(value).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+const getWorkerOtpStatePurpose = (state: StoredWorkerOtpState): WorkerOtpSessionPurpose =>
+  state.purpose === 'agent' ? 'agent' : 'worker_app'
+const isOtpSessionForPurpose = (session: WorkerAuthSession, purpose: WorkerOtpSessionPurpose) =>
+  getWorkerOtpStatePurpose(parseStoredWorkerOtpState(session.otpCode)) === purpose
 
 const buildCompanyApplicationWhatsappMessage = (payload: {
   companyName: string
@@ -2525,7 +2551,12 @@ export const requestWorkerOtp = async (mobile: string) => {
   if (!usesStatelessOtpSession) {
     const persisted = await readOtpSessions()
     sessions = persisted.sessions
-    const activeSession = sessions.find(session => session.mobile === normalizedMobile && !session.isVerified)
+    const activeSession = sessions.find(
+      session =>
+        session.mobile === normalizedMobile &&
+        !session.isVerified &&
+        isOtpSessionForPurpose(session, 'worker_app')
+    )
     if (activeSession) {
       const activeSessionExpiresAt = new Date(activeSession.expiresAt).getTime()
       if (activeSessionExpiresAt > now.getTime()) {
@@ -2563,7 +2594,8 @@ export const requestWorkerOtp = async (mobile: string) => {
     code: otpCode,
     failedAttempts: 0,
     provider: isTwoFactorOtpProvider() ? '2factor' : 'local-demo',
-    providerSessionId
+    providerSessionId,
+    purpose: 'worker_app'
   }
 
   const nextSession: WorkerAuthSession = {
@@ -2581,7 +2613,9 @@ export const requestWorkerOtp = async (mobile: string) => {
   if (usesStatelessOtpSession) {
     otpSessionToken = await generateWorkerOtpSessionToken(nextSession, otpState)
   } else {
-    const filtered = sessions.filter(session => session.mobile !== normalizedMobile)
+    const filtered = sessions.filter(
+      session => session.mobile !== normalizedMobile || !isOtpSessionForPurpose(session, 'worker_app')
+    )
     filtered.unshift(nextSession)
     try {
       await writeOtpSessions(filtered, storage)
@@ -2641,6 +2675,10 @@ export const verifyWorkerOtpCode = async (mobile: string, otpCode: string, otpSe
       throw new Error('OTP session does not match this mobile number. Request OTP again.')
     }
 
+    if ((statelessSession.purpose || 'worker_app') !== 'worker_app') {
+      throw new Error('OTP session does not match this login flow. Request OTP again.')
+    }
+
     if (statelessSession.otpCode !== normalizedOtpCode) {
       throw new Error('Invalid OTP code.')
     }
@@ -2664,7 +2702,9 @@ export const verifyWorkerOtpCode = async (mobile: string, otpCode: string, otpSe
   }
 
   const { sessions } = await readOtpSessions()
-  const session = sessions.find(item => item.mobile === normalizedMobile)
+  const session = sessions.find(
+    item => item.mobile === normalizedMobile && isOtpSessionForPurpose(item, 'worker_app')
+  )
 
   if (!session) {
     throw new Error('OTP session not found. Request OTP again.')
@@ -2723,6 +2763,218 @@ export const verifyWorkerOtpCode = async (mobile: string, otpCode: string, otpSe
   return {
     token,
     workerId: worker.id
+  }
+}
+
+export const requestLabourAgentOtp = async (mobile: string) => {
+  const normalizedMobile = sanitizeMobile(mobile)
+  if (normalizedMobile.length !== 10) {
+    throw new Error('Enter a valid 10-digit mobile number.')
+  }
+
+  const now = new Date()
+  const storage = await getOtpStorageBackend()
+  const usesStatelessOtpSession = storage === 'json'
+  let sessions: WorkerAuthSession[] = []
+
+  if (!usesStatelessOtpSession) {
+    const persisted = await readOtpSessions()
+    sessions = persisted.sessions
+    const activeSession = sessions.find(
+      session =>
+        session.mobile === normalizedMobile &&
+        !session.isVerified &&
+        isOtpSessionForPurpose(session, 'agent')
+    )
+
+    if (activeSession) {
+      const activeSessionExpiresAt = new Date(activeSession.expiresAt).getTime()
+      if (activeSessionExpiresAt > now.getTime()) {
+        const cooldownEndsAt =
+          new Date(activeSession.updatedAt || activeSession.createdAt).getTime() +
+          (OTP_RESEND_COOLDOWN_SECONDS * 1000)
+        if (cooldownEndsAt > now.getTime()) {
+          const remainingSeconds = Math.max(1, Math.ceil((cooldownEndsAt - now.getTime()) / 1000))
+          throw new Error(`Please wait ${remainingSeconds} seconds before requesting another OTP.`)
+        }
+      }
+    }
+  }
+
+  const usePreviewSyntheticOtp = isPreviewSyntheticAgentMobile(normalizedMobile)
+  const expiresAt = buildWorkerOtpExpiry()
+  const otpCode = usePreviewSyntheticOtp
+    ? PREVIEW_SYNTHETIC_AGENT_OTP
+    : isTwoFactorOtpProvider()
+      ? generateWorkerOtpCode()
+      : DEV_OTP_CODE
+
+  if (!otpCode) {
+    throw new Error('Worker OTP provider is not configured.')
+  }
+
+  let providerSessionId: string | undefined
+  if (usePreviewSyntheticOtp) {
+    providerSessionId = undefined
+  } else if (isTwoFactorOtpProvider()) {
+    const providerResult = await sendTwoFactorOtp({
+      mobile: normalizedMobile,
+      otpCode,
+      expiresAt,
+    })
+    providerSessionId = providerResult.providerSessionId
+  } else if (!supportsStatelessDemoOtp()) {
+    throw new Error('Worker OTP provider is not configured.')
+  }
+
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const existingWorker = findWorkerByMobile(snapshot, normalizedMobile)
+
+  const otpState: StoredWorkerOtpState = {
+    code: otpCode,
+    failedAttempts: 0,
+    provider: usePreviewSyntheticOtp ? 'local-demo' : isTwoFactorOtpProvider() ? '2factor' : 'local-demo',
+    providerSessionId,
+    purpose: 'agent',
+  }
+
+  const nextSession: WorkerAuthSession = {
+    id: createId('agent-otp'),
+    mobile: normalizedMobile,
+    workerId: existingWorker?.id || '',
+    otpCode: stringifyStoredWorkerOtpState(otpState),
+    expiresAt,
+    isVerified: false,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  }
+
+  let otpSessionToken: string | undefined
+  if (usesStatelessOtpSession) {
+    otpSessionToken = await generateWorkerOtpSessionToken(nextSession, otpState)
+  } else {
+    const filtered = sessions.filter(
+      session => session.mobile !== normalizedMobile || !isOtpSessionForPurpose(session, 'agent')
+    )
+    filtered.unshift(nextSession)
+    await writeOtpSessions(filtered, storage)
+  }
+
+  return {
+    mobile: normalizedMobile,
+    expiresAt: nextSession.expiresAt,
+    otpSessionToken,
+    previewQaOtp: usePreviewSyntheticOtp ? otpCode : undefined,
+    message: usePreviewSyntheticOtp
+      ? 'Preview QA OTP generated for synthetic Agent login.'
+      : isTwoFactorOtpProvider()
+      ? 'If this number can use Rozgar Agent, an OTP has been sent.'
+      : 'OTP generated for local Rozgar Agent login testing.',
+  }
+}
+
+export const verifyLabourAgentOtp = async (mobile: string, otpCode: string, otpSessionToken?: string) => {
+  const normalizedMobile = sanitizeMobile(mobile)
+  const normalizedOtpCode = String(otpCode).trim()
+
+  if (!isTwoFactorOtpProvider() && supportsStatelessDemoOtp() && normalizedOtpCode === DEV_OTP_CODE) {
+    const snapshot = await getLabourMarketplaceSnapshot()
+    const worker = findWorkerByMobile(snapshot, normalizedMobile)
+    return {
+      workerId: worker?.id || null,
+      mobile: normalizedMobile,
+    }
+  }
+
+  const storage = await getOtpStorageBackend()
+  if (storage === 'json') {
+    if (!otpSessionToken) {
+      throw new Error('OTP session not found. Request OTP again.')
+    }
+
+    const statelessSession = await verifyWorkerOtpSessionToken(otpSessionToken)
+    if (!statelessSession) {
+      throw new Error('OTP expired. Request a new OTP.')
+    }
+
+    if (sanitizeMobile(statelessSession.mobile) !== normalizedMobile) {
+      throw new Error('OTP session does not match this mobile number. Request OTP again.')
+    }
+
+    if ((statelessSession.purpose || 'worker_app') !== 'agent') {
+      throw new Error('OTP session does not match this login flow. Request OTP again.')
+    }
+
+    if (statelessSession.otpCode !== normalizedOtpCode) {
+      throw new Error('Invalid OTP code.')
+    }
+
+    const snapshot = await getLabourMarketplaceSnapshot()
+    const worker = statelessSession.workerId
+      ? findWorkerById(snapshot, statelessSession.workerId)
+      : findWorkerByMobile(snapshot, normalizedMobile)
+
+    return {
+      workerId: worker?.id || null,
+      mobile: normalizedMobile,
+    }
+  }
+
+  const { sessions } = await readOtpSessions()
+  const session = sessions.find(
+    item => item.mobile === normalizedMobile && isOtpSessionForPurpose(item, 'agent')
+  )
+
+  if (!session) {
+    throw new Error('OTP session not found. Request OTP again.')
+  }
+
+  if (new Date(session.expiresAt).getTime() < Date.now()) {
+    await writeOtpSessions(
+      sessions.filter(item => item.id !== session.id),
+      storage
+    )
+    throw new Error('OTP expired. Request a new OTP.')
+  }
+
+  const storedOtpState = parseStoredWorkerOtpState(session.otpCode)
+  if (storedOtpState.code !== normalizedOtpCode) {
+    const failedAttempts = storedOtpState.failedAttempts + 1
+    if (failedAttempts >= MAX_OTP_VERIFY_ATTEMPTS) {
+      await writeOtpSessions(
+        sessions.filter(item => item.id !== session.id),
+        storage
+      )
+      throw new Error('Too many wrong OTP attempts. Request a new OTP.')
+    }
+
+    const updatedSessions = sessions.map(item => item.id === session.id
+      ? {
+          ...item,
+          otpCode: stringifyStoredWorkerOtpState({
+            ...storedOtpState,
+            failedAttempts,
+          }),
+          updatedAt: new Date().toISOString(),
+        }
+      : item)
+    await writeOtpSessions(updatedSessions, storage)
+    throw new Error('Invalid OTP code.')
+  }
+
+  await writeOtpSessions(
+    sessions.filter(item => item.id !== session.id),
+    storage
+  )
+
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const worker = session.workerId
+    ? findWorkerById(snapshot, session.workerId)
+    : findWorkerByMobile(snapshot, normalizedMobile)
+
+  return {
+    workerId: worker?.id || null,
+    mobile: normalizedMobile,
   }
 }
 

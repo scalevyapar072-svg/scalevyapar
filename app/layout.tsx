@@ -5,10 +5,12 @@ import './globals.css'
 import FloatingWhatsApp from '@/components/FloatingWhatsApp'
 import MobileBottomBar from '@/components/MobileBottomBar'
 import SplashScreen from '@/components/SplashScreen'
+import { isLabourAgentSubdomainHost, LABOUR_AGENT_CANONICAL_PREFIX } from '@/lib/labour-agent-host'
 import { isRozgarSubdomainHost } from '@/lib/labour-company-host'
 
 const rozgarIconVersion = '20260627'
 const rozgarIconBasePath = '/images/rozgar/icons'
+const mainFaviconVersion = '20260812-main-favicon-preserved'
 const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim()
 
 export const metadata: Metadata = {
@@ -29,9 +31,13 @@ export default async function RootLayout({
   const resolvedPathname = headerStore.get('x-resolved-pathname') || ''
   const effectivePathname = publicPathname || resolvedPathname
   const isRozgarHost = isRozgarSubdomainHost(hostname)
+  const isAgentHost = isLabourAgentSubdomainHost(hostname)
   const isCanonicalRozgarPath =
     effectivePathname === '/labour/company' ||
     effectivePathname.startsWith('/labour/company/')
+  const isCanonicalAgentPath =
+    effectivePathname === LABOUR_AGENT_CANONICAL_PREFIX ||
+    effectivePathname.startsWith(`${LABOUR_AGENT_CANONICAL_PREFIX}/`)
   const isRozgarHomePage =
     effectivePathname === '/labour/company' ||
     (isRozgarHost && publicPathname === '/')
@@ -50,8 +56,37 @@ export default async function RootLayout({
     publicPathname.startsWith('/login/') ||
     effectivePathname === '/login' ||
     effectivePathname.startsWith('/login/')
-  const showFloatingWhatsApp = !isAdminRoute && !isSearchPath && !isRozgarHomePage
-  const showMobileBottomBar = !isAdminRoute && !isRozgarHost
+  const isPublicReferralRoute =
+    publicPathname === '/r' ||
+    publicPathname.startsWith('/r/') ||
+    effectivePathname === '/r' ||
+    effectivePathname.startsWith('/r/')
+  const isAppReferralRoute =
+    publicPathname === '/app/referral' ||
+    publicPathname.startsWith('/app/referral?') ||
+    effectivePathname === '/app/referral' ||
+    effectivePathname.startsWith('/app/referral?')
+  const isReferEarnPayoutQaRoute =
+    publicPathname === '/qa/refer-earn-payout' ||
+    publicPathname.startsWith('/qa/refer-earn-payout?') ||
+    effectivePathname === '/qa/refer-earn-payout' ||
+    effectivePathname.startsWith('/qa/refer-earn-payout?')
+  const isAgentRoute = isAgentHost || isCanonicalAgentPath
+  const showFloatingWhatsApp =
+    !isAgentRoute &&
+    !isAdminRoute &&
+    !isSearchPath &&
+    !isRozgarHomePage &&
+    !isPublicReferralRoute &&
+    !isAppReferralRoute &&
+    !isReferEarnPayoutQaRoute
+  const showMobileBottomBar =
+    !isAgentRoute &&
+    !isAdminRoute &&
+    !isRozgarHost &&
+    !isPublicReferralRoute &&
+    !isAppReferralRoute &&
+    !isReferEarnPayoutQaRoute
   const isRozgarRoute = isRozgarHost || isCanonicalRozgarPath
   const isRozgarHomeRoute = publicPathname === '/' || effectivePathname === '/labour/company'
   const loadMetaPixel = Boolean(metaPixelId) && isRozgarRoute && !isAdminRoute && !isLoginRoute
@@ -60,7 +95,10 @@ export default async function RootLayout({
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        {isRozgarRoute ? (
+        {!isAgentRoute ? (
+          <link rel="icon" href={`/favicon-main.ico?v=${mainFaviconVersion}`} sizes="any" />
+        ) : null}
+        {isRozgarRoute && !isAgentRoute ? (
           <>
             <link rel="icon" type="image/png" sizes="16x16" href={`${rozgarIconBasePath}/rozgar-icon-16.png?v=${rozgarIconVersion}`} />
             <link rel="icon" type="image/png" sizes="32x32" href={`${rozgarIconBasePath}/rozgar-icon-32.png?v=${rozgarIconVersion}`} />
@@ -94,6 +132,7 @@ export default async function RootLayout({
               }}
             />
             <noscript>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 height="1"
                 width="1"

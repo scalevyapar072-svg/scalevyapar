@@ -1,10 +1,16 @@
-const ADMIN_NOTIFICATION_EMAIL = 'scalevyapar072@gmail.com'
+export const ROZGAR_ADMIN_NOTIFICATION_EMAIL_FALLBACK = 'scalevyapar072@gmail.com'
 
-const getSenderEmail = () =>
+export const getRozgarNotificationSenderEmail = () =>
   process.env.RESEND_FROM_EMAIL ||
   process.env.MAIL_FROM ||
   process.env.RESET_EMAIL_FROM ||
   ''
+
+export const getRozgarAdminNotificationEmail = () =>
+  // Preview infrastructure may temporarily fall back to the fixed admin inbox until
+  // ROZGAR_ADMIN_NOTIFICATION_EMAIL is wired everywhere.
+  String(process.env.ROZGAR_ADMIN_NOTIFICATION_EMAIL || '').trim() ||
+  ROZGAR_ADMIN_NOTIFICATION_EMAIL_FALLBACK
 
 const isProductionRuntime = () => process.env.VERCEL_ENV === 'production'
 
@@ -67,26 +73,33 @@ const buildHtml = (title: string, rows: Array<readonly [string, string]>) => `
   </div>
 `
 
-const sendRozgarAdminEmail = async ({
+export const sendResendAdminNotification = async ({
+  recipient,
   subject,
-  title,
-  rows,
-  idempotencyKey
+  text,
+  html,
+  idempotencyKey,
 }: {
+  recipient?: string
   subject: string
-  title: string
-  rows: Array<[string, unknown]>
+  text: string
+  html: string
   idempotencyKey: string
 }) => {
   const apiKey = process.env.RESEND_API_KEY
-  const from = getSenderEmail()
+  const from = getRozgarNotificationSenderEmail()
 
   if (!apiKey || !from) {
     console.warn('Rozgar admin email skipped because RESEND_API_KEY or RESEND_FROM_EMAIL/MAIL_FROM is not configured.')
-    return { delivered: false, skipped: true, reason: 'mail-not-configured' as const }
+    return {
+      delivered: false,
+      skipped: true,
+      reason: 'mail-not-configured' as const,
+      providerMessageId: '',
+      safeErrorCode: 'mail-not-configured',
+      safeErrorMessage: 'Resend sender is not configured',
+    }
   }
-
-  const normalizedRows = compactRows(rows)
   const finalSubject = withEnvironmentPrefix(subject)
 
   try {
@@ -99,24 +112,87 @@ const sendRozgarAdminEmail = async ({
       },
       body: JSON.stringify({
         from,
-        to: [ADMIN_NOTIFICATION_EMAIL],
+        to: [String(recipient || getRozgarAdminNotificationEmail()).trim()],
         subject: finalSubject,
-        text: buildText(title, normalizedRows),
-        html: buildHtml(title, normalizedRows)
+        text,
+        html,
       })
     })
 
-    if (!response.ok) {
-      const body = await response.text().catch(() => '')
-      console.error(`Rozgar admin email failed (${response.status}): ${body || response.statusText}`)
-      return { delivered: false, skipped: false, reason: 'provider-error' as const }
+    const responseText = await response.text().catch(() => '')
+    let responseJson: Record<string, unknown> | null = null
+    if (responseText) {
+      try {
+        responseJson = JSON.parse(responseText) as Record<string, unknown>
+      } catch {
+        responseJson = null
+      }
     }
 
-    return { delivered: true, skipped: false }
+    if (!response.ok) {
+      const safeErrorCode = String(
+        responseJson?.name ||
+          response.status ||
+          'provider-error',
+      ).trim()
+      const safeErrorMessage = String(
+        responseJson?.message ||
+          response.statusText ||
+          'Provider request failed',
+      ).trim()
+
+      console.error(`Rozgar admin email failed (${response.status}): ${safeErrorMessage}`)
+      return {
+        delivered: false,
+        skipped: false,
+        reason: 'provider-error' as const,
+        providerMessageId: '',
+        safeErrorCode,
+        safeErrorMessage,
+        statusCode: response.status,
+      }
+    }
+
+    return {
+      delivered: true,
+      skipped: false,
+      providerMessageId: String(responseJson?.id || '').trim(),
+      safeErrorCode: '',
+      safeErrorMessage: '',
+      statusCode: response.status,
+    }
   } catch (error) {
     console.error('Rozgar admin email failed', error)
-    return { delivered: false, skipped: false, reason: 'send-error' as const }
+    return {
+      delivered: false,
+      skipped: false,
+      reason: 'send-error' as const,
+      providerMessageId: '',
+      safeErrorCode: 'send-error',
+      safeErrorMessage: error instanceof Error ? error.message : 'Send failed',
+    }
   }
+}
+
+const sendRozgarAdminEmail = async ({
+  subject,
+  title,
+  rows,
+  idempotencyKey
+}: {
+  subject: string
+  title: string
+  rows: Array<[string, unknown]>
+  idempotencyKey: string
+}) => {
+  const normalizedRows = compactRows(rows)
+
+  return sendResendAdminNotification({
+    subject,
+    text: buildText(title, normalizedRows),
+    html: buildHtml(title, normalizedRows),
+    idempotencyKey,
+  })
 }
 
 export const formatRozgarWorkLocations = (

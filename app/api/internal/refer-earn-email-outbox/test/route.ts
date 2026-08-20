@@ -19,6 +19,25 @@ const notFound = () =>
 
 const normalizeText = (value: unknown) => String(value || '').trim()
 
+const methodNotAllowed = () =>
+  NextResponse.json(
+    { error: 'Method not allowed' },
+    {
+      status: 405,
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    },
+  )
+
+export async function GET() {
+  if (process.env.VERCEL_ENV !== 'preview') {
+    return notFound()
+  }
+
+  return methodNotAllowed()
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (process.env.VERCEL_ENV !== 'preview') {

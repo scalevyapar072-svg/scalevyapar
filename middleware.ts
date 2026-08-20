@@ -22,9 +22,7 @@ export async function middleware(request: NextRequest) {
   const isLocalDev =
     process.env.NODE_ENV !== 'production' &&
     (hostname === '127.0.0.1' || hostname === 'localhost')
-  const isPreviewReferEarnPayoutQaRoute =
-    process.env.VERCEL_ENV === 'preview' &&
-    pathname === '/qa/refer-earn-payout'
+  const isReferEarnPayoutQaRoute = pathname === '/qa/refer-earn-payout'
 
   if (process.env.NODE_ENV === 'production' && hostname === 'scalevyapar.in') {
     const redirectUrl = request.nextUrl.clone()
@@ -136,7 +134,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith(`${LABOUR_AGENT_CANONICAL_PREFIX}/`)
 
   if (
-    isPreviewReferEarnPayoutQaRoute ||
+    isReferEarnPayoutQaRoute ||
     publicPages.includes(pathname) ||
     isPublicRozgarVanityRoute ||
     isPublicReferralRoute ||

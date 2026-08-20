@@ -1990,6 +1990,8 @@ export default function LabourExchangeAdminPage() {
   const [referralSnapshot, setReferralSnapshot] = useState<ReferralAdminSnapshot>(blankReferralAdminSnapshot)
   const [referralWithdrawalSnapshot, setReferralWithdrawalSnapshot] = useState<ReferralAdminWithdrawalSnapshot>(blankReferralAdminWithdrawalSnapshot)
   const [withdrawalPaymentDetails, setWithdrawalPaymentDetails] = useState<ReferralAdminWithdrawalPaymentDetails | null>(null)
+  const [withdrawalPaymentDetailsRequestId, setWithdrawalPaymentDetailsRequestId] = useState('')
+  const [withdrawalPaymentDetailsError, setWithdrawalPaymentDetailsError] = useState('')
   const [referralSettingsDraft, setReferralSettingsDraft] = useState<ReferralAdminSettings>(blankReferralAdminSettings)
   const [mastersSnapshot, setMastersSnapshot] = useState<LabourMastersSnapshot | null>(null)
   const [settingsDraft, setSettingsDraft] = useState<LabourAdminSettings>(blankLabourAdminSettings)
@@ -3932,6 +3934,8 @@ export default function LabourExchangeAdminPage() {
       setReferralWithdrawalSnapshot(data.snapshot || blankReferralAdminWithdrawalSnapshot)
       setWithdrawalReviewDraft(null)
       setWithdrawalPaymentDetails(null)
+      setWithdrawalPaymentDetailsRequestId('')
+      setWithdrawalPaymentDetailsError('')
       showSaved(
         withdrawalReviewDraft.action === 'approve'
           ? 'Withdrawal request approved.'
@@ -3955,11 +3959,23 @@ export default function LabourExchangeAdminPage() {
       paymentConfirmed: false,
     })
     setWithdrawalPaymentDetails(null)
+    setWithdrawalPaymentDetailsRequestId('')
+    setWithdrawalPaymentDetailsError('')
     setError('')
   }
 
+  const closeWithdrawalPaymentDetails = () => {
+    setWithdrawalPaymentDetails(null)
+    setWithdrawalPaymentDetailsRequestId('')
+    setWithdrawalPaymentDetailsError('')
+    setWithdrawalPaymentDetailsLoading(false)
+  }
+
   const loadWithdrawalPaymentDetails = async (requestId: string) => {
+    setWithdrawalPaymentDetailsRequestId(requestId)
     setWithdrawalPaymentDetailsLoading(true)
+    setWithdrawalPaymentDetails(null)
+    setWithdrawalPaymentDetailsError('')
     setError('')
 
     try {
@@ -3978,9 +3994,31 @@ export default function LabourExchangeAdminPage() {
         (data.paymentDetails as ReferralAdminWithdrawalPaymentDetails | undefined) || null,
       )
     } catch (detailsError) {
-      setError(detailsError instanceof Error ? detailsError.message : 'Failed to load payment details.')
+      const message =
+        detailsError instanceof Error ? detailsError.message : 'Failed to load payment details.'
+      setWithdrawalPaymentDetailsError(message)
+      setError(message)
     } finally {
       setWithdrawalPaymentDetailsLoading(false)
+    }
+  }
+
+  const copyTextToClipboard = async (label: string, value: string) => {
+    if (!value.trim()) {
+      setError(`No ${label.toLowerCase()} available to copy.`)
+      return
+    }
+
+    if (!navigator?.clipboard?.writeText) {
+      setError('Clipboard access is not available in this browser.')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(value)
+      showSaved(`${label} copied.`)
+    } catch {
+      setError(`Failed to copy ${label.toLowerCase()}.`)
     }
   }
 
@@ -5311,6 +5349,9 @@ export default function LabourExchangeAdminPage() {
   )
   const selectedWithdrawalReview = withdrawalReviewDraft
     ? referralWithdrawalById.get(withdrawalReviewDraft.requestId) || null
+    : null
+  const selectedWithdrawalPaymentRequest = withdrawalPaymentDetailsRequestId
+    ? referralWithdrawalById.get(withdrawalPaymentDetailsRequestId) || null
     : null
   const referralWithdrawalStatusOptions = Array.from(
     new Set(referralWithdrawalSnapshot.withdrawals.map(item => item.status).filter(Boolean))
@@ -8573,13 +8614,22 @@ export default function LabourExchangeAdminPage() {
                                   </button>
                                 </div>
                               ) : withdrawal.status === 'approved' ? (
-                                <button
-                                  type="button"
-                                  onClick={() => openWithdrawalReview(withdrawal.id, 'mark-paid')}
-                                  style={{ ...primaryButtonStyle, background: '#0f766e' }}
-                                >
-                                  Pay / Mark Paid
-                                </button>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => void loadWithdrawalPaymentDetails(withdrawal.id)}
+                                    style={subtleButtonStyle}
+                                  >
+                                    View Payment Details
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openWithdrawalReview(withdrawal.id, 'mark-paid')}
+                                    style={{ ...primaryButtonStyle, background: '#0f766e' }}
+                                  >
+                                    Pay / Mark Paid
+                                  </button>
+                                </div>
                               ) : (
                                 <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>
                                   {withdrawal.status === 'paid' ? 'Paid recorded' : 'No action'}
@@ -11915,6 +11965,165 @@ export default function LabourExchangeAdminPage() {
           </div>
         )}
 
+        {withdrawalPaymentDetailsRequestId && selectedWithdrawalPaymentRequest ? (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.56)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px',
+              zIndex: 90
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '720px',
+                background: '#ffffff',
+                borderRadius: '22px',
+                border: '1px solid #dce4ef',
+                boxShadow: '0 28px 70px rgba(15, 23, 42, 0.2)',
+                padding: '22px',
+                display: 'grid',
+                gap: '16px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '20px' }}>
+                    Payment Details
+                  </h3>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px', lineHeight: 1.6 }}>
+                    Use these details only to process this withdrawal. Payment details are securely retrieved for this request.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeWithdrawalPaymentDetails}
+                  style={subtleButtonStyle}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Agent Name</div>
+                  <div style={{ color: '#0f172a', fontSize: '15px', fontWeight: 700, marginTop: '6px' }}>{selectedWithdrawalPaymentRequest.agentName || '-'}</div>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Mobile</div>
+                  <div style={{ color: '#0f172a', fontSize: '15px', fontWeight: 700, marginTop: '6px' }}>{selectedWithdrawalPaymentRequest.mobile || '-'}</div>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Withdrawal Amount</div>
+                  <div style={{ color: '#0f172a', fontSize: '18px', fontWeight: 800, marginTop: '6px' }}>{formatCurrency(selectedWithdrawalPaymentRequest.amount)}</div>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Payout Method</div>
+                  <div style={{ color: '#0f172a', fontSize: '15px', fontWeight: 700, marginTop: '6px' }}>
+                    {selectedWithdrawalPaymentRequest.payoutMethod === 'bank' ? 'Bank Account' : 'UPI'}
+                  </div>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Request Date</div>
+                  <div style={{ color: '#0f172a', fontSize: '15px', fontWeight: 700, marginTop: '6px' }}>
+                    {selectedWithdrawalPaymentRequest.requestedAt ? formatDateTime(selectedWithdrawalPaymentRequest.requestedAt) : '-'}
+                  </div>
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 14px', background: '#f8fafc' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Status</div>
+                  <div style={{ color: '#0f172a', fontSize: '15px', fontWeight: 700, marginTop: '6px' }}>
+                    {titleCase(selectedWithdrawalPaymentRequest.status)}
+                  </div>
+                </div>
+              </div>
+
+              {withdrawalPaymentDetailsLoading ? (
+                <div style={{ border: '1px solid #dbeafe', borderRadius: '16px', padding: '18px', background: '#f8fbff', color: '#1d4ed8', fontWeight: 700 }}>
+                  Loading secure payout destination...
+                </div>
+              ) : withdrawalPaymentDetailsError ? (
+                <div style={{ border: '1px solid #fecaca', borderRadius: '16px', padding: '18px', background: '#fff1f2', color: '#b91c1c', fontWeight: 700 }}>
+                  {withdrawalPaymentDetailsError}
+                </div>
+              ) : withdrawalPaymentDetails ? (
+                <div style={{ border: '1px solid #dbeafe', borderRadius: '16px', padding: '18px', background: '#f8fbff', display: 'grid', gap: '14px' }}>
+                  {withdrawalPaymentDetails.bank ? (
+                    <>
+                      <div style={{ display: 'grid', gap: '6px' }}>
+                        <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Account Holder Name</div>
+                        <div style={{ color: '#0f172a', fontSize: '16px', fontWeight: 700, wordBreak: 'break-word' }}>{withdrawalPaymentDetails.bank.accountHolderName}</div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '10px', alignItems: 'end' }}>
+                        <div style={{ display: 'grid', gap: '6px' }}>
+                          <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Account Number</div>
+                          <div style={{ color: '#0f172a', fontSize: '16px', fontWeight: 700, wordBreak: 'break-word' }}>{withdrawalPaymentDetails.bank.accountNumber}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void copyTextToClipboard('Account Number', withdrawalPaymentDetails.bank?.accountNumber || '')}
+                          style={subtleButtonStyle}
+                        >
+                          Copy Account Number
+                        </button>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '10px', alignItems: 'end' }}>
+                        <div style={{ display: 'grid', gap: '6px' }}>
+                          <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>IFSC Code</div>
+                          <div style={{ color: '#0f172a', fontSize: '16px', fontWeight: 700, wordBreak: 'break-word' }}>{withdrawalPaymentDetails.bank.ifsc}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void copyTextToClipboard('IFSC', withdrawalPaymentDetails.bank?.ifsc || '')}
+                          style={subtleButtonStyle}
+                        >
+                          Copy IFSC
+                        </button>
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => void copyTextToClipboard(
+                            'Bank Details',
+                            [
+                              `Account Holder Name: ${withdrawalPaymentDetails.bank?.accountHolderName || ''}`,
+                              `Account Number: ${withdrawalPaymentDetails.bank?.accountNumber || ''}`,
+                              `IFSC Code: ${withdrawalPaymentDetails.bank?.ifsc || ''}`,
+                            ].join('\n'),
+                          )}
+                          style={subtleButtonStyle}
+                        >
+                          Copy All Bank Details
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+
+                  {withdrawalPaymentDetails.upi ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '10px', alignItems: 'end' }}>
+                      <div style={{ display: 'grid', gap: '6px' }}>
+                        <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>UPI ID</div>
+                        <div style={{ color: '#0f172a', fontSize: '16px', fontWeight: 700, wordBreak: 'break-word' }}>{withdrawalPaymentDetails.upi.upiId}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void copyTextToClipboard('UPI ID', withdrawalPaymentDetails.upi?.upiId || '')}
+                        style={subtleButtonStyle}
+                      >
+                        Copy UPI ID
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         {withdrawalReviewDraft && selectedWithdrawalReview ? (
           <div
             style={{
@@ -12011,7 +12220,7 @@ export default function LabourExchangeAdminPage() {
                 <div style={{ display: 'grid', gap: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <div style={{ color: '#64748b', fontSize: '13px', lineHeight: 1.6 }}>
-                      Admin can reveal the original payout destination stored in the immutable withdrawal snapshot for this approved request only.
+                      Review the immutable payout destination stored with this approved withdrawal before marking it paid.
                     </div>
                     <button
                       type="button"
@@ -12022,36 +12231,6 @@ export default function LabourExchangeAdminPage() {
                       {withdrawalPaymentDetailsLoading ? 'Loading...' : 'View Payment Details'}
                     </button>
                   </div>
-
-                  {withdrawalPaymentDetails ? (
-                    <div style={{ border: '1px solid #dbeafe', borderRadius: '16px', padding: '16px', background: '#f8fbff', display: 'grid', gap: '12px' }}>
-                      <div style={{ color: '#0f172a', fontSize: '13px', fontWeight: 700 }}>
-                        Use these details only to complete this approved withdrawal.
-                      </div>
-                      {withdrawalPaymentDetails.bank ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
-                          <div>
-                            <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Account Holder</div>
-                            <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 700, marginTop: '6px', wordBreak: 'break-word' }}>{withdrawalPaymentDetails.bank.accountHolderName}</div>
-                          </div>
-                          <div>
-                            <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Account Number</div>
-                            <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 700, marginTop: '6px', wordBreak: 'break-word' }}>{withdrawalPaymentDetails.bank.accountNumber}</div>
-                          </div>
-                          <div>
-                            <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>IFSC</div>
-                            <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 700, marginTop: '6px', wordBreak: 'break-word' }}>{withdrawalPaymentDetails.bank.ifsc}</div>
-                          </div>
-                        </div>
-                      ) : null}
-                      {withdrawalPaymentDetails.upi ? (
-                        <div>
-                          <div style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>UPI ID</div>
-                          <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 700, marginTop: '6px', wordBreak: 'break-word' }}>{withdrawalPaymentDetails.upi.upiId}</div>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
 
                   <div>
                     <label style={labelStyle}>Payment Reference / UTR</label>
@@ -12091,7 +12270,7 @@ export default function LabourExchangeAdminPage() {
                   type="button"
                   onClick={() => {
                     setWithdrawalReviewDraft(null)
-                    setWithdrawalPaymentDetails(null)
+                    closeWithdrawalPaymentDetails()
                   }}
                   style={subtleButtonStyle}
                   disabled={referralWithdrawalSaving}

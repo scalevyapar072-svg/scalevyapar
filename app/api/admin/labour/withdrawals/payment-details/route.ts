@@ -14,11 +14,18 @@ const noStoreHeaders = {
   Expires: '0',
 } as const
 
+const withNoStore = (response: NextResponse) => {
+  Object.entries(noStoreHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value)
+  })
+  return response
+}
+
 export async function POST(request: NextRequest) {
   try {
     const admin = await requireAdmin(request)
     if (admin instanceof NextResponse) {
-      return admin
+      return withNoStore(admin)
     }
 
     const body = await request.json().catch(() => ({}))

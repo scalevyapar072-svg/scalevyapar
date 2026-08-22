@@ -73,6 +73,7 @@ type LabourSection =
   | 'rechargeRequests'
   | 'supportRequests'
   | 'reports'
+  | 'whatsappAutomation'
   | 'settings'
   | 'auditLogs'
 type LabourEntityType = 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts' | 'jobApplications' | 'savedJobs' | 'workerNotifications' | 'walletTransactions' | 'rechargeRequests'
@@ -1129,6 +1130,7 @@ const sectionLabels: Record<LabourSection, string> = {
   rechargeRequests: 'Recharge Requests',
   supportRequests: 'Support Requests',
   reports: 'Reports',
+  whatsappAutomation: 'WhatsApp Automation',
   settings: 'Settings',
   auditLogs: 'Audit Logs'
 }
@@ -1155,6 +1157,7 @@ const sectionNavItems: Array<{
   { key: 'rechargeRequests', label: 'Recharge Requests', icon: HandCoins },
   { key: 'supportRequests', label: 'Support Requests', icon: LifeBuoy },
   { key: 'reports', label: 'Reports', icon: BarChart3 },
+  { key: 'whatsappAutomation', label: 'WhatsApp Automation', icon: Database },
   { key: 'settings', label: 'Settings', icon: Settings2 },
   { key: 'auditLogs', label: 'Audit Logs', icon: ClipboardList }
 ]
@@ -5053,6 +5056,8 @@ export default function LabourExchangeAdminPage() {
   const currentSectionCopy =
     activeSection === 'overview'
       ? 'Track labour operations, live activity, revenue, and admin coverage from one compact workspace.'
+      : activeSection === 'whatsappAutomation'
+        ? 'Review read-only Meta connection readiness for the secure WhatsApp layer. This section never sends WhatsApp messages or exposes secrets.'
       : `${currentSectionLabel} management stays connected to the existing labour workflows, data bindings, and admin actions.`
   const overviewMetricCards = [
     { label: 'Active Workers', value: snapshot.stats.activeWorkers, accent: '#10b981' },
@@ -6478,46 +6483,50 @@ export default function LabourExchangeAdminPage() {
 
           <div className="labour-page-body">
             <div className="labour-page-stack">
-              <div style={{ ...cardStyle }} className="labour-storage-card">
-                <div className="labour-storage-copy">
-                  <div className="labour-storage-icon">
-                    <Database className="labour-nav-icon" />
+              {activeSection !== 'whatsappAutomation' && (
+                <>
+                  <div style={{ ...cardStyle }} className="labour-storage-card">
+                    <div className="labour-storage-copy">
+                      <div className="labour-storage-icon">
+                        <Database className="labour-nav-icon" />
+                      </div>
+                      <div>
+                        <p style={{ margin: '0 0 4px', fontSize: '11px', fontWeight: '600', color: '#284667', textTransform: 'uppercase', letterSpacing: '0.16em' }}>
+                          Storage Mode
+                        </p>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '13px', lineHeight: 1.55 }}>
+                          {snapshot.storage === 'supabase'
+                            ? 'This module is currently reading and writing live Supabase tables.'
+                            : 'This module is currently using the local JSON fallback because the Supabase labour tables do not exist yet.'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="labour-storage-actions">
+                      {['categories', 'plans', 'workers', 'companies', 'jobPosts', 'workerNotifications'].map(key => (
+                        <button
+                          key={key}
+                          onClick={() => openAddForm(key as LabourSection)}
+                          style={subtleButtonStyle}
+                        >
+                          Add {sectionLabels[key as LabourSection].slice(0, -1)}
+                        </button>
+                      ))}
+                      <a href="/admin/labour/website" style={subtleButtonStyle}>
+                        Edit Website
+                      </a>
+                    </div>
                   </div>
-                  <div>
-                    <p style={{ margin: '0 0 4px', fontSize: '11px', fontWeight: '600', color: '#284667', textTransform: 'uppercase', letterSpacing: '0.16em' }}>
-                      Storage Mode
-                    </p>
-                    <p style={{ margin: 0, color: '#475569', fontSize: '13px', lineHeight: 1.55 }}>
-                      {snapshot.storage === 'supabase'
-                        ? 'This module is currently reading and writing live Supabase tables.'
-                        : 'This module is currently using the local JSON fallback because the Supabase labour tables do not exist yet.'}
-                    </p>
-                  </div>
-                </div>
-                <div className="labour-storage-actions">
-                  {['categories', 'plans', 'workers', 'companies', 'jobPosts', 'workerNotifications'].map(key => (
-                    <button
-                      key={key}
-                      onClick={() => openAddForm(key as LabourSection)}
-                      style={subtleButtonStyle}
-                    >
-                      Add {sectionLabels[key as LabourSection].slice(0, -1)}
-                    </button>
-                  ))}
-                  <a href="/admin/labour/website" style={subtleButtonStyle}>
-                    Edit Website
-                  </a>
-                </div>
-              </div>
 
-              <div className="labour-metric-grid">
-                {overviewMetricCards.map(card => (
-                  <div key={card.label} style={cardStyle} className="labour-metric-card">
-                    <p className="labour-metric-label">{card.label}</p>
-                    <p className="labour-metric-value" style={{ color: card.accent }}>{card.value}</p>
+                  <div className="labour-metric-grid">
+                    {overviewMetricCards.map(card => (
+                      <div key={card.label} style={cardStyle} className="labour-metric-card">
+                        <p className="labour-metric-label">{card.label}</p>
+                        <p className="labour-metric-value" style={{ color: card.accent }}>{card.value}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </>
+              )}
 
               {activeSection === 'overview' && (
                 <div className="labour-overview-grid labour-content-section">
@@ -11408,6 +11417,12 @@ export default function LabourExchangeAdminPage() {
           </div>
         )}
 
+        {activeSection === 'whatsappAutomation' && (
+          <div style={{ display: 'grid', gap: '12px' }}>
+            <LabourWhatsappMetaStatusCard />
+          </div>
+        )}
+
         {activeSection === 'settings' && (
           <div style={{ display: 'grid', gap: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
@@ -11818,7 +11833,7 @@ export default function LabourExchangeAdminPage() {
               <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '17px' }}>Module navigation and linked tools</h3>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-                  {(['overview', 'workers', 'referrals', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'supportRequests', 'reports', 'auditLogs'] as LabourSection[]).map(section => (
+                  {(['overview', 'workers', 'referrals', 'companies', 'categories', 'jobPosts', 'jobApplications', 'savedJobs', 'workerNotifications', 'plans', 'walletTransactions', 'rechargeRequests', 'supportRequests', 'reports', 'whatsappAutomation', 'auditLogs'] as LabourSection[]).map(section => (
                     <button key={section} onClick={() => setActiveSection(section)} style={{ ...subtleButtonStyle, textAlign: 'left' }}>
                       Open {sectionLabels[section]}
                     </button>
@@ -11861,7 +11876,6 @@ export default function LabourExchangeAdminPage() {
               </div>
             </div>
             <div style={{ display: 'grid', gap: '12px', marginBottom: '18px' }}>
-              <LabourWhatsappMetaStatusCard />
               <div style={{ border: '1px solid #dbeafe', borderRadius: '16px', padding: '14px 16px', background: '#f8fbff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
                   <div>

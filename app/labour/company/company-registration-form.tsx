@@ -13,6 +13,12 @@ import {
   filterBusinessTypesByIndustryDependency,
   getVisibleLabourMasterOptions
 } from '@/lib/labour-masters-schema'
+import {
+  getWhatsappConsentCopy,
+  normalizeWhatsappConsentLanguage,
+  WHATSAPP_CONSENT_TEXT_VERSION,
+  type WhatsappConsentLanguage,
+} from '@/lib/whatsapp/consent'
 
 type CategoryOption = {
   id: string
@@ -62,6 +68,8 @@ type FormState = {
   pincode: string
   password: string
   confirmPassword: string
+  whatsappServiceConsent: boolean
+  whatsappMatchingConsent: boolean
 }
 
 type UploadState = {
@@ -102,7 +110,9 @@ const initialFormState: FormState = {
   area: '',
   pincode: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  whatsappServiceConsent: false,
+  whatsappMatchingConsent: false,
 }
 
 const emptyUploadState = (): UploadState => ({
@@ -118,6 +128,36 @@ const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/i
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UPLOAD_DOCUMENT_KINDS: Record<UploadKey, string> = {
   gstCertificate: 'gst_certificate'
+}
+
+const getCityOptionsForState = ({
+  stateValue,
+  selectedCity = '',
+  stateOptions,
+  cityOptionsByState,
+  normalizedCityOptions,
+}: {
+  stateValue: string
+  selectedCity?: string
+  stateOptions: LabourMasterOption[]
+  cityOptionsByState: LabourStateCityGroup[]
+  normalizedCityOptions: string[]
+}) => {
+  const normalizedSelectedCity = selectedCity.trim()
+  const matchingState = findMatchingMasterOption(stateOptions, stateValue)
+
+  const stateScopedCities = matchingState
+    ? (cityOptionsByState.find(group => group.stateOptionId === matchingState.id)?.cities || []).reduce<string[]>((list, option) => {
+        const cityValue = option.value.trim() || option.label.trim()
+        if (!cityValue) return list
+        if (list.some(item => item.toLowerCase() === cityValue.toLowerCase())) return list
+        return [...list, cityValue]
+      }, [])
+    : normalizedCityOptions
+
+  if (!normalizedSelectedCity) return stateScopedCities
+  if (stateScopedCities.some(city => city.toLowerCase() === normalizedSelectedCity.toLowerCase())) return stateScopedCities
+  return [normalizedSelectedCity, ...stateScopedCities]
 }
 
 export function CompanyRegistrationForm({
@@ -137,9 +177,19 @@ export function CompanyRegistrationForm({
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState('')
   const [submissionId, setSubmissionId] = useState(() => `company-intake-${Date.now()}`)
+  const [consentLanguage, setConsentLanguage] = useState<WhatsappConsentLanguage>('en')
   const [uploads, setUploads] = useState<Record<UploadKey, UploadState>>({
     gstCertificate: emptyUploadState()
   })
+  const consentCopy = useMemo(
+    () =>
+      getWhatsappConsentCopy({
+        recipientType: 'company',
+        language: consentLanguage,
+        includeMarketing: false,
+      }),
+    [consentLanguage],
+  )
 
   const normalizedCityOptions = useMemo(
     () => cityOptions.reduce<string[]>((list, city) => {
@@ -151,26 +201,14 @@ export function CompanyRegistrationForm({
     [cityOptions]
   )
 
-  const getCityOptionsForState = (stateValue: string, selectedCity = '') => {
-    const normalizedSelectedCity = selectedCity.trim()
-    const matchingState = findMatchingMasterOption(stateOptions, stateValue)
-
-    const stateScopedCities = matchingState
-      ? (cityOptionsByState.find(group => group.stateOptionId === matchingState.id)?.cities || []).reduce<string[]>((list, option) => {
-          const cityValue = option.value.trim() || option.label.trim()
-          if (!cityValue) return list
-          if (list.some(item => item.toLowerCase() === cityValue.toLowerCase())) return list
-          return [...list, cityValue]
-        }, [])
-      : normalizedCityOptions
-
-    if (!normalizedSelectedCity) return stateScopedCities
-    if (stateScopedCities.some(city => city.toLowerCase() === normalizedSelectedCity.toLowerCase())) return stateScopedCities
-    return [normalizedSelectedCity, ...stateScopedCities]
-  }
-
   const availableCities = useMemo(
-    () => getCityOptionsForState(form.state, form.city),
+    () => getCityOptionsForState({
+      stateValue: form.state,
+      selectedCity: form.city,
+      stateOptions,
+      cityOptionsByState,
+      normalizedCityOptions,
+    }),
     [cityOptionsByState, form.city, form.state, normalizedCityOptions, stateOptions]
   )
 
@@ -224,6 +262,11 @@ export function CompanyRegistrationForm({
     setForm(current => ({ ...current, businessType: '' }))
     setErrors(current => ({ ...current, businessType: '', submit: '' }))
   }, [form.businessType, form.industryCategory, visibleBusinessTypeOptions])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setConsentLanguage(normalizeWhatsappConsentLanguage(window.navigator.language))
+  }, [])
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm(current => ({ ...current, [key]: value }))
@@ -440,7 +483,12 @@ export function CompanyRegistrationForm({
           },
           uploadedDocuments: [
             gstCertificate ? { label: 'GST Certificate', fileName: gstCertificate.fileName, storagePath: gstCertificate.storagePath } : null
-          ].filter(Boolean)
+          ].filter(Boolean),
+          whatsappConsents: {
+            service_allowed: form.whatsappServiceConsent,
+            matching_alerts_allowed: form.whatsappMatchingConsent,
+          },
+          whatsappConsentTextVersion: WHATSAPP_CONSENT_TEXT_VERSION,
         })
       })
 
@@ -640,7 +688,12 @@ export function CompanyRegistrationForm({
                       onChange={event => {
                         const nextState = event.target.value
                         setForm(current => {
-                          const nextCityOptions = getCityOptionsForState(nextState)
+                          const nextCityOptions = getCityOptionsForState({
+                            stateValue: nextState,
+                            stateOptions,
+                            cityOptionsByState,
+                            normalizedCityOptions,
+                          })
                           const hasValidCurrentCity = current.city.trim()
                             ? nextCityOptions.some(city => city.toLowerCase() === current.city.trim().toLowerCase())
                             : false
@@ -679,6 +732,38 @@ export function CompanyRegistrationForm({
                     <label className={styles.companyRegisterLabel}>Pincode *</label>
                     <input className={fieldClass('pincode')} maxLength={6} value={form.pincode} onChange={event => setField('pincode', event.target.value.replace(/\D/g, '').slice(0, 6))} />
                     {errors.pincode ? <p className={styles.companyRegisterFieldError}>{errors.pincode}</p> : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.companyRegisterAddressSection}>
+                <div className={styles.companyRegisterGridWide}>
+                  <label className={styles.companyRegisterLabel}>WhatsApp preferences (optional)</label>
+                  <div style={{ display: 'grid', gap: '12px', padding: '14px 16px', border: '1px solid #dbe2ea', borderRadius: '18px', background: '#f8fbff' }}>
+                    <p style={{ margin: 0, color: '#475569', fontSize: '13px', lineHeight: 1.7 }}>
+                      {consentLanguage === 'hi'
+                        ? 'Registration बिना WhatsApp consent के भी पूरी होगी. Marketing consent बाद में signed-in Company communication preferences screen से अलग से लिया जाएगा.'
+                        : 'Registration completes even if you leave these unchecked. Marketing consent is collected later from the signed-in Company communication preferences screen.'}
+                    </p>
+                    {consentCopy.map(item => (
+                      <label key={item.type} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', color: '#0f172a' }}>
+                        <input
+                          type="checkbox"
+                          checked={item.type === 'service_allowed' ? form.whatsappServiceConsent : form.whatsappMatchingConsent}
+                          onChange={event =>
+                            setField(
+                              item.type === 'service_allowed' ? 'whatsappServiceConsent' : 'whatsappMatchingConsent',
+                              event.target.checked,
+                            )
+                          }
+                          style={{ marginTop: '3px' }}
+                        />
+                        <span style={{ display: 'grid', gap: '4px' }}>
+                          <strong style={{ fontSize: '13px' }}>{item.label}</strong>
+                          <span style={{ color: '#475569', fontSize: '12px', lineHeight: 1.6 }}>{item.description}</span>
+                        </span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>

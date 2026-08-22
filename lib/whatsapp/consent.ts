@@ -5,10 +5,12 @@ export const WHATSAPP_CONSENT_TYPES = [
 ] as const
 
 export const WHATSAPP_RECIPIENT_TYPES = ['worker', 'company', 'external_test'] as const
+export const WHATSAPP_CONSENT_TEXT_VERSION = 'rozgar_whatsapp_consent_v1_20260822'
 
 export type WhatsappConsentType = (typeof WHATSAPP_CONSENT_TYPES)[number]
 export type WhatsappRecipientType = (typeof WHATSAPP_RECIPIENT_TYPES)[number]
 export type WhatsappNotificationPurpose = 'service' | 'matching' | 'marketing'
+export type WhatsappConsentLanguage = 'en' | 'hi'
 export type WhatsappConsentSource =
   | 'worker_registration'
   | 'worker_settings'
@@ -25,6 +27,26 @@ export type IndianMobileNormalizationFailureReason =
   | 'invalid_country_code'
   | 'invalid_length'
   | 'invalid_mobile_range'
+
+export type WhatsappConsentChoiceMap = Partial<Record<WhatsappConsentType, boolean>>
+
+export type WorkerRegistrationWhatsappConsentInput = Pick<
+  Record<WhatsappConsentType, boolean>,
+  'service_allowed' | 'matching_alerts_allowed' | 'marketing_allowed'
+>
+
+export type CompanyRegistrationWhatsappConsentInput = Pick<
+  Record<WhatsappConsentType, boolean>,
+  'service_allowed' | 'matching_alerts_allowed'
+>
+
+export type CompanySettingsWhatsappConsentInput = Record<WhatsappConsentType, boolean>
+
+export type WhatsappConsentCopyItem = {
+  type: WhatsappConsentType
+  label: string
+  description: string
+}
 
 export type IndianMobileNormalizationResult =
   | {
@@ -133,6 +155,161 @@ export const getMissingWhatsappConsentTypes = ({
 }) =>
   requiredConsentTypes.filter((consentType) => !consentState[consentType])
 
+const parseConsentBoolean = (value: unknown) => {
+  if (typeof value === 'boolean') {
+    return value
+  }
+
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return false
+}
+
+const consentCopyByLanguage: Record<WhatsappConsentLanguage, Record<WhatsappConsentType, WhatsappConsentCopyItem>> = {
+  en: {
+    service_allowed: {
+      type: 'service_allowed',
+      label: 'Essential WhatsApp updates',
+      description:
+        'I want to receive essential WhatsApp updates about my ScaleVyapar Worker account, verification, applications, and support.',
+    },
+    matching_alerts_allowed: {
+      type: 'matching_alerts_allowed',
+      label: 'WhatsApp matching alerts',
+      description:
+        'I want to receive WhatsApp job matching alerts for relevant work opportunities.',
+    },
+    marketing_allowed: {
+      type: 'marketing_allowed',
+      label: 'Promotional WhatsApp messages',
+      description:
+        'I want to receive separate promotional or campaign messages on WhatsApp.',
+    },
+  },
+  hi: {
+    service_allowed: {
+      type: 'service_allowed',
+      label: 'जरूरी WhatsApp updates',
+      description:
+        'मैं अपने ScaleVyapar Worker खाते, verification, applications और support से जुड़ी जरूरी WhatsApp updates पाना चाहता/चाहती हूँ.',
+    },
+    matching_alerts_allowed: {
+      type: 'matching_alerts_allowed',
+      label: 'WhatsApp matching alerts',
+      description:
+        'मैं मेरे लिए उपयुक्त काम के WhatsApp matching alerts पाना चाहता/चाहती हूँ.',
+    },
+    marketing_allowed: {
+      type: 'marketing_allowed',
+      label: 'Promotional WhatsApp messages',
+      description:
+        'मैं WhatsApp पर अलग से promotional/campaign messages पाना चाहता/चाहती हूँ.',
+    },
+  },
+}
+
+const companyConsentCopyByLanguage: Record<WhatsappConsentLanguage, Record<WhatsappConsentType, WhatsappConsentCopyItem>> = {
+  en: {
+    service_allowed: {
+      type: 'service_allowed',
+      label: 'Essential company WhatsApp updates',
+      description:
+        'I want to receive essential WhatsApp updates about my company account, job posts, applications, billing, and support.',
+    },
+    matching_alerts_allowed: {
+      type: 'matching_alerts_allowed',
+      label: 'Worker matching alerts',
+      description:
+        'I want to receive WhatsApp alerts when relevant Workers or hiring matches are available.',
+    },
+    marketing_allowed: {
+      type: 'marketing_allowed',
+      label: 'Promotional WhatsApp messages',
+      description:
+        'I want to receive separate promotional or campaign messages on WhatsApp.',
+    },
+  },
+  hi: {
+    service_allowed: {
+      type: 'service_allowed',
+      label: 'जरूरी company WhatsApp updates',
+      description:
+        'मैं अपने company account, job posts, applications, billing और support से जुड़ी जरूरी WhatsApp updates पाना चाहता/चाहती हूँ.',
+    },
+    matching_alerts_allowed: {
+      type: 'matching_alerts_allowed',
+      label: 'Worker matching alerts',
+      description:
+        'जब उपयुक्त Workers या hiring matches उपलब्ध हों, तब मैं WhatsApp alerts पाना चाहता/चाहती हूँ.',
+    },
+    marketing_allowed: {
+      type: 'marketing_allowed',
+      label: 'Promotional WhatsApp messages',
+      description:
+        'मैं WhatsApp पर अलग से promotional/campaign messages पाना चाहता/चाहती हूँ.',
+    },
+  },
+}
+
+export const normalizeWhatsappConsentLanguage = (value: unknown): WhatsappConsentLanguage =>
+  String(value || '').trim().toLowerCase().startsWith('hi') ? 'hi' : 'en'
+
+export const getWhatsappConsentCopy = ({
+  recipientType,
+  language,
+  includeMarketing = true,
+}: {
+  recipientType: 'worker' | 'company'
+  language: WhatsappConsentLanguage
+  includeMarketing?: boolean
+}): WhatsappConsentCopyItem[] => {
+  const source = recipientType === 'worker'
+    ? consentCopyByLanguage[language]
+    : companyConsentCopyByLanguage[language]
+
+  const types = includeMarketing
+    ? WHATSAPP_CONSENT_TYPES
+    : (['service_allowed', 'matching_alerts_allowed'] as const)
+
+  return types.map((type) => source[type])
+}
+
+export const parseWorkerRegistrationWhatsappConsents = (value: unknown): WorkerRegistrationWhatsappConsentInput => {
+  const source = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+
+  return {
+    service_allowed: parseConsentBoolean(source.service_allowed),
+    matching_alerts_allowed: parseConsentBoolean(source.matching_alerts_allowed),
+    marketing_allowed: parseConsentBoolean(source.marketing_allowed),
+  }
+}
+
+export const parseCompanyRegistrationWhatsappConsents = (value: unknown): CompanyRegistrationWhatsappConsentInput => {
+  const source = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+
+  return {
+    service_allowed: parseConsentBoolean(source.service_allowed),
+    matching_alerts_allowed: parseConsentBoolean(source.matching_alerts_allowed),
+  }
+}
+
+export const parseCompanySettingsWhatsappConsents = (value: unknown): CompanySettingsWhatsappConsentInput => {
+  const source = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+
+  return {
+    service_allowed: parseConsentBoolean(source.service_allowed),
+    matching_alerts_allowed: parseConsentBoolean(source.matching_alerts_allowed),
+    marketing_allowed: parseConsentBoolean(source.marketing_allowed),
+  }
+}
+
+export const parseWorkerSettingsWhatsappConsents = parseCompanySettingsWhatsappConsents
+
+export const resolveWhatsappConsentTextVersion = (value: unknown) => {
+  const normalized = String(value || '').trim()
+  return normalized || WHATSAPP_CONSENT_TEXT_VERSION
+}
+
 export const WHATSAPP_CONSENT_TYPE_DESCRIPTORS: Array<{
   type: WhatsappConsentType
   label: string
@@ -161,12 +338,12 @@ export const WHATSAPP_CONSENT_TYPE_DESCRIPTORS: Array<{
 export const WHATSAPP_CONSENT_COLLECTION_POINTS = {
   worker: [
     'Registration flow for explicit service consent',
-    'Profile or settings flow for updating service and marketing consent',
-    'Dedicated matching-alert preference flow for matching_alerts_allowed',
+    'Dedicated authenticated Worker communication-preferences flow for updating service, matching, and marketing consent',
+    'Registration must not imply consent and existing Workers remain unknown until explicitly updated',
   ],
   company: [
-    'Registration flow for explicit service consent on the business contact mobile',
-    'Dashboard or settings flow for updating service and marketing consent',
-    'Dedicated matching-worker alert preference flow for matching_alerts_allowed',
+    'Registration flow for explicit service and matching consent on the business contact mobile',
+    'Dedicated signed-in Company communication-preferences flow for updating service, matching, and marketing consent',
+    'Company registration does not collect marketing consent and existing Companies remain unknown until explicitly updated',
   ],
 } as const

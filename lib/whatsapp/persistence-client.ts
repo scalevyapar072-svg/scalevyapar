@@ -19,6 +19,16 @@ type WhatsappPersistenceUnavailableClient = Extract<
   { available: false }
 >
 
+export type WhatsappPersistenceWriteAvailability =
+  | {
+      enabled: true
+    }
+  | {
+      enabled: false
+      reason: 'preview_disabled' | 'missing_configuration'
+      message: string
+    }
+
 const getTrimmedEnv = (name: 'NEXT_PUBLIC_SUPABASE_URL' | 'SUPABASE_SERVICE_ROLE_KEY') =>
   String(process.env[name] || '').trim()
 
@@ -62,6 +72,29 @@ export const getWhatsappPersistenceClient = ():
     available: true,
     client: cachedClient,
     presentConfigurationNames: ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'],
+  }
+}
+
+export const getWhatsappPersistenceWriteAvailability = (): WhatsappPersistenceWriteAvailability => {
+  if (String(process.env.VERCEL_ENV || '').trim().toLowerCase() === 'preview') {
+    return {
+      enabled: false,
+      reason: 'preview_disabled',
+      message: 'WhatsApp consent persistence is disabled in Preview deployments.',
+    }
+  }
+
+  const persistence = getWhatsappPersistenceClient()
+  if (!persistence.available) {
+    return {
+      enabled: false,
+      reason: 'missing_configuration',
+      message: persistence.message,
+    }
+  }
+
+  return {
+    enabled: true,
   }
 }
 

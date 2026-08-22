@@ -6,11 +6,16 @@ type ConsentSummary = {
   available: boolean
   persistenceStatus: string
   failClosed: boolean
+  recipientTotals: {
+    worker: number
+    company: number
+  }
   counts: Array<{
     recipientType: 'worker' | 'company'
     consentType: 'service_allowed' | 'matching_alerts_allowed' | 'marketing_allowed'
     allowedCount: number
     blockedCount: number
+    unknownCount: number
   }>
 }
 
@@ -213,6 +218,8 @@ export default function LabourWhatsappConsentOptoutsCard() {
               {consentSummary.failClosed || suppressionSummary.failClosed ? 'YES' : 'NO'}
             </div>
             <div>Active suppression count: {suppressionSummary.activeSuppressionCount}</div>
+            <div>Worker recipients with valid WhatsApp targets: {consentSummary.recipientTotals.worker}</div>
+            <div>Company recipients with valid WhatsApp targets: {consentSummary.recipientTotals.company}</div>
             <div>No consent override API: YES</div>
             <div>No recipient messaging action: YES</div>
           </div>
@@ -249,7 +256,7 @@ export default function LabourWhatsappConsentOptoutsCard() {
                           {consentTypeLabels[row.consentType]}
                         </div>
                         <div style={{ color: '#475569', fontSize: '12px', lineHeight: 1.6 }}>
-                          Allowed: {row.allowedCount} | Blocked: {row.blockedCount}
+                          Allowed: {row.allowedCount} | Blocked: {row.blockedCount} | Unknown: {row.unknownCount}
                         </div>
                       </div>
                     ))}

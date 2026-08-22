@@ -1,7 +1,7 @@
 'use client'
 
 import { BadgeCheck, CircleAlert, Download, PhoneCall, RotateCcw, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from '../company-site.module.css'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
@@ -14,6 +14,12 @@ import {
   resolveCompanyBillingHistory
 } from '@/lib/labour-company-billing'
 import type { CompanyJobPostingPlanSummary } from '@/lib/labour-plan-utils'
+import {
+  getWhatsappConsentCopy,
+  normalizeWhatsappConsentLanguage,
+  WHATSAPP_CONSENT_TEXT_VERSION,
+  type WhatsappConsentLanguage,
+} from '@/lib/whatsapp/consent'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
 const COMPANY_PROFILE_KEY = 'labour_company_profile'
@@ -113,6 +119,26 @@ type BillingProfileDraft = {
   pincode: string
 }
 
+type CompanyCommunicationPreferences = {
+  available: boolean
+  readOnly: boolean
+  writeEnabled: boolean
+  disabledReason: string | null
+  disabledMessage: string | null
+  consentTextVersion: string
+  state: {
+    service_allowed: boolean | null
+    matching_alerts_allowed: boolean | null
+    marketing_allowed: boolean | null
+  }
+}
+
+type CommunicationPreferencesDraft = {
+  service_allowed: boolean
+  matching_alerts_allowed: boolean
+  marketing_allowed: boolean
+}
+
 type ApplicantWorkflowStatus = 'submitted' | 'reviewed' | 'shortlisted' | 'rejected' | 'hired'
 
 const formatDateTime = (value: string) =>
@@ -201,8 +227,6 @@ const labelFromStatus = (value: string) =>
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
 
-const formatBillingAmount = (value: number) => `₹ ${Number(value || 0).toLocaleString('en-IN')}`
-
 const createBillingProfileDraft = (dashboard: CompanyDashboard | null): BillingProfileDraft => ({
   companyName: dashboard?.profile.companyName || '',
   gstNumber: dashboard?.profile.gstNumber || '',
@@ -214,7 +238,15 @@ const createBillingProfileDraft = (dashboard: CompanyDashboard | null): BillingP
   pincode: dashboard?.profile.pincode || ''
 })
 
-type PanelView = 'dashboard' | 'billing'
+const createCommunicationPreferencesDraft = (
+  preferences: CompanyCommunicationPreferences | null,
+): CommunicationPreferencesDraft => ({
+  service_allowed: preferences?.state.service_allowed === true,
+  matching_alerts_allowed: preferences?.state.matching_alerts_allowed === true,
+  marketing_allowed: preferences?.state.marketing_allowed === true,
+})
+
+type PanelView = 'dashboard' | 'billing' | 'communication'
 
 export function CompanyPanelClient({ signinMode = false, jobId, content }: Props) {
   const router = useRouter()
@@ -232,6 +264,15 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
   const [billingProfileDraft, setBillingProfileDraft] = useState<BillingProfileDraft>(() => createBillingProfileDraft(null))
   const [billingProfileSaving, setBillingProfileSaving] = useState(false)
   const [billingProfileError, setBillingProfileError] = useState('')
+  const [communicationPreferences, setCommunicationPreferences] = useState<CompanyCommunicationPreferences | null>(null)
+  const [communicationPreferencesDraft, setCommunicationPreferencesDraft] = useState<CommunicationPreferencesDraft>(() =>
+    createCommunicationPreferencesDraft(null),
+  )
+  const [communicationPreferencesLoading, setCommunicationPreferencesLoading] = useState(false)
+  const [communicationPreferencesSaving, setCommunicationPreferencesSaving] = useState(false)
+  const [communicationPreferencesError, setCommunicationPreferencesError] = useState('')
+  const [communicationPreferencesNotice, setCommunicationPreferencesNotice] = useState('')
+  const [consentLanguage, setConsentLanguage] = useState<WhatsappConsentLanguage>('en')
   const [isApplicationNoteModalOpen, setIsApplicationNoteModalOpen] = useState(false)
   const [activeApplicationId, setActiveApplicationId] = useState<string | null>(null)
   const [applicationNoteDraft, setApplicationNoteDraft] = useState('')
@@ -248,6 +289,15 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
   const [loading, setLoading] = useState(!signinMode)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const companyConsentCopy = useMemo(
+    () =>
+      getWhatsappConsentCopy({
+        recipientType: 'company',
+        language: consentLanguage,
+        includeMarketing: true,
+      }),
+    [consentLanguage],
+  )
 
   const loadDashboard = async (authToken: string) => {
     const response = await fetch('/api/labour/company/dashboard', {
@@ -267,6 +317,44 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
     localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
     localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify((data.dashboard as CompanyDashboard).profile))
   }
+
+  const applyCommunicationPreferences = (next: CompanyCommunicationPreferences) => {
+    setCommunicationPreferences(next)
+    setCommunicationPreferencesDraft(createCommunicationPreferencesDraft(next))
+  }
+
+  const loadCommunicationPreferences = useEffectEvent(async (authToken: string) => {
+    setCommunicationPreferencesLoading(true)
+    setCommunicationPreferencesError('')
+
+    try {
+      const response = await fetch('/api/labour/company/communication-preferences', {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+        cache: 'no-store',
+      })
+
+      const data = await response.json().catch(() => ({
+        error: 'Failed to load communication preferences.',
+      }))
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load communication preferences.')
+      }
+
+      applyCommunicationPreferences(data.preferences as CompanyCommunicationPreferences)
+    } catch (preferencesError) {
+      setCommunicationPreferences(null)
+      setCommunicationPreferencesError(
+        preferencesError instanceof Error
+          ? preferencesError.message
+          : 'Failed to load communication preferences.',
+      )
+    } finally {
+      setCommunicationPreferencesLoading(false)
+    }
+  })
 
   useEffect(() => {
     if (signinMode) {
@@ -328,6 +416,11 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
       })
       .finally(() => setLoading(false))
   }, [signinMode])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setConsentLanguage(normalizeWhatsappConsentLanguage(window.navigator.language))
+  }, [])
 
   const submitLogin = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -395,13 +488,31 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
     }
 
     const syncViewFromHash = () => {
-      setSelectedPanelView(window.location.hash === '#billing-plan' ? 'billing' : 'dashboard')
+      if (window.location.hash === '#billing-plan') {
+        setSelectedPanelView('billing')
+        return
+      }
+
+      if (window.location.hash === '#communication-preferences') {
+        setSelectedPanelView('communication')
+        return
+      }
+
+      setSelectedPanelView('dashboard')
     }
 
     syncViewFromHash()
     window.addEventListener('hashchange', syncViewFromHash)
     return () => window.removeEventListener('hashchange', syncViewFromHash)
   }, [signinMode])
+
+  useEffect(() => {
+    if (selectedPanelView !== 'communication' || !token) {
+      return
+    }
+
+    void loadCommunicationPreferences(token)
+  }, [selectedPanelView, token])
 
   const setPanelHash = (view: PanelView) => {
     if (typeof window === 'undefined') {
@@ -410,7 +521,9 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
 
     const nextUrl = view === 'billing'
       ? `${window.location.pathname}#billing-plan`
-      : window.location.pathname
+      : view === 'communication'
+        ? `${window.location.pathname}#communication-preferences`
+        : window.location.pathname
     window.history.replaceState(null, '', nextUrl)
   }
 
@@ -426,6 +539,15 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
     setSelectedPanelView('billing')
     setSelectedBillingTab('all')
     setPanelHash('billing')
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const openCommunicationView = () => {
+    setSelectedPanelView('communication')
+    setCommunicationPreferencesNotice('')
+    setPanelHash('communication')
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
@@ -491,6 +613,51 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
       )
     } finally {
       setBillingProfileSaving(false)
+    }
+  }
+
+  const saveCommunicationPreferences = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!token) {
+      setCommunicationPreferencesError('Company session expired. Please sign in again and retry.')
+      return
+    }
+
+    setCommunicationPreferencesSaving(true)
+    setCommunicationPreferencesError('')
+    setCommunicationPreferencesNotice('')
+
+    try {
+      const response = await fetch('/api/labour/company/communication-preferences', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          whatsappConsents: communicationPreferencesDraft,
+          whatsappConsentTextVersion: WHATSAPP_CONSENT_TEXT_VERSION,
+        }),
+      })
+
+      const data = await response.json().catch(() => ({
+        error: 'Failed to save communication preferences.',
+      }))
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save communication preferences.')
+      }
+
+      applyCommunicationPreferences(data.preferences as CompanyCommunicationPreferences)
+      setCommunicationPreferencesNotice('Communication preferences updated successfully.')
+    } catch (preferencesError) {
+      setCommunicationPreferencesError(
+        preferencesError instanceof Error
+          ? preferencesError.message
+          : 'Failed to save communication preferences.',
+      )
+    } finally {
+      setCommunicationPreferencesSaving(false)
     }
   }
 
@@ -1486,6 +1653,14 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
               <span className={styles.companyDashboardSidebarIcon}>B</span>
               <span>{content.sidebar.billingPlanLabel}</span>
             </button>
+            <button
+              type="button"
+              className={`${styles.companyDashboardSidebarItem} ${selectedPanelView === 'communication' ? styles.companyDashboardSidebarItemActive : ''}`}
+              onClick={openCommunicationView}
+            >
+              <span className={styles.companyDashboardSidebarIcon}>C</span>
+              <span>WhatsApp Preferences</span>
+            </button>
             <a href="/labour/company/contact" className={styles.companyDashboardSidebarItem}>
               <span className={styles.companyDashboardSidebarIcon}>M</span>
               <span>{content.sidebar.messagesLabel}</span>
@@ -1951,6 +2126,120 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
             </a>
           </section>
 
+            </>
+          ) : selectedPanelView === 'communication' ? (
+            <>
+              <div className={styles.companyDashboardActionRow}>
+                <div>
+                  <p className={styles.eyebrow}>WhatsApp preferences</p>
+                  <h2 className={styles.companyDashboardPageTitle}>Manage optional WhatsApp consent</h2>
+                  <p className={styles.companyDashboardPageText}>
+                    Service, matching, and marketing consent stay separate, optional, and versioned.
+                    Registration never implies consent.
+                  </p>
+                </div>
+              </div>
+
+              {communicationPreferencesError ? (
+                <div className={styles.companyPanelActionNotice}>
+                  <p style={{ margin: 0, color: '#b91c1c' }}>{communicationPreferencesError}</p>
+                </div>
+              ) : null}
+
+              {communicationPreferencesNotice ? (
+                <div className={styles.companyPanelActionNotice}>
+                  <p style={{ margin: 0 }}>{communicationPreferencesNotice}</p>
+                </div>
+              ) : null}
+
+              <section id="communication-preferences" className={styles.companyDashboardSectionCard}>
+                <div className={styles.companyDashboardSectionHeader}>
+                  <div>
+                    <h3 className={styles.companyDashboardSectionTitle}>Communication preferences</h3>
+                    <p className={styles.companyDashboardSectionText}>
+                      These choices are optional. You can keep all WhatsApp consent categories turned off.
+                    </p>
+                  </div>
+                </div>
+
+                {communicationPreferencesLoading ? (
+                  <div className={styles.softCard}>
+                    <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 700 }}>
+                      Loading communication preferences...
+                    </p>
+                  </div>
+                ) : !communicationPreferences ? (
+                  <div className={styles.softCard}>
+                    <p style={{ margin: 0, color: '#475569', fontWeight: 600 }}>
+                      Communication preferences are unavailable right now.
+                    </p>
+                  </div>
+                ) : (
+                  <form className={styles.companyBillingModalForm} onSubmit={saveCommunicationPreferences}>
+                    <div className={styles.softCard} style={{ background: '#f8fafc', borderColor: '#dbeafe' }}>
+                      <p style={{ margin: '0 0 6px', color: '#0f172a', fontWeight: 700 }}>
+                        Consent text version
+                      </p>
+                      <p style={{ margin: 0, color: '#475569', fontSize: '13px', lineHeight: 1.7 }}>
+                        {(communicationPreferences?.consentTextVersion || WHATSAPP_CONSENT_TEXT_VERSION)}
+                      </p>
+                    </div>
+
+                    {communicationPreferences?.disabledMessage ? (
+                      <div className={styles.softCard} style={{ background: '#fff7ed', borderColor: '#fdba74' }}>
+                        <p style={{ margin: 0, color: '#9a3412', fontWeight: 700 }}>
+                          {communicationPreferences.disabledMessage}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {companyConsentCopy.map((item) => (
+                      <label
+                        key={item.type}
+                        className={styles.companyBillingField}
+                        style={{ border: '1px solid #dbe2ea', borderRadius: '16px', padding: '14px 16px', background: '#ffffff' }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                          <input
+                            type="checkbox"
+                            checked={communicationPreferencesDraft[item.type]}
+                            onChange={(event) =>
+                              setCommunicationPreferencesDraft((current) => ({
+                                ...current,
+                                [item.type]: event.target.checked,
+                              }))
+                            }
+                            disabled={communicationPreferencesSaving || communicationPreferences?.writeEnabled === false}
+                            style={{ marginTop: '3px' }}
+                          />
+                          <span style={{ display: 'grid', gap: '4px' }}>
+                            <strong style={{ color: '#0f172a', fontSize: '13px' }}>{item.label}</strong>
+                            <span style={{ color: '#475569', fontSize: '12px', lineHeight: 1.6 }}>{item.description}</span>
+                            <span style={{ color: '#64748b', fontSize: '11px' }}>
+                              Current state:{' '}
+                              {communicationPreferences?.state[item.type] === true
+                                ? 'Allowed'
+                                : communicationPreferences?.state[item.type] === false
+                                  ? 'Declined'
+                                  : 'Unknown / not collected'}
+                            </span>
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+
+                    <div className={styles.companyBillingModalActions}>
+                      <button
+                        type="submit"
+                        className={styles.primaryButton}
+                        disabled={communicationPreferencesSaving || communicationPreferences?.writeEnabled === false}
+                      >
+                        {communicationPreferencesSaving ? 'Saving...' : 'Save preferences'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </section>
             </>
           ) : (
             <>

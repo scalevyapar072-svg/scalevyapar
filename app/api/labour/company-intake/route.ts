@@ -9,6 +9,14 @@ import {
 } from '@/lib/labour-masters-schema'
 import { createClient, getUserByEmail, updateClient, updateUserPassword } from '@/lib/db'
 import { createLabourEntity, getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
+import {
+  parseCompanyRegistrationWhatsappConsents,
+  resolveWhatsappConsentTextVersion,
+} from '@/lib/whatsapp/consent'
+import {
+  logWhatsappConsentWriteFailure,
+  persistWhatsappConsentPreferences,
+} from '@/lib/whatsapp/consent-write-service'
 
 const addDays = (dateValue: string, days: number) => {
   const date = new Date(dateValue)
@@ -93,6 +101,8 @@ export async function POST(request: NextRequest) {
     const wageAmount = Number(body.wageAmount || 0)
     const validityDays = Number(body.validityDays || 3)
     const categoryId = String(body.categoryId || categoryIds[0] || '').trim()
+    const whatsappConsents = parseCompanyRegistrationWhatsappConsents(body.whatsappConsents)
+    const whatsappConsentTextVersion = resolveWhatsappConsentTextVersion(body.whatsappConsentTextVersion)
     const actor = 'company-website'
 
     if (!companyName || !contactPerson || !mobile || !email || !password) {
@@ -260,6 +270,32 @@ export async function POST(request: NextRequest) {
         },
         actor
       )
+    }
+
+    try {
+      await persistWhatsappConsentPreferences({
+        recipient: {
+          recipientType: 'company',
+          recipientId: createdCompany.id,
+          mobile: contactMobile || mobile,
+        },
+        consents: whatsappConsents,
+        source: 'company_registration',
+        consentTextVersion: whatsappConsentTextVersion,
+        metadata: {
+          origin: 'company_registration',
+        },
+      })
+    } catch (error) {
+      logWhatsappConsentWriteFailure({
+        error,
+        recipient: {
+          recipientType: 'company',
+          recipientId: createdCompany.id,
+          mobile: contactMobile || mobile,
+        },
+        source: 'company_registration',
+      })
     }
 
     return NextResponse.json({

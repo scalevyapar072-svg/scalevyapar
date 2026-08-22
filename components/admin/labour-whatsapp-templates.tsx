@@ -2,35 +2,38 @@
 
 import { useEffect, useState } from 'react'
 
-type TemplateButton = {
-  type: 'CALL_PHONE_NUMBER' | 'URL' | 'QUICK_REPLY'
-  label: string
-  targetSummary: string
-  optOutQuickReply: boolean
-}
-
-type TemplateOverview = {
-  checkedAt: string
-  connectionState: 'connected' | 'misconfigured' | 'timed_out' | 'error'
-  previewSendingDisabled: boolean
-  migrationApplied: false
-  testActionEnabled: false
-  persistenceState: string
-  missingVariableNames: string[]
-  sanitizedError: string | null
+type TemplateSummary = {
+  available: boolean
+  persistenceStatus: string
+  failClosed: boolean
+  totalTemplates: number
+  byStatus: Record<string, number>
+  byCategory: Record<string, number>
   templates: Array<{
     name: string
     language: string
     category: string
     status: string
     headerType: 'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'
-    bodyVariableCount: number
-    footerTextPresent: boolean
-    buttons: TemplateButton[]
     enabled: boolean
-    enabledReason: string
     safeTestAvailable: boolean
-    validationErrors: string[]
+    eligibility: {
+      eligible: boolean
+      reasonCodes: string[]
+      approved: boolean
+      headerValid: boolean
+      bodySchemaValid: boolean
+      buttonSchemaValid: boolean
+      safeTestAllowed: boolean
+    }
+    bodyVariableCount: number
+    buttons: Array<{
+      type: 'CALL_PHONE_NUMBER' | 'URL' | 'QUICK_REPLY'
+      label: string
+      targetSummary: string
+      optOutQuickReply: boolean
+    }>
+    updatedAt: string
   }>
 }
 
@@ -67,20 +70,29 @@ const formatDateTime = (value: string) => {
   }
 }
 
+const formatCounts = (counts: Record<string, number>) => {
+  const entries = Object.entries(counts)
+  if (entries.length === 0) {
+    return 'None'
+  }
+
+  return entries.map(([label, count]) => `${label}: ${count}`).join(', ')
+}
+
 export default function LabourWhatsappTemplatesCard() {
-  const [overview, setOverview] = useState<TemplateOverview | null>(null)
+  const [summary, setSummary] = useState<TemplateSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     let active = true
 
-    const loadOverview = async () => {
+    const loadSummary = async () => {
       setLoading(true)
       setError('')
 
       try {
-        const response = await fetch('/api/admin/labour/whatsapp/templates', {
+        const response = await fetch('/api/admin/labour/whatsapp/template-inventory', {
           cache: 'no-store',
         })
         const data = await response.json().catch(() => ({
@@ -88,19 +100,19 @@ export default function LabourWhatsappTemplatesCard() {
         }))
 
         if (!response.ok) {
-          throw new Error(data.error || 'Unable to load WhatsApp template architecture.')
+          throw new Error(data.error || 'Unable to load WhatsApp template persistence summary.')
         }
 
         if (active) {
-          setOverview((data.overview as TemplateOverview | undefined) || null)
+          setSummary((data.summary as TemplateSummary | undefined) || null)
         }
       } catch (loadError) {
         if (active) {
-          setOverview(null)
+          setSummary(null)
           setError(
             loadError instanceof Error
               ? loadError.message
-              : 'Unable to load WhatsApp template architecture.',
+              : 'Unable to load WhatsApp template persistence summary.',
           )
         }
       } finally {
@@ -110,7 +122,7 @@ export default function LabourWhatsappTemplatesCard() {
       }
     }
 
-    void loadOverview()
+    void loadSummary()
 
     return () => {
       active = false
@@ -130,11 +142,11 @@ export default function LabourWhatsappTemplatesCard() {
       >
         <div>
           <h3 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '16px' }}>
-            Templates
+            Template Inventory
           </h3>
           <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.6 }}>
-            Read-only template architecture using the secure Meta inspection path. Persisted
-            enablement stays inactive until the reviewed migration is approved and applied.
+            Read-only database-backed template inventory. Sending, safe-test execution, and
+            template synchronization remain disabled in this phase.
           </p>
         </div>
         <button
@@ -183,11 +195,11 @@ export default function LabourWhatsappTemplatesCard() {
             fontWeight: 700,
           }}
         >
-          Loading template architecture...
+          Loading template inventory...
         </div>
       ) : null}
 
-      {overview ? (
+      {summary ? (
         <>
           <div
             style={{
@@ -202,20 +214,16 @@ export default function LabourWhatsappTemplatesCard() {
               lineHeight: 1.7,
             }}
           >
-            <div>Connection state: {overview.connectionState}</div>
-            <div>Last checked: {formatDateTime(overview.checkedAt)}</div>
-            <div>Preview sending disabled: {overview.previewSendingDisabled ? 'YES' : 'NO'}</div>
-            <div>Persistence state: {overview.persistenceState}</div>
             <div>
-              Missing variables:{' '}
-              {overview.missingVariableNames.length > 0
-                ? overview.missingVariableNames.join(', ')
-                : 'None'}
+              Persistence state: {summary.available ? 'CONNECTED' : summary.persistenceStatus}
             </div>
-            {overview.sanitizedError ? <div>Error: {overview.sanitizedError}</div> : null}
+            <div>Fail-closed state: {summary.failClosed ? 'YES' : 'NO'}</div>
+            <div>Total templates: {summary.totalTemplates}</div>
+            <div>By status: {formatCounts(summary.byStatus)}</div>
+            <div>By category: {formatCounts(summary.byCategory)}</div>
           </div>
 
-          {overview.templates.length === 0 ? (
+          {summary.templates.length === 0 ? (
             <div
               style={{
                 border: '1px solid #e2e8f0',
@@ -226,7 +234,9 @@ export default function LabourWhatsappTemplatesCard() {
                 fontSize: '13px',
               }}
             >
-              No template inventory is available from the read-only Meta inspection path yet.
+              {summary.available
+                ? 'No persisted template inventory rows are available yet.'
+                : 'Persistence unavailable. Preview remains fail-closed until safe server-only database configuration exists.'}
             </div>
           ) : (
             <div
@@ -236,7 +246,7 @@ export default function LabourWhatsappTemplatesCard() {
                 gap: '12px',
               }}
             >
-              {overview.templates.map((template) => (
+              {summary.templates.map((template) => (
                 <div
                   key={`${template.name}:${template.language}`}
                   style={{
@@ -258,13 +268,17 @@ export default function LabourWhatsappTemplatesCard() {
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={pillStyle}>Header: {template.headerType}</span>
                     <span style={pillStyle}>Enabled: {template.enabled ? 'YES' : 'NO'}</span>
-                    <span style={pillStyle}>Safe Test: {template.safeTestAvailable ? 'YES' : 'NO'}</span>
+                    <span style={pillStyle}>
+                      Safe Test: {template.safeTestAvailable ? 'YES' : 'NO'}
+                    </span>
                   </div>
 
                   <div style={{ color: '#0f172a', fontSize: '13px', lineHeight: 1.7 }}>
+                    <div>Last updated: {formatDateTime(template.updatedAt)}</div>
                     <div>Body variables: {template.bodyVariableCount}</div>
-                    <div>Footer present: {template.footerTextPresent ? 'YES' : 'NO'}</div>
-                    <div>Enablement: {template.enabledReason}</div>
+                    <div>
+                      Eligibility: {template.eligibility.eligible ? 'READY' : 'BLOCKED'}
+                    </div>
                     <div>
                       Buttons:{' '}
                       {template.buttons.length > 0
@@ -277,7 +291,7 @@ export default function LabourWhatsappTemplatesCard() {
                     </div>
                   </div>
 
-                  {template.validationErrors.length > 0 ? (
+                  {template.eligibility.reasonCodes.length > 0 ? (
                     <div
                       style={{
                         border: '1px solid #fed7aa',
@@ -289,7 +303,7 @@ export default function LabourWhatsappTemplatesCard() {
                         lineHeight: 1.6,
                       }}
                     >
-                      Validation warnings: {template.validationErrors.join(', ')}
+                      Eligibility blockers: {template.eligibility.reasonCodes.join(', ')}
                     </div>
                   ) : null}
                 </div>

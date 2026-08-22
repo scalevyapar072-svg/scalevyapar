@@ -35,6 +35,7 @@ import {
   labourMasterSeedValues,
   resolveLabourMasterLabel
 } from '@/lib/labour-masters-schema'
+import LabourWhatsappMetaStatusCard from '@/components/admin/labour-whatsapp-meta-status'
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'inactive_paused_by_worker' | 'blocked' | 'rejected'
 type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
@@ -11860,6 +11861,7 @@ export default function LabourExchangeAdminPage() {
               </div>
             </div>
             <div style={{ display: 'grid', gap: '12px', marginBottom: '18px' }}>
+              <LabourWhatsappMetaStatusCard />
               <div style={{ border: '1px solid #dbeafe', borderRadius: '16px', padding: '14px 16px', background: '#f8fbff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
                   <div>

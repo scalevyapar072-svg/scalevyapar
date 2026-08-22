@@ -1,3 +1,5 @@
+import { resolveWhatsappSendConfig } from './whatsapp/meta-config'
+
 type SendWhatsappTextPayload = {
   to: string
   body: string
@@ -38,23 +40,16 @@ const toInternationalWhatsappNumber = (value: string) => {
   return sanitized
 }
 
+const isWhatsappSendingEnabledInCurrentEnvironment = () =>
+  String(process.env.VERCEL_ENV || '').trim() === 'production'
+
 const getWhatsappConfig = () => {
-  const accessToken = (
-    process.env.WHATSAPP_ACCESS_TOKEN ||
-    process.env.WHATSAPP_CLOUD_API_ACCESS_TOKEN ||
-    ''
-  ).trim()
-  const phoneNumberId = (
-    process.env.WHATSAPP_PHONE_NUMBER_ID ||
-    process.env.WHATSAPP_CLOUD_PHONE_NUMBER_ID ||
-    ''
-  ).trim()
-  const graphVersion = (process.env.WHATSAPP_GRAPH_API_VERSION || 'v23.0').trim()
+  const resolved = resolveWhatsappSendConfig()
 
   return {
-    accessToken,
-    phoneNumberId,
-    graphVersion
+    accessToken: resolved.ok ? resolved.config.accessToken : '',
+    phoneNumberId: resolved.ok ? resolved.config.phoneNumberId : '',
+    graphVersion: resolved.snapshot.graphApiVersion,
   }
 }
 
@@ -65,6 +60,15 @@ export const sendWhatsappTextMessage = async ({ to, body }: SendWhatsappTextPayl
 
   if (!recipient || !trimmedBody) {
     return { accepted: false, skipped: true, reason: 'missing-recipient-or-body' as const }
+  }
+
+  if (!isWhatsappSendingEnabledInCurrentEnvironment()) {
+    console.warn('WhatsApp send skipped because outbound sending is disabled outside production.')
+    return {
+      accepted: false,
+      skipped: true,
+      reason: 'whatsapp-disabled-outside-production' as const,
+    }
   }
 
   if (!accessToken || !phoneNumberId) {
@@ -124,6 +128,15 @@ export const sendWhatsappTemplateMessage = async ({
 
   if (!recipient || !trimmedTemplateName) {
     return { accepted: false, skipped: true, reason: 'missing-recipient-or-template' as const }
+  }
+
+  if (!isWhatsappSendingEnabledInCurrentEnvironment()) {
+    console.warn('WhatsApp template send skipped because outbound sending is disabled outside production.')
+    return {
+      accepted: false,
+      skipped: true,
+      reason: 'whatsapp-disabled-outside-production' as const,
+    }
   }
 
   if (!accessToken || !phoneNumberId) {

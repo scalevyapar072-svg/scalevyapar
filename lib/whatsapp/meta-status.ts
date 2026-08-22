@@ -1,83 +1,143 @@
 import {
+  createWhatsappMetaReadOnlyClient,
+  sanitizeMetaReadOnlyError,
+  type WhatsappMetaReadOnlyClientError,
+  type WhatsappMetaTemplateRecord,
+} from './meta-client'
+import { maskIdentifier, maskPhoneNumber } from './meta-mask'
+import {
   readWhatsappMetaConfig,
   resolveWhatsappHealthConfig,
+  resolveWhatsappMetaValues,
+  type EnvMap,
   type WhatsappMetaConfigSnapshot,
-} from './meta-config.ts'
-import {
-  createWhatsappMetaReadOnlyClient,
-  WhatsappMetaReadOnlyClientError,
-} from './meta-client.ts'
-import { assertWhatsappServerOnly } from './server-runtime.ts'
+} from './meta-config'
+import { assertWhatsappServerOnly } from './server-runtime'
 
 assertWhatsappServerOnly('lib/whatsapp/meta-status')
 
-type EnvMap = Record<string, string | undefined>
+type ConnectionState = 'connected' | 'misconfigured' | 'timed_out' | 'error'
+type TokenHealthState = 'valid' | 'invalid' | 'not_checked' | 'timed_out' | 'error'
 
-type ProviderHealthStatus = 'ok' | 'misconfigured' | 'degraded' | 'error'
+type TemplateCounts = {
+  total: number
+  byLanguage: Record<string, number>
+  byCategory: Record<string, number>
+  byStatus: Record<string, number>
+}
 
 export type WhatsappMetaConnectionStatus = {
   checkedAt: string
-  environment: string
   graphApiVersion: string
-  graphApiVersionSource: WhatsappMetaConfigSnapshot['graphApiVersionSource']
-  previewSendingDisabled: boolean
-  sendRuntimeReady: boolean
-  secretsRedacted: true
-  canonicalConfig: {
+  configurationState: {
     accessTokenConfigured: boolean
     phoneNumberIdConfigured: boolean
     webhookVerifyTokenConfigured: boolean
     businessAccountIdConfigured: boolean
     appIdConfigured: boolean
     appSecretConfigured: boolean
-    missingCanonicalVariables: string[]
-    missingSendVariables: string[]
-    missingWebhookPostVariables: string[]
-    missingHealthVariables: string[]
+    previewSendingDisabled: boolean
+    sendRuntimeReady: boolean
+    graphApiVersionSource: WhatsappMetaConfigSnapshot['graphApiVersionSource']
+    graphApiVersionValid: boolean
   }
-  legacyCompatibility: WhatsappMetaConfigSnapshot['legacyCompatibility']
-  providerHealth: {
-    attempted: boolean
-    ok: boolean
-    status: ProviderHealthStatus
-    requestPath: string
-    neverCallsMessages: true
-    usesAppSecretProof: boolean
-    configuredPhoneNumberMatch: boolean | null
-    discoveredPhoneNumberCount: number | null
-    missingVariables: string[]
-    error: string | null
-  }
+  missingVariableNames: string[]
+  legacyFallbackUsage: WhatsappMetaConfigSnapshot['legacyCompatibility']
+  connectionState: ConnectionState
+  tokenHealthState: TokenHealthState
+  maskedAppId: string
+  maskedWabaId: string
+  maskedPhoneNumberId: string
+  maskedSender: string
+  displayName: string | null
+  displayNameStatus: string | null
+  registrationStatus: string | null
+  qualityState: string | null
+  templateCounts: TemplateCounts
+  sanitizedError: string | null
 }
 
 const getEnvironmentLabel = (env: EnvMap) =>
   String(env.VERCEL_ENV || env.NODE_ENV || 'unknown').trim() || 'unknown'
 
+const emptyTemplateCounts = (): TemplateCounts => ({
+  total: 0,
+  byLanguage: {},
+  byCategory: {},
+  byStatus: {},
+})
+
+const buildTemplateCounts = (templates: WhatsappMetaTemplateRecord[]): TemplateCounts => {
+  const counts = emptyTemplateCounts()
+
+  templates.forEach((template) => {
+    counts.total += 1
+
+    const language = template.language || 'unknown'
+    const category = template.category || 'unknown'
+    const status = template.status || 'unknown'
+
+    counts.byLanguage[language] = (counts.byLanguage[language] || 0) + 1
+    counts.byCategory[category] = (counts.byCategory[category] || 0) + 1
+    counts.byStatus[status] = (counts.byStatus[status] || 0) + 1
+  })
+
+  return counts
+}
+
 const buildBaseStatus = (
   snapshot: WhatsappMetaConfigSnapshot,
   env: EnvMap,
-): Omit<WhatsappMetaConnectionStatus, 'providerHealth'> => ({
-  checkedAt: new Date().toISOString(),
-  environment: getEnvironmentLabel(env),
-  graphApiVersion: snapshot.graphApiVersion,
-  graphApiVersionSource: snapshot.graphApiVersionSource,
-  previewSendingDisabled: getEnvironmentLabel(env) === 'preview',
-  sendRuntimeReady: snapshot.missingSendVariables.length === 0,
-  secretsRedacted: true,
-  canonicalConfig: {
-    accessTokenConfigured: snapshot.accessTokenConfigured,
-    phoneNumberIdConfigured: snapshot.phoneNumberIdConfigured,
-    webhookVerifyTokenConfigured: snapshot.webhookVerifyTokenConfigured,
-    businessAccountIdConfigured: snapshot.businessAccountIdConfigured,
-    appIdConfigured: snapshot.appIdConfigured,
-    appSecretConfigured: snapshot.appSecretConfigured,
-    missingCanonicalVariables: snapshot.missingCanonicalVariables,
-    missingSendVariables: snapshot.missingSendVariables,
-    missingWebhookPostVariables: snapshot.missingWebhookPostVariables,
-    missingHealthVariables: snapshot.missingHealthVariables,
-  },
-  legacyCompatibility: snapshot.legacyCompatibility,
-})
+): Omit<
+  WhatsappMetaConnectionStatus,
+  | 'connectionState'
+  | 'tokenHealthState'
+  | 'maskedAppId'
+  | 'maskedWabaId'
+  | 'maskedPhoneNumberId'
+  | 'maskedSender'
+  | 'displayName'
+  | 'displayNameStatus'
+  | 'registrationStatus'
+  | 'qualityState'
+  | 'templateCounts'
+  | 'sanitizedError'
+> => {
+  const environmentLabel = getEnvironmentLabel(env)
+
+  return {
+    checkedAt: new Date().toISOString(),
+    graphApiVersion: snapshot.graphApiVersion,
+    configurationState: {
+      accessTokenConfigured: snapshot.accessTokenConfigured,
+      phoneNumberIdConfigured: snapshot.phoneNumberIdConfigured,
+      webhookVerifyTokenConfigured: snapshot.webhookVerifyTokenConfigured,
+      businessAccountIdConfigured: snapshot.businessAccountIdConfigured,
+      appIdConfigured: snapshot.appIdConfigured,
+      appSecretConfigured: snapshot.appSecretConfigured,
+      previewSendingDisabled: environmentLabel === 'preview',
+      sendRuntimeReady:
+        environmentLabel === 'production' && snapshot.missingSendVariables.length === 0,
+      graphApiVersionSource: snapshot.graphApiVersionSource,
+      graphApiVersionValid: snapshot.graphApiVersionValid,
+    },
+    missingVariableNames: snapshot.missingHealthVariables,
+    legacyFallbackUsage: snapshot.legacyCompatibility,
+  }
+}
+
+const inferConnectionStateFromError = (error: unknown): ConnectionState => {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as WhatsappMetaReadOnlyClientError).code === 'timeout'
+  ) {
+    return 'timed_out'
+  }
+
+  return 'error'
+}
 
 export const getWhatsappMetaConnectionStatus = async ({
   env = process.env,
@@ -87,30 +147,31 @@ export const getWhatsappMetaConnectionStatus = async ({
   fetchImplementation?: typeof fetch
 } = {}): Promise<WhatsappMetaConnectionStatus> => {
   const snapshot = readWhatsappMetaConfig(env)
-  const environmentLabel = getEnvironmentLabel(env)
-  const baseStatus = {
-    ...buildBaseStatus(snapshot, env),
-    previewSendingDisabled: environmentLabel === 'preview',
-    sendRuntimeReady:
-      environmentLabel === 'production' && snapshot.missingSendVariables.length === 0,
-  }
-  const healthConfig = resolveWhatsappHealthConfig(env)
+  const resolvedValues = resolveWhatsappMetaValues(env)
+  const baseStatus = buildBaseStatus(snapshot, env)
 
+  const maskedBaseFields = {
+    maskedAppId: maskIdentifier(resolvedValues.appId),
+    maskedWabaId: maskIdentifier(resolvedValues.businessAccountId),
+    maskedPhoneNumberId: maskIdentifier(resolvedValues.phoneNumberId.value),
+  }
+
+  const healthConfig = resolveWhatsappHealthConfig(env)
   if (!healthConfig.ok) {
     return {
       ...baseStatus,
-      providerHealth: {
-        attempted: false,
-        ok: false,
-        status: 'misconfigured',
-        requestPath: '/{business-account-id}/phone_numbers',
-        neverCallsMessages: true,
-        usesAppSecretProof: false,
-        configuredPhoneNumberMatch: null,
-        discoveredPhoneNumberCount: null,
-        missingVariables: healthConfig.missingVariables,
-        error: 'Meta read-only health check is fail-closed until the required server configuration exists.',
-      },
+      ...maskedBaseFields,
+      connectionState: 'misconfigured',
+      tokenHealthState: 'not_checked',
+      maskedSender: '',
+      displayName: null,
+      displayNameStatus: null,
+      registrationStatus: null,
+      qualityState: null,
+      templateCounts: emptyTemplateCounts(),
+      sanitizedError:
+        ('error' in healthConfig ? healthConfig.error : undefined) ||
+        'Meta read-only health check is fail-closed until the required server configuration exists.',
     }
   }
 
@@ -119,51 +180,63 @@ export const getWhatsappMetaConnectionStatus = async ({
       healthConfig.config,
       fetchImplementation,
     )
-    const providerResult = await client.getBusinessPhoneNumbers()
-    const configuredPhoneNumberMatch = providerResult.phoneNumbers.some(
-      (phoneNumber) => phoneNumber.id === healthConfig.config.phoneNumberId,
-    )
+    const readinessSnapshot = await client.getReadinessSnapshot()
+    const tokenHealthState = readinessSnapshot.tokenHealthResult.tokenHealth.state
+
+    if (tokenHealthState !== 'valid') {
+      return {
+        ...baseStatus,
+        ...maskedBaseFields,
+        connectionState: 'error',
+        tokenHealthState,
+        maskedSender: '',
+        displayName: null,
+        displayNameStatus: null,
+        registrationStatus: null,
+        qualityState: null,
+        templateCounts: emptyTemplateCounts(),
+        sanitizedError: 'Meta access token is not currently valid for read-only WhatsApp inspection.',
+      }
+    }
+
+    const phoneMetadata = readinessSnapshot.phoneMetadataResult?.phoneNumber
+    const templateInventory = readinessSnapshot.templateInventoryResult?.templates || []
 
     return {
       ...baseStatus,
-      providerHealth: {
-        attempted: true,
-        ok: configuredPhoneNumberMatch,
-        status: configuredPhoneNumberMatch ? 'ok' : 'degraded',
-        requestPath: providerResult.requestPath,
-        neverCallsMessages: true,
-        usesAppSecretProof: true,
-        configuredPhoneNumberMatch,
-        discoveredPhoneNumberCount: providerResult.phoneNumbers.length,
-        missingVariables: [],
-        error: configuredPhoneNumberMatch
-          ? null
-          : 'Configured phone number ID was not returned by Meta for the current business account.',
-      },
+      maskedAppId:
+        maskIdentifier(readinessSnapshot.tokenHealthResult.tokenHealth.appId) ||
+        maskedBaseFields.maskedAppId,
+      maskedWabaId:
+        maskIdentifier(readinessSnapshot.wabaMetadataResult?.waba.id) ||
+        maskedBaseFields.maskedWabaId,
+      maskedPhoneNumberId:
+        maskIdentifier(phoneMetadata?.id) || maskedBaseFields.maskedPhoneNumberId,
+      connectionState: 'connected',
+      tokenHealthState,
+      maskedSender: maskPhoneNumber(phoneMetadata?.displayPhoneNumber),
+      displayName: phoneMetadata?.verifiedName || null,
+      displayNameStatus: phoneMetadata?.nameStatus || null,
+      registrationStatus: phoneMetadata?.registrationStatus || null,
+      qualityState: phoneMetadata?.qualityRating || null,
+      templateCounts: buildTemplateCounts(templateInventory),
+      sanitizedError: null,
     }
   } catch (error) {
-    const requestPath =
-      error instanceof WhatsappMetaReadOnlyClientError
-        ? error.requestPath
-        : '/{business-account-id}/phone_numbers'
+    const connectionState = inferConnectionStateFromError(error)
 
     return {
       ...baseStatus,
-      providerHealth: {
-        attempted: true,
-        ok: false,
-        status: 'error',
-        requestPath,
-        neverCallsMessages: true,
-        usesAppSecretProof: true,
-        configuredPhoneNumberMatch: null,
-        discoveredPhoneNumberCount: null,
-        missingVariables: [],
-        error:
-          error instanceof WhatsappMetaReadOnlyClientError
-            ? error.message
-            : 'Meta read-only health check failed unexpectedly.',
-      },
+      ...maskedBaseFields,
+      connectionState,
+      tokenHealthState: connectionState === 'timed_out' ? 'timed_out' : 'error',
+      maskedSender: '',
+      displayName: null,
+      displayNameStatus: null,
+      registrationStatus: null,
+      qualityState: null,
+      templateCounts: emptyTemplateCounts(),
+      sanitizedError: sanitizeMetaReadOnlyError(error),
     }
   }
 }

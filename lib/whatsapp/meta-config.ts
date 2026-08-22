@@ -1,10 +1,11 @@
-import { assertWhatsappServerOnly } from './server-runtime.ts'
+import { assertWhatsappServerOnly } from './server-runtime'
 
 assertWhatsappServerOnly('lib/whatsapp/meta-config')
 
 export const DEFAULT_WHATSAPP_GRAPH_API_VERSION = 'v23.0'
+export const WHATSAPP_GRAPH_API_VERSION_PATTERN = /^v\d+\.\d+$/
 
-type EnvMap = Record<string, string | undefined>
+export type EnvMap = Record<string, string | undefined>
 
 type EnvSource = 'canonical' | 'legacy' | 'fallback' | 'missing'
 
@@ -25,6 +26,7 @@ export type WhatsappMetaConfigSnapshot = {
   appSecretConfigured: boolean
   graphApiVersion: string
   graphApiVersionSource: 'canonical' | 'fallback'
+  graphApiVersionValid: boolean
   missingCanonicalVariables: string[]
   missingSendVariables: string[]
   missingWebhookPostVariables: string[]
@@ -50,8 +52,21 @@ export type WhatsappMetaHealthConfig = {
   accessToken: string
   phoneNumberId: string
   businessAccountId: string
+  appId: string
   appSecret: string
   graphApiVersion: string
+}
+
+export type WhatsappMetaResolvedValues = {
+  accessToken: EnvResolution
+  phoneNumberId: EnvResolution
+  webhookVerifyToken: EnvResolution
+  businessAccountId: string
+  appId: string
+  appSecret: string
+  graphApiVersion: string
+  graphApiVersionSource: 'canonical' | 'fallback'
+  graphApiVersionValid: boolean
 }
 
 type ResolutionResult<T> =
@@ -64,9 +79,13 @@ type ResolutionResult<T> =
       ok: false
       missingVariables: string[]
       snapshot: WhatsappMetaConfigSnapshot
+      error?: string
     }
 
 const normalizeText = (value: string | undefined) => String(value || '').trim()
+
+export const isValidWhatsappGraphApiVersion = (value: string) =>
+  WHATSAPP_GRAPH_API_VERSION_PATTERN.test(normalizeText(value))
 
 const resolveCanonicalOrLegacy = (
   env: EnvMap,
@@ -107,32 +126,9 @@ const resolveCanonicalOrFallback = (
   }
 }
 
-const buildMissingCanonicalVariables = (
-  env: EnvMap,
-  accessTokenResolution: EnvResolution,
-  phoneNumberIdResolution: EnvResolution,
-  webhookVerifyTokenResolution: EnvResolution,
-) => {
-  const missing = [
-    accessTokenResolution.source === 'canonical' ? '' : 'WHATSAPP_ACCESS_TOKEN',
-    phoneNumberIdResolution.source === 'canonical' ? '' : 'WHATSAPP_PHONE_NUMBER_ID',
-    webhookVerifyTokenResolution.source === 'canonical'
-      ? ''
-      : 'WHATSAPP_WEBHOOK_VERIFY_TOKEN',
-    normalizeText(env.WHATSAPP_BUSINESS_ACCOUNT_ID)
-      ? ''
-      : 'WHATSAPP_BUSINESS_ACCOUNT_ID',
-    normalizeText(env.WHATSAPP_APP_ID) ? '' : 'WHATSAPP_APP_ID',
-    normalizeText(env.WHATSAPP_APP_SECRET) ? '' : 'WHATSAPP_APP_SECRET',
-    normalizeText(env.WHATSAPP_GRAPH_API_VERSION) ? '' : '',
-  ].filter(Boolean)
-
-  return Array.from(new Set(missing))
-}
-
-export const readWhatsappMetaConfig = (
+export const resolveWhatsappMetaValues = (
   env: EnvMap = process.env,
-): WhatsappMetaConfigSnapshot => {
+): WhatsappMetaResolvedValues => {
   const accessToken = resolveCanonicalOrLegacy(env, 'WHATSAPP_ACCESS_TOKEN', [
     'WHATSAPP_CLOUD_API_ACCESS_TOKEN',
   ])
@@ -144,50 +140,79 @@ export const readWhatsappMetaConfig = (
     'WHATSAPP_WEBHOOK_VERIFY_TOKEN',
     ['WHATSAPP_VERIFY_TOKEN'],
   )
-  const graphApiVersion = resolveCanonicalOrFallback(
+  const graphApiVersionResolution = resolveCanonicalOrFallback(
     env,
     'WHATSAPP_GRAPH_API_VERSION',
     DEFAULT_WHATSAPP_GRAPH_API_VERSION,
   )
-  const businessAccountId = normalizeText(env.WHATSAPP_BUSINESS_ACCOUNT_ID)
-  const appId = normalizeText(env.WHATSAPP_APP_ID)
-  const appSecret = normalizeText(env.WHATSAPP_APP_SECRET)
 
-  const missingCanonicalVariables = buildMissingCanonicalVariables(
-    env,
+  return {
     accessToken,
     phoneNumberId,
     webhookVerifyToken,
-  )
+    businessAccountId: normalizeText(env.WHATSAPP_BUSINESS_ACCOUNT_ID),
+    appId: normalizeText(env.WHATSAPP_APP_ID),
+    appSecret: normalizeText(env.WHATSAPP_APP_SECRET),
+    graphApiVersion: graphApiVersionResolution.value,
+    graphApiVersionSource: graphApiVersionResolution.source,
+    graphApiVersionValid: isValidWhatsappGraphApiVersion(graphApiVersionResolution.value),
+  }
+}
+
+const buildMissingCanonicalVariables = (resolvedValues: WhatsappMetaResolvedValues) => {
+  const missing = [
+    resolvedValues.accessToken.source === 'canonical' ? '' : 'WHATSAPP_ACCESS_TOKEN',
+    resolvedValues.phoneNumberId.source === 'canonical' ? '' : 'WHATSAPP_PHONE_NUMBER_ID',
+    resolvedValues.webhookVerifyToken.source === 'canonical'
+      ? ''
+      : 'WHATSAPP_WEBHOOK_VERIFY_TOKEN',
+    resolvedValues.businessAccountId ? '' : 'WHATSAPP_BUSINESS_ACCOUNT_ID',
+    resolvedValues.appId ? '' : 'WHATSAPP_APP_ID',
+    resolvedValues.appSecret ? '' : 'WHATSAPP_APP_SECRET',
+  ].filter(Boolean)
+
+  return Array.from(new Set(missing))
+}
+
+export const readWhatsappMetaConfig = (
+  env: EnvMap = process.env,
+): WhatsappMetaConfigSnapshot => {
+  const resolvedValues = resolveWhatsappMetaValues(env)
+  const missingCanonicalVariables = buildMissingCanonicalVariables(resolvedValues)
 
   return {
-    accessTokenConfigured: Boolean(accessToken.value),
-    accessTokenSource: accessToken.source,
-    phoneNumberIdConfigured: Boolean(phoneNumberId.value),
-    phoneNumberIdSource: phoneNumberId.source,
-    webhookVerifyTokenConfigured: Boolean(webhookVerifyToken.value),
-    webhookVerifyTokenSource: webhookVerifyToken.source,
-    businessAccountIdConfigured: Boolean(businessAccountId),
-    appIdConfigured: Boolean(appId),
-    appSecretConfigured: Boolean(appSecret),
-    graphApiVersion: graphApiVersion.value,
-    graphApiVersionSource: graphApiVersion.source,
+    accessTokenConfigured: Boolean(resolvedValues.accessToken.value),
+    accessTokenSource: resolvedValues.accessToken.source,
+    phoneNumberIdConfigured: Boolean(resolvedValues.phoneNumberId.value),
+    phoneNumberIdSource: resolvedValues.phoneNumberId.source,
+    webhookVerifyTokenConfigured: Boolean(resolvedValues.webhookVerifyToken.value),
+    webhookVerifyTokenSource: resolvedValues.webhookVerifyToken.source,
+    businessAccountIdConfigured: Boolean(resolvedValues.businessAccountId),
+    appIdConfigured: Boolean(resolvedValues.appId),
+    appSecretConfigured: Boolean(resolvedValues.appSecret),
+    graphApiVersion: resolvedValues.graphApiVersion,
+    graphApiVersionSource: resolvedValues.graphApiVersionSource,
+    graphApiVersionValid: resolvedValues.graphApiVersionValid,
     missingCanonicalVariables,
     missingSendVariables: [
-      accessToken.value ? '' : 'WHATSAPP_ACCESS_TOKEN',
-      phoneNumberId.value ? '' : 'WHATSAPP_PHONE_NUMBER_ID',
+      resolvedValues.accessToken.value ? '' : 'WHATSAPP_ACCESS_TOKEN',
+      resolvedValues.phoneNumberId.value ? '' : 'WHATSAPP_PHONE_NUMBER_ID',
     ].filter(Boolean),
-    missingWebhookPostVariables: [appSecret ? '' : 'WHATSAPP_APP_SECRET'].filter(Boolean),
+    missingWebhookPostVariables: [
+      resolvedValues.appSecret ? '' : 'WHATSAPP_APP_SECRET',
+    ].filter(Boolean),
     missingHealthVariables: [
-      accessToken.value ? '' : 'WHATSAPP_ACCESS_TOKEN',
-      phoneNumberId.value ? '' : 'WHATSAPP_PHONE_NUMBER_ID',
-      businessAccountId ? '' : 'WHATSAPP_BUSINESS_ACCOUNT_ID',
-      appSecret ? '' : 'WHATSAPP_APP_SECRET',
+      resolvedValues.accessToken.value ? '' : 'WHATSAPP_ACCESS_TOKEN',
+      resolvedValues.phoneNumberId.value ? '' : 'WHATSAPP_PHONE_NUMBER_ID',
+      resolvedValues.businessAccountId ? '' : 'WHATSAPP_BUSINESS_ACCOUNT_ID',
+      resolvedValues.appId ? '' : 'WHATSAPP_APP_ID',
+      resolvedValues.appSecret ? '' : 'WHATSAPP_APP_SECRET',
     ].filter(Boolean),
     legacyCompatibility: {
-      usesLegacyAccessTokenAlias: accessToken.source === 'legacy',
-      usesLegacyPhoneNumberIdAlias: phoneNumberId.source === 'legacy',
-      usesLegacyWebhookVerifyTokenAlias: webhookVerifyToken.source === 'legacy',
+      usesLegacyAccessTokenAlias: resolvedValues.accessToken.source === 'legacy',
+      usesLegacyPhoneNumberIdAlias: resolvedValues.phoneNumberId.source === 'legacy',
+      usesLegacyWebhookVerifyTokenAlias:
+        resolvedValues.webhookVerifyToken.source === 'legacy',
     },
   }
 }
@@ -196,12 +221,7 @@ export const resolveWhatsappSendConfig = (
   env: EnvMap = process.env,
 ): ResolutionResult<WhatsappMetaSendConfig> => {
   const snapshot = readWhatsappMetaConfig(env)
-  const accessToken = resolveCanonicalOrLegacy(env, 'WHATSAPP_ACCESS_TOKEN', [
-    'WHATSAPP_CLOUD_API_ACCESS_TOKEN',
-  ])
-  const phoneNumberId = resolveCanonicalOrLegacy(env, 'WHATSAPP_PHONE_NUMBER_ID', [
-    'WHATSAPP_CLOUD_PHONE_NUMBER_ID',
-  ])
+  const resolvedValues = resolveWhatsappMetaValues(env)
 
   if (snapshot.missingSendVariables.length > 0) {
     return {
@@ -214,8 +234,8 @@ export const resolveWhatsappSendConfig = (
   return {
     ok: true,
     config: {
-      accessToken: accessToken.value,
-      phoneNumberId: phoneNumberId.value,
+      accessToken: resolvedValues.accessToken.value,
+      phoneNumberId: resolvedValues.phoneNumberId.value,
       graphApiVersion: snapshot.graphApiVersion,
     },
     snapshot,
@@ -226,7 +246,7 @@ export const resolveWhatsappWebhookPostConfig = (
   env: EnvMap = process.env,
 ): ResolutionResult<WhatsappMetaWebhookPostConfig> => {
   const snapshot = readWhatsappMetaConfig(env)
-  const appSecret = normalizeText(env.WHATSAPP_APP_SECRET)
+  const resolvedValues = resolveWhatsappMetaValues(env)
 
   if (snapshot.missingWebhookPostVariables.length > 0) {
     return {
@@ -239,7 +259,7 @@ export const resolveWhatsappWebhookPostConfig = (
   return {
     ok: true,
     config: {
-      appSecret,
+      appSecret: resolvedValues.appSecret,
     },
     snapshot,
   }
@@ -249,14 +269,7 @@ export const resolveWhatsappHealthConfig = (
   env: EnvMap = process.env,
 ): ResolutionResult<WhatsappMetaHealthConfig> => {
   const snapshot = readWhatsappMetaConfig(env)
-  const accessToken = resolveCanonicalOrLegacy(env, 'WHATSAPP_ACCESS_TOKEN', [
-    'WHATSAPP_CLOUD_API_ACCESS_TOKEN',
-  ])
-  const phoneNumberId = resolveCanonicalOrLegacy(env, 'WHATSAPP_PHONE_NUMBER_ID', [
-    'WHATSAPP_CLOUD_PHONE_NUMBER_ID',
-  ])
-  const businessAccountId = normalizeText(env.WHATSAPP_BUSINESS_ACCOUNT_ID)
-  const appSecret = normalizeText(env.WHATSAPP_APP_SECRET)
+  const resolvedValues = resolveWhatsappMetaValues(env)
 
   if (snapshot.missingHealthVariables.length > 0) {
     return {
@@ -266,13 +279,23 @@ export const resolveWhatsappHealthConfig = (
     }
   }
 
+  if (!snapshot.graphApiVersionValid) {
+    return {
+      ok: false,
+      missingVariables: [],
+      snapshot,
+      error: 'WHATSAPP_GRAPH_API_VERSION must match the format vNN.N.',
+    }
+  }
+
   return {
     ok: true,
     config: {
-      accessToken: accessToken.value,
-      phoneNumberId: phoneNumberId.value,
-      businessAccountId,
-      appSecret,
+      accessToken: resolvedValues.accessToken.value,
+      phoneNumberId: resolvedValues.phoneNumberId.value,
+      businessAccountId: resolvedValues.businessAccountId,
+      appId: resolvedValues.appId,
+      appSecret: resolvedValues.appSecret,
       graphApiVersion: snapshot.graphApiVersion,
     },
     snapshot,

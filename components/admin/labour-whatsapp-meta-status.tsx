@@ -10,45 +10,46 @@ type StatusTone = {
 
 type LabourWhatsappMetaStatus = {
   checkedAt: string
-  environment: string
   graphApiVersion: string
-  graphApiVersionSource: 'canonical' | 'fallback'
-  previewSendingDisabled: boolean
-  sendRuntimeReady: boolean
-  secretsRedacted: true
-  canonicalConfig: {
+  configurationState: {
     accessTokenConfigured: boolean
     phoneNumberIdConfigured: boolean
     webhookVerifyTokenConfigured: boolean
     businessAccountIdConfigured: boolean
     appIdConfigured: boolean
     appSecretConfigured: boolean
-    missingCanonicalVariables: string[]
-    missingSendVariables: string[]
-    missingWebhookPostVariables: string[]
-    missingHealthVariables: string[]
+    previewSendingDisabled: boolean
+    sendRuntimeReady: boolean
+    graphApiVersionSource: 'canonical' | 'fallback'
+    graphApiVersionValid: boolean
   }
-  legacyCompatibility: {
+  missingVariableNames: string[]
+  legacyFallbackUsage: {
     usesLegacyAccessTokenAlias: boolean
     usesLegacyPhoneNumberIdAlias: boolean
     usesLegacyWebhookVerifyTokenAlias: boolean
   }
-  providerHealth: {
-    attempted: boolean
-    ok: boolean
-    status: 'ok' | 'misconfigured' | 'degraded' | 'error'
-    requestPath: string
-    neverCallsMessages: true
-    usesAppSecretProof: boolean
-    configuredPhoneNumberMatch: boolean | null
-    discoveredPhoneNumberCount: number | null
-    missingVariables: string[]
-    error: string | null
+  connectionState: 'connected' | 'misconfigured' | 'timed_out' | 'error'
+  tokenHealthState: 'valid' | 'invalid' | 'not_checked' | 'timed_out' | 'error'
+  maskedAppId: string
+  maskedWabaId: string
+  maskedPhoneNumberId: string
+  maskedSender: string
+  displayName: string | null
+  displayNameStatus: string | null
+  registrationStatus: string | null
+  qualityState: string | null
+  templateCounts: {
+    total: number
+    byLanguage: Record<string, number>
+    byCategory: Record<string, number>
+    byStatus: Record<string, number>
   }
+  sanitizedError: string | null
 }
 
-const toneByStatus: Record<LabourWhatsappMetaStatus['providerHealth']['status'], StatusTone> = {
-  ok: {
+const toneByStatus: Record<LabourWhatsappMetaStatus['connectionState'], StatusTone> = {
+  connected: {
     border: '#99f6e4',
     color: '#0f766e',
     background: '#f0fdfa',
@@ -58,7 +59,7 @@ const toneByStatus: Record<LabourWhatsappMetaStatus['providerHealth']['status'],
     color: '#c2410c',
     background: '#fff7ed',
   },
-  degraded: {
+  timed_out: {
     border: '#fde68a',
     color: '#a16207',
     background: '#fffbeb',
@@ -78,6 +79,15 @@ const formatDateTime = (value: string) => {
   } catch {
     return value
   }
+}
+
+const formatCounts = (counts: Record<string, number>) => {
+  const entries = Object.entries(counts)
+  if (entries.length === 0) {
+    return 'None'
+  }
+
+  return entries.map(([label, count]) => `${label}: ${count}`).join(', ')
 }
 
 const StatusChip = ({
@@ -144,7 +154,7 @@ export default function LabourWhatsappMetaStatusCard() {
     void loadStatus()
   }, [])
 
-  const tone = status ? toneByStatus[status.providerHealth.status] : toneByStatus.error
+  const tone = status ? toneByStatus[status.connectionState] : toneByStatus.error
 
   return (
     <div
@@ -171,8 +181,8 @@ export default function LabourWhatsappMetaStatusCard() {
             Meta connection infrastructure
           </h3>
           <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.6 }}>
-            Read-only health status for the secure Meta connection layer. This panel
-            never sends WhatsApp messages.
+            Read-only Meta readiness for the secure WhatsApp layer. This panel never
+            sends WhatsApp messages.
           </p>
         </div>
         <button
@@ -232,33 +242,22 @@ export default function LabourWhatsappMetaStatusCard() {
               }}
             >
               <strong style={{ fontSize: '13px' }}>
-                Provider health: {status.providerHealth.status}
+                Connection state: {status.connectionState}
               </strong>
               <span style={{ fontSize: '12px', fontWeight: 700 }}>
                 Last checked: {formatDateTime(status.checkedAt)}
               </span>
             </div>
             <div style={{ fontSize: '12px', lineHeight: 1.7 }}>
-              <div>Environment: {status.environment}</div>
-              <div>
-                Graph API version: {status.graphApiVersion} ({status.graphApiVersionSource})
-              </div>
-              <div>Read-only endpoint: {status.providerHealth.requestPath}</div>
+              <div>Graph API version: {status.graphApiVersion}</div>
+              <div>Graph source: {status.configurationState.graphApiVersionSource}</div>
+              <div>Token health: {status.tokenHealthState}</div>
               <div>
                 Preview sending disabled:{' '}
-                {status.previewSendingDisabled ? 'YES' : 'NO'}
+                {status.configurationState.previewSendingDisabled ? 'YES' : 'NO'}
               </div>
-              <div>
-                Health check never calls /messages:{' '}
-                {status.providerHealth.neverCallsMessages ? 'YES' : 'NO'}
-              </div>
-              <div>
-                App secret proof used:{' '}
-                {status.providerHealth.usesAppSecretProof ? 'YES' : 'NO'}
-              </div>
-              {status.providerHealth.error ? (
-                <div>Error: {status.providerHealth.error}</div>
-              ) : null}
+              <div>Read-only Meta client never calls /messages: YES</div>
+              {status.sanitizedError ? <div>Error: {status.sanitizedError}</div> : null}
             </div>
           </div>
 
@@ -266,24 +265,24 @@ export default function LabourWhatsappMetaStatusCard() {
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <StatusChip
                 label="Access token"
-                active={status.canonicalConfig.accessTokenConfigured}
+                active={status.configurationState.accessTokenConfigured}
               />
               <StatusChip
                 label="Phone number id"
-                active={status.canonicalConfig.phoneNumberIdConfigured}
+                active={status.configurationState.phoneNumberIdConfigured}
               />
               <StatusChip
                 label="Business account id"
-                active={status.canonicalConfig.businessAccountIdConfigured}
+                active={status.configurationState.businessAccountIdConfigured}
               />
-              <StatusChip label="App id" active={status.canonicalConfig.appIdConfigured} />
+              <StatusChip label="App id" active={status.configurationState.appIdConfigured} />
               <StatusChip
                 label="App secret"
-                active={status.canonicalConfig.appSecretConfigured}
+                active={status.configurationState.appSecretConfigured}
               />
               <StatusChip
                 label="Verify token"
-                active={status.canonicalConfig.webhookVerifyTokenConfigured}
+                active={status.configurationState.webhookVerifyTokenConfigured}
               />
             </div>
 
@@ -312,11 +311,11 @@ export default function LabourWhatsappMetaStatusCard() {
                     marginBottom: '6px',
                   }}
                 >
-                  Missing canonical variables
+                  Missing variables
                 </div>
                 <div style={{ color: '#0f172a', fontSize: '13px', lineHeight: 1.6 }}>
-                  {status.canonicalConfig.missingCanonicalVariables.length > 0
-                    ? status.canonicalConfig.missingCanonicalVariables.join(', ')
+                  {status.missingVariableNames.length > 0
+                    ? status.missingVariableNames.join(', ')
                     : 'None'}
                 </div>
               </div>
@@ -339,27 +338,13 @@ export default function LabourWhatsappMetaStatusCard() {
                     marginBottom: '6px',
                   }}
                 >
-                  Legacy compatibility
+                  Masked identifiers
                 </div>
                 <div style={{ color: '#0f172a', fontSize: '13px', lineHeight: 1.7 }}>
-                  <div>
-                    Access token alias:{' '}
-                    {status.legacyCompatibility.usesLegacyAccessTokenAlias
-                      ? 'active'
-                      : 'canonical'}
-                  </div>
-                  <div>
-                    Phone id alias:{' '}
-                    {status.legacyCompatibility.usesLegacyPhoneNumberIdAlias
-                      ? 'active'
-                      : 'canonical'}
-                  </div>
-                  <div>
-                    Verify token alias:{' '}
-                    {status.legacyCompatibility.usesLegacyWebhookVerifyTokenAlias
-                      ? 'active'
-                      : 'canonical'}
-                  </div>
+                  <div>App ID: {status.maskedAppId || 'Not available'}</div>
+                  <div>WABA ID: {status.maskedWabaId || 'Not available'}</div>
+                  <div>Phone ID: {status.maskedPhoneNumberId || 'Not available'}</div>
+                  <div>Sender: {status.maskedSender || 'Not available'}</div>
                 </div>
               </div>
 
@@ -381,12 +366,87 @@ export default function LabourWhatsappMetaStatusCard() {
                     marginBottom: '6px',
                   }}
                 >
-                  Fail-closed blockers
+                  Phone readiness
                 </div>
-                <div style={{ color: '#0f172a', fontSize: '13px', lineHeight: 1.6 }}>
-                  {status.providerHealth.missingVariables.length > 0
-                    ? status.providerHealth.missingVariables.join(', ')
-                    : 'No provider health blockers'}
+                <div style={{ color: '#0f172a', fontSize: '13px', lineHeight: 1.7 }}>
+                  <div>Display name: {status.displayName || 'Not available'}</div>
+                  <div>
+                    Display name status: {status.displayNameStatus || 'Not available'}
+                  </div>
+                  <div>
+                    Registration state: {status.registrationStatus || 'Not available'}
+                  </div>
+                  <div>Quality state: {status.qualityState || 'Not available'}</div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  background: '#f8fafc',
+                  padding: '12px 14px',
+                }}
+              >
+                <div
+                  style={{
+                    color: '#64748b',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Template inventory
+                </div>
+                <div style={{ color: '#0f172a', fontSize: '13px', lineHeight: 1.7 }}>
+                  <div>Total templates: {status.templateCounts.total}</div>
+                  <div>By language: {formatCounts(status.templateCounts.byLanguage)}</div>
+                  <div>By category: {formatCounts(status.templateCounts.byCategory)}</div>
+                  <div>By status: {formatCounts(status.templateCounts.byStatus)}</div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  background: '#f8fafc',
+                  padding: '12px 14px',
+                }}
+              >
+                <div
+                  style={{
+                    color: '#64748b',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Legacy fallback usage
+                </div>
+                <div style={{ color: '#0f172a', fontSize: '13px', lineHeight: 1.7 }}>
+                  <div>
+                    Access token alias:{' '}
+                    {status.legacyFallbackUsage.usesLegacyAccessTokenAlias
+                      ? 'active'
+                      : 'canonical'}
+                  </div>
+                  <div>
+                    Phone id alias:{' '}
+                    {status.legacyFallbackUsage.usesLegacyPhoneNumberIdAlias
+                      ? 'active'
+                      : 'canonical'}
+                  </div>
+                  <div>
+                    Verify token alias:{' '}
+                    {status.legacyFallbackUsage.usesLegacyWebhookVerifyTokenAlias
+                      ? 'active'
+                      : 'canonical'}
+                  </div>
                 </div>
               </div>
             </div>

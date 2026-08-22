@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { assertWhatsappServerOnly } from './server-runtime.ts'
+import { assertWhatsappServerOnly } from './server-runtime'
 
 assertWhatsappServerOnly('lib/whatsapp/meta-signature')
 

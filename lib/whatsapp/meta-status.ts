@@ -57,6 +57,31 @@ export type WhatsappMetaConnectionStatus = {
   sanitizedError: string | null
 }
 
+export type WhatsappTemplateInventoryOverview = {
+  checkedAt: string
+  connectionState: ConnectionState
+  previewSendingDisabled: boolean
+  migrationApplied: false
+  testActionEnabled: false
+  persistenceState: string
+  missingVariableNames: string[]
+  sanitizedError: string | null
+  templates: Array<{
+    name: string
+    language: string
+    category: string
+    status: string
+    headerType: WhatsappMetaTemplateRecord['headerType']
+    bodyVariableCount: number
+    footerTextPresent: boolean
+    buttons: WhatsappMetaTemplateRecord['buttons']
+    enabled: false
+    enabledReason: string
+    safeTestAvailable: false
+    validationErrors: string[]
+  }>
+}
+
 const getEnvironmentLabel = (env: EnvMap) =>
   String(env.VERCEL_ENV || env.NODE_ENV || 'unknown').trim() || 'unknown'
 
@@ -138,6 +163,25 @@ const inferConnectionStateFromError = (error: unknown): ConnectionState => {
 
   return 'error'
 }
+
+const buildTemplateOverviewRows = (
+  templates: WhatsappMetaTemplateRecord[],
+): WhatsappTemplateInventoryOverview['templates'] =>
+  templates.map((template) => ({
+    name: template.name,
+    language: template.language,
+    category: template.category,
+    status: template.status,
+    headerType: template.headerType,
+    bodyVariableCount: template.bodyVariableCount,
+    footerTextPresent: Boolean(template.footerText),
+    buttons: template.buttons,
+    enabled: false,
+    enabledReason:
+      'Read-only only. Persisted template enablement stays inactive until the reviewed migration is approved and applied.',
+    safeTestAvailable: false,
+    validationErrors: template.validationErrors,
+  }))
 
 export const getWhatsappMetaConnectionStatus = async ({
   env = process.env,
@@ -237,6 +281,88 @@ export const getWhatsappMetaConnectionStatus = async ({
       qualityState: null,
       templateCounts: emptyTemplateCounts(),
       sanitizedError: sanitizeMetaReadOnlyError(error),
+    }
+  }
+}
+
+export const getWhatsappTemplateInventoryOverview = async ({
+  env = process.env,
+  fetchImplementation = fetch,
+}: {
+  env?: EnvMap
+  fetchImplementation?: typeof fetch
+} = {}): Promise<WhatsappTemplateInventoryOverview> => {
+  const snapshot = readWhatsappMetaConfig(env)
+  const environmentLabel = getEnvironmentLabel(env)
+  const healthConfig = resolveWhatsappHealthConfig(env)
+  const checkedAt = new Date().toISOString()
+
+  if (!healthConfig.ok) {
+    return {
+      checkedAt,
+      connectionState: 'misconfigured',
+      previewSendingDisabled: environmentLabel === 'preview',
+      migrationApplied: false,
+      testActionEnabled: false,
+      persistenceState:
+        'Read-only architecture only. Consent and template persistence remain inactive until migration approval and application.',
+      missingVariableNames: snapshot.missingHealthVariables,
+      sanitizedError:
+        ('error' in healthConfig ? healthConfig.error : undefined) ||
+        'Meta read-only health check is fail-closed until the required server configuration exists.',
+      templates: [],
+    }
+  }
+
+  try {
+    const client = createWhatsappMetaReadOnlyClient(
+      healthConfig.config,
+      fetchImplementation,
+    )
+    const readinessSnapshot = await client.getReadinessSnapshot()
+    const tokenHealthState = readinessSnapshot.tokenHealthResult.tokenHealth.state
+
+    if (tokenHealthState !== 'valid') {
+      return {
+        checkedAt,
+        connectionState: 'error',
+        previewSendingDisabled: environmentLabel === 'preview',
+        migrationApplied: false,
+        testActionEnabled: false,
+        persistenceState:
+          'Read-only architecture only. Consent and template persistence remain inactive until migration approval and application.',
+        missingVariableNames: snapshot.missingHealthVariables,
+        sanitizedError: 'Meta access token is not currently valid for read-only WhatsApp inspection.',
+        templates: [],
+      }
+    }
+
+    return {
+      checkedAt,
+      connectionState: 'connected',
+      previewSendingDisabled: environmentLabel === 'preview',
+      migrationApplied: false,
+      testActionEnabled: false,
+      persistenceState:
+        'Read-only architecture only. Consent and template persistence remain inactive until migration approval and application.',
+      missingVariableNames: snapshot.missingHealthVariables,
+      sanitizedError: null,
+      templates: buildTemplateOverviewRows(
+        readinessSnapshot.templateInventoryResult?.templates || [],
+      ),
+    }
+  } catch (error) {
+    return {
+      checkedAt,
+      connectionState: inferConnectionStateFromError(error),
+      previewSendingDisabled: environmentLabel === 'preview',
+      migrationApplied: false,
+      testActionEnabled: false,
+      persistenceState:
+        'Read-only architecture only. Consent and template persistence remain inactive until migration approval and application.',
+      missingVariableNames: snapshot.missingHealthVariables,
+      sanitizedError: sanitizeMetaReadOnlyError(error),
+      templates: [],
     }
   }
 }

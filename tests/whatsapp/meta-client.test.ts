@@ -63,6 +63,11 @@ test('reads template inventory through the read-only path', async () => {
       language: 'en',
       category: 'UTILITY',
       status: 'APPROVED',
+      headerType: 'NONE',
+      bodyVariableCount: 0,
+      footerText: '',
+      buttons: [],
+      validationErrors: [],
     },
   ])
   assert.match(requestedUrls[0] || '', /\/v25\.0\/business-id\/message_templates\?/)

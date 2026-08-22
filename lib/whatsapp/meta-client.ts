@@ -2,6 +2,11 @@ import { createHmac } from 'node:crypto'
 
 import type { WhatsappMetaHealthConfig } from './meta-config'
 import { assertWhatsappServerOnly } from './server-runtime'
+import {
+  parseWhatsappTemplateContractFromMetaComponents,
+  type WhatsappTemplateButtonContract,
+  type WhatsappTemplateHeaderType,
+} from './template-inventory'
 
 assertWhatsappServerOnly('lib/whatsapp/meta-client')
 
@@ -27,6 +32,7 @@ type MetaMessageTemplatesResponse = {
     language?: string
     category?: string
     status?: string
+    components?: unknown[]
   }>
 }
 
@@ -58,6 +64,11 @@ export type WhatsappMetaTemplateRecord = {
   language: string
   category: string
   status: string
+  headerType: WhatsappTemplateHeaderType
+  bodyVariableCount: number
+  footerText: string
+  buttons: WhatsappTemplateButtonContract[]
+  validationErrors: string[]
 }
 
 export type WhatsappMetaTokenHealth = {
@@ -109,7 +120,7 @@ const PHONE_NUMBER_FIELDS = [
 ].join(',')
 
 const WABA_FIELDS = ['id', 'name'].join(',')
-const TEMPLATE_FIELDS = ['name', 'language', 'category', 'status'].join(',')
+const TEMPLATE_FIELDS = ['name', 'language', 'category', 'status', 'components'].join(',')
 
 const buildMetaUrl = (graphApiVersion: string, requestPath: string) =>
   new URL(`https://graph.facebook.com/${graphApiVersion}${requestPath}`)
@@ -279,12 +290,23 @@ export const createWhatsappMetaReadOnlyClient = (
 
       return {
         requestPath,
-        templates: (parsed.data || []).map((template) => ({
-          name: normalizeText(template.name),
-          language: normalizeText(template.language),
-          category: normalizeText(template.category),
-          status: normalizeText(template.status),
-        })),
+        templates: (parsed.data || []).map((template) => {
+          const contract = parseWhatsappTemplateContractFromMetaComponents(
+            template.components || [],
+          )
+
+          return {
+            name: normalizeText(template.name),
+            language: normalizeText(template.language),
+            category: normalizeText(template.category),
+            status: normalizeText(template.status),
+            headerType: contract.headerType,
+            bodyVariableCount: contract.bodyVariableCount,
+            footerText: contract.footerText,
+            buttons: contract.buttons,
+            validationErrors: contract.validationErrors,
+          }
+        }),
       }
     },
     async getTokenHealth(): Promise<{

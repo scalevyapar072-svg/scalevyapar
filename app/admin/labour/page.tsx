@@ -35,7 +35,9 @@ import {
   labourMasterSeedValues,
   resolveLabourMasterLabel
 } from '@/lib/labour-masters-schema'
+import LabourWhatsappConsentOptoutsCard from '@/components/admin/labour-whatsapp-consent-optouts'
 import LabourWhatsappMetaStatusCard from '@/components/admin/labour-whatsapp-meta-status'
+import LabourWhatsappTemplatesCard from '@/components/admin/labour-whatsapp-templates'
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'inactive_paused_by_worker' | 'blocked' | 'rejected'
 type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
@@ -11418,8 +11420,123 @@ export default function LabourExchangeAdminPage() {
         )}
 
         {activeSection === 'whatsappAutomation' && (
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <LabourWhatsappMetaStatusCard />
+          <div style={{ display: 'grid', gap: '16px' }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div>
+                  <h2 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '20px' }}>
+                    WhatsApp Automation
+                  </h2>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '13px', lineHeight: 1.7 }}>
+                    Read-only architecture for Meta connection, templates, consent,
+                    opt-outs, and safety controls. No sending, webhook persistence, or
+                    bulk-recipient actions are active in Phase 16C.2.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {[
+                    { href: '#whatsapp-meta-connection', label: 'Meta Connection' },
+                    { href: '#whatsapp-templates', label: 'Templates' },
+                    { href: '#whatsapp-consent-optouts', label: 'Consent & Opt-outs' },
+                    { href: '#whatsapp-limits-safety', label: 'Limits & Safety' },
+                  ].map((item) => (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      style={{ ...subtleButtonStyle, textDecoration: 'none' }}
+                    >
+                      {item.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div id="whatsapp-meta-connection" style={{ display: 'grid', gap: '10px' }}>
+              <div style={{ padding: '0 4px' }}>
+                <h3 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '16px' }}>
+                  Meta Connection
+                </h3>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.6 }}>
+                  Secure read-only connection health and template count visibility from the
+                  existing Phase 16B.2 infrastructure.
+                </p>
+              </div>
+              <LabourWhatsappMetaStatusCard />
+            </div>
+
+            <LabourWhatsappTemplatesCard />
+
+            <LabourWhatsappConsentOptoutsCard />
+
+            <div id="whatsapp-limits-safety" style={cardStyle}>
+              <div style={{ display: 'grid', gap: '14px' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '16px' }}>
+                    Limits & Safety
+                  </h3>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '12px', lineHeight: 1.6 }}>
+                    Proposed controls are visible for review only. They do not change any
+                    current sender or webhook behavior in this phase.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: '12px',
+                  }}
+                >
+                  <div
+                    style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      background: '#f8fafc',
+                      padding: '12px 14px',
+                      color: '#0f172a',
+                      fontSize: '13px',
+                      lineHeight: 1.7,
+                    }}
+                  >
+                    <div>Worker daily limit: 3 automatic matching alerts</div>
+                    <div>Company Job daily limit: 5 matching-worker alerts</div>
+                    <div>Manual bulk cap: 100 selected recipients</div>
+                    <div>Quiet hours: 9:00 PM-8:00 AM IST</div>
+                  </div>
+
+                  <div
+                    style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      background: '#f8fafc',
+                      padding: '12px 14px',
+                      display: 'grid',
+                      gap: '10px',
+                    }}
+                  >
+                    <div style={{ color: '#0f172a', fontSize: '13px', lineHeight: 1.7 }}>
+                      Pause All Sending remains architecture-only in Phase 16C.2. Preview
+                      sending stays disabled and no queue or processor is active.
+                    </div>
+                    <button
+                      type="button"
+                      disabled
+                      style={{
+                        ...subtleButtonStyle,
+                        color: '#94a3b8',
+                        border: '1px dashed #cbd5e1',
+                        background: '#f8fafc',
+                        cursor: 'not-allowed',
+                      }}
+                    >
+                      Pause All Sending (Disabled)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

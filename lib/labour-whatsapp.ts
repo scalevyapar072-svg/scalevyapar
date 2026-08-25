@@ -1,4 +1,9 @@
 import { resolveWhatsappSendConfig } from './whatsapp/meta-config'
+import { getWhatsappPersistenceClient } from './whatsapp/persistence-client'
+import { assertWhatsappServerOnly } from './whatsapp/server-runtime'
+import { createWhatsappSettingsRepository } from './whatsapp/settings-repository'
+
+assertWhatsappServerOnly('lib/labour-whatsapp')
 
 type SendWhatsappTextPayload = {
   to: string
@@ -10,6 +15,44 @@ type SendWhatsappTemplatePayload = {
   templateName: string
   languageCode?: string
   bodyParameters?: string[]
+}
+
+type WhatsappSendBlockedReason =
+  | 'missing-recipient-or-body'
+  | 'missing-recipient-or-template'
+  | 'whatsapp-disabled-outside-production'
+  | 'whatsapp-not-configured'
+  | 'whatsapp-paused'
+  | 'whatsapp-pause-setting-missing'
+  | 'whatsapp-pause-setting-invalid'
+  | 'whatsapp-pause-setting-unavailable'
+
+type WhatsappSendSkippedResult = {
+  accepted: false
+  skipped: true
+  reason: WhatsappSendBlockedReason
+  messageId?: string
+  messageStatus?: string
+  recipientWaId?: string
+}
+
+type WhatsappSendAcceptedResult = {
+  accepted: true
+  skipped: false
+  reason: 'accepted'
+  messageId: string
+  messageStatus: string
+  recipientWaId: string
+}
+
+export type WhatsappSendResult = WhatsappSendSkippedResult | WhatsappSendAcceptedResult
+
+type WhatsappSendDependencies = {
+  env: NodeJS.ProcessEnv
+  fetchImplementation: typeof fetch
+  getPersistenceClient: typeof getWhatsappPersistenceClient
+  createSettingsRepository: typeof createWhatsappSettingsRepository
+  resolveSendConfig: typeof resolveWhatsappSendConfig
 }
 
 export const isWhatsappTemplateTranslationMissingError = (error: unknown) =>
@@ -29,6 +72,44 @@ type WhatsappAcceptedResponse = {
   }>
 }
 
+const getDefaultWhatsappSendDependencies = (): WhatsappSendDependencies => ({
+  env: process.env,
+  fetchImplementation: globalThis.fetch,
+  getPersistenceClient: getWhatsappPersistenceClient,
+  createSettingsRepository: createWhatsappSettingsRepository,
+  resolveSendConfig: resolveWhatsappSendConfig,
+})
+
+const buildBlockedResult = (reason: WhatsappSendBlockedReason): WhatsappSendSkippedResult => ({
+  accepted: false,
+  skipped: true,
+  reason,
+})
+
+const logBlockedWhatsappSend = (reason: WhatsappSendBlockedReason) => {
+  switch (reason) {
+    case 'whatsapp-disabled-outside-production':
+      console.warn('WhatsApp send skipped because outbound sending is disabled outside production.')
+      return
+    case 'whatsapp-not-configured':
+      console.warn(
+        'WhatsApp send skipped because canonical Meta sender configuration is unavailable.',
+      )
+      return
+    case 'whatsapp-paused':
+    case 'whatsapp-pause-setting-missing':
+    case 'whatsapp-pause-setting-invalid':
+    case 'whatsapp-pause-setting-unavailable':
+      console.warn(
+        'WhatsApp send skipped because the universal safety gate is blocking outbound sending.',
+        { reason },
+      )
+      return
+    default:
+      return
+  }
+}
+
 const sanitizeWhatsappNumber = (value: string) => value.replace(/[^\d+]/g, '').trim()
 
 const toInternationalWhatsappNumber = (value: string) => {
@@ -40,59 +121,122 @@ const toInternationalWhatsappNumber = (value: string) => {
   return sanitized
 }
 
-const isWhatsappSendingEnabledInCurrentEnvironment = () =>
-  String(process.env.VERCEL_ENV || '').trim() === 'production'
-
-const getWhatsappConfig = () => {
-  const resolved = resolveWhatsappSendConfig()
-
-  return {
-    accessToken: resolved.ok ? resolved.config.accessToken : '',
-    phoneNumberId: resolved.ok ? resolved.config.phoneNumberId : '',
-    graphVersion: resolved.snapshot.graphApiVersion,
+const resolvePauseBlockedReason = (
+  reason: 'missing' | 'invalid' | 'query_error' | 'explicit_true' | 'explicit_false',
+): WhatsappSendBlockedReason | null => {
+  switch (reason) {
+    case 'missing':
+      return 'whatsapp-pause-setting-missing'
+    case 'invalid':
+      return 'whatsapp-pause-setting-invalid'
+    case 'query_error':
+      return 'whatsapp-pause-setting-unavailable'
+    case 'explicit_true':
+      return 'whatsapp-paused'
+    case 'explicit_false':
+      return null
   }
 }
 
-export const sendWhatsappTextMessage = async ({ to, body }: SendWhatsappTextPayload) => {
-  const { accessToken, phoneNumberId, graphVersion } = getWhatsappConfig()
+const resolveWhatsappSendAuthorization = async (
+  dependencies: WhatsappSendDependencies,
+): Promise<
+  | {
+      allowed: true
+      config: {
+        accessToken: string
+        phoneNumberId: string
+        graphVersion: string
+      }
+    }
+  | {
+      allowed: false
+      result: WhatsappSendSkippedResult
+    }
+> => {
+  if (String(dependencies.env.VERCEL_ENV || '').trim().toLowerCase() !== 'production') {
+    return {
+      allowed: false,
+      result: buildBlockedResult('whatsapp-disabled-outside-production'),
+    }
+  }
+
+  const persistence = dependencies.getPersistenceClient()
+  if (!persistence.available) {
+    return {
+      allowed: false,
+      result: buildBlockedResult('whatsapp-pause-setting-unavailable'),
+    }
+  }
+
+  const repository = dependencies.createSettingsRepository({
+    client: persistence.client,
+  })
+  const pauseStatus = await repository.isAllSendingPaused()
+  const pauseBlockedReason = resolvePauseBlockedReason(pauseStatus.reason)
+  if (pauseStatus.paused && pauseBlockedReason) {
+    return {
+      allowed: false,
+      result: buildBlockedResult(pauseBlockedReason),
+    }
+  }
+
+  const resolved = dependencies.resolveSendConfig(dependencies.env)
+  if (!resolved.ok) {
+    return {
+      allowed: false,
+      result: buildBlockedResult('whatsapp-not-configured'),
+    }
+  }
+
+  return {
+    allowed: true,
+    config: {
+      accessToken: resolved.config.accessToken,
+      phoneNumberId: resolved.config.phoneNumberId,
+      graphVersion: resolved.config.graphApiVersion,
+    },
+  }
+}
+
+export const sendWhatsappTextMessage = async (
+  { to, body }: SendWhatsappTextPayload,
+  dependencies: WhatsappSendDependencies = getDefaultWhatsappSendDependencies(),
+): Promise<WhatsappSendResult> => {
   const recipient = toInternationalWhatsappNumber(to)
   const trimmedBody = String(body || '').trim()
 
   if (!recipient || !trimmedBody) {
-    return { accepted: false, skipped: true, reason: 'missing-recipient-or-body' as const }
+    return buildBlockedResult('missing-recipient-or-body')
   }
 
-  if (!isWhatsappSendingEnabledInCurrentEnvironment()) {
-    console.warn('WhatsApp send skipped because outbound sending is disabled outside production.')
-    return {
-      accepted: false,
-      skipped: true,
-      reason: 'whatsapp-disabled-outside-production' as const,
-    }
+  const authorization = await resolveWhatsappSendAuthorization(dependencies)
+  if (!authorization.allowed) {
+    logBlockedWhatsappSend(authorization.result.reason)
+    return authorization.result
   }
 
-  if (!accessToken || !phoneNumberId) {
-    console.warn('WhatsApp send skipped because WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID is not configured.')
-    return { accepted: false, skipped: true, reason: 'whatsapp-not-configured' as const }
-  }
-
-  const response = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
+  const { accessToken, phoneNumberId, graphVersion } = authorization.config
+  const response = await dependencies.fetchImplementation(
+    `https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: recipient,
+        type: 'text',
+        text: {
+          preview_url: false,
+          body: trimmedBody,
+        },
+      }),
     },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: recipient,
-      type: 'text',
-      text: {
-        preview_url: false,
-        body: trimmedBody
-      }
-    })
-  })
+  )
 
   const responseBody = await response.text()
   if (!response.ok) {
@@ -105,11 +249,11 @@ export const sendWhatsappTextMessage = async ({ to, body }: SendWhatsappTextPayl
 
   return {
     accepted: true,
-    skipped: false as const,
-    reason: 'accepted' as const,
+    skipped: false,
+    reason: 'accepted',
     messageId: firstMessage?.id || '',
     messageStatus: firstMessage?.message_status || '',
-    recipientWaId: firstContact?.wa_id || recipient
+    recipientWaId: firstContact?.wa_id || recipient,
   }
 }
 
@@ -117,9 +261,10 @@ export const sendWhatsappTemplateMessage = async ({
   to,
   templateName,
   languageCode = 'en',
-  bodyParameters = []
-}: SendWhatsappTemplatePayload) => {
-  const { accessToken, phoneNumberId, graphVersion } = getWhatsappConfig()
+  bodyParameters = [],
+}: SendWhatsappTemplatePayload,
+dependencies: WhatsappSendDependencies = getDefaultWhatsappSendDependencies(),
+): Promise<WhatsappSendResult> => {
   const recipient = toInternationalWhatsappNumber(to)
   const trimmedTemplateName = String(templateName || '').trim()
   const normalizedParameters = bodyParameters
@@ -127,23 +272,16 @@ export const sendWhatsappTemplateMessage = async ({
     .filter(Boolean)
 
   if (!recipient || !trimmedTemplateName) {
-    return { accepted: false, skipped: true, reason: 'missing-recipient-or-template' as const }
+    return buildBlockedResult('missing-recipient-or-template')
   }
 
-  if (!isWhatsappSendingEnabledInCurrentEnvironment()) {
-    console.warn('WhatsApp template send skipped because outbound sending is disabled outside production.')
-    return {
-      accepted: false,
-      skipped: true,
-      reason: 'whatsapp-disabled-outside-production' as const,
-    }
+  const authorization = await resolveWhatsappSendAuthorization(dependencies)
+  if (!authorization.allowed) {
+    logBlockedWhatsappSend(authorization.result.reason)
+    return authorization.result
   }
 
-  if (!accessToken || !phoneNumberId) {
-    console.warn('WhatsApp template send skipped because WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID is not configured.')
-    return { accepted: false, skipped: true, reason: 'whatsapp-not-configured' as const }
-  }
-
+  const { accessToken, phoneNumberId, graphVersion } = authorization.config
   const components = normalizedParameters.length > 0
     ? [
         {
@@ -156,26 +294,29 @@ export const sendWhatsappTemplateMessage = async ({
       ]
     : undefined
 
-  const response = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: recipient,
-      type: 'template',
-      template: {
-        name: trimmedTemplateName,
-        language: {
-          code: String(languageCode || 'en').trim() || 'en'
+  const response = await dependencies.fetchImplementation(
+    `https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: recipient,
+        type: 'template',
+        template: {
+          name: trimmedTemplateName,
+          language: {
+            code: String(languageCode || 'en').trim() || 'en',
+          },
+          ...(components ? { components } : {}),
         },
-        ...(components ? { components } : {})
-      }
-    })
-  })
+      }),
+    },
+  )
 
   const responseBody = await response.text()
   if (!response.ok) {
@@ -188,10 +329,10 @@ export const sendWhatsappTemplateMessage = async ({
 
   return {
     accepted: true,
-    skipped: false as const,
-    reason: 'accepted' as const,
+    skipped: false,
+    reason: 'accepted',
     messageId: firstMessage?.id || '',
     messageStatus: firstMessage?.message_status || '',
-    recipientWaId: firstContact?.wa_id || recipient
+    recipientWaId: firstContact?.wa_id || recipient,
   }
 }

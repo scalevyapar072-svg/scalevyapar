@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AUTH_COOKIE_NAME, LEGACY_AUTH_COOKIE_NAME, verifyToken } from '@/lib/auth-token'
+import { getCompanyUserFromRequest } from '@/lib/auth'
 import { getCompanyAppDashboard, loginCompanyAppFromDashboard, requireCompanyApp } from '@/lib/labour-company-app'
 import {
   buildInvoiceBuyer,
@@ -28,11 +28,7 @@ export async function GET(
       const auth = await requireCompanyApp(request)
       dashboard = await getCompanyAppDashboard(auth.companyId)
     } catch {
-      const fallbackAuthToken =
-        request.cookies.get(AUTH_COOKIE_NAME)?.value ||
-        request.cookies.get(LEGACY_AUTH_COOKIE_NAME)?.value ||
-        ''
-      const user = fallbackAuthToken ? await verifyToken(fallbackAuthToken) : null
+      const user = await getCompanyUserFromRequest(request)
 
       if (!user?.email) {
         return NextResponse.json({ error: 'Company authorization token is missing.' }, { status: 401 })

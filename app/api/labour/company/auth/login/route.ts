@@ -1,10 +1,27 @@
 import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
-import { createAuthCookie, generateToken } from '@/lib/auth-token'
-import { getUserByEmail } from '@/lib/db'
-import { loginCompanyAppFromDashboard } from '@/lib/labour-company-app'
+import { createCompanyAuthCookie, generateToken } from '../../../../../../lib/auth-token'
+import { getUserByEmail } from '../../../../../../lib/db'
+import { loginCompanyAppFromDashboard } from '../../../../../../lib/labour-company-app'
 
-export async function POST(request: NextRequest) {
+type CompanyLoginDependencies = {
+  comparePassword: typeof bcrypt.compare
+  createCookie: typeof createCompanyAuthCookie
+  generateSessionToken: typeof generateToken
+  getUserByEmail: typeof getUserByEmail
+  loginCompanyAppFromDashboard: typeof loginCompanyAppFromDashboard
+}
+
+export async function handleCompanyLoginPost(
+  request: NextRequest,
+  dependencies: CompanyLoginDependencies = {
+    comparePassword: bcrypt.compare,
+    createCookie: createCompanyAuthCookie,
+    generateSessionToken: generateToken,
+    getUserByEmail,
+    loginCompanyAppFromDashboard
+  }
+) {
   try {
     const payload = await request.json()
     const normalizedEmail = String(payload.email || '').trim().toLowerCase()
@@ -17,18 +34,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const user = await getUserByEmail(normalizedEmail)
+    const user = await dependencies.getUserByEmail(normalizedEmail)
     if (!user) {
       return NextResponse.json({ error: 'Invalid email address or password.' }, { status: 401 })
     }
 
-    const isValidPassword = await bcrypt.compare(rawPassword, user.password_hash)
+    const isValidPassword = await dependencies.comparePassword(rawPassword, user.password_hash)
     if (!isValidPassword) {
       return NextResponse.json({ error: 'Invalid email address or password.' }, { status: 401 })
     }
 
-    const result = await loginCompanyAppFromDashboard(user.email)
-    const authToken = await generateToken({
+    const result = await dependencies.loginCompanyAppFromDashboard(user.email)
+    const authToken = await dependencies.generateSessionToken({
       id: user.id,
       name: user.name,
       email: user.email,
@@ -43,7 +60,7 @@ export async function POST(request: NextRequest) {
       token: result.token,
       dashboard: result.dashboard
     })
-    const authCookie = createAuthCookie(authToken)
+    const authCookie = dependencies.createCookie(authToken, request.nextUrl.hostname)
     response.cookies.set(authCookie.name, authCookie.value, authCookie.options)
 
     return response
@@ -53,4 +70,8 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
+}
+
+export async function POST(request: NextRequest) {
+  return handleCompanyLoginPost(request)
 }

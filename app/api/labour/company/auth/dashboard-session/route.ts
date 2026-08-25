@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/auth'
-import { loginCompanyAppFromDashboard } from '@/lib/labour-company-app'
+import { requireCompanyDashboardUser } from '../../../../../../lib/auth'
+import { loginCompanyAppFromDashboard } from '../../../../../../lib/labour-company-app'
 
-export async function GET(request: NextRequest) {
+type CompanyDashboardSessionDependencies = {
+  loginCompanyAppFromDashboard: typeof loginCompanyAppFromDashboard
+  requireCompanyDashboardUser: typeof requireCompanyDashboardUser
+}
+
+export async function handleCompanyDashboardSessionGet(
+  request: NextRequest,
+  dependencies: CompanyDashboardSessionDependencies = {
+    loginCompanyAppFromDashboard,
+    requireCompanyDashboardUser
+  }
+) {
   try {
-    const user = await requireUser(request)
+    const user = await dependencies.requireCompanyDashboardUser(request)
     if (user instanceof NextResponse) {
       return user
     }
 
-    const result = await loginCompanyAppFromDashboard(user.email)
+    const result = await dependencies.loginCompanyAppFromDashboard(user.email)
 
     return NextResponse.json({
       success: true,
@@ -22,4 +33,8 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     )
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleCompanyDashboardSessionGet(request)
 }

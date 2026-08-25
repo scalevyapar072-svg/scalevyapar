@@ -4,6 +4,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'scalevyapar-secret-key-2024'
 )
 export const AUTH_COOKIE_NAME = 'scalevyapar-auth'
+export const COMPANY_AUTH_COOKIE_NAME = 'scalevyapar-company-auth'
 export const LEGACY_AUTH_COOKIE_NAME = 'auth-token'
 
 export interface User {
@@ -100,19 +101,42 @@ const resolveCookieDomain = (hostname?: string) => {
   return undefined
 }
 
-export function createAuthCookie(token: string, hostname?: string) {
+const createCookieOptions = (hostname?: string) => {
   const productionDomain = resolveCookieDomain(hostname)
 
   return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    maxAge: 7 * 24 * 60 * 60,
+    path: '/',
+    domain: productionDomain
+  }
+}
+
+export function createAuthCookie(token: string, hostname?: string) {
+  return {
     name: AUTH_COOKIE_NAME,
     value: token,
+    options: createCookieOptions(hostname)
+  }
+}
+
+export function createCompanyAuthCookie(token: string, hostname?: string) {
+  return {
+    name: COMPANY_AUTH_COOKIE_NAME,
+    value: token,
+    options: createCookieOptions(hostname)
+  }
+}
+
+export function createCompanyLogoutCookie(hostname?: string) {
+  return {
+    name: COMPANY_AUTH_COOKIE_NAME,
+    value: '',
     options: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      maxAge: 7 * 24 * 60 * 60,
-      path: '/',
-      domain: productionDomain
+      ...createCookieOptions(hostname),
+      maxAge: 0
     }
   }
 }
@@ -136,5 +160,17 @@ export function getTokenFromCookieHeader(cookieHeader: string | null): string | 
 
   return cookies
     .find(cookie => cookie.startsWith(`${LEGACY_AUTH_COOKIE_NAME}=`))
+    ?.split('=')[1] || null
+}
+
+export function getCompanyTokenFromCookieHeader(cookieHeader: string | null): string | null {
+  if (!cookieHeader) {
+    return null
+  }
+
+  return cookieHeader
+    .split(';')
+    .map(cookie => cookie.trim())
+    .find(cookie => cookie.startsWith(`${COMPANY_AUTH_COOKIE_NAME}=`))
     ?.split('=')[1] || null
 }

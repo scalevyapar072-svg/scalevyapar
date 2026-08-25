@@ -470,9 +470,17 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/labour/company/auth/logout', {
+        method: 'POST',
+        cache: 'no-store',
+      })
+    } catch {}
+
     localStorage.removeItem(COMPANY_TOKEN_KEY)
     localStorage.removeItem(COMPANY_PROFILE_KEY)
+    sessionStorage.removeItem(COMPANY_TOKEN_KEY)
     window.dispatchEvent(new Event('labour-company-auth-change'))
     setToken(null)
     setDashboard(null)

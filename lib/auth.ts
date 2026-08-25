@@ -4,8 +4,11 @@ import { getUserByEmail } from './db'
 import bcrypt from 'bcryptjs'
 import {
   AUTH_COOKIE_NAME,
+  COMPANY_AUTH_COOKIE_NAME,
   LEGACY_AUTH_COOKIE_NAME,
   createAuthCookie,
+  createCompanyAuthCookie,
+  getCompanyTokenFromCookieHeader,
   generateToken,
   getTokenFromCookieHeader,
   type User,
@@ -21,6 +24,7 @@ export interface AuthResult {
 }
 
 export { createAuthCookie, generateToken, verifyToken }
+export { createCompanyAuthCookie }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
   try {
@@ -111,6 +115,39 @@ export async function getUserFromRequest(request: Request): Promise<User | null>
 
 export async function requireUser(request: Request): Promise<User | NextResponse> {
   const user = await getUserFromRequest(request)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  return user
+}
+
+export async function getCompanyUserFromRequest(request: Request): Promise<User | null> {
+  try {
+    const nextRequest = request as Request & {
+      cookies?: { get: (name: string) => { value?: string } | undefined }
+    }
+
+    const token = nextRequest.cookies?.get?.(COMPANY_AUTH_COOKIE_NAME)?.value
+      ?? getCompanyTokenFromCookieHeader(request.headers.get('cookie'))
+
+    if (!token) {
+      return null
+    }
+
+    const user = await verifyToken(token)
+    if (!user || user.role !== 'CLIENT' || !user.email) {
+      return null
+    }
+
+    return user
+  } catch {
+    return null
+  }
+}
+
+export async function requireCompanyDashboardUser(request: Request): Promise<User | NextResponse> {
+  const user = await getCompanyUserFromRequest(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

@@ -14,7 +14,7 @@ const migrationPath = path.join(
   workspaceRoot,
   'supabase',
   'migrations',
-  '20260825131706_add_labour_whatsapp_automatic_mode_foundation.sql',
+  '20260825131706_add_labour_whatsapp_automation_execution_foundation.sql',
 )
 const senderSourcePath = path.join(workspaceRoot, 'lib', 'labour-whatsapp.ts')
 const bulkUiPath = path.join(

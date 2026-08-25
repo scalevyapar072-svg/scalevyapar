@@ -76,7 +76,17 @@ create table public.labour_whatsapp_automatic_executions (
   completed_at timestamptz,
   updated_at timestamptz not null default now(),
   constraint labour_whatsapp_automatic_executions_cycle_window_check
-    check (cycle_ends_at >= cycle_starts_at)
+    check (cycle_ends_at = cycle_starts_at + interval '72 hours'),
+  constraint labour_whatsapp_automatic_executions_event_recipient_compatibility_check
+    check (
+      (automation_event_type = 'company_matching_digest' and recipient_type = 'company')
+      or
+      (automation_event_type = 'worker_matching_digest' and recipient_type = 'worker')
+      or
+      (automation_event_type = 'worker_payment_or_plan_reminder' and recipient_type = 'worker')
+      or
+      (automation_event_type = 'worker_kyc_rejected' and recipient_type = 'worker')
+    )
 );
 
 create unique index idx_labour_whatsapp_automatic_executions_recipient_cycle

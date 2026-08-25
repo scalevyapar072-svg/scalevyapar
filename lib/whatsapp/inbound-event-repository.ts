@@ -23,12 +23,18 @@ type PrepareInboundEventInput = {
   matchedRecipientType?: WhatsappPersistenceRecipientType | null
   matchedRecipientId?: string | null
   currentlySuppressed?: boolean
+  metadata?: JsonObject
 }
 
 type InboundEventStore = {
   getByMessageId: (messageId: string) => Promise<WhatsappInboundEventRow | null>
+  listRecentInboundEvents: (limit: number) => Promise<WhatsappInboundEventRow[]>
   insertInboundEvent: (
     row: Omit<WhatsappInboundEventRow, 'id' | 'createdAt' | 'updatedAt'>,
+  ) => Promise<WhatsappInboundEventRow>
+  updateInboundEvent: (
+    id: string,
+    row: Partial<Omit<WhatsappInboundEventRow, 'id' | 'createdAt' | 'updatedAt'>>,
   ) => Promise<WhatsappInboundEventRow>
 }
 
@@ -82,6 +88,20 @@ const createSupabaseInboundEventStore = (client: SupabaseClient): InboundEventSt
     return data ? mapInboundEventRow(data as Record<string, unknown>) : null
   },
 
+  async listRecentInboundEvents(limit) {
+    const { data, error } = await client
+      .from('labour_whatsapp_inbound_events')
+      .select(INBOUND_EVENT_SELECT)
+      .order('updated_at', { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      throw new Error('Unable to read WhatsApp inbound events.')
+    }
+
+    return (data || []).map((row) => mapInboundEventRow(row as Record<string, unknown>))
+  },
+
   async insertInboundEvent(row) {
     const payload = {
       message_id: row.messageId,
@@ -104,6 +124,44 @@ const createSupabaseInboundEventStore = (client: SupabaseClient): InboundEventSt
 
     if (error || !data) {
       throw new Error('Unable to record WhatsApp inbound event.')
+    }
+
+    return mapInboundEventRow(data as Record<string, unknown>)
+  },
+
+  async updateInboundEvent(id, row) {
+    const payload = {
+      ...(typeof row.normalizedMobile !== 'undefined'
+        ? { normalized_mobile: row.normalizedMobile }
+        : {}),
+      ...(typeof row.matchedRecipientType !== 'undefined'
+        ? { matched_recipient_type: row.matchedRecipientType }
+        : {}),
+      ...(typeof row.matchedRecipientId !== 'undefined'
+        ? { matched_recipient_id: row.matchedRecipientId }
+        : {}),
+      ...(typeof row.eventKind !== 'undefined' ? { event_kind: row.eventKind } : {}),
+      ...(typeof row.rawText !== 'undefined' ? { raw_text: row.rawText } : {}),
+      ...(typeof row.normalizedText !== 'undefined'
+        ? { normalized_text: row.normalizedText }
+        : {}),
+      ...(typeof row.commandKey !== 'undefined' ? { command_key: row.commandKey } : {}),
+      ...(typeof row.suppressionApplied !== 'undefined'
+        ? { suppression_applied: row.suppressionApplied }
+        : {}),
+      ...(typeof row.metadata !== 'undefined' ? { metadata: row.metadata } : {}),
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await client
+      .from('labour_whatsapp_inbound_events')
+      .update(payload)
+      .eq('id', id)
+      .select(INBOUND_EVENT_SELECT)
+      .single()
+
+    if (error || !data) {
+      throw new Error('Unable to update WhatsApp inbound event.')
     }
 
     return mapInboundEventRow(data as Record<string, unknown>)
@@ -135,6 +193,10 @@ export const createWhatsappInboundEventRepository = ({
       return Boolean(await resolvedStore.getByMessageId(normalizeRequiredText(messageId, 'messageId')))
     },
 
+    async getInboundMessage(messageId: string) {
+      return resolvedStore.getByMessageId(normalizeRequiredText(messageId, 'messageId'))
+    },
+
     async classifyAndPrepareInboundEvent(input: PrepareInboundEventInput) {
       const rawText = normalizeRequiredText(input.rawText, 'rawText')
       const normalizedMessageId = normalizeRequiredText(input.messageId, 'messageId')
@@ -164,9 +226,24 @@ export const createWhatsappInboundEventRepository = ({
             input.timestamp instanceof Date
               ? input.timestamp.toISOString()
               : normalizeNullableText(input.timestamp) || null,
+          ...ensureJsonObject(input.metadata),
         },
         classification,
       }
+    },
+
+    async listRecentInboundEvents(input: { limit?: number } = {}) {
+      return resolvedStore.listRecentInboundEvents(input.limit ?? 10)
+    },
+
+    async updateInboundEvent(
+      id: string,
+      row: Partial<Omit<WhatsappInboundEventRow, 'id' | 'createdAt' | 'updatedAt'>>,
+    ) {
+      return resolvedStore.updateInboundEvent(normalizeRequiredText(id, 'id'), {
+        ...row,
+        metadata: typeof row.metadata === 'undefined' ? row.metadata : ensureJsonObject(row.metadata),
+      })
     },
 
     async recordInboundEvent(

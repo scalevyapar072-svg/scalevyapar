@@ -262,6 +262,14 @@ export const createWhatsappSuppressionRepository = ({
         }
       }
 
+      if (current.restorationRequestedAt || current.restorationMessageId) {
+        return {
+          updated: false,
+          duplicate: true,
+          suppression: current,
+        }
+      }
+
       const restorationMessageId = normalizeNullableText(input.restorationMessageId)
       if (
         restorationMessageId &&

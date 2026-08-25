@@ -47,6 +47,9 @@ const makeConsentStore = () => {
           return true
         })
       },
+      async listRecentConsentEvents(limit: number) {
+        return eventRows.slice(0, limit)
+      },
       async insertConsentEvent(
         row: Omit<WhatsappConsentEventRow, 'id' | 'createdAt'>,
       ) {
@@ -170,6 +173,24 @@ const makeInboundStore = () => {
         rows.push(nextRow)
         return nextRow
       },
+      async listRecentInboundEvents(limit: number) {
+        return rows.slice(0, limit)
+      },
+      async updateInboundEvent(
+        id: string,
+        row: Partial<Omit<WhatsappInboundEventRow, 'id' | 'createdAt' | 'updatedAt'>>,
+      ) {
+        const index = rows.findIndex((candidate) => candidate.id === id)
+        assert.notEqual(index, -1)
+        const nextRow: WhatsappInboundEventRow = {
+          ...rows[index],
+          ...row,
+          id,
+          updatedAt: '2026-08-22T02:05:00.000Z',
+        }
+        rows[index] = nextRow
+        return nextRow
+      },
     },
   }
 }
@@ -267,11 +288,17 @@ test('suppression remains idempotent and restoration request does not silently r
     mobile: '9876543210',
     restorationMessageId: 'wamid-start-1',
   })
+  const repeatedRestoration = await repository.recordRestorationRequest({
+    mobile: '9876543210',
+    restorationMessageId: 'wamid-start-2',
+  })
   const summary = await repository.getSuppressionSummary()
 
   assert.equal(first.created, true)
   assert.equal(duplicate.duplicate, true)
   assert.equal(restoration.updated, true)
+  assert.equal(repeatedRestoration.updated, false)
+  assert.equal(repeatedRestoration.duplicate, true)
   assert.equal(rows[0]?.active, true)
   assert.equal(summary.recentRecords[0]?.maskedMobile, '+91******3210')
   assert.doesNotMatch(JSON.stringify(summary), /9876543210/)

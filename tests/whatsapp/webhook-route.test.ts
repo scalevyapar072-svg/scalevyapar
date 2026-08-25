@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import test from 'node:test'
 
-import { extractWhatsappWebhookStatusEvents } from '../../lib/labour-whatsapp-webhook'
 import { verifyMetaWebhookSignature } from '../../lib/whatsapp/meta-signature'
 import {
   handleWhatsappWebhookGet,
@@ -13,6 +12,78 @@ const appSecret = 'app-secret'
 
 const buildSignature = (body: string) =>
   `sha256=${createHmac('sha256', appSecret).update(Buffer.from(body, 'utf8')).digest('hex')}`
+
+const extractWhatsappWebhookStatusEvents = (payload: {
+  entry?: Array<{
+    changes?: Array<{
+      field?: string
+      value?: {
+        metadata?: {
+          display_phone_number?: string
+          phone_number_id?: string
+        }
+        statuses?: Array<{
+          id?: string
+          status?: string
+          timestamp?: string
+          recipient_id?: string
+          conversation?: {
+            id?: string
+            origin?: {
+              type?: string
+            }
+          }
+          pricing?: {
+            billable?: boolean
+            category?: string
+          }
+          errors?: unknown[]
+        }>
+      }
+    }>
+  }>
+}) => {
+  const events: Array<{
+    messageId: string
+    status: string
+    recipientWaId: string
+    timestamp: string
+    phoneNumberId: string
+    displayPhoneNumber: string
+    conversationId: string
+    conversationOrigin: string
+    pricingCategory: string
+    pricingBillable: boolean | null
+    rawErrors: unknown[]
+  }> = []
+
+  for (const entry of payload.entry || []) {
+    for (const change of entry.changes || []) {
+      if (change.field !== 'messages') continue
+
+      for (const status of change.value?.statuses || []) {
+        if (!status.id || !status.status) continue
+
+        events.push({
+          messageId: status.id,
+          status: status.status,
+          recipientWaId: status.recipient_id || '',
+          timestamp: status.timestamp || '',
+          phoneNumberId: change.value?.metadata?.phone_number_id || '',
+          displayPhoneNumber: change.value?.metadata?.display_phone_number || '',
+          conversationId: status.conversation?.id || '',
+          conversationOrigin: status.conversation?.origin?.type || '',
+          pricingCategory: status.pricing?.category || '',
+          pricingBillable:
+            typeof status.pricing?.billable === 'boolean' ? status.pricing.billable : null,
+          rawErrors: status.errors || [],
+        })
+      }
+    }
+  }
+
+  return events
+}
 
 test('webhook GET verification remains compatible', async () => {
   const response = handleWhatsappWebhookGet({
@@ -109,7 +180,10 @@ test('webhook POST rejects invalid JSON after a valid signature', async () => {
   const payload = await response.json()
 
   assert.equal(response.status, 500)
-  assert.match(String(payload.error || ''), /JSON|property name|Unexpected/i)
+  assert.deepEqual(payload, {
+    received: false,
+    reason: 'webhook-processing-failed',
+  })
 })
 
 test('webhook POST rejects unsupported webhook objects', async () => {
@@ -206,6 +280,7 @@ test('webhook POST persists a valid delivery-status payload', async () => {
   assert.deepEqual(await response.json(), {
     received: true,
     statusEvents: 1,
+    inboundCommandEvents: 0,
   })
   assert.deepEqual(persistedEvents, [
     {

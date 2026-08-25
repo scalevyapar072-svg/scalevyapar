@@ -17,6 +17,21 @@ type ConsentSummary = {
     blockedCount: number
     unknownCount: number
   }>
+  recentEvents: Array<{
+    maskedMobile: string
+    recipientType: 'worker' | 'company' | 'unknown'
+    consentType: 'service_allowed' | 'matching_alerts_allowed' | 'marketing_allowed'
+    eventType:
+      | 'granted'
+      | 'denied'
+      | 'opted_out'
+      | 'restoration_requested'
+      | 'restored'
+      | 'admin_correction'
+    source: string
+    occurredAt: string
+    hasMessageReference: boolean
+  }>
 }
 
 type SuppressionSummary = {
@@ -33,6 +48,16 @@ type SuppressionSummary = {
     createdAt: string
     restorationRequestedAt: string | null
     hasRestorationRequest: boolean
+  }>
+  recentInboundEvents: Array<{
+    maskedMobile: string
+    commandType: string
+    resolutionCategory: string
+    deduplicationOutcome: string
+    suppressionApplied: boolean
+    restorationRequested: boolean
+    processingOutcome: string
+    eventTimestamp: string
   }>
 }
 
@@ -73,6 +98,15 @@ const consentTypeLabels: Record<ConsentSummary['counts'][number]['consentType'],
   service_allowed: 'Service messages',
   matching_alerts_allowed: 'Matching alerts',
   marketing_allowed: 'Marketing messages',
+}
+
+const consentEventLabels: Record<ConsentSummary['recentEvents'][number]['eventType'], string> = {
+  granted: 'Granted',
+  denied: 'Denied',
+  opted_out: 'Opted out',
+  restoration_requested: 'Restoration requested',
+  restored: 'Restored',
+  admin_correction: 'Admin correction',
 }
 
 export default function LabourWhatsappConsentOptoutsCard() {
@@ -313,6 +347,113 @@ export default function LabourWhatsappConsentOptoutsCard() {
                         ? formatDateTime(record.restorationRequestedAt)
                         : 'NO'}
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              background: '#ffffff',
+              padding: '12px 14px',
+              display: 'grid',
+              gap: '10px',
+            }}
+          >
+            <strong style={{ color: '#0f172a', fontSize: '14px' }}>
+              Recent inbound STOP/START activity
+            </strong>
+            {suppressionSummary.recentInboundEvents.length === 0 ? (
+              <div style={{ color: '#475569', fontSize: '12px', lineHeight: 1.6 }}>
+                No persisted inbound command activity is available yet.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {suppressionSummary.recentInboundEvents.map((record, index) => (
+                  <div
+                    key={`${record.maskedMobile}:${record.eventTimestamp}:${index}`}
+                    style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      background: '#f8fafc',
+                      padding: '12px 14px',
+                      display: 'grid',
+                      gap: '5px',
+                      color: '#0f172a',
+                      fontSize: '12px',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    <div>Mobile: {record.maskedMobile || 'Masked unavailable'}</div>
+                    <div>
+                      Command: {record.commandType || 'UNKNOWN'} | Outcome:{' '}
+                      {record.processingOutcome || 'Not recorded'}
+                    </div>
+                    <div>
+                      Resolution: {record.resolutionCategory} | Deduplication:{' '}
+                      {record.deduplicationOutcome}
+                    </div>
+                    <div>
+                      Suppression applied: {record.suppressionApplied ? 'YES' : 'NO'} | Restoration requested:{' '}
+                      {record.restorationRequested ? 'YES' : 'NO'}
+                    </div>
+                    <div>Received at: {formatDateTime(record.eventTimestamp)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              background: '#ffffff',
+              padding: '12px 14px',
+              display: 'grid',
+              gap: '10px',
+            }}
+          >
+            <strong style={{ color: '#0f172a', fontSize: '14px' }}>
+              Recent consent event history
+            </strong>
+            {consentSummary.recentEvents.length === 0 ? (
+              <div style={{ color: '#475569', fontSize: '12px', lineHeight: 1.6 }}>
+                No persisted consent event history is available yet.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {consentSummary.recentEvents.map((event, index) => (
+                  <div
+                    key={`${event.maskedMobile}:${event.occurredAt}:${index}`}
+                    style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      background: '#f8fafc',
+                      padding: '12px 14px',
+                      display: 'grid',
+                      gap: '5px',
+                      color: '#0f172a',
+                      fontSize: '12px',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    <div>
+                      Mobile: {event.maskedMobile || 'Masked unavailable'} | Recipient:{' '}
+                      {event.recipientType}
+                    </div>
+                    <div>
+                      Event: {consentEventLabels[event.eventType]} | Consent:{' '}
+                      {consentTypeLabels[event.consentType]}
+                    </div>
+                    <div>
+                      Source: {event.source} | Message reference:{' '}
+                      {event.hasMessageReference ? 'YES' : 'NO'}
+                    </div>
+                    <div>Occurred at: {formatDateTime(event.occurredAt)}</div>
                   </div>
                 ))}
               </div>

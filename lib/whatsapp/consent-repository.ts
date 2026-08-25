@@ -64,6 +64,7 @@ type RecordConsentDecisionInput = {
 
 type ConsentStore = {
   listCurrentConsents: (query: ConsentQuery) => Promise<WhatsappConsentRow[]>
+  listRecentConsentEvents: (limit: number) => Promise<WhatsappConsentEventRow[]>
   insertConsentEvent: (row: Omit<WhatsappConsentEventRow, 'id' | 'createdAt'>) => Promise<WhatsappConsentEventRow>
   insertCurrentConsent: (row: Omit<WhatsappConsentRow, 'id' | 'createdAt' | 'updatedAt'>) => Promise<WhatsappConsentRow>
   updateCurrentConsent: (
@@ -178,6 +179,20 @@ const createSupabaseConsentStore = (client: SupabaseClient): ConsentStore => ({
     }
 
     return (data || []).map((row) => mapConsentRow(row as Record<string, unknown>))
+  },
+
+  async listRecentConsentEvents(limit) {
+    const { data, error } = await client
+      .from('labour_whatsapp_consent_events')
+      .select(CONSENT_EVENT_SELECT)
+      .order('occurred_at', { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      throw new Error('Unable to read WhatsApp consent event history.')
+    }
+
+    return (data || []).map((row) => mapConsentEventRow(row as Record<string, unknown>))
   },
 
   async insertConsentEvent(row) {
@@ -460,6 +475,10 @@ export const createWhatsappConsentRepository = ({
 
     async listRecipientConsents(query: ConsentQuery) {
       return listRecipientConsents(query)
+    },
+
+    async listRecentConsentEvents(input: { limit?: number } = {}) {
+      return resolvedStore.listRecentConsentEvents(input.limit ?? 10)
     },
 
     async getEffectiveConsentState(query: Omit<ConsentQuery, 'consentType' | 'limit'>) {

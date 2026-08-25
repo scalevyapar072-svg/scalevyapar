@@ -2,7 +2,10 @@ import { NextRequest } from 'next/server'
 
 import { requireAdmin } from '@/lib/auth'
 import { getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
-import { normalizeIndianMobileToE164 } from '@/lib/whatsapp/consent'
+import {
+  maskWhatsappMobile,
+  normalizeIndianMobileToE164,
+} from '@/lib/whatsapp/consent'
 import { handleAdminWhatsappReadOnlyGet } from '@/lib/whatsapp/admin-readonly-route'
 import { createWhatsappConsentRepository } from '@/lib/whatsapp/consent-repository'
 import { getWhatsappPersistenceClient } from '@/lib/whatsapp/persistence-client'
@@ -39,6 +42,7 @@ export async function GET(request: NextRequest) {
             persistenceStatus: 'Persistence unavailable',
             failClosed: true,
             recipientTotals,
+            recentEvents: [],
             counts: [
               { recipientType: 'worker', consentType: 'service_allowed', allowedCount: 0, blockedCount: 0, unknownCount: recipientTotals.worker },
               { recipientType: 'worker', consentType: 'matching_alerts_allowed', allowedCount: 0, blockedCount: 0, unknownCount: recipientTotals.worker },
@@ -54,7 +58,10 @@ export async function GET(request: NextRequest) {
       const repository = createWhatsappConsentRepository({
         client: persistence.client,
       })
-      const summary = await repository.getConsentSummary()
+      const [summary, recentEvents] = await Promise.all([
+        repository.getConsentSummary(),
+        repository.listRecentConsentEvents({ limit: 8 }),
+      ])
 
       return {
         success: true,
@@ -67,6 +74,15 @@ export async function GET(request: NextRequest) {
               0,
               recipientTotals[row.recipientType] - row.allowedCount - row.blockedCount,
             ),
+          })),
+          recentEvents: recentEvents.map((event) => ({
+            maskedMobile: maskWhatsappMobile(event.normalizedMobile),
+            recipientType: event.recipientType,
+            consentType: event.consentType,
+            eventType: event.eventType,
+            source: event.source,
+            occurredAt: event.occurredAt,
+            hasMessageReference: Boolean(event.eventMessageId),
           })),
         },
       }

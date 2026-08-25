@@ -48,6 +48,52 @@ export const WHATSAPP_SETTINGS_KEYS = [
   'quiet_hours_start',
   'quiet_hours_end',
   'timezone',
+  'automatic_messaging_mode',
+  'automatic_addon_pricing',
+] as const
+
+export const WHATSAPP_AUTOMATIC_MESSAGE_MODES = [
+  'off',
+  'free',
+  'paid',
+] as const
+
+export const WHATSAPP_AUTOMATION_ENTITLEMENT_STATUSES = [
+  'pending',
+  'active',
+  'inactive',
+  'expired',
+  'revoked',
+] as const
+
+export const WHATSAPP_AUTOMATION_ENTITLEMENT_MODES = [
+  'paid',
+] as const
+
+export const WHATSAPP_AUTOMATIC_EXECUTION_EVENT_TYPES = [
+  'job_post_matching',
+  'worker_recharge_required',
+  'worker_kyc_rejected',
+] as const
+
+export const WHATSAPP_AUTOMATIC_EXECUTION_STATUSES = [
+  'queued',
+  'blocked',
+  'completed',
+  'failed',
+] as const
+
+export const WHATSAPP_AUTOMATIC_DELIVERY_ELIGIBILITY_OUTCOMES = [
+  'eligible',
+  'ineligible',
+  'revalidated_blocked',
+] as const
+
+export const WHATSAPP_AUTOMATIC_DELIVERY_STATUSES = [
+  'blocked',
+  'skipped',
+  'sent',
+  'failed',
 ] as const
 
 export const REVIEW_ONLY_WHATSAPP_DEFAULTS = {
@@ -69,6 +115,20 @@ export type WhatsappConsentEventType =
   (typeof WHATSAPP_CONSENT_EVENT_TYPES)[number]
 export type WhatsappInboundEventKind = (typeof WHATSAPP_INBOUND_EVENT_KINDS)[number]
 export type WhatsappSettingsKey = (typeof WHATSAPP_SETTINGS_KEYS)[number]
+export type WhatsappAutomaticMessageMode =
+  (typeof WHATSAPP_AUTOMATIC_MESSAGE_MODES)[number]
+export type WhatsappAutomationEntitlementStatus =
+  (typeof WHATSAPP_AUTOMATION_ENTITLEMENT_STATUSES)[number]
+export type WhatsappAutomationEntitlementMode =
+  (typeof WHATSAPP_AUTOMATION_ENTITLEMENT_MODES)[number]
+export type WhatsappAutomaticExecutionEventType =
+  (typeof WHATSAPP_AUTOMATIC_EXECUTION_EVENT_TYPES)[number]
+export type WhatsappAutomaticExecutionStatus =
+  (typeof WHATSAPP_AUTOMATIC_EXECUTION_STATUSES)[number]
+export type WhatsappAutomaticDeliveryEligibilityOutcome =
+  (typeof WHATSAPP_AUTOMATIC_DELIVERY_ELIGIBILITY_OUTCOMES)[number]
+export type WhatsappAutomaticDeliveryStatus =
+  (typeof WHATSAPP_AUTOMATIC_DELIVERY_STATUSES)[number]
 
 export type JsonObject = Record<string, unknown>
 
@@ -182,6 +242,80 @@ export type WhatsappSettingRow = {
   description: string
   createdAt: string
   updatedAt: string
+}
+
+export type WhatsappAutomationPricingSettings = {
+  currency: string
+  amountMinor: number
+  active: boolean
+}
+
+export type WhatsappCompanyAutomationEntitlementRow = {
+  id: string
+  companyId: string
+  entitlementStatus: WhatsappAutomationEntitlementStatus
+  entitlementMode: WhatsappAutomationEntitlementMode
+  validFrom: string
+  validUntil: string
+  paymentOrderReference: string | null
+  paymentReference: string | null
+  source: string
+  metadata: JsonObject
+  createdAt: string
+  updatedAt: string
+}
+
+export type WhatsappAutomaticExecutionRow = {
+  id: string
+  automationEventType: WhatsappAutomaticExecutionEventType
+  companyId: string
+  jobPostId: string | null
+  modeSnapshot: WhatsappAutomaticMessageMode
+  executionStatus: WhatsappAutomaticExecutionStatus
+  eligibleCount: number
+  excludedCount: number
+  selectedCount: number
+  sentCount: number
+  failedCount: number
+  idempotencyKey: string
+  metadata: JsonObject
+  createdAt: string
+  startedAt: string | null
+  completedAt: string | null
+  updatedAt: string
+}
+
+export type WhatsappAutomaticDeliveryAttemptRow = {
+  id: string
+  executionId: string
+  recipientType: 'worker' | 'company'
+  recipientId: string
+  templateName: string
+  templateLanguage: string
+  eligibilityOutcome: WhatsappAutomaticDeliveryEligibilityOutcome
+  attemptStatus: WhatsappAutomaticDeliveryStatus
+  reasonCode: string | null
+  providerMessageId: string | null
+  metadata: JsonObject
+  createdAt: string
+  updatedAt: string
+}
+
+export type WhatsappAutomaticModeResolution = {
+  mode: WhatsappAutomaticMessageMode
+  source: 'stored' | 'missing' | 'invalid' | 'query_error'
+}
+
+export type WhatsappAutomationPricingResolution = {
+  pricing: WhatsappAutomationPricingSettings
+  source: 'stored' | 'missing' | 'invalid' | 'query_error'
+}
+
+export type WhatsappCompanyEntitlementCheckResult = {
+  eligible: boolean
+  evaluatedMode: WhatsappAutomaticMessageMode
+  reason: 'active' | 'not_required' | 'missing' | 'inactive' | 'expired' | 'query_error'
+  entitlement: WhatsappCompanyAutomationEntitlementRow | null
 }
 
 export type WhatsappConsentCountRow = {

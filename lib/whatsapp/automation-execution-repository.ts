@@ -6,16 +6,16 @@ import type {
   WhatsappAutomaticDeliveryEligibilityOutcome,
   WhatsappAutomaticDeliveryStatus,
   WhatsappAutomaticExecutionEventType,
+  WhatsappAutomaticExecutionRecipientType,
   WhatsappAutomaticExecutionRow,
   WhatsappAutomaticExecutionStatus,
-  WhatsappAutomaticMessageMode,
 } from './persistence-types'
 import { assertWhatsappServerOnly } from './server-runtime'
 
 assertWhatsappServerOnly('lib/whatsapp/automation-execution-repository')
 
 const EXECUTION_SELECT =
-  'id, automation_event_type, company_id, job_post_id, mode_snapshot, execution_status, eligible_count, excluded_count, selected_count, sent_count, failed_count, idempotency_key, metadata, created_at, started_at, completed_at, updated_at'
+  'id, automation_event_type, recipient_type, recipient_id, cycle_starts_at, cycle_ends_at, execution_status, eligible_count, excluded_count, selected_count, sent_count, failed_count, idempotency_key, metadata, created_at, started_at, completed_at, updated_at'
 const DELIVERY_ATTEMPT_SELECT =
   'id, execution_id, recipient_type, recipient_id, template_name, template_language, eligibility_outcome, attempt_status, reason_code, provider_message_id, metadata, created_at, updated_at'
 
@@ -63,9 +63,10 @@ const mapExecutionRow = (
 ): WhatsappAutomaticExecutionRow => ({
   id: String(row.id || ''),
   automationEventType: String(row.automation_event_type || '') as WhatsappAutomaticExecutionEventType,
-  companyId: String(row.company_id || ''),
-  jobPostId: row.job_post_id ? String(row.job_post_id) : null,
-  modeSnapshot: String(row.mode_snapshot || '') as WhatsappAutomaticMessageMode,
+  recipientType: String(row.recipient_type || '') as WhatsappAutomaticExecutionRecipientType,
+  recipientId: String(row.recipient_id || ''),
+  cycleStartsAt: String(row.cycle_starts_at || ''),
+  cycleEndsAt: String(row.cycle_ends_at || ''),
   executionStatus: String(row.execution_status || '') as WhatsappAutomaticExecutionStatus,
   eligibleCount: Number(row.eligible_count || 0),
   excludedCount: Number(row.excluded_count || 0),
@@ -118,9 +119,10 @@ const createSupabaseExecutionStore = (
   async insertExecution(row) {
     const payload = {
       automation_event_type: row.automationEventType,
-      company_id: row.companyId,
-      job_post_id: row.jobPostId,
-      mode_snapshot: row.modeSnapshot,
+      recipient_type: row.recipientType,
+      recipient_id: row.recipientId,
+      cycle_starts_at: row.cycleStartsAt,
+      cycle_ends_at: row.cycleEndsAt,
       execution_status: row.executionStatus,
       eligible_count: row.eligibleCount,
       excluded_count: row.excludedCount,
@@ -206,9 +208,10 @@ export const createWhatsappAutomationExecutionRepository = ({
   return {
     async recordExecution(input: {
       automationEventType: WhatsappAutomaticExecutionEventType
-      companyId: string
-      jobPostId?: string | null
-      modeSnapshot: WhatsappAutomaticMessageMode
+      recipientType: WhatsappAutomaticExecutionRecipientType
+      recipientId: string
+      cycleStartsAt: string
+      cycleEndsAt: string
       executionStatus?: WhatsappAutomaticExecutionStatus
       eligibleCount?: number
       excludedCount?: number
@@ -237,9 +240,13 @@ export const createWhatsappAutomationExecutionRepository = ({
         duplicate: false,
         execution: await resolvedStore.insertExecution({
           automationEventType: input.automationEventType,
-          companyId: normalizeRequiredText(input.companyId, 'companyId'),
-          jobPostId: normalizeNullableText(input.jobPostId),
-          modeSnapshot: input.modeSnapshot,
+          recipientType: normalizeRequiredText(
+            input.recipientType,
+            'recipientType',
+          ) as WhatsappAutomaticExecutionRecipientType,
+          recipientId: normalizeRequiredText(input.recipientId, 'recipientId'),
+          cycleStartsAt: normalizeRequiredText(input.cycleStartsAt, 'cycleStartsAt'),
+          cycleEndsAt: normalizeRequiredText(input.cycleEndsAt, 'cycleEndsAt'),
           executionStatus: input.executionStatus || 'queued',
           eligibleCount: normalizeNonNegativeInteger(input.eligibleCount),
           excludedCount: normalizeNonNegativeInteger(input.excludedCount),

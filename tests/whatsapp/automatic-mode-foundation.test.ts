@@ -1,19 +1,12 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
 import { createWhatsappAutomationExecutionRepository } from '../../lib/whatsapp/automation-execution-repository'
-import { createWhatsappAutomaticModeRepository } from '../../lib/whatsapp/automatic-mode-repository'
-import {
-  DEFAULT_WHATSAPP_AUTOMATIC_MESSAGE_MODE,
-  DEFAULT_WHATSAPP_AUTOMATION_PRICING_SETTINGS,
-} from '../../lib/whatsapp/automatic-mode'
 import type {
   WhatsappAutomaticDeliveryAttemptRow,
   WhatsappAutomaticExecutionRow,
-  WhatsappCompanyAutomationEntitlementRow,
-  WhatsappSettingRow,
 } from '../../lib/whatsapp/persistence-types'
 
 const workspaceRoot = process.cwd()
@@ -30,38 +23,14 @@ const bulkUiPath = path.join(
   'admin',
   'labour-whatsapp-templates.tsx',
 )
-
-const makeSettingRow = (settingsValue: unknown): WhatsappSettingRow => ({
-  id: 'setting-1',
-  settingsKey: 'automatic_messaging_mode',
-  settingsValue,
-  description: '',
-  createdAt: '2026-08-25T00:00:00.000Z',
-  updatedAt: '2026-08-25T00:00:00.000Z',
-})
-
-const makePricingSettingRow = (settingsValue: unknown): WhatsappSettingRow => ({
-  ...makeSettingRow(settingsValue),
-  settingsKey: 'automatic_addon_pricing',
-})
-
-const makeEntitlementRow = (
-  overrides: Partial<WhatsappCompanyAutomationEntitlementRow> = {},
-): WhatsappCompanyAutomationEntitlementRow => ({
-  id: 'entitlement-1',
-  companyId: 'company-1',
-  entitlementStatus: 'active',
-  entitlementMode: 'paid',
-  validFrom: '2026-08-01T00:00:00.000Z',
-  validUntil: '2026-09-01T00:00:00.000Z',
-  paymentOrderReference: 'order-1',
-  paymentReference: 'payment-1',
-  source: 'checkout_activation',
-  metadata: {},
-  createdAt: '2026-08-25T00:00:00.000Z',
-  updatedAt: '2026-08-25T00:00:00.000Z',
-  ...overrides,
-})
+const workerAppSourcePath = path.join(workspaceRoot, 'lib', 'labour-worker-app.ts')
+const automaticModePath = path.join(workspaceRoot, 'lib', 'whatsapp', 'automatic-mode.ts')
+const automaticModeRepositoryPath = path.join(
+  workspaceRoot,
+  'lib',
+  'whatsapp',
+  'automatic-mode-repository.ts',
+)
 
 const makeExecutionStore = () => {
   const executionRows: WhatsappAutomaticExecutionRow[] = []
@@ -116,199 +85,9 @@ const makeExecutionStore = () => {
   }
 }
 
-test('automatic mode defaults to OFF for missing invalid and unreadable settings', async () => {
-  const missingRepository = createWhatsappAutomaticModeRepository({
-    store: {
-      async getSetting() {
-        return null
-      },
-      async listEntitlements() {
-        return []
-      },
-    },
-  })
-
-  const invalidRepository = createWhatsappAutomaticModeRepository({
-    store: {
-      async getSetting() {
-        return makeSettingRow({ mode: 'launch' })
-      },
-      async listEntitlements() {
-        return []
-      },
-    },
-  })
-
-  const errorRepository = createWhatsappAutomaticModeRepository({
-    store: {
-      async getSetting() {
-        throw new Error('boom')
-      },
-      async listEntitlements() {
-        return []
-      },
-    },
-  })
-
-  assert.deepEqual(await missingRepository.resolveAutomaticMode(), {
-    mode: DEFAULT_WHATSAPP_AUTOMATIC_MESSAGE_MODE,
-    source: 'missing',
-  })
-  assert.deepEqual(await invalidRepository.resolveAutomaticMode(), {
-    mode: DEFAULT_WHATSAPP_AUTOMATIC_MESSAGE_MODE,
-    source: 'invalid',
-  })
-  assert.deepEqual(await errorRepository.resolveAutomaticMode(), {
-    mode: DEFAULT_WHATSAPP_AUTOMATIC_MESSAGE_MODE,
-    source: 'query_error',
-  })
-})
-
-test('automatic pricing foundation defaults inactive and zero-priced when missing or invalid', async () => {
-  const repository = createWhatsappAutomaticModeRepository({
-    store: {
-      async getSetting(key: string) {
-        if (key === 'automatic_addon_pricing') {
-          return makePricingSettingRow({ active: 'yes', currency: 'rupees', amountMinor: -1 })
-        }
-
-        return makeSettingRow({ mode: 'off' })
-      },
-      async listEntitlements() {
-        return []
-      },
-    },
-  })
-
-  assert.deepEqual(await repository.getAutomationPricingSettings(), {
-    pricing: DEFAULT_WHATSAPP_AUTOMATION_PRICING_SETTINGS,
-    source: 'invalid',
-  })
-})
-
-test('FREE mode does not require a paid entitlement while PAID mode requires a valid active entitlement', async () => {
-  const repository = createWhatsappAutomaticModeRepository({
-    store: {
-      async getSetting() {
-        return makeSettingRow({ mode: 'free' })
-      },
-      async listEntitlements() {
-        return [makeEntitlementRow()]
-      },
-    },
-  })
-
-  const freeResult = await repository.checkCompanyEntitlement({
-    companyId: 'company-1',
-    mode: 'free',
-    now: new Date('2026-08-25T12:00:00.000Z'),
-  })
-  const paidResult = await repository.checkCompanyEntitlement({
-    companyId: 'company-1',
-    mode: 'paid',
-    now: new Date('2026-08-25T12:00:00.000Z'),
-  })
-
-  assert.deepEqual(freeResult, {
-    eligible: true,
-    evaluatedMode: 'free',
-    reason: 'not_required',
-    entitlement: null,
-  })
-  assert.equal(paidResult.eligible, true)
-  assert.equal(paidResult.reason, 'active')
-  assert.equal(paidResult.entitlement?.companyId, 'company-1')
-})
-
-test('expired inactive and missing PAID entitlements fail closed', async () => {
-  const expiredRepository = createWhatsappAutomaticModeRepository({
-    store: {
-      async getSetting() {
-        return makeSettingRow({ mode: 'paid' })
-      },
-      async listEntitlements() {
-        return [
-          makeEntitlementRow({
-            validUntil: '2026-08-20T00:00:00.000Z',
-          }),
-        ]
-      },
-    },
-  })
-  const inactiveRepository = createWhatsappAutomaticModeRepository({
-    store: {
-      async getSetting() {
-        return makeSettingRow({ mode: 'paid' })
-      },
-      async listEntitlements() {
-        return [
-          makeEntitlementRow({
-            entitlementStatus: 'inactive',
-            paymentOrderReference: null,
-            paymentReference: null,
-          }),
-        ]
-      },
-    },
-  })
-  const missingRepository = createWhatsappAutomaticModeRepository({
-    store: {
-      async getSetting() {
-        return makeSettingRow({ mode: 'paid' })
-      },
-      async listEntitlements() {
-        return []
-      },
-    },
-  })
-
-  assert.deepEqual(
-    await expiredRepository.checkCompanyEntitlement({
-      companyId: 'company-1',
-      mode: 'paid',
-      now: new Date('2026-08-25T12:00:00.000Z'),
-    }),
-    {
-      eligible: false,
-      evaluatedMode: 'paid',
-      reason: 'expired',
-      entitlement: makeEntitlementRow({
-        validUntil: '2026-08-20T00:00:00.000Z',
-      }),
-    },
-  )
-
-  assert.deepEqual(
-    await inactiveRepository.checkCompanyEntitlement({
-      companyId: 'company-1',
-      mode: 'paid',
-      now: new Date('2026-08-25T12:00:00.000Z'),
-    }),
-    {
-      eligible: false,
-      evaluatedMode: 'paid',
-      reason: 'inactive',
-      entitlement: makeEntitlementRow({
-        entitlementStatus: 'inactive',
-        paymentOrderReference: null,
-        paymentReference: null,
-      }),
-    },
-  )
-
-  assert.deepEqual(
-    await missingRepository.checkCompanyEntitlement({
-      companyId: 'company-1',
-      mode: 'paid',
-      now: new Date('2026-08-25T12:00:00.000Z'),
-    }),
-    {
-      eligible: false,
-      evaluatedMode: 'paid',
-      reason: 'missing',
-      entitlement: null,
-    },
-  )
+test('commercial automatic-mode source files are removed from the repository', () => {
+  assert.equal(existsSync(automaticModePath), false)
+  assert.equal(existsSync(automaticModeRepositoryPath), false)
 })
 
 test('execution idempotency and delivery-attempt uniqueness prevent duplicate automatic audit rows', async () => {
@@ -316,25 +95,27 @@ test('execution idempotency and delivery-attempt uniqueness prevent duplicate au
   const repository = createWhatsappAutomationExecutionRepository({ store })
 
   const firstExecution = await repository.recordExecution({
-    automationEventType: 'job_post_matching',
-    companyId: 'company-1',
-    jobPostId: 'job-1',
-    modeSnapshot: 'paid',
-    idempotencyKey: 'job-1:job_post_matching',
+    automationEventType: 'company_matching_digest',
+    recipientType: 'company',
+    recipientId: 'company-1',
+    cycleStartsAt: '2026-08-25T00:00:00.000Z',
+    cycleEndsAt: '2026-08-28T00:00:00.000Z',
+    idempotencyKey: 'company-1:company_matching_digest:2026-08-25',
   })
   const duplicateExecution = await repository.recordExecution({
-    automationEventType: 'job_post_matching',
-    companyId: 'company-1',
-    jobPostId: 'job-1',
-    modeSnapshot: 'paid',
-    idempotencyKey: 'job-1:job_post_matching',
+    automationEventType: 'company_matching_digest',
+    recipientType: 'company',
+    recipientId: 'company-1',
+    cycleStartsAt: '2026-08-25T00:00:00.000Z',
+    cycleEndsAt: '2026-08-28T00:00:00.000Z',
+    idempotencyKey: 'company-1:company_matching_digest:2026-08-25',
   })
 
   const firstAttempt = await repository.recordDeliveryAttempt({
     executionId: firstExecution.execution.id,
-    recipientType: 'worker',
-    recipientId: 'worker-1',
-    templateName: 'matched_job_alert',
+    recipientType: 'company',
+    recipientId: 'company-1',
+    templateName: 'company_matching_digest',
     templateLanguage: 'en',
     eligibilityOutcome: 'eligible',
     attemptStatus: 'blocked',
@@ -342,9 +123,9 @@ test('execution idempotency and delivery-attempt uniqueness prevent duplicate au
   })
   const duplicateAttempt = await repository.recordDeliveryAttempt({
     executionId: firstExecution.execution.id,
-    recipientType: 'worker',
-    recipientId: 'worker-1',
-    templateName: 'matched_job_alert',
+    recipientType: 'company',
+    recipientId: 'company-1',
+    templateName: 'company_matching_digest',
     templateLanguage: 'en',
     eligibilityOutcome: 'eligible',
     attemptStatus: 'blocked',
@@ -357,6 +138,8 @@ test('execution idempotency and delivery-attempt uniqueness prevent duplicate au
   assert.equal(duplicateAttempt.duplicate, true)
   assert.equal(executionRows.length, 1)
   assert.equal(deliveryRows.length, 1)
+  assert.equal(executionRows[0]?.recipientType, 'company')
+  assert.equal(executionRows[0]?.cycleEndsAt, '2026-08-28T00:00:00.000Z')
 })
 
 test('foundation source leaves /messages isolated and preserves pause_all_sending plus Preview blocking', () => {
@@ -366,12 +149,14 @@ test('foundation source leaves /messages isolated and preserves pause_all_sendin
   assert.ok(source.includes('whatsapp-disabled-outside-production'))
   assert.ok(source.includes('createSettingsRepository'))
   assert.ok(source.includes('isAllSendingPaused'))
-  assert.ok(source.includes("String(dependencies.env.VERCEL_ENV || '').trim().toLowerCase() !== 'production'"))
+  assert.ok(
+    source.includes("String(dependencies.env.VERCEL_ENV || '').trim().toLowerCase() !== 'production'"),
+  )
   assert.ok(source.includes('https://graph.facebook.com/'))
   assert.ok(source.includes('/messages'))
 })
 
-test('manual bulk workflow source remains unchanged by automatic-mode foundation', () => {
+test('manual bulk workflow source remains unchanged by corrected automatic scope', () => {
   const source = readFileSync(bulkUiPath, 'utf8')
 
   for (const label of [
@@ -392,25 +177,53 @@ test('manual bulk workflow source remains unchanged by automatic-mode foundation
   }
 
   assert.equal(source.includes('automatic_messaging_mode'), false)
+  assert.equal(source.includes('automatic_addon_pricing'), false)
+  assert.equal(source.includes('company_automation_entitlements'), false)
 })
 
-test('migration source contains database-level uniqueness and security for the new automatic-mode foundation tables', () => {
+test('worker application source no longer contains automatic WhatsApp application confirmations', () => {
+  const source = readFileSync(workerAppSourcePath, 'utf8')
+
+  assert.ok(source.includes('Automatic application-confirmation WhatsApp messages are intentionally disabled.'))
+  assert.equal(source.includes('sendCompanyApplicationWhatsapp'), false)
+  assert.equal(source.includes('sendWorkerApplicationConfirmationWhatsapp'), false)
+  assert.equal(source.includes('WHATSAPP_COMPANY_APPLICATION_TEMPLATE_NAME'), false)
+  assert.equal(source.includes('WHATSAPP_WORKER_CONFIRMATION_TEMPLATE_NAME'), false)
+})
+
+test('migration source contains only corrected audit and dedup foundations for approved automatic categories', () => {
   const source = readFileSync(migrationPath, 'utf8')
 
   for (const fragment of [
-    'automatic_messaging_mode',
-    'automatic_addon_pricing',
-    'create table public.labour_whatsapp_company_automation_entitlements',
     'create table public.labour_whatsapp_automatic_executions',
     'create table public.labour_whatsapp_automatic_delivery_attempts',
+    'company_matching_digest',
+    'worker_matching_digest',
+    'worker_payment_or_plan_reminder',
+    'worker_kyc_rejected',
+    'recipient_type text not null',
+    'recipient_id text not null',
+    'cycle_starts_at timestamptz not null',
+    'cycle_ends_at timestamptz not null',
     'idempotency_key text not null unique',
+    'create unique index idx_labour_whatsapp_automatic_executions_recipient_cycle',
     'create unique index idx_labour_whatsapp_automatic_delivery_attempts_execution_recipient',
-    'revoke all on table public.labour_whatsapp_company_automation_entitlements',
     'revoke all on table public.labour_whatsapp_automatic_executions',
     'revoke all on table public.labour_whatsapp_automatic_delivery_attempts',
     'grant select, insert, update, delete, references',
     'enable row level security',
   ]) {
     assert.ok(source.includes(fragment), `Expected migration to include: ${fragment}`)
+  }
+
+  for (const fragment of [
+    'automatic_messaging_mode',
+    'automatic_addon_pricing',
+    'labour_whatsapp_company_automation_entitlements',
+    'mode_snapshot',
+    "'free'",
+    "'paid'",
+  ]) {
+    assert.equal(source.includes(fragment), false, `Expected migration to exclude: ${fragment}`)
   }
 })

@@ -1,8 +1,15 @@
--- Phase 16D.5B automatic mode schema and entitlement foundation only.
+-- Phase 16D.5B automatic WhatsApp scope correction foundation only.
 -- Migration classification: ONE-TIME MIGRATION.
--- This migration adds backend-only automatic-mode storage and audit ledgers.
--- It does not enable sending, pricing UI, checkout, billing charges, job-post
--- triggers, worker lifecycle triggers, webhooks, or Meta activation.
+-- This unapplied repository migration adds backend-only scheduling, execution-audit,
+-- and per-recipient deduplication ledgers for future automatic WhatsApp flows.
+-- It does not enable sending, pricing, billing, checkout, company charging,
+-- entitlements, webhooks, or Meta activation.
+--
+-- Approved future automatic categories only:
+-- - company_matching_digest
+-- - worker_matching_digest
+-- - worker_payment_or_plan_reminder
+-- - worker_kyc_rejected
 --
 -- Security model:
 -- - Existing manual bulk messaging behavior remains unchanged and out of scope.
@@ -12,104 +19,34 @@
 -- - service_role access is granted explicitly for controlled server-side use.
 -- - No default ACLs are modified.
 -- - No secrets, tokens, or raw provider payloads are stored.
--- - Future application code must resolve missing, invalid, or unreadable
---   automatic mode state to OFF.
+-- - Future application code must enforce matching-alert consent for digest messages.
+-- - Future application code must enforce service-message consent for recharge/plan
+--   and KYC-rejected notifications.
+-- - Future application code must enforce suppression, limits, quiet hours,
+--   immediate pre-send revalidation, universal sender gating, and
+--   pause_all_sending before every send attempt.
 -- - pause_all_sending remains the primary fail-safe and is not changed here.
-
-insert into public.labour_whatsapp_settings (
-  settings_key,
-  settings_value,
-  description
-) values (
-  'automatic_messaging_mode',
-  '{"mode":"off"}'::jsonb,
-  'Canonical automatic WhatsApp mode for system-triggered messages only. Missing, invalid, or unreadable values must resolve to OFF. Manual bulk messaging is unaffected.'
-)
-on conflict (settings_key) do nothing;
-
-insert into public.labour_whatsapp_settings (
-  settings_key,
-  settings_value,
-  description
-) values (
-  'automatic_addon_pricing',
-  '{"currency":"INR","amountMinor":0,"active":false}'::jsonb,
-  'Backend-editable WhatsApp Automation add-on price foundation only. Default is inactive and zero-priced until a later approved pricing phase.'
-)
-on conflict (settings_key) do nothing;
-
-create table public.labour_whatsapp_company_automation_entitlements (
-  id uuid primary key default gen_random_uuid(),
-  company_id text not null
-    constraint labour_whatsapp_company_automation_entitlements_company_id_nonempty_check
-      check (btrim(company_id) <> ''),
-  entitlement_status text not null
-    constraint labour_whatsapp_company_automation_entitlements_status_check
-      check (entitlement_status in ('pending', 'active', 'inactive', 'expired', 'revoked')),
-  entitlement_mode text not null
-    constraint labour_whatsapp_company_automation_entitlements_mode_check
-      check (entitlement_mode in ('paid')),
-  valid_from timestamptz not null,
-  valid_until timestamptz not null,
-  payment_order_reference text
-    constraint labour_whatsapp_company_automation_entitlements_payment_order_reference_nonempty_check
-      check (payment_order_reference is null or btrim(payment_order_reference) <> ''),
-  payment_reference text
-    constraint labour_whatsapp_company_automation_entitlements_payment_reference_nonempty_check
-      check (payment_reference is null or btrim(payment_reference) <> ''),
-  source text not null
-    constraint labour_whatsapp_company_automation_entitlements_source_nonempty_check
-      check (btrim(source) <> ''),
-  metadata jsonb not null default '{}'::jsonb
-    constraint labour_whatsapp_company_automation_entitlements_metadata_object_check
-      check (jsonb_typeof(metadata) = 'object'),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint labour_whatsapp_company_automation_entitlements_valid_window_check
-    check (valid_until >= valid_from)
-);
-
-create index idx_labour_whatsapp_company_automation_entitlements_company_status
-on public.labour_whatsapp_company_automation_entitlements (
-  company_id,
-  entitlement_status,
-  valid_until desc
-);
-
-create unique index idx_labour_whatsapp_company_automation_entitlements_payment_order_reference
-on public.labour_whatsapp_company_automation_entitlements (payment_order_reference)
-where payment_order_reference is not null;
-
-create unique index idx_labour_whatsapp_company_automation_entitlements_payment_reference
-on public.labour_whatsapp_company_automation_entitlements (payment_reference)
-where payment_reference is not null;
-
-alter table public.labour_whatsapp_company_automation_entitlements enable row level security;
-
-revoke all on table public.labour_whatsapp_company_automation_entitlements
-from anon, authenticated, public;
-
-grant select, insert, update, delete, references
-on table public.labour_whatsapp_company_automation_entitlements
-to service_role;
-
-comment on table public.labour_whatsapp_company_automation_entitlements is
-  'Per-company WhatsApp Automation entitlement foundation for future PAID automatic job-post messaging. No company is auto-entitled by this migration. Browser clients receive no direct access; controlled server-side service-role/Admin API access only.';
 
 create table public.labour_whatsapp_automatic_executions (
   id uuid primary key default gen_random_uuid(),
   automation_event_type text not null
     constraint labour_whatsapp_automatic_executions_event_type_check
-      check (automation_event_type in ('job_post_matching', 'worker_recharge_required', 'worker_kyc_rejected')),
-  company_id text not null
-    constraint labour_whatsapp_automatic_executions_company_id_nonempty_check
-      check (btrim(company_id) <> ''),
-  job_post_id text
-    constraint labour_whatsapp_automatic_executions_job_post_id_nonempty_check
-      check (job_post_id is null or btrim(job_post_id) <> ''),
-  mode_snapshot text not null
-    constraint labour_whatsapp_automatic_executions_mode_snapshot_check
-      check (mode_snapshot in ('off', 'free', 'paid')),
+      check (
+        automation_event_type in (
+          'company_matching_digest',
+          'worker_matching_digest',
+          'worker_payment_or_plan_reminder',
+          'worker_kyc_rejected'
+        )
+      ),
+  recipient_type text not null
+    constraint labour_whatsapp_automatic_executions_recipient_type_check
+      check (recipient_type in ('worker', 'company')),
+  recipient_id text not null
+    constraint labour_whatsapp_automatic_executions_recipient_id_nonempty_check
+      check (btrim(recipient_id) <> ''),
+  cycle_starts_at timestamptz not null,
+  cycle_ends_at timestamptz not null,
   execution_status text not null
     constraint labour_whatsapp_automatic_executions_status_check
       check (execution_status in ('queued', 'blocked', 'completed', 'failed')),
@@ -137,20 +74,25 @@ create table public.labour_whatsapp_automatic_executions (
   created_at timestamptz not null default now(),
   started_at timestamptz,
   completed_at timestamptz,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint labour_whatsapp_automatic_executions_cycle_window_check
+    check (cycle_ends_at >= cycle_starts_at)
 );
 
-create index idx_labour_whatsapp_automatic_executions_company_event_created
+create unique index idx_labour_whatsapp_automatic_executions_recipient_cycle
 on public.labour_whatsapp_automatic_executions (
-  company_id,
+  automation_event_type,
+  recipient_type,
+  recipient_id,
+  cycle_starts_at
+);
+
+create index idx_labour_whatsapp_automatic_executions_recipient_event_created
+on public.labour_whatsapp_automatic_executions (
+  recipient_type,
+  recipient_id,
   automation_event_type,
   created_at desc
-);
-
-create index idx_labour_whatsapp_automatic_executions_job_post_event
-on public.labour_whatsapp_automatic_executions (
-  job_post_id,
-  automation_event_type
 );
 
 alter table public.labour_whatsapp_automatic_executions enable row level security;
@@ -163,7 +105,7 @@ on table public.labour_whatsapp_automatic_executions
 to service_role;
 
 comment on table public.labour_whatsapp_automatic_executions is
-  'Automatic WhatsApp execution ledger for future system-triggered flows only. Idempotency is keyed by idempotency_key. This migration does not activate any job-post or worker lifecycle trigger.';
+  'Automatic WhatsApp execution ledger for approved future digest and worker lifecycle categories only. Each row represents one recipient-level 72-hour cycle window. This migration does not activate sending, pricing, billing, checkout, or webhooks.';
 
 create table public.labour_whatsapp_automatic_delivery_attempts (
   id uuid primary key default gen_random_uuid(),
@@ -229,11 +171,12 @@ on table public.labour_whatsapp_automatic_delivery_attempts
 to service_role;
 
 comment on table public.labour_whatsapp_automatic_delivery_attempts is
-  'Per-recipient automatic delivery-attempt ledger for future automatic WhatsApp flows only. No secrets, raw provider payloads, or message sending side effects are created by this migration.';
+  'Per-recipient automatic delivery-attempt ledger for approved future digest and worker lifecycle categories only. Stores template identity, recipient audit data, safe failure reasons, and deduplication records. No secrets, raw provider payloads, or sending side effects are created by this migration.';
 
 -- Rollback plan (do not execute automatically).
 -- WARNING:
--- - Rolling back after real usage begins drops automatic entitlement and audit data.
+-- - Rolling back after real usage begins drops automatic execution and delivery
+--   audit data.
 -- - Export data or take a verified backup before any real rollback.
 -- - Rollback must not touch existing Worker, Company, Job, consent, suppression,
 --   template, or pause_all_sending records.
@@ -241,5 +184,3 @@ comment on table public.labour_whatsapp_automatic_delivery_attempts is
 -- Safe reverse order for manual rollback review only:
 -- drop table public.labour_whatsapp_automatic_delivery_attempts;
 -- drop table public.labour_whatsapp_automatic_executions;
--- drop table public.labour_whatsapp_company_automation_entitlements;
--- delete from public.labour_whatsapp_settings where settings_key in ('automatic_addon_pricing', 'automatic_messaging_mode');

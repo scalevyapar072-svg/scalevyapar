@@ -39,12 +39,14 @@ test('only the shared WhatsApp sender source can reach the Meta Graph API /messa
   assert.deepEqual(matches, ['lib/labour-whatsapp.ts'])
 })
 
-test('automatic and retry notification wrappers stay on the shared sender path', async () => {
+test('worker application source contains no legacy WhatsApp application-confirmation wrappers or direct sender bypass', async () => {
   const workerAppPath = path.join(workspaceRoot, 'lib', 'labour-worker-app.ts')
   const source = await fs.readFile(workerAppPath, 'utf8')
 
-  assert.ok(source.includes("sendWhatsappTemplateMessage"))
-  assert.ok(source.includes("sendWhatsappTextMessage"))
+  assert.equal(source.includes('sendWorkerApplicationConfirmationWhatsapp'), false)
+  assert.equal(source.includes('sendCompanyApplicationWhatsapp'), false)
+  assert.equal(source.includes('WHATSAPP_WORKER_CONFIRMATION_TEMPLATE_NAME'), false)
+  assert.equal(source.includes('WHATSAPP_COMPANY_APPLICATION_TEMPLATE_NAME'), false)
   assert.equal(source.includes('https://graph.facebook.com/'), false)
   assert.equal(source.includes('/messages'), false)
 })

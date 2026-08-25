@@ -48,32 +48,18 @@ export const WHATSAPP_SETTINGS_KEYS = [
   'quiet_hours_start',
   'quiet_hours_end',
   'timezone',
-  'automatic_messaging_mode',
-  'automatic_addon_pricing',
-] as const
-
-export const WHATSAPP_AUTOMATIC_MESSAGE_MODES = [
-  'off',
-  'free',
-  'paid',
-] as const
-
-export const WHATSAPP_AUTOMATION_ENTITLEMENT_STATUSES = [
-  'pending',
-  'active',
-  'inactive',
-  'expired',
-  'revoked',
-] as const
-
-export const WHATSAPP_AUTOMATION_ENTITLEMENT_MODES = [
-  'paid',
 ] as const
 
 export const WHATSAPP_AUTOMATIC_EXECUTION_EVENT_TYPES = [
-  'job_post_matching',
-  'worker_recharge_required',
+  'company_matching_digest',
+  'worker_matching_digest',
+  'worker_payment_or_plan_reminder',
   'worker_kyc_rejected',
+] as const
+
+export const WHATSAPP_AUTOMATIC_EXECUTION_RECIPIENT_TYPES = [
+  'worker',
+  'company',
 ] as const
 
 export const WHATSAPP_AUTOMATIC_EXECUTION_STATUSES = [
@@ -115,14 +101,10 @@ export type WhatsappConsentEventType =
   (typeof WHATSAPP_CONSENT_EVENT_TYPES)[number]
 export type WhatsappInboundEventKind = (typeof WHATSAPP_INBOUND_EVENT_KINDS)[number]
 export type WhatsappSettingsKey = (typeof WHATSAPP_SETTINGS_KEYS)[number]
-export type WhatsappAutomaticMessageMode =
-  (typeof WHATSAPP_AUTOMATIC_MESSAGE_MODES)[number]
-export type WhatsappAutomationEntitlementStatus =
-  (typeof WHATSAPP_AUTOMATION_ENTITLEMENT_STATUSES)[number]
-export type WhatsappAutomationEntitlementMode =
-  (typeof WHATSAPP_AUTOMATION_ENTITLEMENT_MODES)[number]
 export type WhatsappAutomaticExecutionEventType =
   (typeof WHATSAPP_AUTOMATIC_EXECUTION_EVENT_TYPES)[number]
+export type WhatsappAutomaticExecutionRecipientType =
+  (typeof WHATSAPP_AUTOMATIC_EXECUTION_RECIPIENT_TYPES)[number]
 export type WhatsappAutomaticExecutionStatus =
   (typeof WHATSAPP_AUTOMATIC_EXECUTION_STATUSES)[number]
 export type WhatsappAutomaticDeliveryEligibilityOutcome =
@@ -244,33 +226,13 @@ export type WhatsappSettingRow = {
   updatedAt: string
 }
 
-export type WhatsappAutomationPricingSettings = {
-  currency: string
-  amountMinor: number
-  active: boolean
-}
-
-export type WhatsappCompanyAutomationEntitlementRow = {
-  id: string
-  companyId: string
-  entitlementStatus: WhatsappAutomationEntitlementStatus
-  entitlementMode: WhatsappAutomationEntitlementMode
-  validFrom: string
-  validUntil: string
-  paymentOrderReference: string | null
-  paymentReference: string | null
-  source: string
-  metadata: JsonObject
-  createdAt: string
-  updatedAt: string
-}
-
 export type WhatsappAutomaticExecutionRow = {
   id: string
   automationEventType: WhatsappAutomaticExecutionEventType
-  companyId: string
-  jobPostId: string | null
-  modeSnapshot: WhatsappAutomaticMessageMode
+  recipientType: WhatsappAutomaticExecutionRecipientType
+  recipientId: string
+  cycleStartsAt: string
+  cycleEndsAt: string
   executionStatus: WhatsappAutomaticExecutionStatus
   eligibleCount: number
   excludedCount: number
@@ -299,23 +261,6 @@ export type WhatsappAutomaticDeliveryAttemptRow = {
   metadata: JsonObject
   createdAt: string
   updatedAt: string
-}
-
-export type WhatsappAutomaticModeResolution = {
-  mode: WhatsappAutomaticMessageMode
-  source: 'stored' | 'missing' | 'invalid' | 'query_error'
-}
-
-export type WhatsappAutomationPricingResolution = {
-  pricing: WhatsappAutomationPricingSettings
-  source: 'stored' | 'missing' | 'invalid' | 'query_error'
-}
-
-export type WhatsappCompanyEntitlementCheckResult = {
-  eligible: boolean
-  evaluatedMode: WhatsappAutomaticMessageMode
-  reason: 'active' | 'not_required' | 'missing' | 'inactive' | 'expired' | 'query_error'
-  entitlement: WhatsappCompanyAutomationEntitlementRow | null
 }
 
 export type WhatsappConsentCountRow = {

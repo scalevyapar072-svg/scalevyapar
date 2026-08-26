@@ -77,6 +77,7 @@ test('automation dry-run preview source remains read-only and never reaches /mes
   assert.ok(source.includes("resolveWorkerAppLink: () => null"))
   assert.ok(source.includes('noDatabaseWrites: true'))
   assert.ok(source.includes('noMessagesCalls: true'))
+  assert.equal(source.includes('return parseJsonSnapshot()'), false)
 })
 
 test('automation dry-run route stays admin-only and the card fetches the read-only endpoint', () => {
@@ -194,6 +195,8 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
 
   const previewSummary = buildWhatsappAutomationPreviewSummary({
     snapshot,
+    snapshotSource: 'supabase',
+    snapshotReasonCategory: 'live_read_ok',
     now: new Date('2026-08-25T06:00:00.000Z'),
     vercelEnv: 'preview',
     safetySummary: {
@@ -237,19 +240,36 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
     },
   })
 
+  assert.equal(previewSummary.snapshotSource, 'supabase')
+  assert.equal(previewSummary.snapshotReasonCategory, 'live_read_ok')
   assert.equal(previewSummary.companyPlans.length, 1)
   assert.equal(previewSummary.workerPlans.length, 1)
+  assert.equal(previewSummary.companyFunnel.marketplaceCandidatePlans, 1)
+  assert.equal(previewSummary.companyFunnel.consentEligiblePlans, 1)
+  assert.equal(previewSummary.companyFunnel.templateEligiblePlans, 1)
+  assert.equal(previewSummary.companyFunnel.dispatchReadyPlans, 0)
+  assert.equal(previewSummary.workerFunnel.marketplaceCandidatePlans, 1)
+  assert.equal(previewSummary.workerFunnel.consentEligiblePlans, 1)
+  assert.equal(previewSummary.workerFunnel.templateEligiblePlans, 1)
+  assert.equal(previewSummary.workerFunnel.deepLinkEligiblePlans, 0)
   assert.equal(previewSummary.companyPlans[0]?.maskedMobile, '+91******0000')
   assert.equal(
     previewSummary.companyPlans[0]?.exclusionReason,
     'whatsapp-disabled-outside-production',
   )
+  assert.equal(previewSummary.companyPlans[0]?.dispatchDecision, 'blocked')
   assert.equal(previewSummary.workerPlans[0]?.exclusionReason, 'missing_cta_url')
+  assert.equal(previewSummary.workerPlans[0]?.dispatchDecision, 'blocked')
   assert.equal(previewSummary.companyPlans[0]?.templateName, 'company_matching_digest_hi')
   assert.equal(previewSummary.workerPlans[0]?.templateLanguage, 'en')
+  assert.equal(previewSummary.companyPlans[0]?.consentEligible, true)
+  assert.equal(previewSummary.companyPlans[0]?.templateEligible, true)
+  assert.equal(previewSummary.workerPlans[0]?.deepLinkEligible, false)
 
   const quietHoursSummary = buildWhatsappAutomationPreviewSummary({
     snapshot,
+    snapshotSource: 'supabase',
+    snapshotReasonCategory: 'live_read_ok',
     now: new Date('2026-08-25T17:30:00.000Z'),
     vercelEnv: 'production',
     safetySummary: {
@@ -270,14 +290,35 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
     companyConsentStates: {
       'company-1': { matching_alerts_allowed: true },
     },
+    templateSelections: {
+      company_matching_digest: {
+        automationEventType: 'company_matching_digest',
+        templateName: 'company_matching_digest_hi',
+        templateLanguage: 'hi',
+        templateConfigured: true,
+        templateApproved: true,
+        templateEnabled: true,
+      },
+      worker_matching_digest: {
+        automationEventType: 'worker_matching_digest',
+        templateName: 'worker_matching_digest_en',
+        templateLanguage: 'en',
+        templateConfigured: true,
+        templateApproved: true,
+        templateEnabled: true,
+      },
+    },
   })
 
   assert.equal(quietHoursSummary.companyPlans[0]?.eligibilityResult, 'queued')
+  assert.equal(quietHoursSummary.companyPlans[0]?.dispatchDecision, 'queued')
   assert.equal(quietHoursSummary.companyPlans[0]?.quietHoursDecision, 'queue_until_allowed')
   assert.equal(quietHoursSummary.companyPlans[0]?.exclusionReason, 'inside_quiet_hours')
 
   const pausedSummary = buildWhatsappAutomationPreviewSummary({
     snapshot,
+    snapshotSource: 'supabase',
+    snapshotReasonCategory: 'live_read_ok',
     now: new Date('2026-08-25T06:00:00.000Z'),
     vercelEnv: 'production',
     safetySummary: {
@@ -298,12 +339,32 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
     companyConsentStates: {
       'company-1': { matching_alerts_allowed: true },
     },
+    templateSelections: {
+      company_matching_digest: {
+        automationEventType: 'company_matching_digest',
+        templateName: 'company_matching_digest_hi',
+        templateLanguage: 'hi',
+        templateConfigured: true,
+        templateApproved: true,
+        templateEnabled: true,
+      },
+      worker_matching_digest: {
+        automationEventType: 'worker_matching_digest',
+        templateName: 'worker_matching_digest_en',
+        templateLanguage: 'en',
+        templateConfigured: true,
+        templateApproved: true,
+        templateEnabled: true,
+      },
+    },
   })
 
   assert.equal(pausedSummary.companyPlans[0]?.exclusionReason, 'whatsapp-paused')
 
   const suppressedSummary = buildWhatsappAutomationPreviewSummary({
     snapshot,
+    snapshotSource: 'supabase',
+    snapshotReasonCategory: 'live_read_ok',
     now: new Date('2026-08-25T06:00:00.000Z'),
     vercelEnv: 'production',
     safetySummary: {
@@ -325,12 +386,32 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
       'company-1': { matching_alerts_allowed: true },
     },
     suppressedMobiles: ['9876500000'],
+    templateSelections: {
+      company_matching_digest: {
+        automationEventType: 'company_matching_digest',
+        templateName: 'company_matching_digest_hi',
+        templateLanguage: 'hi',
+        templateConfigured: true,
+        templateApproved: true,
+        templateEnabled: true,
+      },
+      worker_matching_digest: {
+        automationEventType: 'worker_matching_digest',
+        templateName: 'worker_matching_digest_en',
+        templateLanguage: 'en',
+        templateConfigured: true,
+        templateApproved: true,
+        templateEnabled: true,
+      },
+    },
   })
 
   assert.equal(suppressedSummary.companyPlans[0]?.exclusionReason, 'suppressed')
 
   const missingConsentSummary = buildWhatsappAutomationPreviewSummary({
     snapshot,
+    snapshotSource: 'supabase',
+    snapshotReasonCategory: 'live_read_ok',
     now: new Date('2026-08-25T06:00:00.000Z'),
     vercelEnv: 'production',
     safetySummary: {
@@ -354,4 +435,176 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
     missingConsentSummary.companyPlans[0]?.exclusionReason,
     'missing_consent_matching_alerts_allowed',
   )
+  assert.equal(missingConsentSummary.companyPlans[0]?.consentEligible, false)
+  assert.equal(missingConsentSummary.companyFunnel.consentEligiblePlans, 0)
+})
+
+test('automation preview blocks missing templates after consent succeeds', () => {
+  const snapshot = makeSnapshot()
+  snapshot.companies.push({
+    id: 'company-1',
+    companyName: 'ScaleVyapar Textile',
+    contactPerson: 'Owner',
+    email: 'owner@example.com',
+    mobile: '9876500000',
+    contactMobile: '9876500000',
+    businessType: 'Factory',
+    industryCategory: 'Textile',
+    gstNumber: '',
+    companyAddress: '',
+    state: 'Gujarat',
+    city: 'Surat',
+    area: '',
+    pincode: '',
+    workersNeeded: 8,
+    hiringType: 'daily',
+    businessDescription: '',
+    gstCertificatePath: '',
+    companyProofPath: '',
+    ownerIdProofPath: '',
+    categoryIds: ['cat-stitching'],
+    status: 'active',
+    registrationFeePaid: true,
+    activePlan: 'company-plan',
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+  })
+  snapshot.jobPosts.push({
+    id: 'job-1',
+    companyId: 'company-1',
+    planId: 'company-plan',
+    categoryId: 'cat-stitching',
+    title: 'Stitching helper',
+    description: '',
+    city: 'Surat',
+    locationLabel: 'Surat',
+    latitude: null,
+    longitude: null,
+    workersNeeded: 3,
+    wageAmount: 550,
+    validityDays: 15,
+    status: 'live',
+    publishedAt: '2026-08-24T00:00:00.000Z',
+    expiresAt: '2026-09-10T00:00:00.000Z',
+    createdAt: '2026-08-24T00:00:00.000Z',
+    updatedAt: '2026-08-24T00:00:00.000Z',
+  })
+  snapshot.workers.push({
+    id: 'worker-1',
+    fullName: 'Worker One',
+    mobile: '9876543210',
+    city: 'Surat',
+    homeCity: 'Surat',
+    salaryType: 'daily',
+    companyId: '',
+    industryCategory: 'Textile',
+    businessType: '',
+    address: '',
+    preferredWorkLocations: [],
+    profilePhotoPath: '',
+    resumeDocumentPath: '',
+    skills: [],
+    experienceYears: 2,
+    expectedDailyWage: 500,
+    minimumExpectedWage: 450,
+    maximumExpectedWage: 550,
+    walletBalance: 0,
+    registrationFeePaid: true,
+    activePlan: 'worker-plan',
+    planValidFrom: '2026-08-01',
+    planValidUntil: '2099-01-01',
+    lastWalletDeductionDate: '',
+    workerPausedByWorker: false,
+    workerPausedAt: '',
+    workerReactivatedAt: '',
+    status: 'active',
+    kycStatus: 'approved',
+    kycRemarks: '',
+    availability: 'available_today',
+    isVisible: true,
+    categoryIds: ['cat-stitching'],
+    identityProofType: '',
+    identityProofNumber: '',
+    identityProofPath: '',
+    registrationCompletedAt: '2026-08-01T00:00:00.000Z',
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+  })
+
+  const summary = buildWhatsappAutomationPreviewSummary({
+    snapshot,
+    snapshotSource: 'supabase',
+    snapshotReasonCategory: 'live_read_ok',
+    now: new Date('2026-08-25T06:00:00.000Z'),
+    vercelEnv: 'production',
+    safetySummary: {
+      available: true,
+      persistenceStatus: 'Connected',
+      failClosed: false,
+      pauseAllSending: false,
+      pauseReason: 'explicit_false',
+      reviewOnlyDefaults: {
+        workerDailyLimit: 3,
+        companyJobDailyLimit: 5,
+        manualBulkCap: 100,
+        quietHoursStart: '21:00',
+        quietHoursEnd: '08:00',
+        timeZone: 'Asia/Kolkata',
+      },
+    },
+    companyConsentStates: {
+      'company-1': { matching_alerts_allowed: true },
+    },
+  })
+
+  assert.equal(summary.companyPlans[0]?.templateEligible, false)
+  assert.equal(summary.companyPlans[0]?.exclusionReason, 'template_not_configured')
+  assert.equal(summary.companyFunnel.templateEligiblePlans, 0)
+})
+
+test('automation preview fails closed when the live marketplace snapshot is unavailable', () => {
+  const snapshot = makeSnapshot()
+  snapshot.companies.push({
+    id: 'company-1',
+    companyName: 'ScaleVyapar Textile',
+    contactPerson: 'Owner',
+    email: 'owner@example.com',
+    mobile: '9876500000',
+    contactMobile: '9876500000',
+    businessType: 'Factory',
+    industryCategory: 'Textile',
+    gstNumber: '',
+    companyAddress: '',
+    state: 'Gujarat',
+    city: 'Surat',
+    area: '',
+    pincode: '',
+    workersNeeded: 8,
+    hiringType: 'daily',
+    businessDescription: '',
+    gstCertificatePath: '',
+    companyProofPath: '',
+    ownerIdProofPath: '',
+    categoryIds: ['cat-stitching'],
+    status: 'active',
+    registrationFeePaid: true,
+    activePlan: 'company-plan',
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+  })
+
+  const summary = buildWhatsappAutomationPreviewSummary({
+    snapshot,
+    snapshotSource: 'unavailable',
+    snapshotReasonCategory: 'marketplace_query_failed',
+    now: new Date('2026-08-25T06:00:00.000Z'),
+    vercelEnv: 'preview',
+  })
+
+  assert.equal(summary.snapshotSource, 'unavailable')
+  assert.equal(summary.snapshotReasonCategory, 'marketplace_query_failed')
+  assert.equal(summary.companyPlanCount, 0)
+  assert.equal(summary.workerPlanCount, 0)
+  assert.equal(summary.companyFunnel.marketplaceCandidatePlans, 0)
+  assert.equal(summary.workerFunnel.marketplaceCandidatePlans, 0)
 })

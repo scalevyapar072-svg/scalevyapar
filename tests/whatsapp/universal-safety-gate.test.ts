@@ -11,7 +11,12 @@ const collectSourceFiles = async (directory: string): Promise<string[]> => {
     entries.map(async (entry) => {
       const fullPath = path.join(directory, entry.name)
       if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name === '.next' || entry.name === 'tests') {
+        if (
+          entry.name === 'node_modules' ||
+          entry.name === '.next' ||
+          entry.name === 'tests' ||
+          entry.name === '.codex-temp'
+        ) {
           return []
         }
 

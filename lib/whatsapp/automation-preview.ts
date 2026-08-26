@@ -1,6 +1,3 @@
-import { promises as fs } from 'fs'
-import path from 'path'
-
 import {
   isJobPostLiveRecord,
   isWorkerSearchActiveRecord,
@@ -58,12 +55,31 @@ type AutomationPreviewPlan = {
   resolvedRecipientSource: 'contact_mobile' | 'mobile' | 'direct' | 'none'
   matchedCategoryIds: string[]
   matchedCities: string[]
+  consentEligible: boolean
+  templateEligible: boolean
+  deepLinkEligible: boolean
+  dispatchDecision: 'ready' | 'queued' | 'blocked'
+  dispatchable: boolean
+}
+
+type AutomationPreviewFunnel = {
+  marketplaceCandidatePlans: number
+  consentEligiblePlans: number
+  templateEligiblePlans: number
+  deepLinkEligiblePlans: number
+  dispatchReadyPlans: number
+  queuedPlans: number
+  blockedPlans: number
 }
 
 export type WhatsappAutomationPreviewSummary = {
   checkedAt: string
   vercelEnv: string
-  snapshotStorage: 'supabase' | 'json'
+  snapshotSource: 'supabase' | 'unavailable'
+  snapshotReasonCategory:
+    | 'live_read_ok'
+    | 'missing_configuration'
+    | 'marketplace_query_failed'
   previewSendingDisabled: boolean
   pauseAllSending: boolean
   pauseReason: WhatsappSafetyStatusSummary['pauseReason']
@@ -79,12 +95,16 @@ export type WhatsappAutomationPreviewSummary = {
   automaticEventCategories: string[]
   companyPlanCount: number
   workerPlanCount: number
+  companyFunnel: AutomationPreviewFunnel
+  workerFunnel: AutomationPreviewFunnel
   companyPlans: AutomationPreviewPlan[]
   workerPlans: AutomationPreviewPlan[]
 }
 
 type PreviewBuildInput = {
   snapshot: LabourMarketplaceSnapshot
+  snapshotSource?: 'supabase' | 'unavailable'
+  snapshotReasonCategory?: WhatsappAutomationPreviewSummary['snapshotReasonCategory']
   vercelEnv?: string
   now?: Date
   safetySummary?: WhatsappSafetyStatusSummary
@@ -99,6 +119,8 @@ type PreviewBuildInput = {
 
 type ReadModel = {
   snapshot: LabourMarketplaceSnapshot
+  snapshotSource: 'supabase' | 'unavailable'
+  snapshotReasonCategory: WhatsappAutomationPreviewSummary['snapshotReasonCategory']
   safetySummary: WhatsappSafetyStatusSummary
   companyConsentStates: Record<string, { matching_alerts_allowed?: boolean }>
   workerConsentStates: Record<string, { matching_alerts_allowed?: boolean }>
@@ -113,8 +135,6 @@ type ReadModel = {
   suppressionReadState: 'connected' | 'persistence_unavailable' | 'query_error'
   templateReadState: 'connected' | 'persistence_unavailable' | 'query_error'
 }
-
-const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'labour-marketplace.json')
 
 const AUTOMATION_EVENT_TYPES = [
   'company_matching_digest',
@@ -273,38 +293,18 @@ const mapJobPostRow = (row: Record<string, unknown>): LabourJobPostRecord => ({
   updatedAt: toString(row.updated_at),
 })
 
-const parseJsonSnapshot = async (): Promise<LabourMarketplaceSnapshot> => {
-  try {
-    const raw = await fs.readFile(DATA_FILE_PATH, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<LabourMarketplaceSnapshot>
-    const snapshot = createEmptySnapshot('json')
-
-    snapshot.workers = Array.isArray(parsed.workers)
-      ? parsed.workers
-          .filter((row) => row && typeof row === 'object')
-          .map((row) => mapWorkerRow(row as unknown as Record<string, unknown>))
-      : []
-    snapshot.companies = Array.isArray(parsed.companies)
-      ? parsed.companies
-          .filter((row) => row && typeof row === 'object')
-          .map((row) => mapCompanyRow(row as unknown as Record<string, unknown>))
-      : []
-    snapshot.jobPosts = Array.isArray(parsed.jobPosts)
-      ? parsed.jobPosts
-          .filter((row) => row && typeof row === 'object')
-          .map((row) => mapJobPostRow(row as unknown as Record<string, unknown>))
-      : []
-
-    return finalizeSnapshot(snapshot)
-  } catch {
-    return createEmptySnapshot('json')
-  }
-}
-
-const loadMarketplacePreviewSnapshot = async (): Promise<LabourMarketplaceSnapshot> => {
+const loadMarketplacePreviewSnapshot = async (): Promise<{
+  snapshot: LabourMarketplaceSnapshot
+  snapshotSource: 'supabase' | 'unavailable'
+  snapshotReasonCategory: WhatsappAutomationPreviewSummary['snapshotReasonCategory']
+}> => {
   const persistence = getWhatsappPersistenceClient()
   if (!persistence.available) {
-    return parseJsonSnapshot()
+    return {
+      snapshot: createEmptySnapshot('json'),
+      snapshotSource: 'unavailable',
+      snapshotReasonCategory: 'missing_configuration',
+    }
   }
 
   try {
@@ -344,9 +344,17 @@ const loadMarketplacePreviewSnapshot = async (): Promise<LabourMarketplaceSnapsh
       mapJobPostRow(row as Record<string, unknown>),
     )
 
-    return finalizeSnapshot(snapshot)
+    return {
+      snapshot: finalizeSnapshot(snapshot),
+      snapshotSource: 'supabase',
+      snapshotReasonCategory: 'live_read_ok',
+    }
   } catch {
-    return parseJsonSnapshot()
+    return {
+      snapshot: createEmptySnapshot('json'),
+      snapshotSource: 'unavailable',
+      snapshotReasonCategory: 'marketplace_query_failed',
+    }
   }
 }
 
@@ -540,7 +548,7 @@ const loadSuppressedMobiles = async () => {
 }
 
 const loadReadModel = async (): Promise<ReadModel> => {
-  const [snapshot, safetySummary, consentState, suppressionState, templateState] =
+  const [snapshotState, safetySummary, consentState, suppressionState, templateState] =
     await Promise.all([
       loadMarketplacePreviewSnapshot(),
       loadSafetySummary(),
@@ -550,7 +558,9 @@ const loadReadModel = async (): Promise<ReadModel> => {
     ])
 
   return {
-    snapshot,
+    snapshot: snapshotState.snapshot,
+    snapshotSource: snapshotState.snapshotSource,
+    snapshotReasonCategory: snapshotState.snapshotReasonCategory,
     safetySummary,
     companyConsentStates: consentState.companyConsentStates,
     workerConsentStates: consentState.workerConsentStates,
@@ -564,43 +574,201 @@ const loadReadModel = async (): Promise<ReadModel> => {
   }
 }
 
+const resolveTemplateBlockReason = (selection: AutomationTemplateSelection) => {
+  if (!selection.templateConfigured) {
+    return 'template_not_configured'
+  }
+
+  if (!selection.templateApproved) {
+    return 'template_not_approved'
+  }
+
+  if (!selection.templateEnabled) {
+    return 'template_not_enabled'
+  }
+
+  return null
+}
+
+const resolvePreviewDispatchState = ({
+  snapshotSource,
+  plan,
+  selection,
+  previewSendingDisabled,
+}: {
+  snapshotSource: 'supabase' | 'unavailable'
+  plan: WhatsappAutomationDigestPlan
+  selection: AutomationTemplateSelection
+  previewSendingDisabled: boolean
+}) => {
+  if (snapshotSource !== 'supabase') {
+    return {
+      dispatchDecision: 'blocked' as const,
+      exclusionReason: 'marketplace_snapshot_unavailable',
+      dispatchable: false,
+    }
+  }
+
+  if (!plan.eligibility.eligible) {
+    return {
+      dispatchDecision: 'blocked' as const,
+      exclusionReason: plan.eligibility.reasonCodes[0] || 'eligibility_blocked',
+      dispatchable: false,
+    }
+  }
+
+  const templateBlockReason = resolveTemplateBlockReason(selection)
+  if (templateBlockReason) {
+    return {
+      dispatchDecision: 'blocked' as const,
+      exclusionReason: templateBlockReason,
+      dispatchable: false,
+    }
+  }
+
+  if (!plan.ctaUrl) {
+    return {
+      dispatchDecision: 'blocked' as const,
+      exclusionReason: 'missing_cta_url',
+      dispatchable: false,
+    }
+  }
+
+  if (previewSendingDisabled) {
+    return {
+      dispatchDecision: 'blocked' as const,
+      exclusionReason: 'whatsapp-disabled-outside-production',
+      dispatchable: false,
+    }
+  }
+
+  if (plan.dispatchReason === 'whatsapp-paused') {
+    return {
+      dispatchDecision: 'blocked' as const,
+      exclusionReason: 'whatsapp-paused',
+      dispatchable: false,
+    }
+  }
+
+  if (plan.eligibility.deliveryWindow === 'queue_until_allowed') {
+    return {
+      dispatchDecision: 'queued' as const,
+      exclusionReason: 'inside_quiet_hours',
+      dispatchable: false,
+    }
+  }
+
+  if (plan.dryRun || plan.dispatchReason === 'dry_run_only') {
+    return {
+      dispatchDecision: 'blocked' as const,
+      exclusionReason: 'dry_run_only',
+      dispatchable: false,
+    }
+  }
+
+  return {
+    dispatchDecision: 'ready' as const,
+    exclusionReason: null,
+    dispatchable: true,
+  }
+}
+
 const toPreviewPlan = (
   plan: WhatsappAutomationDigestPlan,
   selection: AutomationTemplateSelection,
+  snapshotSource: 'supabase' | 'unavailable',
+  previewSendingDisabled: boolean,
 ): AutomationPreviewPlan => ({
-  automationEventType: plan.automationEventType,
-  recipientType: plan.recipientType,
-  maskedMobile: plan.maskedMobile,
-  templateName: selection.templateName,
-  templateLanguage: selection.templateLanguage,
-  templateConfigured: selection.templateConfigured,
-  templateApproved: selection.templateApproved,
-  templateEnabled: selection.templateEnabled,
-  ctaUrl: plan.ctaUrl,
-  matchingWorkerCount: plan.matchingWorkerCount,
-  matchingCompanyCount: plan.matchingCompanyCount,
-  matchingJobCount: plan.matchingJobCount,
-  liveJobCount: plan.liveJobCount,
-  eligibilityResult: !plan.eligibility.eligible
-    ? 'blocked'
-    : plan.eligibility.deliveryWindow === 'queue_until_allowed'
-      ? 'queued'
-      : 'eligible',
-  exclusionReason:
-    plan.eligibility.deliveryWindow === 'queue_until_allowed' && plan.eligibility.eligible
-      ? 'inside_quiet_hours'
-      : plan.dispatchReason,
-  quietHoursDecision: plan.eligibility.deliveryWindow,
-  idempotencyKey: plan.idempotencyKey,
-  requiredConsents: plan.eligibility.requiredConsents,
-  missingConsents: plan.eligibility.missingConsents,
-  resolvedRecipientSource: plan.eligibility.resolvedRecipientSource,
-  matchedCategoryIds: plan.matchedCategoryIds,
-  matchedCities: plan.matchedCities,
+  ...(() => {
+    const dispatchState = resolvePreviewDispatchState({
+      snapshotSource,
+      plan,
+      selection,
+      previewSendingDisabled,
+    })
+    const consentEligible = plan.eligibility.missingConsents.length === 0
+    const templateEligible = resolveTemplateBlockReason(selection) === null
+    const deepLinkEligible = Boolean(plan.ctaUrl)
+
+    return {
+      automationEventType: plan.automationEventType,
+      recipientType: plan.recipientType,
+      maskedMobile: plan.maskedMobile,
+      templateName: selection.templateName,
+      templateLanguage: selection.templateLanguage,
+      templateConfigured: selection.templateConfigured,
+      templateApproved: selection.templateApproved,
+      templateEnabled: selection.templateEnabled,
+      ctaUrl: plan.ctaUrl,
+      matchingWorkerCount: plan.matchingWorkerCount,
+      matchingCompanyCount: plan.matchingCompanyCount,
+      matchingJobCount: plan.matchingJobCount,
+      liveJobCount: plan.liveJobCount,
+      eligibilityResult:
+        dispatchState.dispatchDecision === 'ready'
+          ? 'eligible'
+          : dispatchState.dispatchDecision,
+      exclusionReason: dispatchState.exclusionReason,
+      quietHoursDecision: plan.eligibility.deliveryWindow,
+      idempotencyKey: plan.idempotencyKey,
+      requiredConsents: plan.eligibility.requiredConsents,
+      missingConsents: plan.eligibility.missingConsents,
+      resolvedRecipientSource: plan.eligibility.resolvedRecipientSource,
+      matchedCategoryIds: plan.matchedCategoryIds,
+      matchedCities: plan.matchedCities,
+      consentEligible,
+      templateEligible,
+      deepLinkEligible,
+      dispatchDecision: dispatchState.dispatchDecision,
+      dispatchable: dispatchState.dispatchable,
+    }
+  })(),
 })
+
+const createEmptyFunnel = (): AutomationPreviewFunnel => ({
+  marketplaceCandidatePlans: 0,
+  consentEligiblePlans: 0,
+  templateEligiblePlans: 0,
+  deepLinkEligiblePlans: 0,
+  dispatchReadyPlans: 0,
+  queuedPlans: 0,
+  blockedPlans: 0,
+})
+
+const buildPreviewFunnel = (
+  plans: AutomationPreviewPlan[],
+  recipientType: 'company' | 'worker',
+): AutomationPreviewFunnel => {
+  if (plans.length === 0) {
+    return createEmptyFunnel()
+  }
+
+  const consentEligiblePlans = plans.filter((plan) => plan.consentEligible).length
+  const templateEligiblePlans = plans.filter(
+    (plan) => plan.consentEligible && plan.templateEligible,
+  ).length
+  const deepLinkEligiblePlans = plans.filter(
+    (plan) =>
+      plan.consentEligible &&
+      plan.templateEligible &&
+      (recipientType === 'company' || plan.deepLinkEligible),
+  ).length
+
+  return {
+    marketplaceCandidatePlans: plans.length,
+    consentEligiblePlans,
+    templateEligiblePlans,
+    deepLinkEligiblePlans,
+    dispatchReadyPlans: plans.filter((plan) => plan.dispatchDecision === 'ready').length,
+    queuedPlans: plans.filter((plan) => plan.dispatchDecision === 'queued').length,
+    blockedPlans: plans.filter((plan) => plan.dispatchDecision === 'blocked').length,
+  }
+}
 
 export const buildWhatsappAutomationPreviewSummary = ({
   snapshot,
+  snapshotSource = 'supabase',
+  snapshotReasonCategory = 'live_read_ok',
   vercelEnv = process.env.VERCEL_ENV || '',
   now = new Date(),
   safetySummary = {
@@ -620,34 +788,58 @@ export const buildWhatsappAutomationPreviewSummary = ({
   },
 }: PreviewBuildInput): WhatsappAutomationPreviewSummary => {
   const normalizedEnv = String(vercelEnv || '').trim().toLowerCase()
-  const companyPlans = planCompanyMatchingDigests({
-    snapshot,
-    now,
-    vercelEnv: normalizedEnv,
-    pauseAllSending: safetySummary.pauseAllSending,
-    dryRun: true,
-    timeZone: safetySummary.reviewOnlyDefaults.timeZone,
-    companyConsentStates,
-    suppressedMobiles,
-  }).map((plan) => toPreviewPlan(plan, templateSelections.company_matching_digest))
+  const previewSendingDisabled = normalizedEnv !== 'production'
+  const allowLivePlans = snapshotSource === 'supabase'
+  const companyPlans = allowLivePlans
+    ? planCompanyMatchingDigests({
+        snapshot,
+        now,
+        vercelEnv: normalizedEnv,
+        pauseAllSending: safetySummary.pauseAllSending,
+        dryRun: true,
+        timeZone: safetySummary.reviewOnlyDefaults.timeZone,
+        companyConsentStates,
+        suppressedMobiles,
+      }).map((plan) =>
+        toPreviewPlan(
+          plan,
+          templateSelections.company_matching_digest,
+          snapshotSource,
+          previewSendingDisabled,
+        ),
+      )
+    : []
 
-  const workerPlans = planWorkerMatchingDigests({
-    snapshot,
-    now,
-    vercelEnv: normalizedEnv,
-    pauseAllSending: safetySummary.pauseAllSending,
-    dryRun: true,
-    timeZone: safetySummary.reviewOnlyDefaults.timeZone,
-    workerConsentStates,
-    suppressedMobiles,
-    resolveWorkerAppLink: () => null,
-  }).map((plan) => toPreviewPlan(plan, templateSelections.worker_matching_digest))
+  const workerPlans = allowLivePlans
+    ? planWorkerMatchingDigests({
+        snapshot,
+        now,
+        vercelEnv: normalizedEnv,
+        pauseAllSending: safetySummary.pauseAllSending,
+        dryRun: true,
+        timeZone: safetySummary.reviewOnlyDefaults.timeZone,
+        workerConsentStates,
+        suppressedMobiles,
+        resolveWorkerAppLink: () => null,
+      }).map((plan) =>
+        toPreviewPlan(
+          plan,
+          templateSelections.worker_matching_digest,
+          snapshotSource,
+          previewSendingDisabled,
+        ),
+      )
+    : []
+
+  const companyFunnel = buildPreviewFunnel(companyPlans, 'company')
+  const workerFunnel = buildPreviewFunnel(workerPlans, 'worker')
 
   return {
     checkedAt: now.toISOString(),
     vercelEnv: normalizedEnv || 'development',
-    snapshotStorage: snapshot.storage,
-    previewSendingDisabled: normalizedEnv !== 'production',
+    snapshotSource,
+    snapshotReasonCategory,
+    previewSendingDisabled,
     pauseAllSending: safetySummary.pauseAllSending,
     pauseReason: safetySummary.pauseReason,
     failClosed: true,
@@ -662,6 +854,8 @@ export const buildWhatsappAutomationPreviewSummary = ({
     automaticEventCategories: [...AUTOMATION_EVENT_TYPES],
     companyPlanCount: companyPlans.length,
     workerPlanCount: workerPlans.length,
+    companyFunnel,
+    workerFunnel,
     companyPlans,
     workerPlans,
   }
@@ -671,6 +865,8 @@ export const getWhatsappAutomationPreviewSummary = async (): Promise<WhatsappAut
   const readModel = await loadReadModel()
   const summary = buildWhatsappAutomationPreviewSummary({
     snapshot: readModel.snapshot,
+    snapshotSource: readModel.snapshotSource,
+    snapshotReasonCategory: readModel.snapshotReasonCategory,
     safetySummary: readModel.safetySummary,
     companyConsentStates: readModel.companyConsentStates,
     workerConsentStates: readModel.workerConsentStates,

@@ -25,12 +25,31 @@ type AutomationPreviewPlan = {
   resolvedRecipientSource: 'contact_mobile' | 'mobile' | 'direct' | 'none'
   matchedCategoryIds: string[]
   matchedCities: string[]
+  consentEligible: boolean
+  templateEligible: boolean
+  deepLinkEligible: boolean
+  dispatchDecision: 'ready' | 'queued' | 'blocked'
+  dispatchable: boolean
+}
+
+type AutomationPreviewFunnel = {
+  marketplaceCandidatePlans: number
+  consentEligiblePlans: number
+  templateEligiblePlans: number
+  deepLinkEligiblePlans: number
+  dispatchReadyPlans: number
+  queuedPlans: number
+  blockedPlans: number
 }
 
 type AutomationPreviewSummary = {
   checkedAt: string
   vercelEnv: string
-  snapshotStorage: 'supabase' | 'json'
+  snapshotSource: 'supabase' | 'unavailable'
+  snapshotReasonCategory:
+    | 'live_read_ok'
+    | 'missing_configuration'
+    | 'marketplace_query_failed'
   previewSendingDisabled: boolean
   pauseAllSending: boolean
   pauseReason: string
@@ -46,6 +65,8 @@ type AutomationPreviewSummary = {
   automaticEventCategories: string[]
   companyPlanCount: number
   workerPlanCount: number
+  companyFunnel: AutomationPreviewFunnel
+  workerFunnel: AutomationPreviewFunnel
   companyPlans: AutomationPreviewPlan[]
   workerPlans: AutomationPreviewPlan[]
 }
@@ -94,6 +115,51 @@ const formatDateTime = (value: string) => {
 }
 
 const formatList = (items: string[]) => (items.length > 0 ? items.join(', ') : 'None')
+
+const formatSnapshotReason = (
+  value: AutomationPreviewSummary['snapshotReasonCategory'],
+) => {
+  switch (value) {
+    case 'live_read_ok':
+      return 'Live marketplace read succeeded'
+    case 'missing_configuration':
+      return 'Server-side Supabase configuration unavailable'
+    case 'marketplace_query_failed':
+      return 'Live marketplace read failed'
+    default:
+      return value
+  }
+}
+
+const renderFunnel = (
+  funnel: AutomationPreviewFunnel,
+  options: { label: string; showDeepLink: boolean },
+) => (
+  <div
+    style={{
+      border: '1px solid #e2e8f0',
+      borderRadius: '12px',
+      background: '#f8fafc',
+      padding: '12px 14px',
+      display: 'grid',
+      gap: '6px',
+      color: '#0f172a',
+      fontSize: '12px',
+      lineHeight: 1.6,
+    }}
+  >
+    <strong style={{ fontSize: '13px' }}>{options.label}</strong>
+    <div>Marketplace candidate plans: {funnel.marketplaceCandidatePlans}</div>
+    <div>Consent-eligible plans: {funnel.consentEligiblePlans}</div>
+    <div>Template-eligible plans: {funnel.templateEligiblePlans}</div>
+    {options.showDeepLink ? (
+      <div>Deep-link eligible plans: {funnel.deepLinkEligiblePlans}</div>
+    ) : null}
+    <div>Dispatch-ready plans: {funnel.dispatchReadyPlans}</div>
+    <div>Queued plans: {funnel.queuedPlans}</div>
+    <div>Blocked plans: {funnel.blockedPlans}</div>
+  </div>
+)
 
 const renderPlanGrid = (plans: AutomationPreviewPlan[], emptyLabel: string) => {
   if (plans.length === 0) {
@@ -177,6 +243,11 @@ const renderPlanGrid = (plans: AutomationPreviewPlan[], emptyLabel: string) => {
               <div>Matching companies: {plan.matchingCompanyCount}</div>
               <div>Matching jobs: {plan.matchingJobCount}</div>
               <div>Live jobs considered: {plan.liveJobCount}</div>
+              <div>Consent eligible: {plan.consentEligible ? 'YES' : 'NO'}</div>
+              <div>Template eligible: {plan.templateEligible ? 'YES' : 'NO'}</div>
+              <div>Deep-link eligible: {plan.deepLinkEligible ? 'YES' : 'NO'}</div>
+              <div>Dispatch decision: {plan.dispatchDecision}</div>
+              <div>Dispatchable now: {plan.dispatchable ? 'YES' : 'NO'}</div>
               <div>Quiet-hours decision: {plan.quietHoursDecision}</div>
               <div>Block reason: {plan.exclusionReason || 'None'}</div>
               <div>Recipient source: {plan.resolvedRecipientSource}</div>
@@ -319,7 +390,8 @@ export default function LabourWhatsappAutomationPreviewCard() {
           >
             <div>Last checked: {formatDateTime(summary.checkedAt)}</div>
             <div>Runtime environment: {summary.vercelEnv}</div>
-            <div>Snapshot source: {summary.snapshotStorage}</div>
+            <div>Snapshot source: {summary.snapshotSource}</div>
+            <div>Snapshot reason: {formatSnapshotReason(summary.snapshotReasonCategory)}</div>
             <div>Persistence status: {summary.persistenceStatus}</div>
             <div>pause_all_sending: {summary.pauseAllSending ? 'TRUE' : 'FALSE'}</div>
             <div>Pause reason: {summary.pauseReason}</div>
@@ -329,6 +401,24 @@ export default function LabourWhatsappAutomationPreviewCard() {
             <div>Worker deep link available: {summary.workerDeepLinkAvailable ? 'YES' : 'NO'}</div>
             <div>Automatic event categories: {summary.automaticEventCategories.join(', ')}</div>
           </div>
+
+          {summary.snapshotSource !== 'supabase' ? (
+            <div
+              style={{
+                border: '1px solid #fcd34d',
+                borderRadius: '12px',
+                background: '#fffbeb',
+                color: '#b45309',
+                padding: '12px 14px',
+                fontSize: '13px',
+                fontWeight: 700,
+                lineHeight: 1.6,
+              }}
+            >
+              Live marketplace data is unavailable for this dry-run. Candidate plans are intentionally hidden until a
+              Supabase snapshot read succeeds.
+            </div>
+          ) : null}
 
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <span style={badgeStyle(summary.persistenceAvailable ? 'green' : 'amber')}>
@@ -355,6 +445,23 @@ export default function LabourWhatsappAutomationPreviewCard() {
             >
               template read: {summary.templateReadState}
             </span>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            {renderFunnel(summary.companyFunnel, {
+              label: 'Company digest funnel',
+              showDeepLink: false,
+            })}
+            {renderFunnel(summary.workerFunnel, {
+              label: 'Worker digest funnel',
+              showDeepLink: true,
+            })}
           </div>
 
           <div style={{ display: 'grid', gap: '10px' }}>

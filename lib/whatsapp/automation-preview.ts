@@ -312,13 +312,13 @@ const loadMarketplacePreviewSnapshot = async (): Promise<{
       persistence.client
         .from('labour_workers')
         .select(
-          'id, full_name, mobile, city, home_city, salary_type, company_id, industry_category, business_type, address, preferred_work_locations, profile_photo_path, resume_document_path, skills, experience_years, expected_daily_wage, minimum_expected_wage, maximum_expected_wage, wallet_balance, registration_fee_paid, active_plan, plan_valid_from, plan_valid_until, last_wallet_deduction_date, worker_paused_by_worker, worker_paused_at, worker_reactivated_at, status, kyc_status, kyc_remarks, availability, is_visible, category_ids, identity_proof_type, identity_proof_number, identity_proof_path, registration_completed_at, created_at, updated_at',
+          'id, full_name, mobile, city, home_city, salary_type, address, preferred_work_locations, profile_photo_path, resume_document_path, skills, experience_years, expected_daily_wage, minimum_expected_wage, maximum_expected_wage, wallet_balance, registration_fee_paid, active_plan, plan_valid_from, plan_valid_until, last_wallet_deduction_date, worker_paused_by_worker, worker_paused_at, worker_reactivated_at, status, kyc_status, kyc_remarks, availability, is_visible, category_ids, identity_proof_type, identity_proof_number, identity_proof_path, registration_completed_at, created_at, updated_at',
         )
         .order('created_at', { ascending: true }),
       persistence.client
         .from('labour_companies')
         .select(
-          'id, company_name, contact_person, email, mobile, contact_mobile, business_type, industry_category, gst_number, company_address, state, city, area, pincode, workers_needed, hiring_type, business_description, gst_certificate_path, company_proof_path, owner_id_proof_path, category_ids, status, registration_fee_paid, active_plan, created_at, updated_at',
+          'id, company_name, contact_person, email, mobile, contact_mobile, business_type, industry_category, gst_number, company_address, state, city, pincode, workers_needed, hiring_type, business_description, gst_certificate_path, company_proof_path, owner_id_proof_path, category_ids, status, registration_fee_paid, active_plan, created_at, updated_at',
         )
         .order('created_at', { ascending: true }),
       persistence.client

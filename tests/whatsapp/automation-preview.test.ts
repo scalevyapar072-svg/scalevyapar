@@ -78,6 +78,8 @@ test('automation dry-run preview source remains read-only and never reaches /mes
   assert.ok(source.includes('noDatabaseWrites: true'))
   assert.ok(source.includes('noMessagesCalls: true'))
   assert.equal(source.includes('return parseJsonSnapshot()'), false)
+  assert.equal(source.includes('company_id, industry_category, business_type'), false)
+  assert.equal(source.includes('city, area, pincode'), false)
 })
 
 test('automation dry-run route stays admin-only and the card fetches the read-only endpoint', () => {

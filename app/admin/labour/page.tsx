@@ -36,6 +36,7 @@ import {
   resolveLabourMasterLabel
 } from '@/lib/labour-masters-schema'
 import LabourWhatsappConsentOptoutsCard from '@/components/admin/labour-whatsapp-consent-optouts'
+import LabourWhatsappAutomationPreviewCard from '@/components/admin/labour-whatsapp-automation-preview'
 import LabourWhatsappMetaStatusCard from '@/components/admin/labour-whatsapp-meta-status'
 import LabourWhatsappSafetyStatusCard from '@/components/admin/labour-whatsapp-safety-status'
 import LabourWhatsappTemplatesCard from '@/components/admin/labour-whatsapp-templates'
@@ -11439,6 +11440,7 @@ export default function LabourExchangeAdminPage() {
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   {[
                     { href: '#whatsapp-meta-connection', label: 'Meta Connection' },
+                    { href: '#whatsapp-automation-preview', label: 'Dry-Run Planning' },
                     { href: '#whatsapp-templates', label: 'Template Inventory' },
                     { href: '#whatsapp-consent-optouts', label: 'Consent & Suppressions' },
                     { href: '#whatsapp-limits-safety', label: 'Limits & Safety' },
@@ -11467,6 +11469,8 @@ export default function LabourExchangeAdminPage() {
               </div>
               <LabourWhatsappMetaStatusCard />
             </div>
+
+            <LabourWhatsappAutomationPreviewCard />
 
             <LabourWhatsappTemplatesCard />
 

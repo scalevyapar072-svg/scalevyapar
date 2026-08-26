@@ -8,7 +8,9 @@ import {
   buildWhatsappAutomationIdempotencyKey,
   getWhatsappAutomationCycleWindow,
   planCompanyMatchingDigests,
+  planWorkerKycRejectedNotifications,
   planWorkerMatchingDigests,
+  planWorkerPaymentOrPlanReminders,
 } from '../../lib/whatsapp/automation-executor'
 
 const makeSnapshot = (): LabourMarketplaceSnapshot => ({
@@ -546,6 +548,295 @@ test('worker digest consolidates multiple live matches and requires an injected 
   assert.equal(runnablePlans[0]?.matchingCompanyCount, 2)
   assert.equal(runnablePlans[0]?.matchingJobCount, 2)
   assert.equal(runnablePlans[0]?.ctaUrl, '/app/referral?ref=synthetic')
+})
+
+test('worker payment or plan reminder planner uses controlled subreasons, excludes paused workers, and stays blocked in preview', () => {
+  const snapshot = makeSnapshot()
+  snapshot.workers.push(
+    {
+      id: 'worker-wallet',
+      fullName: 'Wallet Worker',
+      mobile: '9876543210',
+      city: 'Surat',
+      homeCity: 'Surat',
+      salaryType: 'daily',
+      companyId: '',
+      industryCategory: 'Textile',
+      businessType: '',
+      address: '',
+      preferredWorkLocations: [],
+      profilePhotoPath: '',
+      resumeDocumentPath: '',
+      skills: [],
+      experienceYears: 2,
+      expectedDailyWage: 500,
+      minimumExpectedWage: 450,
+      maximumExpectedWage: 550,
+      walletBalance: 0,
+      registrationFeePaid: true,
+      activePlan: 'worker-plan',
+      planValidFrom: '2026-08-01',
+      planValidUntil: '2099-01-01',
+      lastWalletDeductionDate: '',
+      workerPausedByWorker: false,
+      workerPausedAt: '',
+      workerReactivatedAt: '',
+      status: 'inactive_wallet_empty',
+      kycStatus: 'approved',
+      kycRemarks: '',
+      availability: 'available_today',
+      isVisible: false,
+      categoryIds: ['cat-stitching'],
+      identityProofType: '',
+      identityProofNumber: '',
+      identityProofPath: '',
+      registrationCompletedAt: '2026-08-01T00:00:00.000Z',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-25T00:00:00.000Z',
+    },
+    {
+      id: 'worker-expired',
+      fullName: 'Expired Worker',
+      mobile: '9876543211',
+      city: 'Surat',
+      homeCity: 'Surat',
+      salaryType: 'daily',
+      companyId: '',
+      industryCategory: 'Textile',
+      businessType: '',
+      address: '',
+      preferredWorkLocations: [],
+      profilePhotoPath: '',
+      resumeDocumentPath: '',
+      skills: [],
+      experienceYears: 2,
+      expectedDailyWage: 500,
+      minimumExpectedWage: 450,
+      maximumExpectedWage: 550,
+      walletBalance: 0,
+      registrationFeePaid: true,
+      activePlan: 'worker-plan',
+      planValidFrom: '2026-08-01',
+      planValidUntil: '2026-08-20',
+      lastWalletDeductionDate: '',
+      workerPausedByWorker: false,
+      workerPausedAt: '',
+      workerReactivatedAt: '',
+      status: 'inactive_subscription_expired',
+      kycStatus: 'approved',
+      kycRemarks: '',
+      availability: 'available_today',
+      isVisible: false,
+      categoryIds: ['cat-stitching'],
+      identityProofType: '',
+      identityProofNumber: '',
+      identityProofPath: '',
+      registrationCompletedAt: '2026-08-01T00:00:00.000Z',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-25T00:00:00.000Z',
+    },
+    {
+      id: 'worker-paused',
+      fullName: 'Paused Worker',
+      mobile: '9876543212',
+      city: 'Surat',
+      homeCity: 'Surat',
+      salaryType: 'daily',
+      companyId: '',
+      industryCategory: 'Textile',
+      businessType: '',
+      address: '',
+      preferredWorkLocations: [],
+      profilePhotoPath: '',
+      resumeDocumentPath: '',
+      skills: [],
+      experienceYears: 2,
+      expectedDailyWage: 500,
+      minimumExpectedWage: 450,
+      maximumExpectedWage: 550,
+      walletBalance: 100,
+      registrationFeePaid: true,
+      activePlan: 'worker-plan',
+      planValidFrom: '2026-08-01',
+      planValidUntil: '2099-01-01',
+      lastWalletDeductionDate: '',
+      workerPausedByWorker: true,
+      workerPausedAt: '2026-08-24T00:00:00.000Z',
+      workerReactivatedAt: '',
+      status: 'inactive_paused_by_worker',
+      kycStatus: 'approved',
+      kycRemarks: '',
+      availability: 'available_today',
+      isVisible: false,
+      categoryIds: ['cat-stitching'],
+      identityProofType: '',
+      identityProofNumber: '',
+      identityProofPath: '',
+      registrationCompletedAt: '2026-08-01T00:00:00.000Z',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-25T00:00:00.000Z',
+    },
+  )
+
+  const plans = planWorkerPaymentOrPlanReminders({
+    snapshot,
+    now: new Date('2026-08-25T06:00:00.000Z'),
+    vercelEnv: 'preview',
+    pauseAllSending: true,
+    workerConsentStates: {
+      'worker-wallet': { service_allowed: true },
+      'worker-expired': { service_allowed: true },
+      'worker-paused': { service_allowed: true },
+    },
+  })
+
+  assert.equal(plans.length, 2)
+  assert.deepEqual(
+    plans.map((plan) => [plan.recipientId, plan.subreason]),
+    [
+      ['worker-wallet', 'wallet_empty'],
+      ['worker-expired', 'subscription_expired'],
+    ],
+  )
+  assert.equal(plans[0]?.dispatchReason, 'missing_cta_url')
+  assert.equal(plans[0]?.messagePreview?.includes('wallet or plan'), true)
+  assert.equal(plans[1]?.messagePreview?.includes('plan has expired'), true)
+  assert.equal(
+    plans[0]?.idempotencyKey,
+    buildWhatsappAutomationIdempotencyKey({
+      automationEventType: 'worker_payment_or_plan_reminder',
+      recipientType: 'worker',
+      recipientId: 'worker-wallet',
+      variantKey: 'wallet_empty',
+      cycleStartsAt: plans[0]?.cycleStartsAt || '',
+    }),
+  )
+})
+
+test('worker service planners require service consent, respect suppression, and keep generic KYC copy free of admin text', () => {
+  const snapshot = makeSnapshot()
+  snapshot.workers.push(
+    {
+      id: 'worker-wallet',
+      fullName: 'Wallet Worker',
+      mobile: '9876543210',
+      city: 'Surat',
+      homeCity: 'Surat',
+      salaryType: 'daily',
+      companyId: '',
+      industryCategory: 'Textile',
+      businessType: '',
+      address: '',
+      preferredWorkLocations: [],
+      profilePhotoPath: '',
+      resumeDocumentPath: '',
+      skills: [],
+      experienceYears: 2,
+      expectedDailyWage: 500,
+      minimumExpectedWage: 450,
+      maximumExpectedWage: 550,
+      walletBalance: 0,
+      registrationFeePaid: true,
+      activePlan: 'worker-plan',
+      planValidFrom: '2026-08-01',
+      planValidUntil: '2099-01-01',
+      lastWalletDeductionDate: '',
+      workerPausedByWorker: false,
+      workerPausedAt: '',
+      workerReactivatedAt: '',
+      status: 'inactive_wallet_empty',
+      kycStatus: 'approved',
+      kycRemarks: '',
+      availability: 'available_today',
+      isVisible: false,
+      categoryIds: ['cat-stitching'],
+      identityProofType: '',
+      identityProofNumber: '',
+      identityProofPath: '',
+      registrationCompletedAt: '2026-08-01T00:00:00.000Z',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-25T00:00:00.000Z',
+    },
+    {
+      id: 'worker-rejected',
+      fullName: 'Rejected Worker',
+      mobile: '9876543211',
+      city: 'Surat',
+      homeCity: 'Surat',
+      salaryType: 'daily',
+      companyId: '',
+      industryCategory: 'Textile',
+      businessType: '',
+      address: '',
+      preferredWorkLocations: [],
+      profilePhotoPath: '',
+      resumeDocumentPath: '',
+      skills: [],
+      experienceYears: 2,
+      expectedDailyWage: 500,
+      minimumExpectedWage: 450,
+      maximumExpectedWage: 550,
+      walletBalance: 0,
+      registrationFeePaid: true,
+      activePlan: 'worker-plan',
+      planValidFrom: '2026-08-01',
+      planValidUntil: '2099-01-01',
+      lastWalletDeductionDate: '',
+      workerPausedByWorker: false,
+      workerPausedAt: '',
+      workerReactivatedAt: '',
+      status: 'rejected',
+      kycStatus: 'rejected',
+      kycRemarks: 'Aadhaar photo mismatch - internal note',
+      availability: 'available_today',
+      isVisible: false,
+      categoryIds: ['cat-stitching'],
+      identityProofType: '',
+      identityProofNumber: '',
+      identityProofPath: '',
+      registrationCompletedAt: '2026-08-01T00:00:00.000Z',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-25T08:30:00.000Z',
+    },
+  )
+
+  const blockedPaymentPlan = planWorkerPaymentOrPlanReminders({
+    snapshot,
+    now: new Date('2026-08-25T06:00:00.000Z'),
+    vercelEnv: 'production',
+    pauseAllSending: false,
+    dryRun: false,
+    suppressedMobiles: ['9876543210'],
+  })[0]
+  const kycPlans = planWorkerKycRejectedNotifications({
+    snapshot,
+    now: new Date('2026-08-25T06:00:00.000Z'),
+    vercelEnv: 'production',
+    pauseAllSending: false,
+    dryRun: false,
+    workerConsentStates: {
+      'worker-rejected': { service_allowed: true },
+    },
+  })
+
+  assert.equal(blockedPaymentPlan?.dispatchReason, 'missing_consent_service_allowed')
+  assert.equal(blockedPaymentPlan?.eligibility.reasonCodes.includes('suppressed'), true)
+  assert.equal(kycPlans.length, 1)
+  assert.equal(kycPlans[0]?.subreason, 'kyc_rejected')
+  assert.equal(kycPlans[0]?.dispatchReason, 'missing_cta_url')
+  assert.equal(kycPlans[0]?.messagePreview?.includes('Aadhaar'), false)
+  assert.equal(kycPlans[0]?.messagePreview?.includes('internal note'), false)
+  assert.equal(kycPlans[0]?.metadata.rejectionStateMarkerPresent, true)
+  assert.equal(
+    kycPlans[0]?.idempotencyKey,
+    buildWhatsappAutomationIdempotencyKey({
+      automationEventType: 'worker_kyc_rejected',
+      recipientType: 'worker',
+      recipientId: 'worker-rejected',
+      variantKey: 'rejection-state-2026-08-25T08:30:00.000Z',
+      cycleStartsAt: kycPlans[0]?.cycleStartsAt || '',
+    }),
+  )
 })
 
 test('quiet hours, suppression, consent, preview blocking, pause gate, and masked idempotency stay fail-closed', () => {

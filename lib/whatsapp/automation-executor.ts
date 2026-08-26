@@ -61,8 +61,13 @@ export type WhatsappAutomationCycleWindow = {
   cycleEndsAt: string
 }
 
-export type WhatsappAutomationDigestPlan = {
-  automationEventType: 'company_matching_digest' | 'worker_matching_digest'
+export type WhatsappAutomationServiceSubreason =
+  | 'wallet_empty'
+  | 'subscription_expired'
+  | 'kyc_rejected'
+
+export type WhatsappAutomationPlan = {
+  automationEventType: WhatsappAutomaticExecutionEventType
   recipientType: 'worker' | 'company'
   recipientId: string
   maskedMobile: string
@@ -81,8 +86,12 @@ export type WhatsappAutomationDigestPlan = {
   matchingJobCount: number
   matchedCategoryIds: string[]
   matchedCities: string[]
+  subreason: WhatsappAutomationServiceSubreason | null
+  messagePreview: string | null
   metadata: JsonObject
 }
+
+export type WhatsappAutomationDigestPlan = WhatsappAutomationPlan
 
 export type WhatsappAutomationDigestContext = {
   snapshot: LabourMarketplaceSnapshot
@@ -188,13 +197,23 @@ export const buildWhatsappAutomationIdempotencyKey = ({
   recipientType,
   recipientId,
   cycleStartsAt,
+  variantKey,
 }: {
-  automationEventType: 'company_matching_digest' | 'worker_matching_digest'
+  automationEventType: WhatsappAutomaticExecutionEventType
   recipientType: 'worker' | 'company'
   recipientId: string
   cycleStartsAt: string
+  variantKey?: string | null
 }) =>
-  `${automationEventType}:${recipientType}:${String(recipientId || '').trim()}:${String(cycleStartsAt || '').trim()}`
+  [
+    automationEventType,
+    recipientType,
+    String(recipientId || '').trim(),
+    String(variantKey || '').trim(),
+    String(cycleStartsAt || '').trim(),
+  ]
+    .filter(Boolean)
+    .join(':')
 
 const resolveDispatchState = ({
   eligibility,
@@ -271,6 +290,71 @@ const resolveWithinLimit = (
   withinLimitByRecipientId: Record<string, boolean> | undefined,
   recipientId: string,
 ) => withinLimitByRecipientId?.[recipientId] ?? true
+
+const PAYMENT_REMINDER_COPY: Record<
+  Extract<WhatsappAutomationServiceSubreason, 'wallet_empty' | 'subscription_expired'>,
+  string
+> = {
+  wallet_empty:
+    'Your Rozgar Worker access needs attention because recharge is required. Open the Worker app to review your wallet or plan.',
+  subscription_expired:
+    'Your Rozgar Worker plan has expired. Open the Worker app to review or renew your Worker access.',
+}
+
+const KYC_REJECTION_COPY =
+  'Your Rozgar Worker KYC could not be approved. Open the Worker app to review your KYC section and correct your details.'
+
+const resolveWorkerPaymentReminderSubreason = (
+  worker: LabourWorkerRecord,
+): Extract<WhatsappAutomationServiceSubreason, 'wallet_empty' | 'subscription_expired'> | null => {
+  const normalizedStatus = String(worker.status || '').trim()
+  if (normalizedStatus === 'inactive_wallet_empty') {
+    return 'wallet_empty'
+  }
+
+  if (normalizedStatus === 'inactive_subscription_expired') {
+    return 'subscription_expired'
+  }
+
+  return null
+}
+
+const buildWorkerServiceEligibility = ({
+  worker,
+  workerConsentStates,
+  normalizedSuppressedMobiles,
+  withinLimitByRecipientId,
+  notificationPurpose,
+  templateCategory,
+  now,
+  timeZone,
+}: {
+  worker: LabourWorkerRecord
+  workerConsentStates: Record<string, Partial<WhatsappConsentState>>
+  normalizedSuppressedMobiles: Set<string>
+  withinLimitByRecipientId: Record<string, boolean> | undefined
+  notificationPurpose: WhatsappNotificationPurpose
+  templateCategory: 'UTILITY'
+  now: Date
+  timeZone: string
+}) => {
+  const normalizedMobile = normalizeIndianMobileToE164(worker.mobile)
+
+  return evaluateWhatsappRecipientEligibility({
+    recipientType: 'worker',
+    mode: 'manual',
+    notificationPurpose,
+    templateCategory,
+    consentState: buildWhatsappConsentState(workerConsentStates[worker.id] || {}),
+    suppressed:
+      normalizedMobile.ok && normalizedSuppressedMobiles.has(normalizedMobile.normalized),
+    withinLimit: resolveWithinLimit(withinLimitByRecipientId, worker.id),
+    matchStillValid: true,
+    worker,
+    now,
+    timeZone,
+  })
+}
 
 export const planCompanyMatchingDigests = ({
   snapshot,
@@ -362,6 +446,8 @@ export const planCompanyMatchingDigests = ({
       matchingJobCount: liveJobPosts.length,
       matchedCategoryIds,
       matchedCities,
+      subreason: null,
+      messagePreview: null,
       metadata: {
         matchedWorkerIds: matchedWorkers.map((worker) => worker.id),
         liveJobPostIds: liveJobPosts.map((jobPost) => jobPost.id),
@@ -471,9 +557,168 @@ export const planWorkerMatchingDigests = ({
       matchingJobCount: matchedJobPosts.length,
       matchedCategoryIds,
       matchedCities,
+      subreason: null,
+      messagePreview: null,
       metadata: {
         matchedCompanyIds: matchedCompanies,
         matchedJobPostIds: matchedJobPosts.map((jobPost) => jobPost.id),
+      },
+    })
+  }
+
+  return plans
+}
+
+export const planWorkerPaymentOrPlanReminders = ({
+  snapshot,
+  now = new Date(),
+  vercelEnv = '',
+  pauseAllSending = true,
+  dryRun = true,
+  timeZone = 'Asia/Kolkata',
+  workerConsentStates = {},
+  suppressedMobiles,
+  withinLimitByRecipientId,
+}: WhatsappAutomationDigestContext): WhatsappAutomationPlan[] => {
+  const cycle = getWhatsappAutomationCycleWindow(now)
+  const normalizedSuppressedMobiles = normalizeSuppressedMobiles(suppressedMobiles)
+  const plans: WhatsappAutomationPlan[] = []
+
+  for (const worker of snapshot.workers) {
+    const subreason = resolveWorkerPaymentReminderSubreason(worker)
+    if (!subreason) {
+      continue
+    }
+
+    const eligibility = buildWorkerServiceEligibility({
+      worker,
+      workerConsentStates,
+      normalizedSuppressedMobiles,
+      withinLimitByRecipientId,
+      notificationPurpose:
+        WHATSAPP_AUTOMATION_EVENT_RULES.worker_payment_or_plan_reminder.notificationPurpose,
+      templateCategory:
+        WHATSAPP_AUTOMATION_EVENT_RULES.worker_payment_or_plan_reminder.templateCategory,
+      now,
+      timeZone,
+    })
+    const dispatch = resolveDispatchState({
+      eligibility,
+      vercelEnv: String(vercelEnv || '').trim().toLowerCase(),
+      pauseAllSending,
+      dryRun,
+      ctaUrl: null,
+    })
+
+    plans.push({
+      automationEventType: 'worker_payment_or_plan_reminder',
+      recipientType: 'worker',
+      recipientId: worker.id,
+      maskedMobile: eligibility.maskedMobile,
+      cycleStartsAt: cycle.cycleStartsAt,
+      cycleEndsAt: cycle.cycleEndsAt,
+      idempotencyKey: buildWhatsappAutomationIdempotencyKey({
+        automationEventType: 'worker_payment_or_plan_reminder',
+        recipientType: 'worker',
+        recipientId: worker.id,
+        variantKey: subreason,
+        cycleStartsAt: cycle.cycleStartsAt,
+      }),
+      dispatchState: dispatch.dispatchState,
+      dispatchReason: dispatch.dispatchReason,
+      dryRun,
+      revalidationRequired: true,
+      eligibility,
+      ctaUrl: null,
+      liveJobCount: 0,
+      matchingWorkerCount: 0,
+      matchingCompanyCount: 0,
+      matchingJobCount: 0,
+      matchedCategoryIds: [],
+      matchedCities: [],
+      subreason,
+      messagePreview: PAYMENT_REMINDER_COPY[subreason],
+      metadata: {
+        controlledSubreason: subreason,
+        workerStatus: String(worker.status || '').trim(),
+      },
+    })
+  }
+
+  return plans
+}
+
+export const planWorkerKycRejectedNotifications = ({
+  snapshot,
+  now = new Date(),
+  vercelEnv = '',
+  pauseAllSending = true,
+  dryRun = true,
+  timeZone = 'Asia/Kolkata',
+  workerConsentStates = {},
+  suppressedMobiles,
+  withinLimitByRecipientId,
+}: WhatsappAutomationDigestContext): WhatsappAutomationPlan[] => {
+  const cycle = getWhatsappAutomationCycleWindow(now)
+  const normalizedSuppressedMobiles = normalizeSuppressedMobiles(suppressedMobiles)
+  const plans: WhatsappAutomationPlan[] = []
+
+  for (const worker of snapshot.workers) {
+    if (String(worker.status || '').trim() !== 'rejected') {
+      continue
+    }
+
+    const rejectionStateMarker = String(worker.updatedAt || '').trim()
+    const eligibility = buildWorkerServiceEligibility({
+      worker,
+      workerConsentStates,
+      normalizedSuppressedMobiles,
+      withinLimitByRecipientId,
+      notificationPurpose: WHATSAPP_AUTOMATION_EVENT_RULES.worker_kyc_rejected.notificationPurpose,
+      templateCategory: WHATSAPP_AUTOMATION_EVENT_RULES.worker_kyc_rejected.templateCategory,
+      now,
+      timeZone,
+    })
+    const dispatch = resolveDispatchState({
+      eligibility,
+      vercelEnv: String(vercelEnv || '').trim().toLowerCase(),
+      pauseAllSending,
+      dryRun,
+      ctaUrl: null,
+    })
+
+    plans.push({
+      automationEventType: 'worker_kyc_rejected',
+      recipientType: 'worker',
+      recipientId: worker.id,
+      maskedMobile: eligibility.maskedMobile,
+      cycleStartsAt: cycle.cycleStartsAt,
+      cycleEndsAt: cycle.cycleEndsAt,
+      idempotencyKey: buildWhatsappAutomationIdempotencyKey({
+        automationEventType: 'worker_kyc_rejected',
+        recipientType: 'worker',
+        recipientId: worker.id,
+        variantKey: rejectionStateMarker ? `rejection-state-${rejectionStateMarker}` : null,
+        cycleStartsAt: cycle.cycleStartsAt,
+      }),
+      dispatchState: dispatch.dispatchState,
+      dispatchReason: dispatch.dispatchReason,
+      dryRun,
+      revalidationRequired: true,
+      eligibility,
+      ctaUrl: null,
+      liveJobCount: 0,
+      matchingWorkerCount: 0,
+      matchingCompanyCount: 0,
+      matchingJobCount: 0,
+      matchedCategoryIds: [],
+      matchedCities: [],
+      subreason: 'kyc_rejected',
+      messagePreview: KYC_REJECTION_COPY,
+      metadata: {
+        controlledSubreason: 'kyc_rejected',
+        workerStatus: 'rejected',
+        rejectionStateMarkerPresent: Boolean(rejectionStateMarker),
       },
     })
   }

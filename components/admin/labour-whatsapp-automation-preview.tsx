@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react'
 
 type AutomationPreviewPlan = {
-  automationEventType: 'company_matching_digest' | 'worker_matching_digest'
+  automationEventType:
+    | 'company_matching_digest'
+    | 'worker_matching_digest'
+    | 'worker_payment_or_plan_reminder'
+    | 'worker_kyc_rejected'
   recipientType: 'worker' | 'company'
   maskedMobile: string
   templateName: string | null
@@ -11,7 +15,13 @@ type AutomationPreviewPlan = {
   templateConfigured: boolean
   templateApproved: boolean
   templateEnabled: boolean
+  templateStatus:
+    | 'configured'
+    | 'not_configured'
+    | 'not_approved'
+    | 'not_enabled'
   ctaUrl: string | null
+  ctaStatus: 'configured' | 'not_available'
   matchingWorkerCount: number
   matchingCompanyCount: number
   matchingJobCount: number
@@ -25,7 +35,10 @@ type AutomationPreviewPlan = {
   resolvedRecipientSource: 'contact_mobile' | 'mobile' | 'direct' | 'none'
   matchedCategoryIds: string[]
   matchedCities: string[]
+  subreason: string | null
+  messagePreview: string | null
   consentEligible: boolean
+  suppressionEligible: boolean
   templateEligible: boolean
   deepLinkEligible: boolean
   dispatchDecision: 'ready' | 'queued' | 'blocked'
@@ -35,6 +48,7 @@ type AutomationPreviewPlan = {
 type AutomationPreviewFunnel = {
   marketplaceCandidatePlans: number
   consentEligiblePlans: number
+  suppressionEligiblePlans: number
   templateEligiblePlans: number
   deepLinkEligiblePlans: number
   dispatchReadyPlans: number
@@ -65,10 +79,16 @@ type AutomationPreviewSummary = {
   automaticEventCategories: string[]
   companyPlanCount: number
   workerPlanCount: number
+  workerPaymentPlanCount: number
+  workerKycRejectedPlanCount: number
   companyFunnel: AutomationPreviewFunnel
   workerFunnel: AutomationPreviewFunnel
+  workerPaymentFunnel: AutomationPreviewFunnel
+  workerKycRejectedFunnel: AutomationPreviewFunnel
   companyPlans: AutomationPreviewPlan[]
   workerPlans: AutomationPreviewPlan[]
+  workerPaymentPlans: AutomationPreviewPlan[]
+  workerKycRejectedPlans: AutomationPreviewPlan[]
 }
 
 const sectionCardStyle = {
@@ -151,6 +171,7 @@ const renderFunnel = (
     <strong style={{ fontSize: '13px' }}>{options.label}</strong>
     <div>Marketplace candidate plans: {funnel.marketplaceCandidatePlans}</div>
     <div>Consent-eligible plans: {funnel.consentEligiblePlans}</div>
+    <div>Suppression-eligible plans: {funnel.suppressionEligiblePlans}</div>
     <div>Template-eligible plans: {funnel.templateEligiblePlans}</div>
     {options.showDeepLink ? (
       <div>Deep-link eligible plans: {funnel.deepLinkEligiblePlans}</div>
@@ -238,12 +259,17 @@ const renderPlanGrid = (plans: AutomationPreviewPlan[], emptyLabel: string) => {
             >
               <div>Template: {plan.templateName || 'Not configured'}</div>
               <div>Template language: {plan.templateLanguage || 'Not configured'}</div>
+              <div>Template status: {plan.templateStatus}</div>
               <div>CTA URL: {plan.ctaUrl || 'Not available'}</div>
+              <div>CTA status: {plan.ctaStatus}</div>
+              <div>Controlled subreason: {plan.subreason || 'None'}</div>
+              <div>Preview copy: {plan.messagePreview || 'Not applicable'}</div>
               <div>Matching workers: {plan.matchingWorkerCount}</div>
               <div>Matching companies: {plan.matchingCompanyCount}</div>
               <div>Matching jobs: {plan.matchingJobCount}</div>
               <div>Live jobs considered: {plan.liveJobCount}</div>
               <div>Consent eligible: {plan.consentEligible ? 'YES' : 'NO'}</div>
+              <div>Suppression eligible: {plan.suppressionEligible ? 'YES' : 'NO'}</div>
               <div>Template eligible: {plan.templateEligible ? 'YES' : 'NO'}</div>
               <div>Deep-link eligible: {plan.deepLinkEligible ? 'YES' : 'NO'}</div>
               <div>Dispatch decision: {plan.dispatchDecision}</div>
@@ -462,6 +488,14 @@ export default function LabourWhatsappAutomationPreviewCard() {
               label: 'Worker digest funnel',
               showDeepLink: true,
             })}
+            {renderFunnel(summary.workerPaymentFunnel, {
+              label: 'Worker payment/plan reminder funnel',
+              showDeepLink: true,
+            })}
+            {renderFunnel(summary.workerKycRejectedFunnel, {
+              label: 'Worker KYC rejected funnel',
+              showDeepLink: true,
+            })}
           </div>
 
           <div style={{ display: 'grid', gap: '10px' }}>
@@ -482,6 +516,26 @@ export default function LabourWhatsappAutomationPreviewCard() {
               {renderPlanGrid(
                 summary.workerPlans,
                 'No eligible worker digest candidates are visible in the current dry-run snapshot.',
+              )}
+            </div>
+
+            <div>
+              <h4 style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '14px' }}>
+                Worker payment or plan reminder plans ({summary.workerPaymentPlanCount})
+              </h4>
+              {renderPlanGrid(
+                summary.workerPaymentPlans,
+                'No eligible worker payment or plan reminder candidates are visible in the current dry-run snapshot.',
+              )}
+            </div>
+
+            <div>
+              <h4 style={{ margin: '0 0 8px', color: '#0f172a', fontSize: '14px' }}>
+                Worker KYC rejected plans ({summary.workerKycRejectedPlanCount})
+              </h4>
+              {renderPlanGrid(
+                summary.workerKycRejectedPlans,
+                'No eligible worker KYC rejection candidates are visible in the current dry-run snapshot.',
               )}
             </div>
           </div>

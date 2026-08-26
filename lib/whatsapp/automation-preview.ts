@@ -6,6 +6,7 @@ import {
   type LabourMarketplaceSnapshot,
   type LabourWorkerRecord,
 } from '../labour-marketplace'
+import type { WhatsappConsentState } from './consent'
 import type {
   WhatsappSafetyStatusSummary,
   WhatsappTemplateInventoryRow,
@@ -16,15 +17,21 @@ import { createWhatsappTemplateInventoryRepository } from './template-inventory-
 import { getWhatsappPersistenceClient } from './persistence-client'
 import {
   planCompanyMatchingDigests,
+  planWorkerKycRejectedNotifications,
   planWorkerMatchingDigests,
-  type WhatsappAutomationDigestPlan,
+  planWorkerPaymentOrPlanReminders,
+  type WhatsappAutomationPlan,
 } from './automation-executor'
 import { assertWhatsappServerOnly } from './server-runtime'
 
 assertWhatsappServerOnly('lib/whatsapp/automation-preview')
 
 type AutomationTemplateSelection = {
-  automationEventType: 'company_matching_digest' | 'worker_matching_digest'
+  automationEventType:
+    | 'company_matching_digest'
+    | 'worker_matching_digest'
+    | 'worker_payment_or_plan_reminder'
+    | 'worker_kyc_rejected'
   templateName: string | null
   templateLanguage: string | null
   templateConfigured: boolean
@@ -33,7 +40,11 @@ type AutomationTemplateSelection = {
 }
 
 type AutomationPreviewPlan = {
-  automationEventType: 'company_matching_digest' | 'worker_matching_digest'
+  automationEventType:
+    | 'company_matching_digest'
+    | 'worker_matching_digest'
+    | 'worker_payment_or_plan_reminder'
+    | 'worker_kyc_rejected'
   recipientType: 'worker' | 'company'
   maskedMobile: string
   templateName: string | null
@@ -41,7 +52,13 @@ type AutomationPreviewPlan = {
   templateConfigured: boolean
   templateApproved: boolean
   templateEnabled: boolean
+  templateStatus:
+    | 'configured'
+    | 'not_configured'
+    | 'not_approved'
+    | 'not_enabled'
   ctaUrl: string | null
+  ctaStatus: 'configured' | 'not_available'
   matchingWorkerCount: number
   matchingCompanyCount: number
   matchingJobCount: number
@@ -55,7 +72,10 @@ type AutomationPreviewPlan = {
   resolvedRecipientSource: 'contact_mobile' | 'mobile' | 'direct' | 'none'
   matchedCategoryIds: string[]
   matchedCities: string[]
+  subreason: string | null
+  messagePreview: string | null
   consentEligible: boolean
+  suppressionEligible: boolean
   templateEligible: boolean
   deepLinkEligible: boolean
   dispatchDecision: 'ready' | 'queued' | 'blocked'
@@ -65,6 +85,7 @@ type AutomationPreviewPlan = {
 type AutomationPreviewFunnel = {
   marketplaceCandidatePlans: number
   consentEligiblePlans: number
+  suppressionEligiblePlans: number
   templateEligiblePlans: number
   deepLinkEligiblePlans: number
   dispatchReadyPlans: number
@@ -95,10 +116,16 @@ export type WhatsappAutomationPreviewSummary = {
   automaticEventCategories: string[]
   companyPlanCount: number
   workerPlanCount: number
+  workerPaymentPlanCount: number
+  workerKycRejectedPlanCount: number
   companyFunnel: AutomationPreviewFunnel
   workerFunnel: AutomationPreviewFunnel
+  workerPaymentFunnel: AutomationPreviewFunnel
+  workerKycRejectedFunnel: AutomationPreviewFunnel
   companyPlans: AutomationPreviewPlan[]
   workerPlans: AutomationPreviewPlan[]
+  workerPaymentPlans: AutomationPreviewPlan[]
+  workerKycRejectedPlans: AutomationPreviewPlan[]
 }
 
 type PreviewBuildInput = {
@@ -108,13 +135,16 @@ type PreviewBuildInput = {
   vercelEnv?: string
   now?: Date
   safetySummary?: WhatsappSafetyStatusSummary
-  companyConsentStates?: Record<string, { matching_alerts_allowed?: boolean }>
-  workerConsentStates?: Record<string, { matching_alerts_allowed?: boolean }>
+  companyConsentStates?: Record<string, Partial<WhatsappConsentState>>
+  workerConsentStates?: Record<string, Partial<WhatsappConsentState>>
   suppressedMobiles?: Iterable<string>
-  templateSelections?: Record<
-    'company_matching_digest' | 'worker_matching_digest',
+  templateSelections?: Partial<Record<
+    | 'company_matching_digest'
+    | 'worker_matching_digest'
+    | 'worker_payment_or_plan_reminder'
+    | 'worker_kyc_rejected',
     AutomationTemplateSelection
-  >
+  >>
 }
 
 type ReadModel = {
@@ -122,11 +152,14 @@ type ReadModel = {
   snapshotSource: 'supabase' | 'unavailable'
   snapshotReasonCategory: WhatsappAutomationPreviewSummary['snapshotReasonCategory']
   safetySummary: WhatsappSafetyStatusSummary
-  companyConsentStates: Record<string, { matching_alerts_allowed?: boolean }>
-  workerConsentStates: Record<string, { matching_alerts_allowed?: boolean }>
+  companyConsentStates: Record<string, Partial<WhatsappConsentState>>
+  workerConsentStates: Record<string, Partial<WhatsappConsentState>>
   suppressedMobiles: string[]
   templateSelections: Record<
-    'company_matching_digest' | 'worker_matching_digest',
+    | 'company_matching_digest'
+    | 'worker_matching_digest'
+    | 'worker_payment_or_plan_reminder'
+    | 'worker_kyc_rejected',
     AutomationTemplateSelection
   >
   persistenceAvailable: boolean
@@ -378,7 +411,11 @@ const loadSafetySummary = async (): Promise<WhatsappSafetyStatusSummary> => {
 }
 
 const createTemplateSelection = (
-  automationEventType: 'company_matching_digest' | 'worker_matching_digest',
+  automationEventType:
+    | 'company_matching_digest'
+    | 'worker_matching_digest'
+    | 'worker_payment_or_plan_reminder'
+    | 'worker_kyc_rejected',
   row: WhatsappTemplateInventoryRow | null,
 ): AutomationTemplateSelection => ({
   automationEventType,
@@ -391,7 +428,11 @@ const createTemplateSelection = (
 
 const selectBestTemplate = (
   rows: WhatsappTemplateInventoryRow[],
-  automationEventType: 'company_matching_digest' | 'worker_matching_digest',
+  automationEventType:
+    | 'company_matching_digest'
+    | 'worker_matching_digest'
+    | 'worker_payment_or_plan_reminder'
+    | 'worker_kyc_rejected',
 ) => {
   const matchingRows = rows.filter(
     (row) => String(row.intendedBusinessEvent || '').trim() === automationEventType,
@@ -417,6 +458,11 @@ const loadTemplateSelections = async () => {
       templateSelections: {
         company_matching_digest: createTemplateSelection('company_matching_digest', null),
         worker_matching_digest: createTemplateSelection('worker_matching_digest', null),
+        worker_payment_or_plan_reminder: createTemplateSelection(
+          'worker_payment_or_plan_reminder',
+          null,
+        ),
+        worker_kyc_rejected: createTemplateSelection('worker_kyc_rejected', null),
       },
       templateReadState: 'persistence_unavailable' as const,
     }
@@ -437,6 +483,11 @@ const loadTemplateSelections = async () => {
           'worker_matching_digest',
           selectBestTemplate(rows, 'worker_matching_digest'),
         ),
+        worker_payment_or_plan_reminder: createTemplateSelection(
+          'worker_payment_or_plan_reminder',
+          null,
+        ),
+        worker_kyc_rejected: createTemplateSelection('worker_kyc_rejected', null),
       },
       templateReadState: 'connected' as const,
     }
@@ -445,6 +496,11 @@ const loadTemplateSelections = async () => {
       templateSelections: {
         company_matching_digest: createTemplateSelection('company_matching_digest', null),
         worker_matching_digest: createTemplateSelection('worker_matching_digest', null),
+        worker_payment_or_plan_reminder: createTemplateSelection(
+          'worker_payment_or_plan_reminder',
+          null,
+        ),
+        worker_kyc_rejected: createTemplateSelection('worker_kyc_rejected', null),
       },
       templateReadState: 'query_error' as const,
     }
@@ -471,15 +527,18 @@ const loadConsentMaps = async () => {
       throw new Error('Unable to read WhatsApp consent states.')
     }
 
-    const companyConsentStates: Record<string, { matching_alerts_allowed?: boolean }> = {}
-    const workerConsentStates: Record<string, { matching_alerts_allowed?: boolean }> = {}
+    const companyConsentStates: Record<string, Partial<WhatsappConsentState>> = {}
+    const workerConsentStates: Record<string, Partial<WhatsappConsentState>> = {}
 
     for (const row of data || []) {
       const candidate = row as Record<string, unknown>
       const recipientType = toString(candidate.recipient_type)
       const recipientId = toString(candidate.recipient_id)
       const consentType = toString(candidate.consent_type)
-      if (!recipientId || consentType !== 'matching_alerts_allowed') {
+      if (
+        !recipientId ||
+        !['service_allowed', 'matching_alerts_allowed', 'marketing_allowed'].includes(consentType)
+      ) {
         continue
       }
 
@@ -496,7 +555,7 @@ const loadConsentMaps = async () => {
 
       target[recipientId] = {
         ...(target[recipientId] || {}),
-        matching_alerts_allowed: Boolean(candidate.allowed),
+        [consentType]: Boolean(candidate.allowed),
       }
     }
 
@@ -590,6 +649,24 @@ const resolveTemplateBlockReason = (selection: AutomationTemplateSelection) => {
   return null
 }
 
+const resolveTemplateStatus = (
+  selection: AutomationTemplateSelection,
+): AutomationPreviewPlan['templateStatus'] => {
+  if (!selection.templateConfigured) {
+    return 'not_configured'
+  }
+
+  if (!selection.templateApproved) {
+    return 'not_approved'
+  }
+
+  if (!selection.templateEnabled) {
+    return 'not_enabled'
+  }
+
+  return 'configured'
+}
+
 const resolvePreviewDispatchState = ({
   snapshotSource,
   plan,
@@ -597,7 +674,7 @@ const resolvePreviewDispatchState = ({
   previewSendingDisabled,
 }: {
   snapshotSource: 'supabase' | 'unavailable'
-  plan: WhatsappAutomationDigestPlan
+  plan: WhatsappAutomationPlan
   selection: AutomationTemplateSelection
   previewSendingDisabled: boolean
 }) => {
@@ -674,7 +751,7 @@ const resolvePreviewDispatchState = ({
 }
 
 const toPreviewPlan = (
-  plan: WhatsappAutomationDigestPlan,
+  plan: WhatsappAutomationPlan,
   selection: AutomationTemplateSelection,
   snapshotSource: 'supabase' | 'unavailable',
   previewSendingDisabled: boolean,
@@ -687,6 +764,8 @@ const toPreviewPlan = (
       previewSendingDisabled,
     })
     const consentEligible = plan.eligibility.missingConsents.length === 0
+    const suppressionEligible =
+      consentEligible && !plan.eligibility.reasonCodes.includes('suppressed')
     const templateEligible = resolveTemplateBlockReason(selection) === null
     const deepLinkEligible = Boolean(plan.ctaUrl)
 
@@ -699,7 +778,9 @@ const toPreviewPlan = (
       templateConfigured: selection.templateConfigured,
       templateApproved: selection.templateApproved,
       templateEnabled: selection.templateEnabled,
+      templateStatus: resolveTemplateStatus(selection),
       ctaUrl: plan.ctaUrl,
+      ctaStatus: plan.ctaUrl ? 'configured' : 'not_available',
       matchingWorkerCount: plan.matchingWorkerCount,
       matchingCompanyCount: plan.matchingCompanyCount,
       matchingJobCount: plan.matchingJobCount,
@@ -716,7 +797,10 @@ const toPreviewPlan = (
       resolvedRecipientSource: plan.eligibility.resolvedRecipientSource,
       matchedCategoryIds: plan.matchedCategoryIds,
       matchedCities: plan.matchedCities,
+      subreason: plan.subreason,
+      messagePreview: plan.messagePreview,
       consentEligible,
+      suppressionEligible,
       templateEligible,
       deepLinkEligible,
       dispatchDecision: dispatchState.dispatchDecision,
@@ -728,6 +812,7 @@ const toPreviewPlan = (
 const createEmptyFunnel = (): AutomationPreviewFunnel => ({
   marketplaceCandidatePlans: 0,
   consentEligiblePlans: 0,
+  suppressionEligiblePlans: 0,
   templateEligiblePlans: 0,
   deepLinkEligiblePlans: 0,
   dispatchReadyPlans: 0,
@@ -744,12 +829,16 @@ const buildPreviewFunnel = (
   }
 
   const consentEligiblePlans = plans.filter((plan) => plan.consentEligible).length
+  const suppressionEligiblePlans = plans.filter(
+    (plan) => plan.consentEligible && plan.suppressionEligible,
+  ).length
   const templateEligiblePlans = plans.filter(
-    (plan) => plan.consentEligible && plan.templateEligible,
+    (plan) => plan.consentEligible && plan.suppressionEligible && plan.templateEligible,
   ).length
   const deepLinkEligiblePlans = plans.filter(
     (plan) =>
       plan.consentEligible &&
+      plan.suppressionEligible &&
       plan.templateEligible &&
       (recipientType === 'company' || plan.deepLinkEligible),
   ).length
@@ -757,6 +846,7 @@ const buildPreviewFunnel = (
   return {
     marketplaceCandidatePlans: plans.length,
     consentEligiblePlans,
+    suppressionEligiblePlans,
     templateEligiblePlans,
     deepLinkEligiblePlans,
     dispatchReadyPlans: plans.filter((plan) => plan.dispatchDecision === 'ready').length,
@@ -785,11 +875,26 @@ export const buildWhatsappAutomationPreviewSummary = ({
   templateSelections = {
     company_matching_digest: createTemplateSelection('company_matching_digest', null),
     worker_matching_digest: createTemplateSelection('worker_matching_digest', null),
+    worker_payment_or_plan_reminder: createTemplateSelection(
+      'worker_payment_or_plan_reminder',
+      null,
+    ),
+    worker_kyc_rejected: createTemplateSelection('worker_kyc_rejected', null),
   },
 }: PreviewBuildInput): WhatsappAutomationPreviewSummary => {
   const normalizedEnv = String(vercelEnv || '').trim().toLowerCase()
   const previewSendingDisabled = normalizedEnv !== 'production'
   const allowLivePlans = snapshotSource === 'supabase'
+  const resolvedTemplateSelections = {
+    company_matching_digest: createTemplateSelection('company_matching_digest', null),
+    worker_matching_digest: createTemplateSelection('worker_matching_digest', null),
+    worker_payment_or_plan_reminder: createTemplateSelection(
+      'worker_payment_or_plan_reminder',
+      null,
+    ),
+    worker_kyc_rejected: createTemplateSelection('worker_kyc_rejected', null),
+    ...templateSelections,
+  }
   const companyPlans = allowLivePlans
     ? planCompanyMatchingDigests({
         snapshot,
@@ -803,7 +908,7 @@ export const buildWhatsappAutomationPreviewSummary = ({
       }).map((plan) =>
         toPreviewPlan(
           plan,
-          templateSelections.company_matching_digest,
+          resolvedTemplateSelections.company_matching_digest,
           snapshotSource,
           previewSendingDisabled,
         ),
@@ -824,7 +929,47 @@ export const buildWhatsappAutomationPreviewSummary = ({
       }).map((plan) =>
         toPreviewPlan(
           plan,
-          templateSelections.worker_matching_digest,
+          resolvedTemplateSelections.worker_matching_digest,
+          snapshotSource,
+          previewSendingDisabled,
+        ),
+      )
+    : []
+
+  const workerPaymentPlans = allowLivePlans
+    ? planWorkerPaymentOrPlanReminders({
+        snapshot,
+        now,
+        vercelEnv: normalizedEnv,
+        pauseAllSending: safetySummary.pauseAllSending,
+        dryRun: true,
+        timeZone: safetySummary.reviewOnlyDefaults.timeZone,
+        workerConsentStates,
+        suppressedMobiles,
+      }).map((plan) =>
+        toPreviewPlan(
+          plan,
+          resolvedTemplateSelections.worker_payment_or_plan_reminder,
+          snapshotSource,
+          previewSendingDisabled,
+        ),
+      )
+    : []
+
+  const workerKycRejectedPlans = allowLivePlans
+    ? planWorkerKycRejectedNotifications({
+        snapshot,
+        now,
+        vercelEnv: normalizedEnv,
+        pauseAllSending: safetySummary.pauseAllSending,
+        dryRun: true,
+        timeZone: safetySummary.reviewOnlyDefaults.timeZone,
+        workerConsentStates,
+        suppressedMobiles,
+      }).map((plan) =>
+        toPreviewPlan(
+          plan,
+          resolvedTemplateSelections.worker_kyc_rejected,
           snapshotSource,
           previewSendingDisabled,
         ),
@@ -833,6 +978,8 @@ export const buildWhatsappAutomationPreviewSummary = ({
 
   const companyFunnel = buildPreviewFunnel(companyPlans, 'company')
   const workerFunnel = buildPreviewFunnel(workerPlans, 'worker')
+  const workerPaymentFunnel = buildPreviewFunnel(workerPaymentPlans, 'worker')
+  const workerKycRejectedFunnel = buildPreviewFunnel(workerKycRejectedPlans, 'worker')
 
   return {
     checkedAt: now.toISOString(),
@@ -854,10 +1001,16 @@ export const buildWhatsappAutomationPreviewSummary = ({
     automaticEventCategories: [...AUTOMATION_EVENT_TYPES],
     companyPlanCount: companyPlans.length,
     workerPlanCount: workerPlans.length,
+    workerPaymentPlanCount: workerPaymentPlans.length,
+    workerKycRejectedPlanCount: workerKycRejectedPlans.length,
     companyFunnel,
     workerFunnel,
+    workerPaymentFunnel,
+    workerKycRejectedFunnel,
     companyPlans,
     workerPlans,
+    workerPaymentPlans,
+    workerKycRejectedPlans,
   }
 }
 

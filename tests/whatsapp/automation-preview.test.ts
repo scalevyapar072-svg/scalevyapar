@@ -194,6 +194,90 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
   })
+  snapshot.workers.push(
+    {
+      id: 'worker-wallet',
+      fullName: 'Worker Wallet',
+      mobile: '9876543211',
+      city: 'Surat',
+      homeCity: 'Surat',
+      salaryType: 'daily',
+      companyId: '',
+      industryCategory: 'Textile',
+      businessType: '',
+      address: '',
+      preferredWorkLocations: [],
+      profilePhotoPath: '',
+      resumeDocumentPath: '',
+      skills: [],
+      experienceYears: 2,
+      expectedDailyWage: 500,
+      minimumExpectedWage: 450,
+      maximumExpectedWage: 550,
+      walletBalance: 0,
+      registrationFeePaid: true,
+      activePlan: 'worker-plan',
+      planValidFrom: '2026-08-01',
+      planValidUntil: '2099-01-01',
+      lastWalletDeductionDate: '',
+      workerPausedByWorker: false,
+      workerPausedAt: '',
+      workerReactivatedAt: '',
+      status: 'inactive_wallet_empty',
+      kycStatus: 'approved',
+      kycRemarks: '',
+      availability: 'available_today',
+      isVisible: false,
+      categoryIds: ['cat-stitching'],
+      identityProofType: '',
+      identityProofNumber: '',
+      identityProofPath: '',
+      registrationCompletedAt: '2026-08-01T00:00:00.000Z',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+    },
+    {
+      id: 'worker-rejected',
+      fullName: 'Worker Rejected',
+      mobile: '9876543212',
+      city: 'Surat',
+      homeCity: 'Surat',
+      salaryType: 'daily',
+      companyId: '',
+      industryCategory: 'Textile',
+      businessType: '',
+      address: '',
+      preferredWorkLocations: [],
+      profilePhotoPath: '',
+      resumeDocumentPath: '',
+      skills: [],
+      experienceYears: 2,
+      expectedDailyWage: 500,
+      minimumExpectedWage: 450,
+      maximumExpectedWage: 550,
+      walletBalance: 0,
+      registrationFeePaid: true,
+      activePlan: 'worker-plan',
+      planValidFrom: '2026-08-01',
+      planValidUntil: '2099-01-01',
+      lastWalletDeductionDate: '',
+      workerPausedByWorker: false,
+      workerPausedAt: '',
+      workerReactivatedAt: '',
+      status: 'rejected',
+      kycStatus: 'rejected',
+      kycRemarks: 'unsafe admin note',
+      availability: 'available_today',
+      isVisible: false,
+      categoryIds: ['cat-stitching'],
+      identityProofType: '',
+      identityProofNumber: '',
+      identityProofPath: '',
+      registrationCompletedAt: '2026-08-01T00:00:00.000Z',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-25T08:30:00.000Z',
+    },
+  )
 
   const previewSummary = buildWhatsappAutomationPreviewSummary({
     snapshot,
@@ -221,6 +305,8 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
     },
     workerConsentStates: {
       'worker-1': { matching_alerts_allowed: true },
+      'worker-wallet': { service_allowed: true },
+      'worker-rejected': { service_allowed: true },
     },
     templateSelections: {
       company_matching_digest: {
@@ -252,8 +338,17 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
   assert.equal(previewSummary.companyFunnel.dispatchReadyPlans, 0)
   assert.equal(previewSummary.workerFunnel.marketplaceCandidatePlans, 1)
   assert.equal(previewSummary.workerFunnel.consentEligiblePlans, 1)
+  assert.equal(previewSummary.workerFunnel.suppressionEligiblePlans, 1)
   assert.equal(previewSummary.workerFunnel.templateEligiblePlans, 1)
   assert.equal(previewSummary.workerFunnel.deepLinkEligiblePlans, 0)
+  assert.equal(previewSummary.workerPaymentPlanCount, 1)
+  assert.equal(previewSummary.workerKycRejectedPlanCount, 1)
+  assert.equal(previewSummary.workerPaymentFunnel.marketplaceCandidatePlans, 1)
+  assert.equal(previewSummary.workerPaymentFunnel.consentEligiblePlans, 1)
+  assert.equal(previewSummary.workerPaymentFunnel.suppressionEligiblePlans, 1)
+  assert.equal(previewSummary.workerPaymentFunnel.templateEligiblePlans, 0)
+  assert.equal(previewSummary.workerPaymentFunnel.deepLinkEligiblePlans, 0)
+  assert.equal(previewSummary.workerKycRejectedFunnel.marketplaceCandidatePlans, 1)
   assert.equal(previewSummary.companyPlans[0]?.maskedMobile, '+91******0000')
   assert.equal(
     previewSummary.companyPlans[0]?.exclusionReason,
@@ -267,6 +362,14 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
   assert.equal(previewSummary.companyPlans[0]?.consentEligible, true)
   assert.equal(previewSummary.companyPlans[0]?.templateEligible, true)
   assert.equal(previewSummary.workerPlans[0]?.deepLinkEligible, false)
+  assert.equal(previewSummary.workerPaymentPlans[0]?.maskedMobile, '+91******3211')
+  assert.equal(previewSummary.workerPaymentPlans[0]?.subreason, 'wallet_empty')
+  assert.equal(previewSummary.workerPaymentPlans[0]?.templateStatus, 'not_configured')
+  assert.equal(previewSummary.workerPaymentPlans[0]?.ctaStatus, 'not_available')
+  assert.equal(previewSummary.workerPaymentPlans[0]?.exclusionReason, 'template_not_configured')
+  assert.equal(previewSummary.workerKycRejectedPlans[0]?.subreason, 'kyc_rejected')
+  assert.equal(previewSummary.workerKycRejectedPlans[0]?.messagePreview?.includes('unsafe admin note'), false)
+  assert.equal(previewSummary.workerKycRejectedPlans[0]?.templateEligible, false)
 
   const quietHoursSummary = buildWhatsappAutomationPreviewSummary({
     snapshot,

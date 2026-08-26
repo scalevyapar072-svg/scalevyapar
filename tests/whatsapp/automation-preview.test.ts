@@ -3,7 +3,12 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
-import type { LabourMarketplaceSnapshot, LabourWorkerRecord } from '../../lib/labour-marketplace'
+import type {
+  LabourMarketplaceSnapshot,
+  LabourPlanRecord,
+  LabourWalletTransactionRecord,
+  LabourWorkerRecord,
+} from '../../lib/labour-marketplace'
 import { handleAdminWhatsappReadOnlyGet } from '../../lib/whatsapp/admin-readonly-route'
 import { buildWhatsappAutomationPreviewSummary } from '../../lib/whatsapp/automation-preview'
 
@@ -71,7 +76,7 @@ const makeWorker = (
   businessType: '',
   address: '',
   preferredWorkLocations: [],
-  profilePhotoPath: '',
+  profilePhotoPath: '/uploads/profile.jpg',
   resumeDocumentPath: '',
   skills: [],
   experienceYears: 2,
@@ -93,12 +98,58 @@ const makeWorker = (
   availability: 'available_today',
   isVisible: true,
   categoryIds: ['cat-stitching'],
-  identityProofType: '',
-  identityProofNumber: '',
-  identityProofPath: '',
+  identityProofType: 'aadhaar',
+  identityProofNumber: '123456789012',
+  identityProofPath: '/uploads/proof.jpg',
   registrationCompletedAt: '2026-08-01T00:00:00.000Z',
   createdAt: '2026-08-01T00:00:00.000Z',
   updatedAt: '2026-08-01T00:00:00.000Z',
+  ...overrides,
+})
+
+const makePlan = (
+  id: string,
+  overrides: Partial<LabourPlanRecord> = {},
+): LabourPlanRecord => ({
+  id,
+  audience: 'worker',
+  name: 'Paid Worker Plan',
+  categoryId: undefined,
+  industryCategoryValues: [],
+  businessTypeValues: [],
+  labourCategoryIds: [],
+  jobPostLimit: 1,
+  registrationFee: 0,
+  walletCredit: 0,
+  planAmount: 199,
+  planValidityDays: 30,
+  jobPostLiveDays: 30,
+  validityDays: 30,
+  dailyCharge: 5,
+  description: '',
+  isActive: true,
+  createdAt: '2026-08-01T00:00:00.000Z',
+  updatedAt: '2026-08-01T00:00:00.000Z',
+  ...overrides,
+})
+
+const makeWalletTransaction = (
+  id: string,
+  overrides: Partial<LabourWalletTransactionRecord> = {},
+): LabourWalletTransactionRecord => ({
+  id,
+  entityType: 'worker',
+  entityId: 'worker-1',
+  entityName: 'Worker',
+  city: 'Surat',
+  transactionType: 'registration_fee',
+  amount: 99,
+  direction: 'debit',
+  status: 'completed',
+  reference: '',
+  note: '',
+  createdAt: '2026-08-02T00:00:00.000Z',
+  updatedAt: '2026-08-02T00:00:00.000Z',
   ...overrides,
 })
 
@@ -154,6 +205,7 @@ test('read-only automation preview helper preserves admin protection and no-stor
 
 test('automation preview masks recipients and reports preview, pause, quiet-hours, consent, and suppression blocks', () => {
   const snapshot = makeSnapshot()
+  snapshot.plans.push(makePlan('worker-plan'))
   snapshot.companies.push({
     id: 'company-1',
     companyName: 'ScaleVyapar Textile',
@@ -214,7 +266,7 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
     businessType: '',
     address: '',
     preferredWorkLocations: [],
-    profilePhotoPath: '',
+    profilePhotoPath: '/uploads/profile.jpg',
     resumeDocumentPath: '',
     skills: [],
     experienceYears: 2,
@@ -236,9 +288,9 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
     availability: 'available_today',
     isVisible: true,
     categoryIds: ['cat-stitching'],
-    identityProofType: '',
-    identityProofNumber: '',
-    identityProofPath: '',
+    identityProofType: 'aadhaar',
+    identityProofNumber: '123456789012',
+    identityProofPath: '/uploads/proof.jpg',
     registrationCompletedAt: '2026-08-01T00:00:00.000Z',
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
@@ -256,7 +308,7 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
       businessType: '',
       address: '',
       preferredWorkLocations: [],
-      profilePhotoPath: '',
+      profilePhotoPath: '/uploads/profile.jpg',
       resumeDocumentPath: '',
       skills: [],
       experienceYears: 2,
@@ -278,9 +330,9 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
       availability: 'available_today',
       isVisible: false,
       categoryIds: ['cat-stitching'],
-      identityProofType: '',
-      identityProofNumber: '',
-      identityProofPath: '',
+      identityProofType: 'aadhaar',
+      identityProofNumber: '123456789012',
+      identityProofPath: '/uploads/proof.jpg',
       registrationCompletedAt: '2026-08-01T00:00:00.000Z',
       createdAt: '2026-08-01T00:00:00.000Z',
       updatedAt: '2026-08-01T00:00:00.000Z',
@@ -297,7 +349,7 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
       businessType: '',
       address: '',
       preferredWorkLocations: [],
-      profilePhotoPath: '',
+      profilePhotoPath: '/uploads/profile.jpg',
       resumeDocumentPath: '',
       skills: [],
       experienceYears: 2,
@@ -319,9 +371,9 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
       availability: 'available_today',
       isVisible: false,
       categoryIds: ['cat-stitching'],
-      identityProofType: '',
-      identityProofNumber: '',
-      identityProofPath: '',
+      identityProofType: 'aadhaar',
+      identityProofNumber: '123456789012',
+      identityProofPath: '/uploads/proof.jpg',
       registrationCompletedAt: '2026-08-01T00:00:00.000Z',
       createdAt: '2026-08-01T00:00:00.000Z',
       updatedAt: '2026-08-25T08:30:00.000Z',
@@ -618,6 +670,7 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
 
 test('automation preview blocks missing templates after consent succeeds', () => {
   const snapshot = makeSnapshot()
+  snapshot.plans.push(makePlan('worker-plan'))
   snapshot.companies.push({
     id: 'company-1',
     companyName: 'ScaleVyapar Textile',
@@ -678,7 +731,7 @@ test('automation preview blocks missing templates after consent succeeds', () =>
     businessType: '',
     address: '',
     preferredWorkLocations: [],
-    profilePhotoPath: '',
+    profilePhotoPath: '/uploads/profile.jpg',
     resumeDocumentPath: '',
     skills: [],
     experienceYears: 2,
@@ -700,9 +753,9 @@ test('automation preview blocks missing templates after consent succeeds', () =>
     availability: 'available_today',
     isVisible: true,
     categoryIds: ['cat-stitching'],
-    identityProofType: '',
-    identityProofNumber: '',
-    identityProofPath: '',
+    identityProofType: 'aadhaar',
+    identityProofNumber: '123456789012',
+    identityProofPath: '/uploads/proof.jpg',
     registrationCompletedAt: '2026-08-01T00:00:00.000Z',
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
@@ -790,8 +843,32 @@ test('automation preview fails closed when the live marketplace snapshot is unav
 
 test('worker lifecycle reconciliation stays read-only and preserves approved precedence rules', () => {
   const snapshot = makeSnapshot()
+  snapshot.plans.push(
+    makePlan('worker-plan', {
+      name: 'Paid Worker Plan',
+      registrationFee: 100,
+      dailyCharge: 5,
+      planAmount: 199,
+    }),
+    makePlan('worker-plan-free', {
+      id: 'plan-worker-free-7-days',
+      name: 'Free Worker Plan',
+      registrationFee: 0,
+      dailyCharge: 0,
+      planAmount: 0,
+      planValidityDays: 7,
+      validityDays: 7,
+    }),
+  )
 
-  for (let index = 0; index < 246; index += 1) {
+  snapshot.workers.push(
+    makeWorker('pending-complete', {
+      status: 'pending',
+      walletBalance: 200,
+    }),
+  )
+
+  for (let index = 0; index < 245; index += 1) {
     snapshot.workers.push(
       makeWorker(`pending-${index}`, {
         status: 'pending',
@@ -799,6 +876,10 @@ test('worker lifecycle reconciliation stays read-only and preserves approved pre
         registrationFeePaid: true,
         activePlan: '',
         registrationCompletedAt: '',
+        profilePhotoPath: '',
+        identityProofType: '',
+        identityProofNumber: '',
+        identityProofPath: '',
         kycStatus: 'submitted',
       }),
     )
@@ -807,6 +888,26 @@ test('worker lifecycle reconciliation stays read-only and preserves approved pre
   snapshot.workers.push(
     makeWorker('blocked', { status: 'blocked' }),
     makeWorker('rejected', { status: 'rejected', kycStatus: 'rejected', kycRemarks: 'unsafe note' }),
+    makeWorker('legacy-blank-kyc', {
+      status: 'active',
+      activePlan: 'plan-worker-free-7-days',
+      walletBalance: 0,
+      kycStatus: '',
+    }),
+    makeWorker('legacy-pending-review-kyc', {
+      status: 'active',
+      activePlan: 'plan-worker-free-7-days',
+      walletBalance: 0,
+      kycStatus: 'pending_review',
+    }),
+    makeWorker('incomplete-active', {
+      status: 'active',
+      profilePhotoPath: '',
+      identityProofType: '',
+      identityProofNumber: '',
+      identityProofPath: '',
+      kycStatus: '',
+    }),
     makeWorker('paused', {
       status: 'active',
       workerPausedByWorker: true,
@@ -817,13 +918,28 @@ test('worker lifecycle reconciliation stays read-only and preserves approved pre
       planValidUntil: '2026-08-10',
       walletBalance: 200,
     }),
-    makeWorker('wallet', {
-      status: 'active',
-      walletBalance: 0,
-    }),
     makeWorker('fee-gap', {
       status: 'active',
       registrationFeePaid: false,
+      walletBalance: 50,
+    }),
+    makeWorker('fee-tx-complete', {
+      status: 'active',
+      registrationFeePaid: false,
+      walletBalance: 200,
+    }),
+    makeWorker('free-zero-wallet', {
+      status: 'active',
+      activePlan: 'plan-worker-free-7-days',
+      walletBalance: 0,
+    }),
+    makeWorker('paid-zero-wallet', {
+      status: 'active',
+      walletBalance: 0,
+    }),
+    makeWorker('missing-plan', {
+      status: 'active',
+      activePlan: '',
       walletBalance: 200,
     }),
     makeWorker('eligible', {
@@ -831,6 +947,12 @@ test('worker lifecycle reconciliation stays read-only and preserves approved pre
       walletBalance: 250,
       activePlan: 'worker-plan',
       planValidUntil: '2099-01-01',
+    }),
+  )
+  snapshot.walletTransactions.push(
+    makeWalletTransaction('fee-tx-complete-transaction', {
+      entityId: 'fee-tx-complete',
+      entityName: 'Worker fee-tx-complete',
     }),
   )
 
@@ -858,18 +980,18 @@ test('worker lifecycle reconciliation stays read-only and preserves approved pre
   })
 
   assert.equal(summary.workerLifecycleReconciliation.source, 'supabase')
-  assert.equal(summary.workerLifecycleReconciliation.totalWorkersChecked, 253)
-  assert.equal(summary.workerLifecycleReconciliation.unchangedCount, 249)
-  assert.equal(summary.workerLifecycleReconciliation.changeRequiredCount, 4)
+  assert.equal(summary.workerLifecycleReconciliation.totalWorkersChecked, 259)
+  assert.equal(summary.workerLifecycleReconciliation.unchangedCount, 253)
+  assert.equal(summary.workerLifecycleReconciliation.changeRequiredCount, 6)
   assert.equal(
     summary.workerLifecycleReconciliation.activeToInactiveWalletEmptyCount,
     2,
   )
   assert.equal(
     summary.workerLifecycleReconciliation.activeToInactiveSubscriptionExpiredCount,
-    1,
+    2,
   )
-  assert.equal(summary.workerLifecycleReconciliation.otherTransitionCount, 1)
+  assert.equal(summary.workerLifecycleReconciliation.otherTransitionCount, 2)
   assert.equal(
     summary.workerLifecycleReconciliation.transitions.some(
       (transition) =>
@@ -884,7 +1006,7 @@ test('worker lifecycle reconciliation stays read-only and preserves approved pre
       (transition) =>
         transition.fromStatus === 'active' &&
         transition.toStatus === 'inactive_subscription_expired' &&
-        transition.count === 1,
+        transition.count === 2,
     ),
     true,
   )
@@ -893,6 +1015,15 @@ test('worker lifecycle reconciliation stays read-only and preserves approved pre
       (transition) =>
         transition.fromStatus === 'active' &&
         transition.toStatus === 'inactive_paused_by_worker' &&
+        transition.count === 1,
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.transitions.some(
+      (transition) =>
+        transition.fromStatus === 'active' &&
+        transition.toStatus === 'pending' &&
         transition.count === 1,
     ),
     true,
@@ -930,6 +1061,14 @@ test('worker lifecycle reconciliation stays read-only and preserves approved pre
   assert.equal(
     summary.workerLifecycleReconciliation.changedWorkers.some(
       (worker) =>
+        worker.derivedStatus === 'inactive_subscription_expired' &&
+        worker.reasonCategory === 'missing_active_plan',
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.changedWorkers.some(
+      (worker) =>
         worker.derivedStatus === 'inactive_paused_by_worker' &&
         worker.reasonCategory === 'worker_paused',
     ),
@@ -937,7 +1076,21 @@ test('worker lifecycle reconciliation stays read-only and preserves approved pre
   )
   assert.equal(
     summary.workerLifecycleReconciliation.changedWorkers.some(
+      (worker) =>
+        worker.derivedStatus === 'pending' &&
+        worker.reasonCategory === 'registration_incomplete',
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.changedWorkers.some(
       (worker) => worker.reasonCategory === 'persisted_pending',
+    ),
+    false,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.changedWorkers.some(
+      (worker) => worker.derivedStatus === 'pending' && worker.reasonCategory === 'persisted_pending',
     ),
     false,
   )

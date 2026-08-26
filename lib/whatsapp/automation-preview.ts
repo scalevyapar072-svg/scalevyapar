@@ -1,9 +1,12 @@
 import {
   isJobPostLiveRecord,
+  isWorkerPlanExpiredRecord,
   isWorkerSearchActiveRecord,
   type LabourCompanyRecord,
   type LabourJobPostRecord,
   type LabourMarketplaceSnapshot,
+  type LabourPlanRecord,
+  type LabourWalletTransactionRecord,
   type LabourWorkerRecord,
 } from '../labour-marketplace'
 import { maskWhatsappMobile, type WhatsappConsentState } from './consent'
@@ -98,7 +101,6 @@ export type WorkerLifecycleReasonCategory =
   | 'persisted_rejected'
   | 'persisted_pending'
   | 'registration_incomplete'
-  | 'kyc_not_approved'
   | 'worker_paused'
   | 'missing_active_plan'
   | 'expired_active_plan'
@@ -371,6 +373,48 @@ const mapJobPostRow = (row: Record<string, unknown>): LabourJobPostRecord => ({
   updatedAt: toString(row.updated_at),
 })
 
+const mapPlanRow = (row: Record<string, unknown>): LabourPlanRecord => ({
+  id: toString(row.id),
+  audience: toString(row.audience) as LabourPlanRecord['audience'],
+  name: toString(row.name),
+  categoryId: toString(row.category_id) || undefined,
+  industryCategoryValues: toStringArray(row.industry_category_values),
+  businessTypeValues: toStringArray(row.business_type_values),
+  labourCategoryIds: toStringArray(
+    row.labour_category_ids || (toString(row.category_id) ? [row.category_id] : []),
+  ),
+  jobPostLimit: toNumber(row.job_post_limit || 1),
+  registrationFee: toNumber(row.registration_fee),
+  walletCredit: toNumber(row.wallet_credit),
+  planAmount: toNumber(row.plan_amount),
+  planValidityDays: toNumber(row.plan_validity_days || row.validity_days),
+  jobPostLiveDays: toNumber(row.job_post_live_days || row.validity_days),
+  validityDays: toNumber(row.plan_validity_days || row.validity_days),
+  dailyCharge: toNumber(row.daily_charge),
+  description: toString(row.description),
+  isActive: row.is_active == null ? true : toBoolean(row.is_active),
+  createdAt: toString(row.created_at),
+  updatedAt: toString(row.updated_at),
+})
+
+const mapWalletTransactionRow = (row: Record<string, unknown>): LabourWalletTransactionRecord => ({
+  id: toString(row.id),
+  entityType: toString(row.entity_type) as LabourWalletTransactionRecord['entityType'],
+  entityId: toString(row.entity_id),
+  entityName: toString(row.entity_name),
+  city: toString(row.city),
+  transactionType: toString(
+    row.transaction_type,
+  ) as LabourWalletTransactionRecord['transactionType'],
+  amount: toNumber(row.amount),
+  direction: toString(row.direction) as LabourWalletTransactionRecord['direction'],
+  status: toString(row.status) as LabourWalletTransactionRecord['status'],
+  reference: toString(row.reference),
+  note: toString(row.note),
+  createdAt: toString(row.created_at),
+  updatedAt: toString(row.updated_at),
+})
+
 const loadMarketplacePreviewSnapshot = async (): Promise<{
   snapshot: LabourMarketplaceSnapshot
   snapshotSource: 'supabase' | 'unavailable'
@@ -386,7 +430,8 @@ const loadMarketplacePreviewSnapshot = async (): Promise<{
   }
 
   try {
-    const [workersResult, companiesResult, jobPostsResult] = await Promise.all([
+    const [workersResult, companiesResult, jobPostsResult, plansResult, walletTransactionsResult] =
+      await Promise.all([
       persistence.client
         .from('labour_workers')
         .select(
@@ -405,9 +450,27 @@ const loadMarketplacePreviewSnapshot = async (): Promise<{
           'id, company_id, plan_id, category_id, title, description, city, location_label, latitude, longitude, workers_needed, wage_amount, validity_days, status, published_at, expires_at, created_at, updated_at',
         )
         .order('created_at', { ascending: true }),
+      persistence.client
+        .from('labour_plans')
+        .select(
+          'id, audience, name, category_id, industry_category_values, business_type_values, labour_category_ids, job_post_limit, plan_validity_days, job_post_live_days, registration_fee, wallet_credit, plan_amount, validity_days, daily_charge, description, is_active, created_at, updated_at',
+        )
+        .order('created_at', { ascending: true }),
+      persistence.client
+        .from('labour_wallet_transactions')
+        .select(
+          'id, entity_type, entity_id, entity_name, city, transaction_type, amount, direction, status, reference, note, created_at, updated_at',
+        )
+        .order('created_at', { ascending: true }),
     ])
 
-    if (workersResult.error || companiesResult.error || jobPostsResult.error) {
+    if (
+      workersResult.error ||
+      companiesResult.error ||
+      jobPostsResult.error ||
+      plansResult.error ||
+      walletTransactionsResult.error
+    ) {
       throw new Error('Labour preview snapshot read failed.')
     }
 
@@ -420,6 +483,12 @@ const loadMarketplacePreviewSnapshot = async (): Promise<{
     )
     snapshot.jobPosts = (jobPostsResult.data || []).map((row) =>
       mapJobPostRow(row as Record<string, unknown>),
+    )
+    snapshot.plans = (plansResult.data || []).map((row) =>
+      mapPlanRow(row as Record<string, unknown>),
+    )
+    snapshot.walletTransactions = (walletTransactionsResult.data || []).map((row) =>
+      mapWalletTransactionRow(row as Record<string, unknown>),
     )
 
     return {
@@ -900,28 +969,98 @@ const buildPreviewFunnel = (
   }
 }
 
-const normalizeDateOnly = (value: string) => {
-  const normalized = String(value || '').trim()
-  if (!normalized) {
-    return ''
-  }
+const isWorkerProfileCompletePreview = (worker: LabourWorkerRecord) =>
+  Boolean(worker.fullName.trim()) &&
+  Boolean(worker.city.trim()) &&
+  worker.categoryIds.length > 0
 
-  return normalized.slice(0, 10)
-}
+const isWorkerRegistrationCompletePreview = (worker: LabourWorkerRecord) =>
+  isWorkerProfileCompletePreview(worker) &&
+  Boolean(worker.profilePhotoPath.trim()) &&
+  Boolean(worker.identityProofType) &&
+  Boolean(worker.identityProofNumber.trim()) &&
+  Boolean(worker.identityProofPath.trim())
 
-const isPlanExpiredForWorker = (worker: LabourWorkerRecord, now: Date) => {
-  const planValidUntil = normalizeDateOnly(worker.planValidUntil)
-  if (!planValidUntil) {
+const resolveAssignedWorkerPlanPreview = (
+  worker: LabourWorkerRecord,
+  plans: LabourPlanRecord[],
+) => plans.find((plan) => plan.id === worker.activePlan && plan.audience === 'worker') || null
+
+const isZeroChargeWorkerPlanPreview = (workerPlan: LabourPlanRecord | null) =>
+  Boolean(
+    workerPlan &&
+      workerPlan.audience === 'worker' &&
+      workerPlan.registrationFee <= 0 &&
+      workerPlan.dailyCharge <= 0,
+  )
+
+const isFreeWorkerPlanPreview = (workerPlan: LabourPlanRecord | null) =>
+  Boolean(
+    workerPlan &&
+      workerPlan.audience === 'worker' &&
+      (workerPlan.id === 'plan-worker-free-7-days' ||
+        String(workerPlan.name || '').trim().toLowerCase() === 'free worker plan' ||
+        isZeroChargeWorkerPlanPreview(workerPlan)),
+  )
+
+const isPaidWorkerPlanPreview = (workerPlan: LabourPlanRecord | null) =>
+  Boolean(workerPlan && workerPlan.audience === 'worker' && !isFreeWorkerPlanPreview(workerPlan))
+
+const isWorkerPausedByWorkerPreview = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+) =>
+  Boolean(
+    isPaidWorkerPlanPreview(workerPlan) &&
+      (worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker'),
+  )
+
+const hasCompletedWorkerRegistrationFeeTransactionPreview = (
+  worker: LabourWorkerRecord,
+  transactions: LabourWalletTransactionRecord[],
+) =>
+  transactions.some(
+    (transaction) =>
+      transaction.entityType === 'worker' &&
+      transaction.entityId === worker.id &&
+      transaction.transactionType === 'registration_fee' &&
+      transaction.status === 'completed',
+  )
+
+const isWorkerRegistrationFeeSettledPreview = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[],
+) => {
+  if ((workerPlan?.registrationFee || 0) <= 0) {
     return true
   }
 
-  const today = now.toISOString().slice(0, 10)
-  return planValidUntil < today
+  return (
+    worker.registrationFeePaid ||
+    hasCompletedWorkerRegistrationFeeTransactionPreview(worker, transactions)
+  )
+}
+
+const getOutstandingWorkerRegistrationFeePreview = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[],
+) => {
+  const registrationFee = workerPlan?.registrationFee || 0
+  if (
+    registrationFee <= 0 ||
+    isWorkerRegistrationFeeSettledPreview(worker, workerPlan, transactions)
+  ) {
+    return 0
+  }
+
+  return registrationFee
 }
 
 export const deriveWorkerLifecycleStatusPreview = (
   worker: LabourWorkerRecord,
-  now: Date,
+  snapshot: Pick<LabourMarketplaceSnapshot, 'plans' | 'walletTransactions'>,
 ): WorkerLifecycleEvaluation => {
   if (worker.status === 'blocked') {
     return {
@@ -944,45 +1083,55 @@ export const deriveWorkerLifecycleStatusPreview = (
     }
   }
 
-  if (!toString(worker.registrationCompletedAt)) {
+  if (!isWorkerRegistrationCompletePreview(worker)) {
     return {
       derivedStatus: 'pending',
       reasonCategory: 'registration_incomplete',
     }
   }
 
-  if (toString(worker.kycStatus).toLowerCase() !== 'approved') {
-    return {
-      derivedStatus: 'pending',
-      reasonCategory: 'kyc_not_approved',
-    }
-  }
+  const workerPlan = resolveAssignedWorkerPlanPreview(worker, snapshot.plans)
+  const workerTransactions = snapshot.walletTransactions.filter(
+    (transaction) => transaction.entityType === 'worker' && transaction.entityId === worker.id,
+  )
 
-  if (worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker') {
-    return {
-      derivedStatus: 'inactive_paused_by_worker',
-      reasonCategory: 'worker_paused',
-    }
-  }
-
-  if (!toString(worker.activePlan)) {
+  if (!worker.activePlan || !workerPlan) {
     return {
       derivedStatus: 'inactive_subscription_expired',
       reasonCategory: 'missing_active_plan',
     }
   }
 
-  if (isPlanExpiredForWorker(worker, now)) {
+  if (isWorkerPlanExpiredRecord(worker)) {
     return {
       derivedStatus: 'inactive_subscription_expired',
       reasonCategory: 'expired_active_plan',
     }
   }
 
-  if (!worker.registrationFeePaid) {
+  if (isWorkerPausedByWorkerPreview(worker, workerPlan)) {
+    return {
+      derivedStatus: 'inactive_paused_by_worker',
+      reasonCategory: 'worker_paused',
+    }
+  }
+
+  const outstandingRegistrationFee = getOutstandingWorkerRegistrationFeePreview(
+    worker,
+    workerPlan,
+    workerTransactions,
+  )
+  if (outstandingRegistrationFee > 0 && worker.walletBalance < outstandingRegistrationFee) {
     return {
       derivedStatus: 'inactive_wallet_empty',
       reasonCategory: 'registration_fee_unpaid',
+    }
+  }
+
+  if (workerPlan && isZeroChargeWorkerPlanPreview(workerPlan)) {
+    return {
+      derivedStatus: 'active',
+      reasonCategory: 'eligible_active',
     }
   }
 
@@ -1019,12 +1168,10 @@ const buildWorkerLifecycleReconciliationSummary = ({
   snapshot,
   snapshotSource,
   snapshotReasonCategory,
-  now,
 }: {
   snapshot: LabourMarketplaceSnapshot
   snapshotSource: 'supabase' | 'unavailable'
   snapshotReasonCategory: WhatsappAutomationPreviewSummary['snapshotReasonCategory']
-  now: Date
 }): WorkerLifecycleReconciliationSummary => {
   if (snapshotSource !== 'supabase') {
     return createEmptyWorkerLifecycleReconciliationSummary(
@@ -1035,7 +1182,7 @@ const buildWorkerLifecycleReconciliationSummary = ({
 
   const evaluations = snapshot.workers.map((worker) => ({
     worker,
-    evaluation: deriveWorkerLifecycleStatusPreview(worker, now),
+    evaluation: deriveWorkerLifecycleStatusPreview(worker, snapshot),
   }))
 
   const normalizedChangedWorkers: WorkerLifecycleReconciliationRow[] = evaluations
@@ -1219,7 +1366,6 @@ export const buildWhatsappAutomationPreviewSummary = ({
     snapshot,
     snapshotSource,
     snapshotReasonCategory,
-    now,
   })
 
   return {

@@ -6,7 +6,7 @@ import {
   type LabourMarketplaceSnapshot,
   type LabourWorkerRecord,
 } from '../labour-marketplace'
-import type { WhatsappConsentState } from './consent'
+import { maskWhatsappMobile, type WhatsappConsentState } from './consent'
 import type {
   WhatsappSafetyStatusSummary,
   WhatsappTemplateInventoryRow,
@@ -93,6 +93,50 @@ type AutomationPreviewFunnel = {
   blockedPlans: number
 }
 
+export type WorkerLifecycleReasonCategory =
+  | 'persisted_blocked'
+  | 'persisted_rejected'
+  | 'persisted_pending'
+  | 'registration_incomplete'
+  | 'kyc_not_approved'
+  | 'worker_paused'
+  | 'missing_active_plan'
+  | 'expired_active_plan'
+  | 'registration_fee_unpaid'
+  | 'wallet_balance_non_positive'
+  | 'eligible_active'
+
+export type WorkerLifecycleEvaluation = {
+  derivedStatus: LabourWorkerRecord['status']
+  reasonCategory: WorkerLifecycleReasonCategory
+}
+
+export type WorkerLifecycleReconciliationRow = {
+  maskedMobile: string
+  persistedStatus: LabourWorkerRecord['status']
+  derivedStatus: LabourWorkerRecord['status']
+  reasonCategory: WorkerLifecycleReasonCategory
+}
+
+export type WorkerLifecycleTransitionSummary = {
+  fromStatus: LabourWorkerRecord['status']
+  toStatus: LabourWorkerRecord['status']
+  count: number
+}
+
+export type WorkerLifecycleReconciliationSummary = {
+  source: 'supabase' | 'unavailable'
+  reasonCategory: WhatsappAutomationPreviewSummary['snapshotReasonCategory']
+  totalWorkersChecked: number
+  unchangedCount: number
+  changeRequiredCount: number
+  activeToInactiveWalletEmptyCount: number
+  activeToInactiveSubscriptionExpiredCount: number
+  otherTransitionCount: number
+  transitions: WorkerLifecycleTransitionSummary[]
+  changedWorkers: WorkerLifecycleReconciliationRow[]
+}
+
 export type WhatsappAutomationPreviewSummary = {
   checkedAt: string
   vercelEnv: string
@@ -126,6 +170,7 @@ export type WhatsappAutomationPreviewSummary = {
   workerPlans: AutomationPreviewPlan[]
   workerPaymentPlans: AutomationPreviewPlan[]
   workerKycRejectedPlans: AutomationPreviewPlan[]
+  workerLifecycleReconciliation: WorkerLifecycleReconciliationSummary
 }
 
 type PreviewBuildInput = {
@@ -855,6 +900,196 @@ const buildPreviewFunnel = (
   }
 }
 
+const normalizeDateOnly = (value: string) => {
+  const normalized = String(value || '').trim()
+  if (!normalized) {
+    return ''
+  }
+
+  return normalized.slice(0, 10)
+}
+
+const isPlanExpiredForWorker = (worker: LabourWorkerRecord, now: Date) => {
+  const planValidUntil = normalizeDateOnly(worker.planValidUntil)
+  if (!planValidUntil) {
+    return true
+  }
+
+  const today = now.toISOString().slice(0, 10)
+  return planValidUntil < today
+}
+
+export const deriveWorkerLifecycleStatusPreview = (
+  worker: LabourWorkerRecord,
+  now: Date,
+): WorkerLifecycleEvaluation => {
+  if (worker.status === 'blocked') {
+    return {
+      derivedStatus: 'blocked',
+      reasonCategory: 'persisted_blocked',
+    }
+  }
+
+  if (worker.status === 'rejected' || toString(worker.kycStatus).toLowerCase() === 'rejected') {
+    return {
+      derivedStatus: 'rejected',
+      reasonCategory: 'persisted_rejected',
+    }
+  }
+
+  if (worker.status === 'pending') {
+    return {
+      derivedStatus: 'pending',
+      reasonCategory: 'persisted_pending',
+    }
+  }
+
+  if (!toString(worker.registrationCompletedAt)) {
+    return {
+      derivedStatus: 'pending',
+      reasonCategory: 'registration_incomplete',
+    }
+  }
+
+  if (toString(worker.kycStatus).toLowerCase() !== 'approved') {
+    return {
+      derivedStatus: 'pending',
+      reasonCategory: 'kyc_not_approved',
+    }
+  }
+
+  if (worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker') {
+    return {
+      derivedStatus: 'inactive_paused_by_worker',
+      reasonCategory: 'worker_paused',
+    }
+  }
+
+  if (!toString(worker.activePlan)) {
+    return {
+      derivedStatus: 'inactive_subscription_expired',
+      reasonCategory: 'missing_active_plan',
+    }
+  }
+
+  if (isPlanExpiredForWorker(worker, now)) {
+    return {
+      derivedStatus: 'inactive_subscription_expired',
+      reasonCategory: 'expired_active_plan',
+    }
+  }
+
+  if (!worker.registrationFeePaid) {
+    return {
+      derivedStatus: 'inactive_wallet_empty',
+      reasonCategory: 'registration_fee_unpaid',
+    }
+  }
+
+  if (Number(worker.walletBalance || 0) <= 0) {
+    return {
+      derivedStatus: 'inactive_wallet_empty',
+      reasonCategory: 'wallet_balance_non_positive',
+    }
+  }
+
+  return {
+    derivedStatus: 'active',
+    reasonCategory: 'eligible_active',
+  }
+}
+
+const createEmptyWorkerLifecycleReconciliationSummary = (
+  source: 'supabase' | 'unavailable',
+  reasonCategory: WhatsappAutomationPreviewSummary['snapshotReasonCategory'],
+): WorkerLifecycleReconciliationSummary => ({
+  source,
+  reasonCategory,
+  totalWorkersChecked: 0,
+  unchangedCount: 0,
+  changeRequiredCount: 0,
+  activeToInactiveWalletEmptyCount: 0,
+  activeToInactiveSubscriptionExpiredCount: 0,
+  otherTransitionCount: 0,
+  transitions: [],
+  changedWorkers: [],
+})
+
+const buildWorkerLifecycleReconciliationSummary = ({
+  snapshot,
+  snapshotSource,
+  snapshotReasonCategory,
+  now,
+}: {
+  snapshot: LabourMarketplaceSnapshot
+  snapshotSource: 'supabase' | 'unavailable'
+  snapshotReasonCategory: WhatsappAutomationPreviewSummary['snapshotReasonCategory']
+  now: Date
+}): WorkerLifecycleReconciliationSummary => {
+  if (snapshotSource !== 'supabase') {
+    return createEmptyWorkerLifecycleReconciliationSummary(
+      'unavailable',
+      snapshotReasonCategory,
+    )
+  }
+
+  const evaluations = snapshot.workers.map((worker) => ({
+    worker,
+    evaluation: deriveWorkerLifecycleStatusPreview(worker, now),
+  }))
+
+  const normalizedChangedWorkers: WorkerLifecycleReconciliationRow[] = evaluations
+    .filter(({ worker, evaluation }) => worker.status !== evaluation.derivedStatus)
+    .map(({ worker, evaluation }) => ({
+      maskedMobile: maskWhatsappMobile(worker.mobile),
+      persistedStatus: worker.status,
+      derivedStatus: evaluation.derivedStatus,
+      reasonCategory: evaluation.reasonCategory,
+    }))
+
+  const transitionMap = new Map<string, WorkerLifecycleTransitionSummary>()
+  for (const row of normalizedChangedWorkers) {
+    const key = `${row.persistedStatus}->${row.derivedStatus}`
+    const existing = transitionMap.get(key)
+    if (existing) {
+      existing.count += 1
+      continue
+    }
+
+    transitionMap.set(key, {
+      fromStatus: row.persistedStatus,
+      toStatus: row.derivedStatus,
+      count: 1,
+    })
+  }
+
+  const activeToInactiveWalletEmptyCount = normalizedChangedWorkers.filter(
+    (row) =>
+      row.persistedStatus === 'active' && row.derivedStatus === 'inactive_wallet_empty',
+  ).length
+  const activeToInactiveSubscriptionExpiredCount = normalizedChangedWorkers.filter(
+    (row) =>
+      row.persistedStatus === 'active' &&
+      row.derivedStatus === 'inactive_subscription_expired',
+  ).length
+
+  return {
+    source: 'supabase',
+    reasonCategory: snapshotReasonCategory,
+    totalWorkersChecked: evaluations.length,
+    unchangedCount: evaluations.length - normalizedChangedWorkers.length,
+    changeRequiredCount: normalizedChangedWorkers.length,
+    activeToInactiveWalletEmptyCount,
+    activeToInactiveSubscriptionExpiredCount,
+    otherTransitionCount:
+      normalizedChangedWorkers.length -
+      activeToInactiveWalletEmptyCount -
+      activeToInactiveSubscriptionExpiredCount,
+    transitions: [...transitionMap.values()].sort((left, right) => right.count - left.count),
+    changedWorkers: normalizedChangedWorkers,
+  }
+}
+
 export const buildWhatsappAutomationPreviewSummary = ({
   snapshot,
   snapshotSource = 'supabase',
@@ -980,6 +1215,12 @@ export const buildWhatsappAutomationPreviewSummary = ({
   const workerFunnel = buildPreviewFunnel(workerPlans, 'worker')
   const workerPaymentFunnel = buildPreviewFunnel(workerPaymentPlans, 'worker')
   const workerKycRejectedFunnel = buildPreviewFunnel(workerKycRejectedPlans, 'worker')
+  const workerLifecycleReconciliation = buildWorkerLifecycleReconciliationSummary({
+    snapshot,
+    snapshotSource,
+    snapshotReasonCategory,
+    now,
+  })
 
   return {
     checkedAt: now.toISOString(),
@@ -1011,6 +1252,7 @@ export const buildWhatsappAutomationPreviewSummary = ({
     workerPlans,
     workerPaymentPlans,
     workerKycRejectedPlans,
+    workerLifecycleReconciliation,
   }
 }
 

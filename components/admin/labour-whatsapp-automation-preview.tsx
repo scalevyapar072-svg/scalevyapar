@@ -89,6 +89,41 @@ type AutomationPreviewSummary = {
   workerPlans: AutomationPreviewPlan[]
   workerPaymentPlans: AutomationPreviewPlan[]
   workerKycRejectedPlans: AutomationPreviewPlan[]
+  workerLifecycleReconciliation: {
+    source: 'supabase' | 'unavailable'
+    reasonCategory:
+      | 'live_read_ok'
+      | 'missing_configuration'
+      | 'marketplace_query_failed'
+    totalWorkersChecked: number
+    unchangedCount: number
+    changeRequiredCount: number
+    activeToInactiveWalletEmptyCount: number
+    activeToInactiveSubscriptionExpiredCount: number
+    otherTransitionCount: number
+    transitions: Array<{
+      fromStatus: string
+      toStatus: string
+      count: number
+    }>
+    changedWorkers: Array<{
+      maskedMobile: string
+      persistedStatus: string
+      derivedStatus: string
+      reasonCategory:
+        | 'persisted_blocked'
+        | 'persisted_rejected'
+        | 'persisted_pending'
+        | 'registration_incomplete'
+        | 'kyc_not_approved'
+        | 'worker_paused'
+        | 'missing_active_plan'
+        | 'expired_active_plan'
+        | 'registration_fee_unpaid'
+        | 'wallet_balance_non_positive'
+        | 'eligible_active'
+    }>
+  }
 }
 
 const sectionCardStyle = {
@@ -146,6 +181,37 @@ const formatSnapshotReason = (
       return 'Server-side Supabase configuration unavailable'
     case 'marketplace_query_failed':
       return 'Live marketplace read failed'
+    default:
+      return value
+  }
+}
+
+const formatLifecycleReason = (
+  value: AutomationPreviewSummary['workerLifecycleReconciliation']['changedWorkers'][number]['reasonCategory'],
+) => {
+  switch (value) {
+    case 'persisted_blocked':
+      return 'Persisted blocked status preserved'
+    case 'persisted_rejected':
+      return 'Persisted rejected status preserved'
+    case 'persisted_pending':
+      return 'Persisted pending status preserved'
+    case 'registration_incomplete':
+      return 'Registration incomplete'
+    case 'kyc_not_approved':
+      return 'KYC not approved'
+    case 'worker_paused':
+      return 'Paused by worker'
+    case 'missing_active_plan':
+      return 'No active plan'
+    case 'expired_active_plan':
+      return 'Plan expired'
+    case 'registration_fee_unpaid':
+      return 'Registration fee unpaid'
+    case 'wallet_balance_non_positive':
+      return 'Wallet balance non-positive'
+    case 'eligible_active':
+      return 'Eligible for active status'
     default:
       return value
   }
@@ -289,6 +355,118 @@ const renderPlanGrid = (plans: AutomationPreviewPlan[], emptyLabel: string) => {
     </div>
   )
 }
+
+const renderLifecycleReconciliation = (
+  lifecycle: AutomationPreviewSummary['workerLifecycleReconciliation'],
+) => (
+  <div style={{ display: 'grid', gap: '12px' }}>
+    <div
+      style={{
+        border: '1px solid #e2e8f0',
+        borderRadius: '12px',
+        background: '#f8fafc',
+        padding: '12px 14px',
+        display: 'grid',
+        gap: '6px',
+        color: '#0f172a',
+        fontSize: '12px',
+        lineHeight: 1.7,
+      }}
+    >
+      <strong style={{ fontSize: '13px' }}>Worker lifecycle reconciliation preview</strong>
+      <div>Lifecycle source: {lifecycle.source}</div>
+      <div>Lifecycle reason: {formatSnapshotReason(lifecycle.reasonCategory)}</div>
+      <div>Total workers checked: {lifecycle.totalWorkersChecked}</div>
+      <div>Persisted status unchanged: {lifecycle.unchangedCount}</div>
+      <div>Status change required: {lifecycle.changeRequiredCount}</div>
+      <div>
+        active → inactive_wallet_empty: {lifecycle.activeToInactiveWalletEmptyCount}
+      </div>
+      <div>
+        active → inactive_subscription_expired:{' '}
+        {lifecycle.activeToInactiveSubscriptionExpiredCount}
+      </div>
+      <div>Other transitions: {lifecycle.otherTransitionCount}</div>
+    </div>
+
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '12px',
+      }}
+    >
+      <div
+        style={{
+          border: '1px solid #e2e8f0',
+          borderRadius: '12px',
+          background: '#ffffff',
+          padding: '12px 14px',
+          display: 'grid',
+          gap: '6px',
+          fontSize: '12px',
+          color: '#0f172a',
+        }}
+      >
+        <strong style={{ fontSize: '13px' }}>Transition counts</strong>
+        {lifecycle.transitions.length > 0 ? (
+          lifecycle.transitions.map((transition) => (
+            <div key={`${transition.fromStatus}-${transition.toStatus}`}>
+              {transition.fromStatus} → {transition.toStatus}: {transition.count}
+            </div>
+          ))
+        ) : (
+          <div style={{ color: '#64748b' }}>No lifecycle changes required in the current read.</div>
+        )}
+      </div>
+    </div>
+
+    {lifecycle.changedWorkers.length > 0 ? (
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gap: '12px',
+        }}
+      >
+        {lifecycle.changedWorkers.map((worker) => (
+          <div
+            key={`${worker.maskedMobile}-${worker.persistedStatus}-${worker.derivedStatus}`}
+            style={{
+              border: '1px solid #e2e8f0',
+              borderRadius: '14px',
+              background: '#ffffff',
+              padding: '14px',
+              display: 'grid',
+              gap: '6px',
+              color: '#0f172a',
+              fontSize: '12px',
+              lineHeight: 1.7,
+            }}
+          >
+            <strong style={{ fontSize: '13px' }}>{worker.maskedMobile}</strong>
+            <div>Persisted status: {worker.persistedStatus}</div>
+            <div>Derived status: {worker.derivedStatus}</div>
+            <div>Reason: {formatLifecycleReason(worker.reasonCategory)}</div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div
+        style={{
+          border: '1px solid #e2e8f0',
+          borderRadius: '12px',
+          background: '#f8fafc',
+          padding: '14px',
+          color: '#64748b',
+          fontSize: '13px',
+        }}
+      >
+        No lifecycle reconciliation changes are visible in the current read-only snapshot.
+      </div>
+    )}
+  </div>
+)
 
 export default function LabourWhatsappAutomationPreviewCard() {
   const [summary, setSummary] = useState<AutomationPreviewSummary | null>(null)
@@ -471,6 +649,16 @@ export default function LabourWhatsappAutomationPreviewCard() {
             >
               template read: {summary.templateReadState}
             </span>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            {renderLifecycleReconciliation(summary.workerLifecycleReconciliation)}
           </div>
 
           <div

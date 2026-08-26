@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
-import type { LabourMarketplaceSnapshot } from '../../lib/labour-marketplace'
+import type { LabourMarketplaceSnapshot, LabourWorkerRecord } from '../../lib/labour-marketplace'
 import { handleAdminWhatsappReadOnlyGet } from '../../lib/whatsapp/admin-readonly-route'
 import { buildWhatsappAutomationPreviewSummary } from '../../lib/whatsapp/automation-preview'
 
@@ -51,6 +51,55 @@ const makeSnapshot = (): LabourMarketplaceSnapshot => ({
     recentAuditLogs: [],
   },
   storage: 'json',
+})
+
+const makeWorker = (
+  id: string,
+  overrides: Partial<LabourWorkerRecord> = {},
+): LabourWorkerRecord => ({
+  id,
+  fullName: `Worker ${id}`,
+  mobile: (() => {
+    const digits = id.replace(/\D/g, '').slice(-4).padStart(4, '0')
+    return `987650${digits}`
+  })(),
+  city: 'Surat',
+  homeCity: 'Surat',
+  salaryType: 'daily',
+  companyId: '',
+  industryCategory: 'Textile',
+  businessType: '',
+  address: '',
+  preferredWorkLocations: [],
+  profilePhotoPath: '',
+  resumeDocumentPath: '',
+  skills: [],
+  experienceYears: 2,
+  expectedDailyWage: 500,
+  minimumExpectedWage: 450,
+  maximumExpectedWage: 550,
+  walletBalance: 100,
+  registrationFeePaid: true,
+  activePlan: 'worker-plan',
+  planValidFrom: '2026-08-01',
+  planValidUntil: '2099-01-01',
+  lastWalletDeductionDate: '',
+  workerPausedByWorker: false,
+  workerPausedAt: '',
+  workerReactivatedAt: '',
+  status: 'active',
+  kycStatus: 'approved',
+  kycRemarks: '',
+  availability: 'available_today',
+  isVisible: true,
+  categoryIds: ['cat-stitching'],
+  identityProofType: '',
+  identityProofNumber: '',
+  identityProofPath: '',
+  registrationCompletedAt: '2026-08-01T00:00:00.000Z',
+  createdAt: '2026-08-01T00:00:00.000Z',
+  updatedAt: '2026-08-01T00:00:00.000Z',
+  ...overrides,
 })
 
 const assertNoStoreHeaders = (response: Response) => {
@@ -370,6 +419,29 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
   assert.equal(previewSummary.workerKycRejectedPlans[0]?.subreason, 'kyc_rejected')
   assert.equal(previewSummary.workerKycRejectedPlans[0]?.messagePreview?.includes('unsafe admin note'), false)
   assert.equal(previewSummary.workerKycRejectedPlans[0]?.templateEligible, false)
+  assert.equal(previewSummary.workerLifecycleReconciliation.source, 'supabase')
+  assert.equal(previewSummary.workerLifecycleReconciliation.totalWorkersChecked, 3)
+  assert.equal(previewSummary.workerLifecycleReconciliation.changeRequiredCount, 1)
+  assert.equal(
+    previewSummary.workerLifecycleReconciliation.activeToInactiveWalletEmptyCount,
+    1,
+  )
+  assert.equal(
+    previewSummary.workerLifecycleReconciliation.changedWorkers[0]?.maskedMobile,
+    '+91******3210',
+  )
+  assert.equal(
+    previewSummary.workerLifecycleReconciliation.changedWorkers[0]?.persistedStatus,
+    'active',
+  )
+  assert.equal(
+    previewSummary.workerLifecycleReconciliation.changedWorkers[0]?.derivedStatus,
+    'inactive_wallet_empty',
+  )
+  assert.equal(
+    previewSummary.workerLifecycleReconciliation.changedWorkers[0]?.reasonCategory,
+    'wallet_balance_non_positive',
+  )
 
   const quietHoursSummary = buildWhatsappAutomationPreviewSummary({
     snapshot,
@@ -712,4 +784,161 @@ test('automation preview fails closed when the live marketplace snapshot is unav
   assert.equal(summary.workerPlanCount, 0)
   assert.equal(summary.companyFunnel.marketplaceCandidatePlans, 0)
   assert.equal(summary.workerFunnel.marketplaceCandidatePlans, 0)
+  assert.equal(summary.workerLifecycleReconciliation.source, 'unavailable')
+  assert.equal(summary.workerLifecycleReconciliation.totalWorkersChecked, 0)
+})
+
+test('worker lifecycle reconciliation stays read-only and preserves approved precedence rules', () => {
+  const snapshot = makeSnapshot()
+
+  for (let index = 0; index < 246; index += 1) {
+    snapshot.workers.push(
+      makeWorker(`pending-${index}`, {
+        status: 'pending',
+        walletBalance: 0,
+        registrationFeePaid: true,
+        activePlan: '',
+        registrationCompletedAt: '',
+        kycStatus: 'submitted',
+      }),
+    )
+  }
+
+  snapshot.workers.push(
+    makeWorker('blocked', { status: 'blocked' }),
+    makeWorker('rejected', { status: 'rejected', kycStatus: 'rejected', kycRemarks: 'unsafe note' }),
+    makeWorker('paused', {
+      status: 'active',
+      workerPausedByWorker: true,
+      walletBalance: 200,
+    }),
+    makeWorker('expired', {
+      status: 'active',
+      planValidUntil: '2026-08-10',
+      walletBalance: 200,
+    }),
+    makeWorker('wallet', {
+      status: 'active',
+      walletBalance: 0,
+    }),
+    makeWorker('fee-gap', {
+      status: 'active',
+      registrationFeePaid: false,
+      walletBalance: 200,
+    }),
+    makeWorker('eligible', {
+      status: 'active',
+      walletBalance: 250,
+      activePlan: 'worker-plan',
+      planValidUntil: '2099-01-01',
+    }),
+  )
+
+  const summary = buildWhatsappAutomationPreviewSummary({
+    snapshot,
+    snapshotSource: 'supabase',
+    snapshotReasonCategory: 'live_read_ok',
+    now: new Date('2026-08-26T06:00:00.000Z'),
+    vercelEnv: 'preview',
+    safetySummary: {
+      available: true,
+      persistenceStatus: 'Connected',
+      failClosed: true,
+      pauseAllSending: true,
+      pauseReason: 'explicit_true',
+      reviewOnlyDefaults: {
+        workerDailyLimit: 3,
+        companyJobDailyLimit: 5,
+        manualBulkCap: 100,
+        quietHoursStart: '21:00',
+        quietHoursEnd: '08:00',
+        timeZone: 'Asia/Kolkata',
+      },
+    },
+  })
+
+  assert.equal(summary.workerLifecycleReconciliation.source, 'supabase')
+  assert.equal(summary.workerLifecycleReconciliation.totalWorkersChecked, 253)
+  assert.equal(summary.workerLifecycleReconciliation.unchangedCount, 249)
+  assert.equal(summary.workerLifecycleReconciliation.changeRequiredCount, 4)
+  assert.equal(
+    summary.workerLifecycleReconciliation.activeToInactiveWalletEmptyCount,
+    2,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.activeToInactiveSubscriptionExpiredCount,
+    1,
+  )
+  assert.equal(summary.workerLifecycleReconciliation.otherTransitionCount, 1)
+  assert.equal(
+    summary.workerLifecycleReconciliation.transitions.some(
+      (transition) =>
+        transition.fromStatus === 'active' &&
+        transition.toStatus === 'inactive_wallet_empty' &&
+        transition.count === 2,
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.transitions.some(
+      (transition) =>
+        transition.fromStatus === 'active' &&
+        transition.toStatus === 'inactive_subscription_expired' &&
+        transition.count === 1,
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.transitions.some(
+      (transition) =>
+        transition.fromStatus === 'active' &&
+        transition.toStatus === 'inactive_paused_by_worker' &&
+        transition.count === 1,
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.changedWorkers.every(
+      (worker) => worker.maskedMobile.includes('******'),
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.changedWorkers.some(
+      (worker) =>
+        worker.derivedStatus === 'inactive_wallet_empty' &&
+        worker.reasonCategory === 'registration_fee_unpaid',
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.changedWorkers.some(
+      (worker) =>
+        worker.derivedStatus === 'inactive_wallet_empty' &&
+        worker.reasonCategory === 'wallet_balance_non_positive',
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.changedWorkers.some(
+      (worker) =>
+        worker.derivedStatus === 'inactive_subscription_expired' &&
+        worker.reasonCategory === 'expired_active_plan',
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.changedWorkers.some(
+      (worker) =>
+        worker.derivedStatus === 'inactive_paused_by_worker' &&
+        worker.reasonCategory === 'worker_paused',
+    ),
+    true,
+  )
+  assert.equal(
+    summary.workerLifecycleReconciliation.changedWorkers.some(
+      (worker) => worker.reasonCategory === 'persisted_pending',
+    ),
+    false,
+  )
 })

@@ -31,6 +31,7 @@ import { supabaseAdmin } from './supabase-admin'
 import { sendTwoFactorOtp } from './two-factor'
 import { createReferralAttribution, getReferralProfileByCode, listReferralEligibleCategories } from './labour-worker-referral'
 import { RozgarReferralContext } from './rozgar-referral-context'
+import { evaluateWorkerLifecycle, type WorkerLifecycleFacts } from './worker-lifecycle-evaluator'
 import { assertWorkerLifecycleMutationAllowed } from './worker-lifecycle-mutation-guard'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
@@ -1157,44 +1158,26 @@ const deriveWorkerStatus = (
   workerPlan: LabourPlanRecord | null = null,
   transactions: LabourWalletTransactionRecord[] = []
 ): LabourWorkerRecord['status'] => {
-  if (worker.status === 'blocked' || worker.status === 'rejected') {
-    return worker.status
+  const lifecycleFacts: WorkerLifecycleFacts = {
+    persistedStatus: worker.status,
+    registrationComplete: isWorkerRegistrationComplete(worker),
+    workerPausedByWorker: worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker',
+    activePlanId: worker.activePlan,
+    planResolved: Boolean(workerPlan),
+    planAudience: workerPlan?.audience === 'worker' || workerPlan?.audience === 'company'
+      ? workerPlan.audience
+      : '',
+    planName: workerPlan?.name || '',
+    planRegistrationFee: workerPlan?.registrationFee || 0,
+    planDailyCharge: workerPlan?.dailyCharge || 0,
+    planValidUntil: worker.planValidUntil,
+    walletBalance: worker.walletBalance,
+    registrationFeePaid: worker.registrationFeePaid,
+    hasCompletedRegistrationFeeTransaction: hasCompletedWorkerRegistrationFeeTransaction(worker, transactions),
+    currentDateValue: getDateValue(new Date())
   }
 
-  if (!isWorkerRegistrationComplete(worker)) {
-    return 'pending'
-  }
-
-  if (worker.status === 'pending') {
-    return 'pending'
-  }
-
-  if (!worker.activePlan || !workerPlan) {
-    return 'inactive_subscription_expired'
-  }
-
-  if (isWorkerPlanExpiredRecord(worker)) {
-    return 'inactive_subscription_expired'
-  }
-
-  if (isWorkerPausedByWorker(worker, workerPlan)) {
-    return 'inactive_paused_by_worker'
-  }
-
-  const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
-  if (outstandingRegistrationFee > 0 && worker.walletBalance < outstandingRegistrationFee) {
-    return 'inactive_wallet_empty'
-  }
-
-  if (workerPlan && isZeroChargeWorkerPlan(workerPlan)) {
-    return 'active'
-  }
-
-  if (worker.walletBalance <= 0) {
-    return 'inactive_wallet_empty'
-  }
-
-  return 'active'
+  return evaluateWorkerLifecycle(lifecycleFacts).derivedStatus
 }
 
 const ensureWorkerUploadBucket = async () => {

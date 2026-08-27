@@ -2,18 +2,26 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
+import { pathToFileURL } from 'node:url'
 
 import type {
   LabourMarketplaceSnapshot,
   LabourPlanRecord,
   LabourWorkerRecord,
-} from '../../lib/labour-marketplace'
-import {
+  LabourWalletTransactionRecord,
+} from '../../lib/labour-marketplace.ts'
+import type {
+  WorkerLifecycleEvaluation,
+  WorkerLifecycleFacts,
+} from '../../lib/worker-lifecycle-evaluator.ts'
+
+const {
   evaluateWorkerLifecycle,
-  type WorkerLifecycleEvaluation,
-  type WorkerLifecycleFacts,
-} from '../../lib/worker-lifecycle-evaluator'
-import { deriveWorkerLifecycleStatusPreview } from '../../lib/whatsapp/automation-preview'
+} = await import(
+  pathToFileURL(
+    path.join(process.cwd(), 'lib', 'worker-lifecycle-evaluator.ts'),
+  ).href,
+)
 
 const workspaceRoot = process.cwd()
 const evaluatorSourcePath = path.join(workspaceRoot, 'lib', 'worker-lifecycle-evaluator.ts')
@@ -29,20 +37,6 @@ const sliceBetween = (source: string, startNeedle: string, endNeedle: string) =>
   assert.notEqual(endIndex, -1, `Expected source to include ${endNeedle}`)
 
   return source.slice(startIndex, endIndex)
-}
-
-const assertOrdered = (source: string, needles: string[], context: string) => {
-  let previousIndex = -1
-
-  for (const needle of needles) {
-    const nextIndex = source.indexOf(needle)
-    assert.notEqual(nextIndex, -1, `Expected ${context} to include ${needle}`)
-    assert.ok(
-      nextIndex > previousIndex,
-      `Expected ${context} to keep ${needle} after the prior lifecycle step`,
-    )
-    previousIndex = nextIndex
-  }
 }
 
 const withVisibility = (
@@ -301,7 +295,169 @@ const makeSnapshot = (
   walletTransactions: [],
 })
 
-test('canonical lifecycle source keeps the approved precedence order and no kyc-status rejection override', () => {
+const isWorkerRegistrationCompleteReference = (worker: LabourWorkerRecord) =>
+  Boolean(worker.fullName.trim()) &&
+  Boolean(worker.city.trim()) &&
+  worker.categoryIds.length > 0 &&
+  Boolean(worker.profilePhotoPath.trim()) &&
+  Boolean(worker.identityProofType) &&
+  Boolean(worker.identityProofNumber.trim()) &&
+  Boolean(worker.identityProofPath.trim())
+
+const isFreeWorkerPlanRecordReference = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+) =>
+  Boolean(
+    workerPlan &&
+      workerPlan.audience === 'worker' &&
+      (
+        worker.activePlan === 'plan-worker-free-7-days' ||
+        String(workerPlan.name || '').trim().toLowerCase() === 'free worker plan' ||
+        (
+          workerPlan.registrationFee <= 0 &&
+          workerPlan.dailyCharge <= 0
+        )
+      ),
+  )
+
+const isPaidWorkerPlanRecordReference = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+) =>
+  Boolean(
+    workerPlan &&
+      workerPlan.audience === 'worker' &&
+      !isFreeWorkerPlanRecordReference(worker, workerPlan),
+  )
+
+const hasCompletedRegistrationFeeTransactionReference = (
+  worker: LabourWorkerRecord,
+  transactions: LabourMarketplaceSnapshot['walletTransactions'],
+) =>
+  transactions.some(
+    (transaction) =>
+      transaction.entityType === 'worker' &&
+      transaction.entityId === worker.id &&
+      transaction.transactionType === 'registration_fee' &&
+      transaction.status === 'completed',
+  )
+
+const getOutstandingRegistrationFeeReference = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourMarketplaceSnapshot['walletTransactions'],
+) => {
+  const registrationFee = workerPlan?.registrationFee || 0
+  if (
+    registrationFee <= 0 ||
+    worker.registrationFeePaid ||
+    hasCompletedRegistrationFeeTransactionReference(worker, transactions)
+  ) {
+    return 0
+  }
+
+  return registrationFee
+}
+
+const isWorkerPlanExpiredReference = (
+  worker: Pick<LabourWorkerRecord, 'planValidUntil'>,
+  currentDateValue: string,
+) => {
+  const expiryDateValue = normalizeDateValue(worker.planValidUntil)
+  if (!expiryDateValue) {
+    return true
+  }
+
+  return expiryDateValue < normalizeDateValue(currentDateValue)
+}
+
+const deriveLegacyWorkerStatusReference = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null = null,
+  transactions: LabourMarketplaceSnapshot['walletTransactions'] = [],
+  currentDateValue = '2026-08-27',
+): LabourWorkerRecord['status'] => {
+  if (worker.status === 'blocked' || worker.status === 'rejected') {
+    return worker.status
+  }
+
+  if (!isWorkerRegistrationCompleteReference(worker)) {
+    return 'pending'
+  }
+
+  if (worker.status === 'pending') {
+    return 'pending'
+  }
+
+  if (!worker.activePlan || !workerPlan || workerPlan.audience !== 'worker') {
+    return 'inactive_subscription_expired'
+  }
+
+  if (isWorkerPlanExpiredReference(worker, currentDateValue)) {
+    return 'inactive_subscription_expired'
+  }
+
+  if (
+    isPaidWorkerPlanRecordReference(worker, workerPlan) &&
+    (worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker')
+  ) {
+    return 'inactive_paused_by_worker'
+  }
+
+  const outstandingRegistrationFee = getOutstandingRegistrationFeeReference(
+    worker,
+    workerPlan,
+    transactions,
+  )
+  if (outstandingRegistrationFee > 0 && worker.walletBalance < outstandingRegistrationFee) {
+    return 'inactive_wallet_empty'
+  }
+
+  if (
+    workerPlan &&
+    workerPlan.audience === 'worker' &&
+    workerPlan.registrationFee <= 0 &&
+    workerPlan.dailyCharge <= 0
+  ) {
+    return 'active'
+  }
+
+  if (worker.walletBalance <= 0) {
+    return 'inactive_wallet_empty'
+  }
+
+  return 'active'
+}
+
+const buildWorkerLifecycleFactsReference = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null = null,
+  transactions: LabourMarketplaceSnapshot['walletTransactions'] = [],
+  currentDateValue = '2026-08-27',
+): WorkerLifecycleFacts => ({
+  persistedStatus: worker.status,
+  registrationComplete: isWorkerRegistrationCompleteReference(worker),
+  workerPausedByWorker:
+    worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker',
+  activePlanId: worker.activePlan,
+  planResolved: Boolean(workerPlan),
+  planAudience:
+    workerPlan?.audience === 'worker' || workerPlan?.audience === 'company'
+      ? workerPlan.audience
+      : '',
+  planName: workerPlan?.name || '',
+  planRegistrationFee: workerPlan?.registrationFee || 0,
+  planDailyCharge: workerPlan?.dailyCharge || 0,
+  planValidUntil: worker.planValidUntil,
+  walletBalance: worker.walletBalance,
+  registrationFeePaid: worker.registrationFeePaid,
+  hasCompletedRegistrationFeeTransaction:
+    hasCompletedRegistrationFeeTransactionReference(worker, transactions),
+  currentDateValue,
+})
+
+test('mutation-side deriveWorkerStatus stays a thin compatibility wrapper over the approved evaluator facts contract', () => {
   const source = readWorkspaceFile('lib', 'labour-worker-app.ts')
   const deriveWorkerStatusBlock = sliceBetween(
     source,
@@ -309,28 +465,29 @@ test('canonical lifecycle source keeps the approved precedence order and no kyc-
     'const ensureWorkerUploadBucket = async',
   )
 
-  assertOrdered(
-    deriveWorkerStatusBlock,
-    [
-      "if (worker.status === 'blocked' || worker.status === 'rejected')",
-      'if (!isWorkerRegistrationComplete(worker))',
-      "if (worker.status === 'pending')",
-      'if (!worker.activePlan || !workerPlan)',
-      'if (isWorkerPlanExpiredRecord(worker))',
-      'if (isWorkerPausedByWorker(worker, workerPlan))',
-      'const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)',
-      "if (outstandingRegistrationFee > 0 && worker.walletBalance < outstandingRegistrationFee)",
-      'if (workerPlan && isZeroChargeWorkerPlan(workerPlan))',
-      'if (worker.walletBalance <= 0)',
-    ],
-    'deriveWorkerStatus',
-  )
-
-  assert.match(
-    deriveWorkerStatusBlock,
-    /if \(worker\.walletBalance <= 0\) \{\s+return 'inactive_wallet_empty'\s+\}\s+return 'active'/,
-    'Expected deriveWorkerStatus to keep the final active fallback after the wallet-empty check',
-  )
+  for (const expected of [
+    'const lifecycleFacts: WorkerLifecycleFacts = {',
+    'persistedStatus: worker.status,',
+    'registrationComplete: isWorkerRegistrationComplete(worker),',
+    "workerPausedByWorker: worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker',",
+    'activePlanId: worker.activePlan,',
+    'planResolved: Boolean(workerPlan),',
+    "workerPlan?.audience === 'worker' || workerPlan?.audience === 'company'",
+    "planName: workerPlan?.name || '',",
+    'planRegistrationFee: workerPlan?.registrationFee || 0,',
+    'planDailyCharge: workerPlan?.dailyCharge || 0,',
+    'planValidUntil: worker.planValidUntil,',
+    'walletBalance: worker.walletBalance,',
+    'registrationFeePaid: worker.registrationFeePaid,',
+    'hasCompletedRegistrationFeeTransaction: hasCompletedWorkerRegistrationFeeTransaction(worker, transactions),',
+    'currentDateValue: getDateValue(new Date())',
+    'return evaluateWorkerLifecycle(lifecycleFacts).derivedStatus',
+  ]) {
+    assert.ok(
+      deriveWorkerStatusBlock.includes(expected),
+      `Expected deriveWorkerStatus wrapper to include ${expected}`,
+    )
+  }
 
   assert.equal(
     deriveWorkerStatusBlock.includes("toString(worker.kycStatus).toLowerCase() === 'rejected'"),
@@ -471,7 +628,277 @@ test('pure evaluator respects the explicit evaluation date boundary', () => {
   )
 })
 
-test('preview lifecycle adapter does not let legacy kyc values override a non-rejected stored status', () => {
+test('legacy mutation-side reference and compatibility-wrapper facts stay identical across approved parity scenarios', () => {
+  type ParityCase = {
+    name: string
+    worker: LabourWorkerRecord
+    plan: LabourPlanRecord | null
+    transactions: LabourWalletTransactionRecord[]
+    currentDateValue: string
+  }
+
+  const paidPlan = makePlan('worker-plan')
+  const wrongAudiencePlan = makePlan('company-plan', { audience: 'company', dailyCharge: 10 })
+  const freePlan = makePlan('plan-worker-free-7-days', {
+    name: 'Free Worker Plan',
+    registrationFee: 0,
+    dailyCharge: 0,
+  })
+  const registrationFeePlan = makePlan('worker-plan-fee', {
+    registrationFee: 99,
+    dailyCharge: 10,
+  })
+  const completedRegistrationFeeTransaction: LabourWalletTransactionRecord = {
+    id: 'txn-registration-fee',
+    entityType: 'worker',
+    entityId: 'worker-registration-fee',
+    entityName: 'Worker Registration Fee',
+    city: 'Surat',
+    transactionType: 'registration_fee',
+    amount: 99,
+    direction: 'debit',
+    status: 'completed',
+    reference: 'worker-plan-fee',
+    note: 'registration fee',
+    createdAt: '2026-08-20T00:00:00.000Z',
+    updatedAt: '2026-08-20T00:00:00.000Z',
+  }
+
+  const cases: ParityCase[] = [
+    {
+      name: 'blocked',
+      worker: makeWorker('worker-blocked', { status: 'blocked' }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'rejected',
+      worker: makeWorker('worker-rejected', { status: 'rejected' }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'incomplete registration',
+      worker: makeWorker('worker-incomplete', { identityProofPath: '' }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'stored pending',
+      worker: makeWorker('worker-pending', { status: 'pending' }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'missing plan',
+      worker: makeWorker('worker-missing-plan', { activePlan: '' }),
+      plan: null,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'wrong-audience unresolved plan',
+      worker: makeWorker('worker-wrong-audience', { activePlan: 'company-plan' }),
+      plan: wrongAudiencePlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'expired plan',
+      worker: makeWorker('worker-expired', { planValidUntil: '2026-08-26' }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'plan valid through evaluation date',
+      worker: makeWorker('worker-valid-through-day', { planValidUntil: '2026-08-27' }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'paid-plan self-pause',
+      worker: makeWorker('worker-paused', {
+        workerPausedByWorker: true,
+        planValidUntil: '2026-08-27',
+      }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'free-plan self-pause behavior',
+      worker: makeWorker('worker-free-paused', {
+        activePlan: 'plan-worker-free-7-days',
+        workerPausedByWorker: true,
+        walletBalance: 0,
+      }),
+      plan: freePlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'unpaid registration-fee gap',
+      worker: makeWorker('worker-unpaid-registration-fee', {
+        activePlan: 'worker-plan-fee',
+        registrationFeePaid: false,
+        walletBalance: 10,
+      }),
+      plan: registrationFeePlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'registration fee settled by flag',
+      worker: makeWorker('worker-registration-fee-flag', {
+        activePlan: 'worker-plan-fee',
+        registrationFeePaid: true,
+        walletBalance: 20,
+      }),
+      plan: registrationFeePlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'registration fee settled by completed transaction',
+      worker: makeWorker('worker-registration-fee', {
+        id: 'worker-registration-fee',
+        activePlan: 'worker-plan-fee',
+        registrationFeePaid: false,
+        walletBalance: 20,
+      }),
+      plan: registrationFeePlan,
+      transactions: [completedRegistrationFeeTransaction],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'zero-charge free plan with zero wallet',
+      worker: makeWorker('worker-free-zero-wallet', {
+        activePlan: 'plan-worker-free-7-days',
+        walletBalance: 0,
+      }),
+      plan: freePlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'paid plan with zero wallet',
+      worker: makeWorker('worker-paid-zero-wallet', { walletBalance: 0 }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'eligible active worker',
+      worker: makeWorker('worker-eligible-active'),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'blank KYC on active',
+      worker: makeWorker('worker-blank-kyc', { kycStatus: '' }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'pending_review KYC on active',
+      worker: makeWorker('worker-pending-review-kyc', { kycStatus: 'pending_review' }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+    {
+      name: 'kyc_status rejected with non-rejected stored status',
+      worker: makeWorker('worker-kyc-rejected-nonrejected-status', {
+        kycStatus: 'rejected',
+        status: 'active',
+      }),
+      plan: paidPlan,
+      transactions: [],
+      currentDateValue: '2026-08-27',
+    },
+  ]
+
+  let mismatchCount = 0
+
+  for (const testCase of cases) {
+    const legacyStatus = deriveLegacyWorkerStatusReference(
+      testCase.worker,
+      testCase.plan,
+      testCase.transactions,
+      testCase.currentDateValue,
+    )
+    const wrapperStatus = evaluateWorkerLifecycle(
+      buildWorkerLifecycleFactsReference(
+        testCase.worker,
+        testCase.plan,
+        testCase.transactions,
+        testCase.currentDateValue,
+      ),
+    ).derivedStatus
+
+    if (legacyStatus !== wrapperStatus) {
+      mismatchCount += 1
+    }
+
+    assert.equal(
+      wrapperStatus,
+      legacyStatus,
+      `Expected wrapper parity for ${testCase.name}`,
+    )
+  }
+
+  assert.equal(mismatchCount, 0)
+})
+
+test('legacy mutation-side reference and compatibility-wrapper facts stay identical across date boundaries', () => {
+  const worker = makeWorker('worker-date-boundary', {
+    planValidUntil: '2026-08-27T00:00:00.000Z',
+  })
+  const plan = makePlan('worker-plan')
+  const currentDateValues = ['2026-08-26', '2026-08-27', '2026-08-28'] as const
+
+  for (const currentDateValue of currentDateValues) {
+    const legacyStatus = deriveLegacyWorkerStatusReference(worker, plan, [], currentDateValue)
+    const wrapperStatus = evaluateWorkerLifecycle(
+      buildWorkerLifecycleFactsReference(worker, plan, [], currentDateValue),
+    ).derivedStatus
+
+    assert.equal(
+      wrapperStatus,
+      legacyStatus,
+      `Expected wrapper parity on evaluation date ${currentDateValue}`,
+    )
+  }
+})
+
+test('mutation-side callers still route lifecycle decisions through deriveWorkerStatus and existing activation flow', () => {
+  const source = readWorkspaceFile('lib', 'labour-worker-app.ts')
+
+  for (const expected of [
+    'const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)',
+    'const nextStatus = deriveWorkerStatus(nextWorker, workerPlan, transactions)',
+    'const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)',
+    "const nextStatus = deriveWorkerStatus({ ...worker, walletBalance: 0 }, workerPlan, transactions)",
+    'const nextStatus = deriveWorkerStatus(nextWorker, workerPlan, transactions)',
+    'const nextStatus = deriveWorkerStatus(',
+    'const activation = deriveActivationSummary(',
+  ]) {
+    assert.ok(
+      source.includes(expected),
+      `Expected worker lifecycle caller flow to retain ${expected}`,
+    )
+  }
+})
+
+test('compatibility-wrapper facts do not let legacy kyc values override a non-rejected stored status', () => {
   const plan = makePlan('worker-plan')
 
   for (const kycStatus of ['rejected', '', 'pending_review'] as const) {
@@ -480,10 +907,13 @@ test('preview lifecycle adapter does not let legacy kyc values override a non-re
       status: 'active',
     })
 
-    const evaluation = deriveWorkerLifecycleStatusPreview(
-      worker,
-      makeSnapshot(worker, plan),
-      '2026-08-27',
+    const evaluation = evaluateWorkerLifecycle(
+      buildWorkerLifecycleFactsReference(
+        worker,
+        plan,
+        makeSnapshot(worker, plan).walletTransactions,
+        '2026-08-27',
+      ),
     )
 
     assert.equal(evaluation.derivedStatus, 'active')

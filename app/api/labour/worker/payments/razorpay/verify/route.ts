@@ -1,8 +1,12 @@
 import crypto from 'crypto'
 import Razorpay from 'razorpay'
-import { NextRequest, NextResponse } from 'next/server'
 import { requireWorkerApp } from '@/lib/labour-worker-app'
 import { creditWorkerWalletFromRazorpay } from '@/lib/labour-worker-payment'
+import {
+  buildWorkerLifecycleMutationBlockedResponse,
+  shouldBlockWorkerLifecycleMutation,
+  type WorkerLifecycleMutationRuntime
+} from '@/lib/worker-lifecycle-mutation-guard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -26,19 +30,41 @@ const getRazorpay = () => {
 
 const safeString = (value: unknown) => String(value || '').trim()
 
-export async function POST(request: NextRequest) {
+type WorkerRazorpayVerifyDependencies = {
+  creditWorkerWalletFromRazorpay: typeof creditWorkerWalletFromRazorpay
+  getRazorpay: typeof getRazorpay
+  requireWorkerApp: typeof requireWorkerApp
+  mutationRuntime?: WorkerLifecycleMutationRuntime
+}
+
+export async function POST(request: Request) {
+  return handleWorkerRazorpayVerifyPost(request)
+}
+
+export async function handleWorkerRazorpayVerifyPost(
+  request: Request,
+  dependencies: WorkerRazorpayVerifyDependencies = {
+    creditWorkerWalletFromRazorpay,
+    getRazorpay,
+    requireWorkerApp
+  }
+) {
   try {
-    const auth = await requireWorkerApp(request)
+    const auth = await dependencies.requireWorkerApp(request)
+    if (shouldBlockWorkerLifecycleMutation(dependencies.mutationRuntime)) {
+      return buildWorkerLifecycleMutationBlockedResponse()
+    }
+
     const body = await request.json().catch(() => ({}))
     const razorpayOrderId = safeString(body.razorpay_order_id || body.orderId)
     const razorpayPaymentId = safeString(body.razorpay_payment_id || body.paymentId)
     const razorpaySignature = safeString(body.razorpay_signature || body.signature)
 
     if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
-      return NextResponse.json({ error: 'Payment verification details are incomplete.' }, { status: 400 })
+      return Response.json({ error: 'Payment verification details are incomplete.' }, { status: 400 })
     }
 
-    const { client, keySecret } = getRazorpay()
+    const { client, keySecret } = dependencies.getRazorpay()
     const expectedSignature = crypto
       .createHmac('sha256', keySecret)
       .update(`${razorpayOrderId}|${razorpayPaymentId}`)
@@ -50,28 +76,28 @@ export async function POST(request: NextRequest) {
       signatureBuffer.length !== expectedBuffer.length ||
       !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
     ) {
-      return NextResponse.json({ error: 'Payment signature verification failed.' }, { status: 400 })
+      return Response.json({ error: 'Payment signature verification failed.' }, { status: 400 })
     }
 
     const order = await client.orders.fetch(razorpayOrderId)
     const notes = (order as { notes?: Record<string, unknown> }).notes || {}
     if (safeString(notes.workerId) !== auth.workerId) {
-      return NextResponse.json({ error: 'Payment order does not belong to this worker account.' }, { status: 403 })
+      return Response.json({ error: 'Payment order does not belong to this worker account.' }, { status: 403 })
     }
 
     const rechargeAmount = Math.round(Number(notes.rechargeAmount || 0))
     if (!Number.isFinite(rechargeAmount) || rechargeAmount <= 0) {
-      return NextResponse.json({ error: 'Payment order is missing recharge amount.' }, { status: 400 })
+      return Response.json({ error: 'Payment order is missing recharge amount.' }, { status: 400 })
     }
 
-    const dashboard = await creditWorkerWalletFromRazorpay({
+    const dashboard = await dependencies.creditWorkerWalletFromRazorpay({
       workerId: auth.workerId,
       amount: rechargeAmount,
       razorpayOrderId,
       razorpayPaymentId
     })
 
-    return NextResponse.json({
+    return Response.json({
       success: true,
       message: `Wallet credited with ₹${rechargeAmount}.`,
       dashboard
@@ -79,6 +105,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Payment verification failed.'
     const status = /authorization token/i.test(message) ? 401 : 400
-    return NextResponse.json({ error: message }, { status })
+    return Response.json({ error: message }, { status })
   }
 }

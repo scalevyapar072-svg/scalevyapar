@@ -31,6 +31,7 @@ import { supabaseAdmin } from './supabase-admin'
 import { sendTwoFactorOtp } from './two-factor'
 import { createReferralAttribution, getReferralProfileByCode, listReferralEligibleCategories } from './labour-worker-referral'
 import { RozgarReferralContext } from './rozgar-referral-context'
+import { assertWorkerLifecycleMutationAllowed } from './worker-lifecycle-mutation-guard'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
 const OTP_SESSION_ENCRYPTION_KEY = createHash('sha256')
@@ -1677,11 +1678,13 @@ const toWorkerNotification = (notification: LabourWorkerNotificationRecord): Wor
   createdAt: notification.createdAt
 })
 
-const reconcileWorkerRegistrationFee = async (
+export const reconcileWorkerRegistrationFee = async (
   worker: LabourWorkerRecord,
   workerPlan: LabourPlanRecord | null,
   transactions: LabourWalletTransactionRecord[]
 ) => {
+  assertWorkerLifecycleMutationAllowed()
+
   if (!isWorkerRegistrationComplete(worker)) {
     return false
   }
@@ -1755,11 +1758,13 @@ const reconcileWorkerRegistrationFee = async (
   return true
 }
 
-const reconcileWorkerDailyCharge = async (
+export const reconcileWorkerDailyCharge = async (
   worker: LabourWorkerRecord,
   workerPlan: LabourPlanRecord | null,
   transactions: LabourWalletTransactionRecord[]
 ) => {
+  assertWorkerLifecycleMutationAllowed()
+
   const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
   const shouldBeVisible = isWorkerRegistrationComplete(worker) && effectiveStatus === 'active'
 
@@ -1870,6 +1875,8 @@ const settleWorkerDailyChargeForToday = async ({
   now: string
   note: string
 }) => {
+  assertWorkerLifecycleMutationAllowed()
+
   const dailyCharge = workerPlan.dailyCharge || 0
   if (dailyCharge <= 0 || isFreeWorkerPlan(workerPlan)) {
     return {
@@ -2760,14 +2767,6 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
   const walletTransactions = snapshot.walletTransactions
     .filter(transaction => transaction.entityType === 'worker' && transaction.entityId === worker.id)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-  const didReconcileRegistrationFee = await reconcileWorkerRegistrationFee(worker, workerPlan, walletTransactions)
-  if (didReconcileRegistrationFee) {
-    return getWorkerAppDashboard(workerId)
-  }
-  const didReconcileDailyCharge = await reconcileWorkerDailyCharge(worker, workerPlan, walletTransactions)
-  if (didReconcileDailyCharge) {
-    return getWorkerAppDashboard(workerId)
-  }
 
   const activation = deriveActivationSummary(worker, workerPlan, walletTransactions)
   const applications = snapshot.jobApplications
@@ -2959,6 +2958,8 @@ export const completeWorkerAppRegistration = async (
   workerId: string,
   payload: WorkerRegistrationPayload
 ) => {
+  assertWorkerLifecycleMutationAllowed()
+
   const snapshot = await getLabourMarketplaceSnapshot()
   const adminSettings = await getLabourAdminSettings()
   const masterData = await readLabourMasterData(
@@ -3115,6 +3116,8 @@ export const updateWorkerAppProfile = async (
   workerId: string,
   payload: Partial<Pick<WorkerAppProfile, 'fullName' | 'city' | 'homeCity' | 'address' | 'preferredWorkLocations' | 'salaryType' | 'categoryIds' | 'skills' | 'experienceYears' | 'expectedDailyWage' | 'minimumExpectedWage' | 'maximumExpectedWage' | 'availability'>>
 ) => {
+  assertWorkerLifecycleMutationAllowed()
+
   const snapshot = await getLabourMarketplaceSnapshot()
   const adminSettings = await getLabourAdminSettings()
   const masterData = await readLabourMasterData(
@@ -3184,6 +3187,8 @@ export const updateWorkerAppProfile = async (
 }
 
 export const updateWorkerWalletStatus = async (workerId: string, active: boolean) => {
+  assertWorkerLifecycleMutationAllowed()
+
   const snapshot = await getLabourMarketplaceSnapshot()
   const adminSettings = await getLabourAdminSettings()
   const worker = findWorkerById(snapshot, workerId)

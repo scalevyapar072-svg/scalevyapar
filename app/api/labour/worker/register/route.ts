@@ -1,15 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { completeWorkerAppRegistration, requireWorkerApp } from '@/lib/labour-worker-app'
 import { parseRozgarRegistrationReferralContext } from '@/lib/rozgar-referral-context'
+import {
+  buildWorkerLifecycleMutationBlockedResponse,
+  shouldBlockWorkerLifecycleMutation,
+  type WorkerLifecycleMutationRuntime
+} from '@/lib/worker-lifecycle-mutation-guard'
 
-export async function POST(request: NextRequest) {
+type WorkerRegisterDependencies = {
+  completeWorkerAppRegistration: typeof completeWorkerAppRegistration
+  requireWorkerApp: typeof requireWorkerApp
+  mutationRuntime?: WorkerLifecycleMutationRuntime
+}
+
+export async function POST(request: Request) {
+  return handleWorkerRegisterPost(request)
+}
+
+export async function handleWorkerRegisterPost(
+  request: Request,
+  dependencies: WorkerRegisterDependencies = {
+    completeWorkerAppRegistration,
+    requireWorkerApp
+  }
+) {
   try {
-    const auth = await requireWorkerApp(request)
+    const auth = await dependencies.requireWorkerApp(request)
+    if (shouldBlockWorkerLifecycleMutation(dependencies.mutationRuntime)) {
+      return buildWorkerLifecycleMutationBlockedResponse()
+    }
+
     const payload = await request.json()
     const parsedReferralContext = payload.referralContext
       ? parseRozgarRegistrationReferralContext(payload.referralContext)
       : null
-    const result = await completeWorkerAppRegistration(auth.workerId, {
+    const result = await dependencies.completeWorkerAppRegistration(auth.workerId, {
       fullName: String(payload.fullName || ''),
       city: String(payload.city || ''),
       homeCity: String(payload.homeCity || ''),
@@ -34,13 +58,13 @@ export async function POST(request: NextRequest) {
       referralContextInvalid: Boolean(parsedReferralContext && !parsedReferralContext.ok)
     })
 
-    return NextResponse.json({
+    return Response.json({
       success: true,
       dashboard: result.dashboard,
       referral: result.referral
     })
   } catch (error) {
-    return NextResponse.json(
+    return Response.json(
       { error: error instanceof Error ? error.message : 'Failed to complete worker registration.' },
       { status: 400 }
     )

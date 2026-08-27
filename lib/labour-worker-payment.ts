@@ -1,6 +1,7 @@
 import { createLabourEntity, getLabourMarketplaceSnapshot, updateLabourEntity } from './labour-marketplace'
 import { getWorkerAppDashboard } from './labour-worker-app'
 import { sendPaymentReceivedEmail } from './rozgar-notification-email'
+import { assertWorkerLifecycleMutationAllowed } from './worker-lifecycle-mutation-guard'
 
 const buildRazorpayTransactionId = (paymentId: string) =>
   `txn-worker-razorpay-${paymentId.replace(/[^a-z0-9_-]+/gi, '').slice(0, 60)}`
@@ -16,6 +17,8 @@ export const creditWorkerWalletFromRazorpay = async ({
   razorpayOrderId: string
   razorpayPaymentId: string
 }) => {
+  assertWorkerLifecycleMutationAllowed()
+
   const rechargeAmount = Math.max(0, Math.round(Number(amount || 0)))
   if (rechargeAmount <= 0) {
     throw new Error('Recharge amount is invalid.')

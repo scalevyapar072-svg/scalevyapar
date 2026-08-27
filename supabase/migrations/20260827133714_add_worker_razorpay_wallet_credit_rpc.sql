@@ -67,6 +67,8 @@ declare
   v_attempt_by_payment public.labour_worker_payment_attempts%rowtype;
   v_attempt_by_idempotency public.labour_worker_payment_attempts%rowtype;
   v_attempt_by_applied_order public.labour_worker_payment_attempts%rowtype;
+  v_applied_attempt public.labour_worker_payment_attempts%rowtype;
+  v_applied_wallet_transaction public.labour_wallet_transactions%rowtype;
   v_attempt_to_apply public.labour_worker_payment_attempts%rowtype;
   v_wallet_transaction_id uuid := gen_random_uuid();
 begin
@@ -166,11 +168,12 @@ begin
 
   if v_attempt_by_payment.id is not null
      and (
-       v_attempt_by_payment.worker_id is distinct from v_worker_id
-       or v_attempt_by_payment.provider_order_id is distinct from v_provider_order_id
-       or v_attempt_by_payment.provider_currency is distinct from v_provider_currency
-       or v_attempt_by_payment.provider_amount_paise is distinct from p_provider_amount_paise
-     ) then
+        v_attempt_by_payment.worker_id is distinct from v_worker_id
+        or v_attempt_by_payment.provider_order_id is distinct from v_provider_order_id
+        or v_attempt_by_payment.provider_currency is distinct from v_provider_currency
+        or v_attempt_by_payment.provider_amount_paise is distinct from p_provider_amount_paise
+        or v_attempt_by_payment.idempotency_key is distinct from v_idempotency_key
+      ) then
     raise exception 'provider_payment_conflict'
       using errcode = '23505';
   end if;
@@ -190,45 +193,28 @@ begin
 
   if v_attempt_by_applied_order.id is not null
      and (
-       v_attempt_by_applied_order.worker_id is distinct from v_worker_id
-       or coalesce(v_attempt_by_applied_order.provider_payment_id, v_provider_payment_id) is distinct from v_provider_payment_id
-       or v_attempt_by_applied_order.provider_currency is distinct from v_provider_currency
-       or v_attempt_by_applied_order.provider_amount_paise is distinct from p_provider_amount_paise
-     ) then
+        v_attempt_by_applied_order.worker_id is distinct from v_worker_id
+        or coalesce(v_attempt_by_applied_order.provider_payment_id, v_provider_payment_id) is distinct from v_provider_payment_id
+        or v_attempt_by_applied_order.provider_currency is distinct from v_provider_currency
+        or v_attempt_by_applied_order.provider_amount_paise is distinct from p_provider_amount_paise
+        or v_attempt_by_applied_order.idempotency_key is distinct from v_idempotency_key
+      ) then
     raise exception 'provider_order_conflict'
       using errcode = '23505';
   end if;
 
   if v_attempt_by_payment.id is not null
      and v_attempt_by_payment.application_status = 'applied' then
-    return query
-    select
-      'already_applied'::text,
-      v_attempt_by_payment.id,
-      v_attempt_by_payment.wallet_transaction_id,
-      v_existing_balance;
-    return;
+    v_applied_attempt := v_attempt_by_payment;
   end if;
 
   if v_attempt_by_idempotency.id is not null
      and v_attempt_by_idempotency.application_status = 'applied' then
-    return query
-    select
-      'already_applied'::text,
-      v_attempt_by_idempotency.id,
-      v_attempt_by_idempotency.wallet_transaction_id,
-      v_existing_balance;
-    return;
+    v_applied_attempt := v_attempt_by_idempotency;
   end if;
 
   if v_attempt_by_applied_order.id is not null then
-    return query
-    select
-      'already_applied'::text,
-      v_attempt_by_applied_order.id,
-      v_attempt_by_applied_order.wallet_transaction_id,
-      v_existing_balance;
-    return;
+    v_applied_attempt := v_attempt_by_applied_order;
   end if;
 
   if v_attempt_by_payment.id is not null
@@ -236,6 +222,40 @@ begin
      and v_attempt_by_payment.id <> v_attempt_by_idempotency.id then
     raise exception 'payment_attempt_identity_conflict'
       using errcode = '23505';
+  end if;
+
+  if v_applied_attempt.id is not null then
+    if v_applied_attempt.wallet_transaction_id is null then
+      raise exception 'applied_wallet_transaction_integrity_conflict'
+        using errcode = '23505';
+    end if;
+
+    select *
+      into v_applied_wallet_transaction
+      from public.labour_wallet_transactions
+     where id = v_applied_attempt.wallet_transaction_id;
+
+    if not found
+       or v_applied_wallet_transaction.balance_after is null
+       or v_applied_wallet_transaction.entity_type is distinct from 'worker'
+       or v_applied_wallet_transaction.entity_id is distinct from v_applied_attempt.worker_id
+       or v_applied_wallet_transaction.transaction_type is distinct from 'wallet_recharge'
+       or v_applied_wallet_transaction.type is distinct from 'wallet_recharge'
+       or v_applied_wallet_transaction.direction is distinct from 'credit'
+       or v_applied_wallet_transaction.status is distinct from 'completed'
+       or v_applied_wallet_transaction.amount is distinct from v_amount_rupees
+       or v_applied_wallet_transaction.reference is distinct from v_applied_attempt.provider_order_id then
+      raise exception 'applied_wallet_transaction_integrity_conflict'
+        using errcode = '23505';
+    end if;
+
+    return query
+    select
+      'already_applied'::text,
+      v_applied_attempt.id,
+      v_applied_attempt.wallet_transaction_id,
+      v_applied_wallet_transaction.balance_after;
+    return;
   end if;
 
   if v_attempt_by_payment.id is not null then

@@ -131,11 +131,29 @@ test('worker wallet-credit RPC migration encodes exact retry, identifier-conflic
     'provider_order_conflict',
     'payment_attempt_identity_conflict',
     'payment_attempt_apply_conflict',
+    'applied_wallet_transaction_integrity_conflict',
     'when unique_violation then',
     'v_attempt_by_payment',
     'v_attempt_by_idempotency',
     'v_attempt_by_applied_order',
+    'v_applied_attempt',
+    'v_applied_wallet_transaction',
     'v_attempt_to_apply',
+    'v_attempt_by_payment.idempotency_key is distinct from v_idempotency_key',
+    'v_attempt_by_applied_order.idempotency_key is distinct from v_idempotency_key',
+    'v_applied_attempt.wallet_transaction_id is null',
+    'from public.labour_wallet_transactions',
+    'where id = v_applied_attempt.wallet_transaction_id',
+    "v_applied_wallet_transaction.balance_after is null",
+    "v_applied_wallet_transaction.entity_type is distinct from 'worker'",
+    "v_applied_wallet_transaction.entity_id is distinct from v_applied_attempt.worker_id",
+    "v_applied_wallet_transaction.transaction_type is distinct from 'wallet_recharge'",
+    "v_applied_wallet_transaction.type is distinct from 'wallet_recharge'",
+    "v_applied_wallet_transaction.direction is distinct from 'credit'",
+    "v_applied_wallet_transaction.status is distinct from 'completed'",
+    'v_applied_wallet_transaction.amount is distinct from v_amount_rupees',
+    'v_applied_wallet_transaction.reference is distinct from v_applied_attempt.provider_order_id',
+    'v_applied_wallet_transaction.balance_after',
     'return query',
     'wallet_balance = v_target_balance',
     'wallet_transaction_id = v_wallet_transaction_id',
@@ -146,6 +164,11 @@ test('worker wallet-credit RPC migration encodes exact retry, identifier-conflic
   assert.equal((source.match(/insert into public\.labour_wallet_transactions/g) || []).length, 1)
   assert.equal((source.match(/update public\.labour_workers/g) || []).length, 1)
   assert.equal((source.match(/update public\.labour_worker_payment_attempts/g) || []).length >= 1, true)
+  assert.equal(source.includes('v_attempt_by_payment.wallet_transaction_id,\n      v_existing_balance'), false)
+  assert.equal(source.includes('v_attempt_by_idempotency.wallet_transaction_id,\n      v_existing_balance'), false)
+  assert.equal(source.includes('v_attempt_by_applied_order.wallet_transaction_id,\n      v_existing_balance'), false)
+  assert.equal(source.includes('update public.labour_wallet_transactions'), false)
+  assert.equal(source.includes('delete from public.labour_wallet_transactions'), false)
 })
 
 test('worker wallet-credit RPC migration excludes registration-fee lifecycle plan notification and network side effects', () => {

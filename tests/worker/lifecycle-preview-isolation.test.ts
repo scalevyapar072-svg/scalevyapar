@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import { pathToFileURL } from 'node:url'
+import ts from 'typescript'
 
 const workspaceRoot = process.cwd()
 
@@ -23,6 +24,9 @@ const {
 const readWorkspaceFile = (...segments: string[]) =>
   readFileSync(path.join(workspaceRoot, ...segments), 'utf8')
 
+const toDataUrl = (source: string) =>
+  `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
+
 const adminRouteSource = readWorkspaceFile('app', 'api', 'admin', 'labour', 'route.ts')
 const registerRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker', 'register', 'route.ts')
 const profileRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker', 'profile', 'route.ts')
@@ -32,6 +36,57 @@ const dashboardRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker',
 const verifyOtpRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker', 'auth', 'verify-otp', 'route.ts')
 const workerAppSource = readWorkspaceFile('lib', 'labour-worker-app.ts')
 const workerPaymentSource = readWorkspaceFile('lib', 'labour-worker-payment.ts')
+
+const loadAdminLabourRouteModule = async () => {
+  const authStubUrl = toDataUrl(`
+    export const requireAdmin = async () => {
+      throw new Error('requireAdmin stub should not be called directly in tests')
+    }
+  `)
+  const marketplaceStubUrl = toDataUrl(`
+    export const createLabourEntity = async () => {
+      throw new Error('createLabourEntity stub should not be called directly in tests')
+    }
+    export const deleteLabourEntity = async () => {
+      throw new Error('deleteLabourEntity stub should not be called directly in tests')
+    }
+    export const getLabourAdminVisibleCategories = async () => []
+    export const getLabourMarketplaceSnapshot = async () => ({})
+    export class LabourEntityConflictError extends Error {
+      constructor(message, statusCode = 409) {
+        super(message)
+        this.statusCode = statusCode
+      }
+    }
+    export const updateLabourEntity = async () => {
+      throw new Error('updateLabourEntity stub should not be called directly in tests')
+    }
+  `)
+  const guardStubUrl = toDataUrl(`
+    export const WORKER_LIFECYCLE_MUTATIONS_DISABLED_MESSAGE =
+      'Worker lifecycle mutations are disabled in Preview.'
+    export const shouldBlockWorkerLifecycleMutation = (runtime) =>
+      runtime?.allowNonProductionForTests ? false : runtime?.vercelEnv !== 'production'
+    export const buildWorkerLifecycleMutationBlockedResponse = (status = 503) =>
+      Response.json({ error: WORKER_LIFECYCLE_MUTATIONS_DISABLED_MESSAGE }, { status })
+  `)
+
+  const routeModuleSource = adminRouteSource
+    .replace("'@/lib/auth'", `'${authStubUrl}'`)
+    .replace("'@/lib/labour-marketplace'", `'${marketplaceStubUrl}'`)
+    .replace("'@/lib/worker-lifecycle-mutation-guard'", `'${guardStubUrl}'`)
+
+  const transpiled = ts.transpileModule(routeModuleSource, {
+    compilerOptions: {
+      module: ts.ModuleKind.ES2022,
+      target: ts.ScriptTarget.ES2022,
+    },
+  })
+
+  return import(toDataUrl(transpiled.outputText))
+}
+
+const { handleAdminLabourDelete } = await loadAdminLabourRouteModule()
 
 const assertOrdered = (source: string, needles: string[], context: string) => {
   let previousIndex = -1
@@ -96,6 +151,11 @@ test('admin worker lifecycle mutation handlers keep auth checks before the previ
     'export async function handleAdminLabourPut',
     'export async function DELETE',
   )
+  const deleteBlock = sliceBetween(
+    adminRouteSource,
+    'export async function handleAdminLabourDelete',
+    '} catch (error) {',
+  )
 
   assert.ok(adminRouteSource.includes("entityType === 'workers'"))
 
@@ -122,6 +182,193 @@ test('admin worker lifecycle mutation handlers keep auth checks before the previ
     ],
     'handleAdminLabourPut',
   )
+
+  assertOrdered(
+    deleteBlock,
+    [
+      'const admin = await dependencies.requireAdmin(request)',
+      'if (admin instanceof Response)',
+      "if (!isEntityType(entityType) || !id)",
+      'shouldBlockWorkerLifecycleMutation(dependencies.mutationRuntime)',
+      'return buildWorkerLifecycleMutationBlockedResponse()',
+      'const snapshot = await dependencies.deleteLabourEntity(',
+    ],
+    'handleAdminLabourDelete',
+  )
+})
+
+test('admin worker delete preview isolation blocks only authenticated worker deletion and preserves other delete cases', async () => {
+  const unauthenticatedResponse = new Response(
+    JSON.stringify({ error: 'Unauthorized' }),
+    { status: 401 },
+  )
+
+  let previewDeleteCalls = 0
+  let previewCategoriesCalls = 0
+
+  const previewBlockedResponse = await handleAdminLabourDelete(
+    new Request('https://example.com/api/admin/labour', {
+      method: 'DELETE',
+      body: JSON.stringify({ entityType: 'workers', id: 'worker-1' }),
+      headers: { 'content-type': 'application/json' },
+    }),
+    {
+      createLabourEntity: async () => {
+        throw new Error('createLabourEntity should not run during DELETE tests')
+      },
+      deleteLabourEntity: async () => {
+        previewDeleteCalls += 1
+        throw new Error('Preview worker delete should have been blocked before deleteLabourEntity')
+      },
+      getLabourAdminVisibleCategories: async () => {
+        previewCategoriesCalls += 1
+        return []
+      },
+      requireAdmin: async () => ({ email: 'admin@example.com' }),
+      updateLabourEntity: async () => {
+        throw new Error('updateLabourEntity should not run during DELETE tests')
+      },
+      mutationRuntime: { vercelEnv: 'preview' },
+    },
+  )
+
+  assert.equal(previewBlockedResponse.status, 503)
+  assert.deepEqual(await previewBlockedResponse.json(), {
+    error: WORKER_LIFECYCLE_MUTATIONS_DISABLED_MESSAGE,
+  })
+  assert.equal(previewDeleteCalls, 0)
+  assert.equal(previewCategoriesCalls, 0)
+
+  const unauthenticatedDeleteResponse = await handleAdminLabourDelete(
+    new Request('https://example.com/api/admin/labour', {
+      method: 'DELETE',
+      body: JSON.stringify({ entityType: 'workers', id: 'worker-1' }),
+      headers: { 'content-type': 'application/json' },
+    }),
+    {
+      createLabourEntity: async () => {
+        throw new Error('createLabourEntity should not run during DELETE tests')
+      },
+      deleteLabourEntity: async () => {
+        throw new Error('Unauthenticated delete should not reach deleteLabourEntity')
+      },
+      getLabourAdminVisibleCategories: async () => [],
+      requireAdmin: async () => unauthenticatedResponse,
+      updateLabourEntity: async () => {
+        throw new Error('updateLabourEntity should not run during DELETE tests')
+      },
+      mutationRuntime: { vercelEnv: 'preview' },
+    },
+  )
+
+  assert.equal(unauthenticatedDeleteResponse.status, 401)
+  assert.deepEqual(await unauthenticatedDeleteResponse.json(), {
+    error: 'Unauthorized',
+  })
+
+  let productionDeleteCalls = 0
+  const productionResponse = await handleAdminLabourDelete(
+    new Request('https://example.com/api/admin/labour', {
+      method: 'DELETE',
+      body: JSON.stringify({ entityType: 'workers', id: 'worker-2' }),
+      headers: { 'content-type': 'application/json' },
+    }),
+    {
+      createLabourEntity: async () => {
+        throw new Error('createLabourEntity should not run during DELETE tests')
+      },
+      deleteLabourEntity: async (
+        entityType: string,
+        id: string,
+        email: string,
+      ) => {
+        productionDeleteCalls += 1
+        assert.equal(entityType, 'workers')
+        assert.equal(id, 'worker-2')
+        assert.equal(email, 'admin@example.com')
+        return { workers: [], auditLogs: [], workerPlans: [] }
+      },
+      getLabourAdminVisibleCategories: async () => [],
+      requireAdmin: async () => ({ email: 'admin@example.com' }),
+      updateLabourEntity: async () => {
+        throw new Error('updateLabourEntity should not run during DELETE tests')
+      },
+      mutationRuntime: { vercelEnv: 'production' },
+    },
+  )
+
+  assert.equal(productionResponse.status, 200)
+  assert.equal(productionDeleteCalls, 1)
+  assert.deepEqual(await productionResponse.json(), {
+    success: true,
+    snapshot: { workers: [], auditLogs: [], workerPlans: [], adminCategories: [] },
+  })
+
+  let unrelatedDeleteCalls = 0
+  const unrelatedPreviewResponse = await handleAdminLabourDelete(
+    new Request('https://example.com/api/admin/labour', {
+      method: 'DELETE',
+      body: JSON.stringify({ entityType: 'companies', id: 'company-1' }),
+      headers: { 'content-type': 'application/json' },
+    }),
+    {
+      createLabourEntity: async () => {
+        throw new Error('createLabourEntity should not run during DELETE tests')
+      },
+      deleteLabourEntity: async (
+        entityType: string,
+        id: string,
+      ) => {
+        unrelatedDeleteCalls += 1
+        assert.equal(entityType, 'companies')
+        assert.equal(id, 'company-1')
+        return { companies: [] }
+      },
+      getLabourAdminVisibleCategories: async () => [],
+      requireAdmin: async () => ({ email: 'admin@example.com' }),
+      updateLabourEntity: async () => {
+        throw new Error('updateLabourEntity should not run during DELETE tests')
+      },
+      mutationRuntime: { vercelEnv: 'preview' },
+    },
+  )
+
+  assert.equal(unrelatedPreviewResponse.status, 200)
+  assert.equal(unrelatedDeleteCalls, 1)
+  assert.deepEqual(await unrelatedPreviewResponse.json(), {
+    success: true,
+    snapshot: { companies: [], adminCategories: [] },
+  })
+
+  let invalidDeleteCalls = 0
+  const invalidResponse = await handleAdminLabourDelete(
+    new Request('https://example.com/api/admin/labour', {
+      method: 'DELETE',
+      body: JSON.stringify({ entityType: 'invalid', id: 'worker-3' }),
+      headers: { 'content-type': 'application/json' },
+    }),
+    {
+      createLabourEntity: async () => {
+        throw new Error('createLabourEntity should not run during DELETE tests')
+      },
+      deleteLabourEntity: async () => {
+        invalidDeleteCalls += 1
+        throw new Error('Invalid entityType should not reach deleteLabourEntity')
+      },
+      getLabourAdminVisibleCategories: async () => [],
+      requireAdmin: async () => ({ email: 'admin@example.com' }),
+      updateLabourEntity: async () => {
+        throw new Error('updateLabourEntity should not run during DELETE tests')
+      },
+      mutationRuntime: { vercelEnv: 'preview' },
+    },
+  )
+
+  assert.equal(invalidResponse.status, 400)
+  assert.deepEqual(await invalidResponse.json(), {
+    error: 'entityType and id are required',
+  })
+  assert.equal(invalidDeleteCalls, 0)
 })
 
 test('worker mutation routes fail closed before payload-driven writes or Razorpay side effects', () => {

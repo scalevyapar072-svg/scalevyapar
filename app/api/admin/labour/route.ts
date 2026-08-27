@@ -28,6 +28,7 @@ const isEntityType = (value: unknown): value is LabourEntityType =>
 
 type AdminLabourMutationDependencies = {
   createLabourEntity: typeof createLabourEntity
+  deleteLabourEntity: typeof deleteLabourEntity
   getLabourAdminVisibleCategories: typeof getLabourAdminVisibleCategories
   requireAdmin: typeof requireAdmin
   updateLabourEntity: typeof updateLabourEntity
@@ -61,6 +62,7 @@ export async function handleAdminLabourPost(
   request: Request,
   dependencies: AdminLabourMutationDependencies = {
     createLabourEntity,
+    deleteLabourEntity,
     getLabourAdminVisibleCategories,
     requireAdmin,
     updateLabourEntity
@@ -108,6 +110,7 @@ export async function handleAdminLabourPut(
   request: Request,
   dependencies: AdminLabourMutationDependencies = {
     createLabourEntity,
+    deleteLabourEntity,
     getLabourAdminVisibleCategories,
     requireAdmin,
     updateLabourEntity
@@ -153,8 +156,21 @@ export async function handleAdminLabourPut(
 }
 
 export async function DELETE(request: Request) {
+  return handleAdminLabourDelete(request)
+}
+
+export async function handleAdminLabourDelete(
+  request: Request,
+  dependencies: AdminLabourMutationDependencies = {
+    createLabourEntity,
+    deleteLabourEntity,
+    getLabourAdminVisibleCategories,
+    requireAdmin,
+    updateLabourEntity
+  }
+) {
   try {
-    const admin = await requireAdmin(request)
+    const admin = await dependencies.requireAdmin(request)
     if (admin instanceof Response) {
       return admin
     }
@@ -164,12 +180,19 @@ export async function DELETE(request: Request) {
       return Response.json({ error: 'entityType and id are required' }, { status: 400 })
     }
 
-    const snapshot = await deleteLabourEntity(entityType, String(id), admin.email)
+    if (
+      isWorkerLifecycleAdminMutation(entityType) &&
+      shouldBlockWorkerLifecycleMutation(dependencies.mutationRuntime)
+    ) {
+      return buildWorkerLifecycleMutationBlockedResponse()
+    }
+
+    const snapshot = await dependencies.deleteLabourEntity(entityType, String(id), admin.email)
     if (!snapshot) {
       return Response.json({ error: 'Record not found' }, { status: 404 })
     }
 
-    const adminCategories = await getLabourAdminVisibleCategories()
+    const adminCategories = await dependencies.getLabourAdminVisibleCategories()
     return Response.json({ success: true, snapshot: { ...snapshot, adminCategories } })
   } catch (error) {
     console.error('Labour marketplace delete failed:', error)

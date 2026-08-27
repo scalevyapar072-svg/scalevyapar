@@ -177,9 +177,11 @@ test('automation dry-run preview source remains read-only and never reaches /mes
   assert.ok(source.includes("resolveWorkerAppLink: () => null"))
   assert.ok(source.includes('noDatabaseWrites: true'))
   assert.ok(source.includes('noMessagesCalls: true'))
+  assert.ok(source.includes('evaluateWorkerLifecycle'))
   assert.equal(source.includes('return parseJsonSnapshot()'), false)
   assert.equal(source.includes('company_id, industry_category, business_type'), false)
   assert.equal(source.includes('city, area, pincode'), false)
+  assert.equal(source.includes("toString(worker.kycStatus).toLowerCase() === 'rejected'"), false)
 })
 
 test('automation dry-run route stays admin-only and the card fetches the read-only endpoint', () => {

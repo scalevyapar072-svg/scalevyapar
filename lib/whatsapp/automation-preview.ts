@@ -1,6 +1,5 @@
 import {
   isJobPostLiveRecord,
-  isWorkerPlanExpiredRecord,
   isWorkerSearchActiveRecord,
   type LabourCompanyRecord,
   type LabourJobPostRecord,
@@ -26,6 +25,12 @@ import {
   type WhatsappAutomationPlan,
 } from './automation-executor'
 import { assertWhatsappServerOnly } from './server-runtime'
+import {
+  evaluateWorkerLifecycle,
+  type WorkerLifecycleEvaluation,
+  type WorkerLifecycleFacts,
+  type WorkerLifecycleReasonCategory,
+} from '../worker-lifecycle-evaluator'
 
 assertWhatsappServerOnly('lib/whatsapp/automation-preview')
 
@@ -96,22 +101,11 @@ type AutomationPreviewFunnel = {
   blockedPlans: number
 }
 
-export type WorkerLifecycleReasonCategory =
-  | 'persisted_blocked'
-  | 'persisted_rejected'
-  | 'persisted_pending'
-  | 'registration_incomplete'
-  | 'worker_paused'
-  | 'missing_active_plan'
-  | 'expired_active_plan'
-  | 'registration_fee_unpaid'
-  | 'wallet_balance_non_positive'
-  | 'eligible_active'
-
-export type WorkerLifecycleEvaluation = {
-  derivedStatus: LabourWorkerRecord['status']
-  reasonCategory: WorkerLifecycleReasonCategory
-}
+export type {
+  WorkerLifecycleEvaluation,
+  WorkerLifecycleFacts,
+  WorkerLifecycleReasonCategory,
+} from '../worker-lifecycle-evaluator'
 
 export type WorkerLifecycleReconciliationRow = {
   maskedMobile: string
@@ -986,35 +980,6 @@ const resolveAssignedWorkerPlanPreview = (
   plans: LabourPlanRecord[],
 ) => plans.find((plan) => plan.id === worker.activePlan && plan.audience === 'worker') || null
 
-const isZeroChargeWorkerPlanPreview = (workerPlan: LabourPlanRecord | null) =>
-  Boolean(
-    workerPlan &&
-      workerPlan.audience === 'worker' &&
-      workerPlan.registrationFee <= 0 &&
-      workerPlan.dailyCharge <= 0,
-  )
-
-const isFreeWorkerPlanPreview = (workerPlan: LabourPlanRecord | null) =>
-  Boolean(
-    workerPlan &&
-      workerPlan.audience === 'worker' &&
-      (workerPlan.id === 'plan-worker-free-7-days' ||
-        String(workerPlan.name || '').trim().toLowerCase() === 'free worker plan' ||
-        isZeroChargeWorkerPlanPreview(workerPlan)),
-  )
-
-const isPaidWorkerPlanPreview = (workerPlan: LabourPlanRecord | null) =>
-  Boolean(workerPlan && workerPlan.audience === 'worker' && !isFreeWorkerPlanPreview(workerPlan))
-
-const isWorkerPausedByWorkerPreview = (
-  worker: LabourWorkerRecord,
-  workerPlan: LabourPlanRecord | null,
-) =>
-  Boolean(
-    isPaidWorkerPlanPreview(workerPlan) &&
-      (worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker'),
-  )
-
 const hasCompletedWorkerRegistrationFeeTransactionPreview = (
   worker: LabourWorkerRecord,
   transactions: LabourWalletTransactionRecord[],
@@ -1027,125 +992,47 @@ const hasCompletedWorkerRegistrationFeeTransactionPreview = (
       transaction.status === 'completed',
   )
 
-const isWorkerRegistrationFeeSettledPreview = (
-  worker: LabourWorkerRecord,
-  workerPlan: LabourPlanRecord | null,
-  transactions: LabourWalletTransactionRecord[],
-) => {
-  if ((workerPlan?.registrationFee || 0) <= 0) {
-    return true
-  }
-
-  return (
-    worker.registrationFeePaid ||
-    hasCompletedWorkerRegistrationFeeTransactionPreview(worker, transactions)
-  )
-}
-
-const getOutstandingWorkerRegistrationFeePreview = (
-  worker: LabourWorkerRecord,
-  workerPlan: LabourPlanRecord | null,
-  transactions: LabourWalletTransactionRecord[],
-) => {
-  const registrationFee = workerPlan?.registrationFee || 0
-  if (
-    registrationFee <= 0 ||
-    isWorkerRegistrationFeeSettledPreview(worker, workerPlan, transactions)
-  ) {
-    return 0
-  }
-
-  return registrationFee
-}
-
-export const deriveWorkerLifecycleStatusPreview = (
+const buildWorkerLifecycleFactsPreview = (
   worker: LabourWorkerRecord,
   snapshot: Pick<LabourMarketplaceSnapshot, 'plans' | 'walletTransactions'>,
-): WorkerLifecycleEvaluation => {
-  if (worker.status === 'blocked') {
-    return {
-      derivedStatus: 'blocked',
-      reasonCategory: 'persisted_blocked',
-    }
-  }
-
-  if (worker.status === 'rejected' || toString(worker.kycStatus).toLowerCase() === 'rejected') {
-    return {
-      derivedStatus: 'rejected',
-      reasonCategory: 'persisted_rejected',
-    }
-  }
-
-  if (worker.status === 'pending') {
-    return {
-      derivedStatus: 'pending',
-      reasonCategory: 'persisted_pending',
-    }
-  }
-
-  if (!isWorkerRegistrationCompletePreview(worker)) {
-    return {
-      derivedStatus: 'pending',
-      reasonCategory: 'registration_incomplete',
-    }
-  }
-
+  currentDateValue: string,
+): WorkerLifecycleFacts => {
   const workerPlan = resolveAssignedWorkerPlanPreview(worker, snapshot.plans)
   const workerTransactions = snapshot.walletTransactions.filter(
     (transaction) => transaction.entityType === 'worker' && transaction.entityId === worker.id,
   )
 
-  if (!worker.activePlan || !workerPlan) {
-    return {
-      derivedStatus: 'inactive_subscription_expired',
-      reasonCategory: 'missing_active_plan',
-    }
-  }
-
-  if (isWorkerPlanExpiredRecord(worker)) {
-    return {
-      derivedStatus: 'inactive_subscription_expired',
-      reasonCategory: 'expired_active_plan',
-    }
-  }
-
-  if (isWorkerPausedByWorkerPreview(worker, workerPlan)) {
-    return {
-      derivedStatus: 'inactive_paused_by_worker',
-      reasonCategory: 'worker_paused',
-    }
-  }
-
-  const outstandingRegistrationFee = getOutstandingWorkerRegistrationFeePreview(
-    worker,
-    workerPlan,
-    workerTransactions,
-  )
-  if (outstandingRegistrationFee > 0 && worker.walletBalance < outstandingRegistrationFee) {
-    return {
-      derivedStatus: 'inactive_wallet_empty',
-      reasonCategory: 'registration_fee_unpaid',
-    }
-  }
-
-  if (workerPlan && isZeroChargeWorkerPlanPreview(workerPlan)) {
-    return {
-      derivedStatus: 'active',
-      reasonCategory: 'eligible_active',
-    }
-  }
-
-  if (Number(worker.walletBalance || 0) <= 0) {
-    return {
-      derivedStatus: 'inactive_wallet_empty',
-      reasonCategory: 'wallet_balance_non_positive',
-    }
-  }
-
   return {
-    derivedStatus: 'active',
-    reasonCategory: 'eligible_active',
+    persistedStatus: worker.status,
+    registrationComplete: isWorkerRegistrationCompletePreview(worker),
+    workerPausedByWorker:
+      worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker',
+    activePlanId: String(worker.activePlan || '').trim(),
+    planResolved: Boolean(workerPlan),
+    planAudience:
+      workerPlan?.audience === 'worker' || workerPlan?.audience === 'company'
+        ? workerPlan.audience
+        : '',
+    planName: String(workerPlan?.name || ''),
+    planRegistrationFee: Number(workerPlan?.registrationFee || 0),
+    planDailyCharge: Number(workerPlan?.dailyCharge || 0),
+    planValidUntil: String(worker.planValidUntil || '').trim(),
+    walletBalance: Number(worker.walletBalance || 0),
+    registrationFeePaid: Boolean(worker.registrationFeePaid),
+    hasCompletedRegistrationFeeTransaction:
+      hasCompletedWorkerRegistrationFeeTransactionPreview(worker, workerTransactions),
+    currentDateValue,
   }
+}
+
+export const deriveWorkerLifecycleStatusPreview = (
+  worker: LabourWorkerRecord,
+  snapshot: Pick<LabourMarketplaceSnapshot, 'plans' | 'walletTransactions'>,
+  currentDateValue: string,
+): WorkerLifecycleEvaluation => {
+  return evaluateWorkerLifecycle(
+    buildWorkerLifecycleFactsPreview(worker, snapshot, currentDateValue),
+  )
 }
 
 const createEmptyWorkerLifecycleReconciliationSummary = (
@@ -1168,10 +1055,12 @@ const buildWorkerLifecycleReconciliationSummary = ({
   snapshot,
   snapshotSource,
   snapshotReasonCategory,
+  currentDateValue,
 }: {
   snapshot: LabourMarketplaceSnapshot
   snapshotSource: 'supabase' | 'unavailable'
   snapshotReasonCategory: WhatsappAutomationPreviewSummary['snapshotReasonCategory']
+  currentDateValue: string
 }): WorkerLifecycleReconciliationSummary => {
   if (snapshotSource !== 'supabase') {
     return createEmptyWorkerLifecycleReconciliationSummary(
@@ -1182,7 +1071,7 @@ const buildWorkerLifecycleReconciliationSummary = ({
 
   const evaluations = snapshot.workers.map((worker) => ({
     worker,
-    evaluation: deriveWorkerLifecycleStatusPreview(worker, snapshot),
+    evaluation: deriveWorkerLifecycleStatusPreview(worker, snapshot, currentDateValue),
   }))
 
   const normalizedChangedWorkers: WorkerLifecycleReconciliationRow[] = evaluations
@@ -1362,10 +1251,12 @@ export const buildWhatsappAutomationPreviewSummary = ({
   const workerFunnel = buildPreviewFunnel(workerPlans, 'worker')
   const workerPaymentFunnel = buildPreviewFunnel(workerPaymentPlans, 'worker')
   const workerKycRejectedFunnel = buildPreviewFunnel(workerKycRejectedPlans, 'worker')
+  const currentDateValue = now.toISOString().slice(0, 10)
   const workerLifecycleReconciliation = buildWorkerLifecycleReconciliationSummary({
     snapshot,
     snapshotSource,
     snapshotReasonCategory,
+    currentDateValue,
   })
 
   return {

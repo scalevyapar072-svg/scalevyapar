@@ -31,6 +31,7 @@ const adminRouteSource = readWorkspaceFile('app', 'api', 'admin', 'labour', 'rou
 const registerRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker', 'register', 'route.ts')
 const profileRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker', 'profile', 'route.ts')
 const walletRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker', 'wallet', 'status', 'route.ts')
+const razorpayOrderRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker', 'payments', 'razorpay', 'order', 'route.ts')
 const razorpayRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker', 'payments', 'razorpay', 'verify', 'route.ts')
 const dashboardRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker', 'dashboard', 'route.ts')
 const verifyOtpRouteSource = readWorkspaceFile('app', 'api', 'labour', 'worker', 'auth', 'verify-otp', 'route.ts')
@@ -86,7 +87,60 @@ const loadAdminLabourRouteModule = async () => {
   return import(toDataUrl(transpiled.outputText))
 }
 
+const loadWorkerRazorpayOrderRouteModule = async () => {
+  const nextServerStubUrl = toDataUrl(`
+    export class NextRequest extends Request {}
+    export const NextResponse = {
+      json(body, init) {
+        return Response.json(body, init)
+      }
+    }
+  `)
+  const razorpayStubUrl = toDataUrl(`
+    export default class Razorpay {
+      constructor() {
+        throw new Error('Razorpay constructor stub should not be called directly in tests')
+      }
+    }
+  `)
+  const authStubUrl = toDataUrl(`
+    export const requireWorkerApp = async () => {
+      throw new Error('requireWorkerApp stub should not be called directly in tests')
+    }
+  `)
+  const marketplaceStubUrl = toDataUrl(`
+    export const getLabourMarketplaceSnapshot = async () => {
+      throw new Error('getLabourMarketplaceSnapshot stub should not be called directly in tests')
+    }
+  `)
+  const guardStubUrl = toDataUrl(`
+    export const WORKER_LIFECYCLE_MUTATIONS_DISABLED_MESSAGE =
+      'Worker lifecycle mutations are disabled in Preview.'
+    export const shouldBlockWorkerLifecycleMutation = (runtime) =>
+      runtime?.allowNonProductionForTests ? false : runtime?.vercelEnv !== 'production'
+    export const buildWorkerLifecycleMutationBlockedResponse = (status = 503) =>
+      Response.json({ error: WORKER_LIFECYCLE_MUTATIONS_DISABLED_MESSAGE }, { status })
+  `)
+
+  const routeModuleSource = razorpayOrderRouteSource
+    .replace("'razorpay'", `'${razorpayStubUrl}'`)
+    .replace("'next/server'", `'${nextServerStubUrl}'`)
+    .replace("'@/lib/labour-worker-app'", `'${authStubUrl}'`)
+    .replace("'@/lib/labour-marketplace'", `'${marketplaceStubUrl}'`)
+    .replace("'@/lib/worker-lifecycle-mutation-guard'", `'${guardStubUrl}'`)
+
+  const transpiled = ts.transpileModule(routeModuleSource, {
+    compilerOptions: {
+      module: ts.ModuleKind.ES2022,
+      target: ts.ScriptTarget.ES2022,
+    },
+  })
+
+  return import(toDataUrl(transpiled.outputText))
+}
+
 const { handleAdminLabourDelete } = await loadAdminLabourRouteModule()
+const { handleWorkerRazorpayOrderPost } = await loadWorkerRazorpayOrderRouteModule()
 
 const assertOrdered = (source: string, needles: string[], context: string) => {
   let previousIndex = -1
@@ -409,6 +463,21 @@ test('worker mutation routes fail closed before payload-driven writes or Razorpa
   )
 
   assertOrdered(
+    razorpayOrderRouteSource,
+    [
+      'const auth = await dependencies.requireWorkerApp(request)',
+      'shouldBlockWorkerLifecycleMutation(dependencies.mutationRuntime)',
+      'return buildWorkerLifecycleMutationBlockedResponse()',
+      'const body = await request.json().catch(() => ({}))',
+      'const amount = normalizeRechargeAmount(body.amount)',
+      'const snapshot = await dependencies.getLabourMarketplaceSnapshot()',
+      'const { client, keyId } = dependencies.getRazorpay()',
+      'const order = await client.orders.create({',
+    ],
+    'worker Razorpay order route',
+  )
+
+  assertOrdered(
     razorpayRouteSource,
     [
       'const auth = await dependencies.requireWorkerApp(request)',
@@ -420,6 +489,214 @@ test('worker mutation routes fail closed before payload-driven writes or Razorpa
     ],
     'worker Razorpay verification route',
   )
+})
+
+test('worker Razorpay order route preserves authentication-first fail-closed behavior in preview and production ordering', async () => {
+  let unauthenticatedJsonCalls = 0
+  let unauthenticatedSnapshotCalls = 0
+  let unauthenticatedRazorpayCalls = 0
+
+  const unauthenticatedResponse = await handleWorkerRazorpayOrderPost(
+    {
+      async json() {
+        unauthenticatedJsonCalls += 1
+        return { amount: 100 }
+      },
+    } as Request,
+    {
+      getLabourMarketplaceSnapshot: async () => {
+        unauthenticatedSnapshotCalls += 1
+        throw new Error('Unauthenticated preview request must not reach the marketplace snapshot')
+      },
+      getRazorpay: () => {
+        unauthenticatedRazorpayCalls += 1
+        throw new Error('Unauthenticated preview request must not reach Razorpay')
+      },
+      requireWorkerApp: async () => {
+        throw new Error('Missing worker authorization token.')
+      },
+      mutationRuntime: { vercelEnv: 'preview' },
+    },
+  )
+
+  assert.equal(unauthenticatedResponse.status, 401)
+  assert.deepEqual(await unauthenticatedResponse.json(), {
+    error: 'Missing worker authorization token.',
+  })
+  assert.equal(unauthenticatedJsonCalls, 0)
+  assert.equal(unauthenticatedSnapshotCalls, 0)
+  assert.equal(unauthenticatedRazorpayCalls, 0)
+
+  let previewJsonCalls = 0
+  let previewSnapshotCalls = 0
+  let previewRazorpayCalls = 0
+
+  const previewBlockedResponse = await handleWorkerRazorpayOrderPost(
+    {
+      async json() {
+        previewJsonCalls += 1
+        return { amount: 100 }
+      },
+    } as Request,
+    {
+      getLabourMarketplaceSnapshot: async () => {
+        previewSnapshotCalls += 1
+        throw new Error('Preview order route should block before the marketplace snapshot')
+      },
+      getRazorpay: () => {
+        previewRazorpayCalls += 1
+        throw new Error('Preview order route should block before Razorpay client creation')
+      },
+      requireWorkerApp: async () => ({ workerId: 'worker-1' }),
+      mutationRuntime: { vercelEnv: 'preview' },
+    },
+  )
+
+  assert.equal(previewBlockedResponse.status, 503)
+  assert.deepEqual(await previewBlockedResponse.json(), {
+    error: WORKER_LIFECYCLE_MUTATIONS_DISABLED_MESSAGE,
+  })
+  assert.equal(previewJsonCalls, 0)
+  assert.equal(previewSnapshotCalls, 0)
+  assert.equal(previewRazorpayCalls, 0)
+
+  let productionSnapshotCalls = 0
+  let productionCreateCalls = 0
+  let capturedOrderPayload:
+    | {
+        amount: number
+        currency: string
+        receipt: string
+        notes: {
+          workerId: string
+          mobile: string
+          rechargeAmount: string
+          source: string
+        }
+      }
+    | null = null
+
+  const productionResponse = await handleWorkerRazorpayOrderPost(
+    {
+      async json() {
+        return { amount: 250 }
+      },
+    } as Request,
+    {
+      getLabourMarketplaceSnapshot: async () => {
+        productionSnapshotCalls += 1
+        return {
+          workers: [
+            {
+              id: 'worker-1',
+              fullName: 'Worker One',
+              mobile: '9999999999',
+            },
+          ],
+        }
+      },
+      getRazorpay: () => ({
+        keyId: 'rzp_test_key',
+        client: {
+          orders: {
+            create: async (payload: {
+              amount: number
+              currency: string
+              receipt: string
+              notes: {
+                workerId: string
+                mobile: string
+                rechargeAmount: string
+                source: string
+              }
+            }) => {
+              productionCreateCalls += 1
+              capturedOrderPayload = payload
+              return {
+                id: 'order_test_123',
+                amount: 25000,
+                currency: 'INR',
+              }
+            },
+          },
+        },
+      }),
+      requireWorkerApp: async () => ({ workerId: 'worker-1' }),
+      mutationRuntime: { vercelEnv: 'production' },
+    },
+  )
+
+  assert.equal(productionSnapshotCalls, 1)
+  assert.equal(productionCreateCalls, 1)
+  if (!capturedOrderPayload) {
+    throw new Error('Expected the mocked production order payload to be captured')
+  }
+
+  const productionOrderPayload = capturedOrderPayload as {
+    amount: number
+    currency: string
+    receipt: string
+    notes: {
+      workerId: string
+      mobile: string
+      rechargeAmount: string
+      source: string
+    }
+  }
+  assert.deepEqual(productionOrderPayload, {
+    amount: 25000,
+    currency: 'INR',
+    receipt: productionOrderPayload.receipt,
+    notes: {
+      workerId: 'worker-1',
+      mobile: '9999999999',
+      rechargeAmount: '250',
+      source: 'rozgar-worker-app',
+    },
+  })
+  assert.match(productionOrderPayload.receipt, /^wr_[a-z0-9]+_worker1$/)
+  assert.equal(productionResponse.status, 200)
+  assert.deepEqual(await productionResponse.json(), {
+    keyId: 'rzp_test_key',
+    orderId: 'order_test_123',
+    amount: 25000,
+    currency: 'INR',
+    rechargeAmount: 250,
+    workerName: 'Worker One',
+    mobile: '9999999999',
+  })
+})
+
+test('worker Razorpay order route preserves invalid amount behavior in production mode before marketplace and provider work', async () => {
+  let snapshotCalls = 0
+  let razorpayCalls = 0
+
+  const invalidAmountResponse = await handleWorkerRazorpayOrderPost(
+    {
+      async json() {
+        return { amount: 5 }
+      },
+    } as Request,
+    {
+      getLabourMarketplaceSnapshot: async () => {
+        snapshotCalls += 1
+        throw new Error('Invalid amount should block before the marketplace snapshot')
+      },
+      getRazorpay: () => {
+        razorpayCalls += 1
+        throw new Error('Invalid amount should block before Razorpay client creation')
+      },
+      requireWorkerApp: async () => ({ workerId: 'worker-1' }),
+      mutationRuntime: { vercelEnv: 'production' },
+    },
+  )
+
+  assert.equal(invalidAmountResponse.status, 400)
+  assert.deepEqual(await invalidAmountResponse.json(), {
+    error: 'Minimum recharge amount is ₹10.',
+  })
+  assert.equal(snapshotCalls, 0)
+  assert.equal(razorpayCalls, 0)
 })
 
 test('dashboard construction and OTP bootstrap remain read-only after the preview-isolation refactor', () => {

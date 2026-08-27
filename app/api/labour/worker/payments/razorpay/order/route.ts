@@ -2,6 +2,11 @@ import Razorpay from 'razorpay'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireWorkerApp } from '@/lib/labour-worker-app'
 import { getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
+import {
+  buildWorkerLifecycleMutationBlockedResponse,
+  shouldBlockWorkerLifecycleMutation,
+  type WorkerLifecycleMutationRuntime
+} from '@/lib/worker-lifecycle-mutation-guard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -37,18 +42,40 @@ const normalizeRechargeAmount = (value: unknown) => {
   return amount
 }
 
+type WorkerRazorpayOrderDependencies = {
+  getLabourMarketplaceSnapshot: typeof getLabourMarketplaceSnapshot
+  getRazorpay: typeof getRazorpay
+  requireWorkerApp: typeof requireWorkerApp
+  mutationRuntime?: WorkerLifecycleMutationRuntime
+}
+
 export async function POST(request: NextRequest) {
+  return handleWorkerRazorpayOrderPost(request)
+}
+
+export async function handleWorkerRazorpayOrderPost(
+  request: Request,
+  dependencies: WorkerRazorpayOrderDependencies = {
+    getLabourMarketplaceSnapshot,
+    getRazorpay,
+    requireWorkerApp
+  }
+) {
   try {
-    const auth = await requireWorkerApp(request)
+    const auth = await dependencies.requireWorkerApp(request)
+    if (shouldBlockWorkerLifecycleMutation(dependencies.mutationRuntime)) {
+      return buildWorkerLifecycleMutationBlockedResponse()
+    }
+
     const body = await request.json().catch(() => ({}))
     const amount = normalizeRechargeAmount(body.amount)
-    const snapshot = await getLabourMarketplaceSnapshot()
+    const snapshot = await dependencies.getLabourMarketplaceSnapshot()
     const worker = snapshot.workers.find(item => item.id === auth.workerId)
     if (!worker) {
       return NextResponse.json({ error: 'Worker account not found.' }, { status: 404 })
     }
 
-    const { client, keyId } = getRazorpay()
+    const { client, keyId } = dependencies.getRazorpay()
     const order = await client.orders.create({
       amount: amount * 100,
       currency: 'INR',

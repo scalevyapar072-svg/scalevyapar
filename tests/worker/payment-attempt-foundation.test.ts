@@ -37,7 +37,7 @@ test('worker payment-attempt foundation migration defines the approved table, co
     'provider_status text not null',
     'idempotency_key text not null',
     "application_status text not null default 'created'",
-    'wallet_transaction_id text',
+    'wallet_transaction_id uuid',
     'failure_category text',
     'verified_at timestamptz',
     'applied_at timestamptz',
@@ -73,6 +73,14 @@ test('worker payment-attempt foundation migration defines the approved table, co
   ]) {
     assert.ok(source.includes(fragment), `Expected migration to include: ${fragment}`)
   }
+})
+
+test('worker payment-attempt foundation migration aligns wallet_transaction_id with the authoritative uuid foreign key contract', () => {
+  const source = readMigrationSource().toLowerCase()
+
+  assert.equal(source.includes('wallet_transaction_id uuid'), true)
+  assert.equal(source.includes('wallet_transaction_id text'), false)
+  assert.equal(source.includes('btrim(wallet_transaction_id)'), false)
 })
 
 test('worker payment-attempt foundation migration keeps browser roles and public policies disabled', () => {

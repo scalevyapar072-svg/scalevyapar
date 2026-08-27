@@ -41,9 +41,7 @@ create table public.labour_worker_payment_attempts (
   application_status text not null default 'created'
     constraint labour_worker_payment_attempts_application_status_check
       check (application_status in ('created', 'verified', 'applied', 'failed')),
-  wallet_transaction_id text
-    constraint labour_worker_payment_attempts_wallet_transaction_id_nonempty_check
-      check (wallet_transaction_id is null or btrim(wallet_transaction_id) <> ''),
+  wallet_transaction_id uuid,
   failure_category text
     constraint labour_worker_payment_attempts_failure_category_sanitized_check
       check (

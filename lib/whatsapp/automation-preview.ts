@@ -24,6 +24,10 @@ import {
   planWorkerPaymentOrPlanReminders,
   type WhatsappAutomationPlan,
 } from './automation-executor'
+import {
+  buildWorkerJobMatchPreview,
+  type WorkerJobMatchPreviewSummary,
+} from './worker-job-match-preview'
 import { assertWhatsappServerOnly } from './server-runtime'
 import {
   evaluateWorkerLifecycle,
@@ -34,12 +38,15 @@ import {
 
 assertWhatsappServerOnly('lib/whatsapp/automation-preview')
 
+type AutomationTemplateEventType =
+  | 'company_matching_digest'
+  | 'worker_matching_digest'
+  | 'worker_payment_or_plan_reminder'
+  | 'worker_kyc_rejected'
+  | 'worker_job_match_alert'
+
 type AutomationTemplateSelection = {
-  automationEventType:
-    | 'company_matching_digest'
-    | 'worker_matching_digest'
-    | 'worker_payment_or_plan_reminder'
-    | 'worker_kyc_rejected'
+  automationEventType: AutomationTemplateEventType
   templateName: string | null
   templateLanguage: string | null
   templateConfigured: boolean
@@ -167,6 +174,7 @@ export type WhatsappAutomationPreviewSummary = {
   workerPaymentPlans: AutomationPreviewPlan[]
   workerKycRejectedPlans: AutomationPreviewPlan[]
   workerLifecycleReconciliation: WorkerLifecycleReconciliationSummary
+  workerJobMatchPreview: WorkerJobMatchPreviewSummary
 }
 
 type PreviewBuildInput = {
@@ -179,11 +187,10 @@ type PreviewBuildInput = {
   companyConsentStates?: Record<string, Partial<WhatsappConsentState>>
   workerConsentStates?: Record<string, Partial<WhatsappConsentState>>
   suppressedMobiles?: Iterable<string>
+  existingMatchKeys?: Iterable<string>
+  matchCandidateReadState?: WorkerJobMatchPreviewSummary['duplicateReadState']
   templateSelections?: Partial<Record<
-    | 'company_matching_digest'
-    | 'worker_matching_digest'
-    | 'worker_payment_or_plan_reminder'
-    | 'worker_kyc_rejected',
+    AutomationTemplateEventType,
     AutomationTemplateSelection
   >>
 }
@@ -196,13 +203,9 @@ type ReadModel = {
   companyConsentStates: Record<string, Partial<WhatsappConsentState>>
   workerConsentStates: Record<string, Partial<WhatsappConsentState>>
   suppressedMobiles: string[]
-  templateSelections: Record<
-    | 'company_matching_digest'
-    | 'worker_matching_digest'
-    | 'worker_payment_or_plan_reminder'
-    | 'worker_kyc_rejected',
-    AutomationTemplateSelection
-  >
+  existingMatchKeys: string[]
+  matchCandidateReadState: WorkerJobMatchPreviewSummary['duplicateReadState']
+  templateSelections: Record<AutomationTemplateEventType, AutomationTemplateSelection>
   persistenceAvailable: boolean
   persistenceStatus: string
   consentReadState: 'connected' | 'persistence_unavailable' | 'query_error'
@@ -215,6 +218,7 @@ const AUTOMATION_EVENT_TYPES = [
   'worker_matching_digest',
   'worker_payment_or_plan_reminder',
   'worker_kyc_rejected',
+  'worker_job_match_alert',
 ] as const
 
 const createEmptySnapshot = (
@@ -445,7 +449,7 @@ const loadMarketplacePreviewSnapshot = async (): Promise<{
       persistence.client
         .from('labour_job_posts')
         .select(
-          'id, company_id, plan_id, category_id, title, description, city, location_label, latitude, longitude, workers_needed, wage_amount, validity_days, status, published_at, expires_at, created_at, updated_at',
+          'id, company_id, plan_id, category_id, title, description, city, location_label, latitude, longitude, workers_needed, wage_amount, validity_days, status, review_status, review_reason, submitted_at, reviewed_at, published_at, expires_at, created_at, updated_at',
         )
         .order('created_at', { ascending: true }),
       persistence.client
@@ -523,11 +527,7 @@ const loadSafetySummary = async (): Promise<WhatsappSafetyStatusSummary> => {
 }
 
 const createTemplateSelection = (
-  automationEventType:
-    | 'company_matching_digest'
-    | 'worker_matching_digest'
-    | 'worker_payment_or_plan_reminder'
-    | 'worker_kyc_rejected',
+  automationEventType: AutomationTemplateEventType,
   row: WhatsappTemplateInventoryRow | null,
 ): AutomationTemplateSelection => ({
   automationEventType,
@@ -540,11 +540,7 @@ const createTemplateSelection = (
 
 const selectBestTemplate = (
   rows: WhatsappTemplateInventoryRow[],
-  automationEventType:
-    | 'company_matching_digest'
-    | 'worker_matching_digest'
-    | 'worker_payment_or_plan_reminder'
-    | 'worker_kyc_rejected',
+  automationEventType: AutomationTemplateEventType,
 ) => {
   const matchingRows = rows.filter(
     (row) => String(row.intendedBusinessEvent || '').trim() === automationEventType,
@@ -575,6 +571,7 @@ const loadTemplateSelections = async () => {
           null,
         ),
         worker_kyc_rejected: createTemplateSelection('worker_kyc_rejected', null),
+        worker_job_match_alert: createTemplateSelection('worker_job_match_alert', null),
       },
       templateReadState: 'persistence_unavailable' as const,
     }
@@ -600,6 +597,10 @@ const loadTemplateSelections = async () => {
           null,
         ),
         worker_kyc_rejected: createTemplateSelection('worker_kyc_rejected', null),
+        worker_job_match_alert: createTemplateSelection(
+          'worker_job_match_alert',
+          selectBestTemplate(rows, 'worker_job_match_alert'),
+        ),
       },
       templateReadState: 'connected' as const,
     }
@@ -613,6 +614,7 @@ const loadTemplateSelections = async () => {
           null,
         ),
         worker_kyc_rejected: createTemplateSelection('worker_kyc_rejected', null),
+        worker_job_match_alert: createTemplateSelection('worker_job_match_alert', null),
       },
       templateReadState: 'query_error' as const,
     }
@@ -718,14 +720,55 @@ const loadSuppressedMobiles = async () => {
   }
 }
 
+const loadExistingMatchKeys = async () => {
+  const persistence = getWhatsappPersistenceClient()
+  if (!persistence.available) {
+    return {
+      existingMatchKeys: [],
+      matchCandidateReadState: 'persistence_unavailable' as const,
+    }
+  }
+
+  try {
+    const { data, error } = await persistence.client
+      .from('labour_whatsapp_worker_job_match_candidates')
+      .select('match_key')
+      .limit(1000)
+
+    if (error) {
+      throw new Error('Unable to read existing Worker-job match candidates.')
+    }
+
+    return {
+      existingMatchKeys: (data || [])
+        .map((row) => toString((row as Record<string, unknown>).match_key))
+        .filter(Boolean),
+      matchCandidateReadState: 'connected' as const,
+    }
+  } catch {
+    return {
+      existingMatchKeys: [],
+      matchCandidateReadState: 'query_error' as const,
+    }
+  }
+}
+
 const loadReadModel = async (): Promise<ReadModel> => {
-  const [snapshotState, safetySummary, consentState, suppressionState, templateState] =
+  const [
+    snapshotState,
+    safetySummary,
+    consentState,
+    suppressionState,
+    templateState,
+    matchCandidateState,
+  ] =
     await Promise.all([
       loadMarketplacePreviewSnapshot(),
       loadSafetySummary(),
       loadConsentMaps(),
       loadSuppressedMobiles(),
       loadTemplateSelections(),
+      loadExistingMatchKeys(),
     ])
 
   return {
@@ -736,6 +779,8 @@ const loadReadModel = async (): Promise<ReadModel> => {
     companyConsentStates: consentState.companyConsentStates,
     workerConsentStates: consentState.workerConsentStates,
     suppressedMobiles: suppressionState.suppressedMobiles,
+    existingMatchKeys: matchCandidateState.existingMatchKeys,
+    matchCandidateReadState: matchCandidateState.matchCandidateReadState,
     templateSelections: templateState.templateSelections,
     persistenceAvailable: safetySummary.available,
     persistenceStatus: safetySummary.persistenceStatus,
@@ -1147,6 +1192,8 @@ export const buildWhatsappAutomationPreviewSummary = ({
   companyConsentStates = {},
   workerConsentStates = {},
   suppressedMobiles = [],
+  existingMatchKeys = [],
+  matchCandidateReadState = 'persistence_unavailable',
   templateSelections = {
     company_matching_digest: createTemplateSelection('company_matching_digest', null),
     worker_matching_digest: createTemplateSelection('worker_matching_digest', null),
@@ -1155,6 +1202,7 @@ export const buildWhatsappAutomationPreviewSummary = ({
       null,
     ),
     worker_kyc_rejected: createTemplateSelection('worker_kyc_rejected', null),
+    worker_job_match_alert: createTemplateSelection('worker_job_match_alert', null),
   },
 }: PreviewBuildInput): WhatsappAutomationPreviewSummary => {
   const normalizedEnv = String(vercelEnv || '').trim().toLowerCase()
@@ -1168,6 +1216,7 @@ export const buildWhatsappAutomationPreviewSummary = ({
       null,
     ),
     worker_kyc_rejected: createTemplateSelection('worker_kyc_rejected', null),
+    worker_job_match_alert: createTemplateSelection('worker_job_match_alert', null),
     ...templateSelections,
   }
   const companyPlans = allowLivePlans
@@ -1262,6 +1311,23 @@ export const buildWhatsappAutomationPreviewSummary = ({
     snapshotReasonCategory,
     currentDateValue,
   })
+  const workerJobMatchSelection = resolvedTemplateSelections.worker_job_match_alert
+  const workerJobMatchPreview = buildWorkerJobMatchPreview({
+    snapshot,
+    source: snapshotSource,
+    duplicateReadState: matchCandidateReadState,
+    workerConsentStates,
+    suppressedMobiles,
+    existingMatchKeys,
+    templateState: {
+      configured: workerJobMatchSelection.templateConfigured,
+      approved: workerJobMatchSelection.templateApproved,
+      enabled: workerJobMatchSelection.templateEnabled,
+    },
+    pauseAllSending: safetySummary.pauseAllSending,
+    now,
+    timeZone: safetySummary.reviewOnlyDefaults.timeZone,
+  })
 
   return {
     checkedAt: now.toISOString(),
@@ -1294,6 +1360,7 @@ export const buildWhatsappAutomationPreviewSummary = ({
     workerPaymentPlans,
     workerKycRejectedPlans,
     workerLifecycleReconciliation,
+    workerJobMatchPreview,
   }
 }
 
@@ -1307,6 +1374,8 @@ export const getWhatsappAutomationPreviewSummary = async (): Promise<WhatsappAut
     companyConsentStates: readModel.companyConsentStates,
     workerConsentStates: readModel.workerConsentStates,
     suppressedMobiles: readModel.suppressedMobiles,
+    existingMatchKeys: readModel.existingMatchKeys,
+    matchCandidateReadState: readModel.matchCandidateReadState,
     templateSelections: readModel.templateSelections,
   })
 

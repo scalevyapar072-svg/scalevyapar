@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 type AutomationPreviewPlan = {
   automationEventType:
@@ -89,6 +89,34 @@ type AutomationPreviewSummary = {
   workerPlans: AutomationPreviewPlan[]
   workerPaymentPlans: AutomationPreviewPlan[]
   workerKycRejectedPlans: AutomationPreviewPlan[]
+  workerJobMatchPreview: {
+    source: 'supabase' | 'unavailable'
+    duplicateReadState: 'connected' | 'persistence_unavailable' | 'query_error'
+    duplicateCheckAvailable: boolean
+    totalPossiblePairs: number
+    evaluatedPairCount: number
+    truncated: boolean
+    eligibleCount: number
+    blockedCount: number
+    alreadyMatchedCount: number
+    rows: Array<{
+      matchKey: string
+      workerId: string
+      jobId: string
+      companyId: string
+      jobTitle: string
+      categoryId: string
+      categoryLabel: string
+      city: string
+      maskedMobile: string
+      decision: 'eligible' | 'blocked' | 'already_matched'
+      dispatchReason: string
+      reasonCodes: string[]
+      consentEligible: boolean
+      suppressed: boolean
+      templateEligible: boolean
+    }>
+  }
   workerLifecycleReconciliation: {
     source: 'supabase' | 'unavailable'
     reasonCategory:
@@ -170,6 +198,7 @@ const formatDateTime = (value: string) => {
 }
 
 const formatList = (items: string[]) => (items.length > 0 ? items.join(', ') : 'None')
+const formatReasonCode = (value: string) => value.replace(/_/g, ' ')
 
 const formatSnapshotReason = (
   value: AutomationPreviewSummary['snapshotReasonCategory'],
@@ -472,6 +501,29 @@ export default function LabourWhatsappAutomationPreviewCard() {
   const [summary, setSummary] = useState<AutomationPreviewSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [matchDecisionFilter, setMatchDecisionFilter] = useState('all')
+  const [matchCategoryFilter, setMatchCategoryFilter] = useState('all')
+  const [matchCityFilter, setMatchCityFilter] = useState('all')
+
+  const matchPreview = summary?.workerJobMatchPreview || null
+  const matchCategoryOptions = useMemo(
+    () => Array.from(new Set((matchPreview?.rows || []).map((row) => row.categoryLabel))).sort(),
+    [matchPreview],
+  )
+  const matchCityOptions = useMemo(
+    () => Array.from(new Set((matchPreview?.rows || []).map((row) => row.city))).filter(Boolean).sort(),
+    [matchPreview],
+  )
+  const filteredMatchRows = useMemo(() => {
+    if (!matchPreview) return []
+
+    return matchPreview.rows.filter((row) => {
+      if (matchDecisionFilter !== 'all' && row.decision !== matchDecisionFilter) return false
+      if (matchCategoryFilter !== 'all' && row.categoryLabel !== matchCategoryFilter) return false
+      if (matchCityFilter !== 'all' && row.city !== matchCityFilter) return false
+      return true
+    })
+  }, [matchCategoryFilter, matchCityFilter, matchDecisionFilter, matchPreview])
 
   const loadSummary = async () => {
     setLoading(true)
@@ -659,6 +711,161 @@ export default function LabourWhatsappAutomationPreviewCard() {
             }}
           >
             {renderLifecycleReconciliation(summary.workerLifecycleReconciliation)}
+          </div>
+
+          <div style={{ display: 'grid', gap: '12px' }}>
+            <div
+              style={{
+                border: '1px solid #bfdbfe',
+                borderRadius: '14px',
+                background: '#eff6ff',
+                padding: '14px',
+                display: 'grid',
+                gap: '10px',
+                color: '#0f172a',
+              }}
+            >
+              <div>
+                <h4 style={{ margin: '0 0 4px', fontSize: '14px' }}>
+                  Worker–Job matching decisions
+                </h4>
+                <p style={{ margin: 0, color: '#475569', fontSize: '12px', lineHeight: 1.6 }}>
+                  Read-only individual matching results. Mobile numbers are masked, candidate rows are not saved,
+                  and dispatch remains blocked.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={badgeStyle('blue')}>evaluated: {matchPreview?.evaluatedPairCount || 0}</span>
+                <span style={badgeStyle('green')}>eligible: {matchPreview?.eligibleCount || 0}</span>
+                <span style={badgeStyle('red')}>blocked: {matchPreview?.blockedCount || 0}</span>
+                <span style={badgeStyle('slate')}>
+                  already matched: {matchPreview?.alreadyMatchedCount || 0}
+                </span>
+              </div>
+
+              <div style={{ fontSize: '12px', lineHeight: 1.7 }}>
+                <div>Total possible pairs: {matchPreview?.totalPossiblePairs || 0}</div>
+                <div>Preview truncated: {matchPreview?.truncated ? 'YES' : 'NO'}</div>
+                <div>Duplicate read: {matchPreview?.duplicateReadState || 'persistence_unavailable'}</div>
+                <div>
+                  Duplicate check available: {matchPreview?.duplicateCheckAvailable ? 'YES' : 'NO'}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '8px',
+                }}
+              >
+                <label style={{ display: 'grid', gap: '4px', fontSize: '12px' }}>
+                  Decision
+                  <select
+                    aria-label="Filter Worker-job matches by decision"
+                    value={matchDecisionFilter}
+                    onChange={(event) => setMatchDecisionFilter(event.target.value)}
+                    style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '8px' }}
+                  >
+                    <option value="all">All decisions</option>
+                    <option value="eligible">Eligible</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="already_matched">Already matched</option>
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: '4px', fontSize: '12px' }}>
+                  Category
+                  <select
+                    aria-label="Filter Worker-job matches by category"
+                    value={matchCategoryFilter}
+                    onChange={(event) => setMatchCategoryFilter(event.target.value)}
+                    style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '8px' }}
+                  >
+                    <option value="all">All categories</option>
+                    {matchCategoryOptions.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: '4px', fontSize: '12px' }}>
+                  City
+                  <select
+                    aria-label="Filter Worker-job matches by city"
+                    value={matchCityFilter}
+                    onChange={(event) => setMatchCityFilter(event.target.value)}
+                    style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '8px' }}
+                  >
+                    <option value="all">All cities</option>
+                    {matchCityOptions.map((city) => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            {filteredMatchRows.length > 0 ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '10px',
+                }}
+              >
+                {filteredMatchRows.slice(0, 100).map((row) => {
+                  const tone = row.decision === 'eligible'
+                    ? 'green'
+                    : row.decision === 'already_matched'
+                      ? 'slate'
+                      : 'red'
+
+                  return (
+                    <div
+                      key={row.matchKey || `${row.workerId}-${row.jobId}`}
+                      style={{
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        background: '#ffffff',
+                        padding: '12px',
+                        display: 'grid',
+                        gap: '6px',
+                        color: '#0f172a',
+                        fontSize: '12px',
+                        lineHeight: 1.6,
+                        contentVisibility: 'auto',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                        <strong>{row.jobTitle || row.jobId}</strong>
+                        <span style={badgeStyle(tone)}>{formatReasonCode(row.decision)}</span>
+                      </div>
+                      <div>Worker: {row.maskedMobile || 'Invalid mobile'}</div>
+                      <div>Category: {row.categoryLabel || row.categoryId}</div>
+                      <div>City: {row.city || 'Not available'}</div>
+                      <div>Primary decision reason: {formatReasonCode(row.dispatchReason)}</div>
+                      <div>All reasons: {row.reasonCodes.map(formatReasonCode).join(', ') || 'None'}</div>
+                      <div>Matching consent: {row.consentEligible ? 'YES' : 'NO'}</div>
+                      <div>Suppressed: {row.suppressed ? 'YES' : 'NO'}</div>
+                      <div>Template ready: {row.templateEligible ? 'YES' : 'NO'}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div
+                style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  background: '#f8fafc',
+                  padding: '14px',
+                  color: '#64748b',
+                  fontSize: '13px',
+                }}
+              >
+                No Worker–Job rows match the selected Preview filters.
+              </div>
+            )}
           </div>
 
           <div

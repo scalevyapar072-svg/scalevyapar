@@ -6,6 +6,16 @@ import {
   purgeInactiveLabourCategoryDependenciesForCategory
 } from './labour-masters'
 import { qualifyWorkerReferralAfterKycApproval } from './labour-worker-referral'
+import {
+  buildJobReviewMutation,
+  JobReviewValidationError,
+  type JobReviewAction,
+  type JobReviewStatus
+} from './job-review-workflow'
+import {
+  countUsedJobPostsForPlan,
+  resolveCompanyPlanWindow
+} from './labour-plan-utils'
 import { supabaseAdmin } from './supabase-admin'
 
 export type LabourEntityType =
@@ -23,6 +33,7 @@ export type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'ina
 export type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
 export type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 export type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
+export type JobPostReviewStatus = JobReviewStatus
 export type PlanAudience = 'worker' | 'company'
 export type DemandLevel = 'high' | 'medium' | 'low'
 export type WorkerAvailability = 'available_today' | 'available_this_week' | 'not_available'
@@ -174,6 +185,10 @@ export interface LabourJobPostRecord {
   wageAmount: number
   validityDays: number
   status: JobPostStatus
+  reviewStatus: JobPostReviewStatus | null
+  reviewReason: string
+  submittedAt: string
+  reviewedAt: string
   publishedAt: string
   expiresAt: string
   createdAt: string
@@ -601,6 +616,10 @@ const defaultData: LabourMarketplaceData = {
       wageAmount: 950,
       validityDays: 3,
       status: 'live',
+      reviewStatus: 'approved',
+      reviewReason: '',
+      submittedAt: '2026-04-25T00:00:00.000Z',
+      reviewedAt: '2026-04-25T00:00:00.000Z',
       publishedAt: '2026-04-25',
       expiresAt: '2026-04-28',
       createdAt: '2026-04-25T00:00:00.000Z',
@@ -621,6 +640,10 @@ const defaultData: LabourMarketplaceData = {
       wageAmount: 850,
       validityDays: 3,
       status: 'draft',
+      reviewStatus: null,
+      reviewReason: '',
+      submittedAt: '',
+      reviewedAt: '',
       publishedAt: '2026-04-25',
       expiresAt: '2026-04-28',
       createdAt: '2026-04-25T00:00:00.000Z',
@@ -1254,6 +1277,10 @@ const mapJobPostRow = (row: {
   wage_amount: number | null
   validity_days: number | null
   status: string | null
+  review_status?: string | null
+  review_reason?: string | null
+  submitted_at?: string | null
+  reviewed_at?: string | null
   published_at: string | null
   expires_at: string | null
   created_at: string
@@ -1282,6 +1309,10 @@ const mapJobPostRow = (row: {
     wageAmount: row.wage_amount ?? 0,
     validityDays,
     status: (row.status as JobPostStatus | null) || 'draft',
+    reviewStatus: (row.review_status as JobPostReviewStatus | null) || null,
+    reviewReason: row.review_reason || '',
+    submittedAt: row.submitted_at || '',
+    reviewedAt: row.reviewed_at || '',
     publishedAt,
     expiresAt,
     createdAt: row.created_at,
@@ -2116,8 +2147,15 @@ const normalizeJobPost = (
 ): LabourJobPostRecord => {
   const now = new Date().toISOString()
   const validityDays = toNumber(payload.validityDays, existing?.validityDays ?? 3)
-  const publishedAt = String(payload.publishedAt || existing?.publishedAt || new Date().toISOString().slice(0, 10))
-  const expiresAt = String(payload.expiresAt || existing?.expiresAt || addDays(publishedAt, validityDays))
+  const reviewStatus = payload.reviewStatus === null
+    ? null
+    : (payload.reviewStatus || existing?.reviewStatus || null) as JobPostReviewStatus | null
+  const publishedAt = String(payload.publishedAt ?? existing?.publishedAt ?? '')
+  const expiresAt = String(
+    payload.expiresAt ??
+    existing?.expiresAt ??
+    (publishedAt ? addDays(publishedAt, validityDays) : '')
+  )
 
   return {
     id: existing?.id || String(payload.id || createId('job')),
@@ -2134,6 +2172,10 @@ const normalizeJobPost = (
     wageAmount: toNumber(payload.wageAmount, existing?.wageAmount ?? 0),
     validityDays,
     status: (payload.status || existing?.status || 'draft') as JobPostStatus,
+    reviewStatus,
+    reviewReason: String(payload.reviewReason ?? existing?.reviewReason ?? '').trim(),
+    submittedAt: String(payload.submittedAt ?? existing?.submittedAt ?? '').trim(),
+    reviewedAt: String(payload.reviewedAt ?? existing?.reviewedAt ?? '').trim(),
     publishedAt,
     expiresAt,
     createdAt: existing?.createdAt || now,
@@ -3448,6 +3490,10 @@ export const createLabourEntity = async (
         wage_amount: record.wageAmount,
         validity_days: record.validityDays,
         status: record.status,
+        review_status: record.reviewStatus,
+        review_reason: record.reviewReason || null,
+        submitted_at: record.submittedAt || null,
+        reviewed_at: record.reviewedAt || null,
         published_at: record.publishedAt || null,
         expires_at: record.expiresAt || null,
         created_at: record.createdAt,
@@ -3938,6 +3984,10 @@ export const updateLabourEntity = async (
         wage_amount: record.wageAmount,
         validity_days: record.validityDays,
         status: record.status,
+        review_status: record.reviewStatus,
+        review_reason: record.reviewReason || null,
+        submitted_at: record.submittedAt || null,
+        reviewed_at: record.reviewedAt || null,
         published_at: record.publishedAt || null,
         expires_at: record.expiresAt || null,
         updated_at: record.updatedAt
@@ -4044,6 +4094,66 @@ export const updateLabourEntity = async (
 
   const supabaseData = await readSupabaseData()
   return buildSnapshot(supabaseData, 'supabase')
+}
+
+export const reviewLabourJobPost = async ({
+  jobPostId,
+  action,
+  rejectionReason,
+  actor,
+  reviewedAt = new Date().toISOString()
+}: {
+  jobPostId: string
+  action: JobReviewAction
+  rejectionReason?: unknown
+  actor: string
+  reviewedAt?: string
+}) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const jobPost = snapshot.jobPosts.find(record => record.id === jobPostId)
+  if (!jobPost) return null
+
+  const plan = snapshot.plans.find(record => record.id === jobPost.planId) || null
+  let maximumExpiresAt = ''
+  if (action === 'approve') {
+    if (!plan || plan.audience !== 'company') {
+      throw new JobReviewValidationError('The connected company plan could not be verified.')
+    }
+    const planWindow = resolveCompanyPlanWindow(
+      jobPost.companyId,
+      plan,
+      snapshot.walletTransactions
+    )
+    const reviewDate = reviewedAt.slice(0, 10)
+    if (planWindow.endDate && planWindow.endDate < reviewDate) {
+      throw new JobReviewValidationError('The connected company plan expired before this review.')
+    }
+    const usedJobPosts = countUsedJobPostsForPlan(
+      snapshot.jobPosts,
+      jobPost.companyId,
+      plan,
+      jobPost.id
+    )
+    if (plan.jobPostLimit > 0 && usedJobPosts >= plan.jobPostLimit) {
+      throw new JobReviewValidationError('The connected company plan job-post limit has been used.')
+    }
+    maximumExpiresAt = planWindow.endDate
+  }
+
+  const mutation = buildJobReviewMutation({
+    job: jobPost,
+    action,
+    rejectionReason,
+    reviewedAt,
+    maximumExpiresAt
+  })
+
+  return updateLabourEntity(
+    'jobPosts',
+    jobPost.id,
+    mutation,
+    actor
+  )
 }
 
 export const deleteLabourEntity = async (

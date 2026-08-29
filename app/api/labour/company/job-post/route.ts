@@ -19,8 +19,9 @@ import {
   resolveCompanyPlanWindow
 } from '@/lib/labour-plan-utils'
 import { requireCompanyApp } from '@/lib/labour-company-app'
+import { buildJobSubmissionReviewFields } from '@/lib/job-review-workflow'
 import { createLabourEntity, getLabourMarketplaceSnapshot, updateLabourEntity } from '@/lib/labour-marketplace'
-import { sendNewJobPostedEmail } from '@/lib/rozgar-notification-email'
+import { sendNewJobSubmittedForReviewEmail } from '@/lib/rozgar-notification-email'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MOBILE_REGEX = /^\d{10}$/
@@ -33,12 +34,6 @@ const formatLocalDate = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
-}
-
-const formatStatusLabel = (value: string) => {
-  if (value === 'live' || value === 'active' || value === 'hired') return 'Active'
-  if (value === 'expired') return 'Expired'
-  return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Draft'
 }
 
 const parseJobRequirementDetailMap = (description: string) => {
@@ -427,7 +422,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    const status = mode === 'draft' ? 'draft' : 'live'
+    const submissionReviewFields = buildJobSubmissionReviewFields({
+      mode: mode === 'draft' ? 'draft' : 'publish',
+      submittedAt: new Date().toISOString()
+    })
     const liveWindow = calculateJobLiveWindow({
       startDate: existingJob?.publishedAt || today,
       plan: selectedPlan,
@@ -444,8 +442,8 @@ export async function POST(request: NextRequest) {
         ['Plan job post limit', String(selectedPlan.jobPostLimit)],
         ['Plan valid from', planWindow.startDate],
         ['Plan valid until', planWindow.endDate],
-        ['Live start date', existingJob?.publishedAt || today],
-        ['Live end date', liveWindow.endDate],
+        ['Estimated live start date', existingJob?.publishedAt || today],
+        ['Estimated live end date', liveWindow.endDate],
         ['Worker category', workerCategory],
         ['Number of workers required', String(workersRequired)],
         ['Gender preference', genderPreference],
@@ -471,13 +469,6 @@ export async function POST(request: NextRequest) {
     )
 
       if (existingJob) {
-      const publishedAt = existingJob.publishedAt || today
-      const effectiveStatus = mode === 'draft' ? 'draft' : 'live'
-      const generatedExpiresAt = calculateJobLiveWindow({
-        startDate: publishedAt,
-        plan: selectedPlan,
-        planEndDate: planWindow.endDate
-      }).endDate
       const updatedSnapshot = await updateLabourEntity(
         'jobPosts',
         existingJob.id,
@@ -492,9 +483,7 @@ export async function POST(request: NextRequest) {
           workersNeeded: workersRequired,
           wageAmount: salaryAmount,
           validityDays: jobPostLiveDays,
-          status: effectiveStatus,
-          publishedAt,
-          expiresAt: generatedExpiresAt
+          ...submissionReviewFields
         },
         'company-job-post'
       )
@@ -503,9 +492,11 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: mode === 'draft' ? 'Job requirement saved as draft successfully.' : 'Job requirement published successfully.',
+        message: mode === 'draft'
+          ? 'Job requirement saved as draft successfully.'
+          : 'Job requirement submitted for admin review successfully.',
         jobId: updatedJob.id,
-        statusLabel: formatStatusLabel(updatedJob.status)
+        statusLabel: mode === 'draft' ? 'Draft' : 'Under Review'
       })
     }
 
@@ -522,21 +513,15 @@ export async function POST(request: NextRequest) {
         workersNeeded: workersRequired,
         wageAmount: salaryAmount,
         validityDays: jobPostLiveDays,
-        status,
-        publishedAt: today,
-        expiresAt: calculateJobLiveWindow({
-          startDate: today,
-          plan: selectedPlan,
-          planEndDate: planWindow.endDate
-        }).endDate
+        ...submissionReviewFields
       },
       'company-job-post'
     )
 
     const createdJob = [...finalSnapshot.jobPosts].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
 
-    if (createdJob) {
-      await sendNewJobPostedEmail({
+    if (createdJob && mode !== 'draft') {
+      await sendNewJobSubmittedForReviewEmail({
         jobPostId: createdJob.id,
         companyName: refreshedCompany.companyName || resolvedCompanyName,
         companyId: refreshedCompany.id,
@@ -566,9 +551,9 @@ export async function POST(request: NextRequest) {
       success: true,
       message: mode === 'draft'
         ? 'Job requirement saved as draft successfully.'
-        : 'Job requirement published successfully.',
+        : 'Job requirement submitted for admin review successfully.',
       jobId: createdJob?.id || '',
-      statusLabel: mode === 'draft' ? 'Draft' : formatStatusLabel(status)
+      statusLabel: mode === 'draft' ? 'Draft' : 'Under Review'
     })
   } catch (error) {
     console.error('Company job post failed:', error)

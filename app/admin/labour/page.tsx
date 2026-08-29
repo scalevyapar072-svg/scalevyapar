@@ -47,6 +47,7 @@ type WorkerKycFilter = 'all' | 'not_submitted' | 'ready_for_review' | 'needs_cor
 type WorkerKycReviewDecision = 'pending' | 'verified' | 'rejected' | 'needs_correction'
 type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
+type JobPostReviewStatus = 'under_review' | 'approved' | 'rejected'
 type JobApplicationStatus = 'submitted' | 'reviewed' | 'shortlisted' | 'rejected' | 'hired'
 type WorkerNotificationType = 'application_submitted' | 'job_saved' | 'application_status' | 'wallet_reminder'
 type WorkerNotificationPriority = 'high' | 'medium' | 'low'
@@ -249,6 +250,10 @@ type LabourJobPost = {
   wageAmount: number
   validityDays: number
   status: JobPostStatus
+  reviewStatus: JobPostReviewStatus | null
+  reviewReason: string
+  submittedAt: string
+  reviewedAt: string
   publishedAt: string
   expiresAt: string
 }
@@ -849,6 +854,10 @@ const blankJobPost: LabourJobPost = {
   wageAmount: 0,
   validityDays: 3,
   status: 'draft',
+  reviewStatus: null,
+  reviewReason: '',
+  submittedAt: '',
+  reviewedAt: '',
   publishedAt: '',
   expiresAt: ''
 }
@@ -2047,6 +2056,8 @@ export default function LabourExchangeAdminPage() {
   const [workerDraft, setWorkerDraft] = useState<LabourWorker>(blankWorker)
   const [companyDraft, setCompanyDraft] = useState<LabourCompany>(blankCompany)
   const [jobPostDraft, setJobPostDraft] = useState<LabourJobPost>(blankJobPost)
+  const [jobReviewReasonDrafts, setJobReviewReasonDrafts] = useState<Record<string, string>>({})
+  const [reviewingJobPostId, setReviewingJobPostId] = useState('')
   const [workerNotificationDraft, setWorkerNotificationDraft] = useState<WorkerNotificationDraft>(blankWorkerNotificationDraft)
   const [walletTransactionDraft, setWalletTransactionDraft] = useState<WalletTransaction>(blankWalletTransaction)
   const [rechargeRequestDraft, setRechargeRequestDraft] = useState<RechargeRequest>(blankRechargeRequest)
@@ -5976,6 +5987,49 @@ export default function LabourExchangeAdminPage() {
     showSaved('Job post saved')
   }
 
+  const reviewJobPost = async (jobPost: LabourJobPost, action: 'approve' | 'reject') => {
+    setError('')
+    const rejectionReason = (jobReviewReasonDrafts[jobPost.id] || '').trim()
+    if (action === 'reject' && !rejectionReason) {
+      setError('Enter the actual rejection reason before rejecting this job post.')
+      return
+    }
+    if (
+      action === 'approve' &&
+      !window.confirm(`Approve ${jobPost.title} and make it visible to eligible workers?`)
+    ) {
+      return
+    }
+
+    setReviewingJobPostId(jobPost.id)
+    try {
+      const response = await fetch('/api/admin/labour/job-post-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobPostId: jobPost.id,
+          action,
+          rejectionReason: action === 'reject' ? rejectionReason : undefined,
+        }),
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        setError(data.error || 'Failed to review job post.')
+        return
+      }
+
+      replaceSnapshot(data.snapshot)
+      setJobReviewReasonDrafts((current) => {
+        const next = { ...current }
+        delete next[jobPost.id]
+        return next
+      })
+      showSaved(action === 'approve' ? 'Job post approved and published' : 'Job post rejected')
+    } finally {
+      setReviewingJobPostId('')
+    }
+  }
+
   const saveWalletTransaction = async () => {
     setError('')
     const validationError = validateWalletTransaction()
@@ -9295,7 +9349,7 @@ export default function LabourExchangeAdminPage() {
                         <div>
                           <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{jobPost.title}</p>
                         <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                          {getJobPostCompanyName(jobPost)} | {getCategoryName(jobPost.categoryId)} | {jobPost.city || 'No city'} | {effectiveStatus}
+                          {getJobPostCompanyName(jobPost)} | {getCategoryName(jobPost.categoryId)} | {jobPost.city || 'No city'} | {effectiveStatus} | Review {jobPost.reviewStatus ? titleCase(jobPost.reviewStatus) : 'Not submitted'}
                         </p>
                         <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>
                           {getJobPostBusinessTypeLabel(jobPost)} | {getJobPostIndustryCategoryLabel(jobPost)}
@@ -9305,10 +9359,53 @@ export default function LabourExchangeAdminPage() {
                         </p>
                         <p style={{ margin: '0 0 6px', color: '#475569', fontSize: '13px' }}>{jobPost.description || 'No description yet.'}</p>
                           <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
-                            {jobPost.workersNeeded} workers | {formatCurrency(jobPost.wageAmount)} | Job live {jobPost.validityDays} days | Live period {formatDate(jobPost.publishedAt)}{jobPost.expiresAt ? ` to ${formatDate(jobPost.expiresAt)}` : ''}
+                            {jobPost.workersNeeded} workers | {formatCurrency(jobPost.wageAmount)} | Job live {jobPost.validityDays} days | {jobPost.publishedAt ? `Live period ${formatDate(jobPost.publishedAt)}${jobPost.expiresAt ? ` to ${formatDate(jobPost.expiresAt)}` : ''}` : 'Live period starts after approval'}
                           </p>
+                          {jobPost.reviewStatus === 'rejected' && jobPost.reviewReason ? (
+                            <p style={{ margin: '8px 0 0', color: '#b91c1c', fontSize: '12px' }}>
+                              Rejection reason: {jobPost.reviewReason}
+                            </p>
+                          ) : null}
+                          {jobPost.reviewStatus === 'under_review' ? (
+                            <div style={{ marginTop: '10px', display: 'grid', gap: '8px' }}>
+                              <textarea
+                                value={jobReviewReasonDrafts[jobPost.id] || ''}
+                                onChange={(event) =>
+                                  setJobReviewReasonDrafts((current) => ({
+                                    ...current,
+                                    [jobPost.id]: event.target.value.slice(0, 500),
+                                  }))
+                                }
+                                rows={2}
+                                placeholder="Required only when rejecting: enter the actual reason"
+                                aria-label={`Rejection reason for ${jobPost.title}`}
+                                style={{ ...inputStyle, resize: 'vertical' }}
+                              />
+                              <span style={{ color: '#64748b', fontSize: '11px' }}>
+                                {(jobReviewReasonDrafts[jobPost.id] || '').length}/500 characters
+                              </span>
+                            </div>
+                          ) : null}
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                          {jobPost.reviewStatus === 'under_review' ? (
+                            <>
+                              <button
+                                onClick={() => void reviewJobPost(jobPost, 'approve')}
+                                disabled={reviewingJobPostId === jobPost.id}
+                                style={{ ...primaryButtonStyle, opacity: reviewingJobPostId === jobPost.id ? 0.6 : 1 }}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => void reviewJobPost(jobPost, 'reject')}
+                                disabled={reviewingJobPostId === jobPost.id}
+                                style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3', opacity: reviewingJobPostId === jobPost.id ? 0.6 : 1 }}
+                              >
+                                Reject
+                              </button>
+                            </>
+                          ) : null}
                           <button onClick={() => { setJobPostDraft(parseJobPostDraft(jobPost, getCompanyActivePlan(jobPost.companyId)?.name || '')); setEditingJobPostId(jobPost.id) }} style={subtleButtonStyle}>Edit</button>
                           <button onClick={() => void removeEntity('jobPosts', jobPost.id, jobPost.title)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
                         </div>

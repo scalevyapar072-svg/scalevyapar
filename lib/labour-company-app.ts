@@ -75,6 +75,10 @@ export type CompanyAppJobPost = {
   categoryId: string
   categoryLabel: string
   status: string
+  reviewStatus: 'under_review' | 'approved' | 'rejected' | null
+  reviewReason: string
+  submittedAt: string
+  reviewedAt: string
   workersNeeded: number
   wageAmount: number
   publishedAt: string
@@ -507,6 +511,10 @@ export const getCompanyAppDashboard = async (companyId: string): Promise<Company
       categoryId: jobPost.categoryId,
       categoryLabel: snapshot.categories.find(category => category.id === jobPost.categoryId)?.name || jobPost.categoryId,
       status: jobPost.status,
+      reviewStatus: jobPost.reviewStatus,
+      reviewReason: jobPost.reviewReason,
+      submittedAt: jobPost.submittedAt,
+      reviewedAt: jobPost.reviewedAt,
       workersNeeded: jobPost.workersNeeded,
       wageAmount: jobPost.wageAmount,
       publishedAt: jobPost.publishedAt,

@@ -32,11 +32,26 @@ type AdminLabourMutationDependencies = {
   getLabourAdminVisibleCategories: typeof getLabourAdminVisibleCategories
   requireAdmin: typeof requireAdmin
   updateLabourEntity: typeof updateLabourEntity
+  getLabourMarketplaceSnapshot?: typeof getLabourMarketplaceSnapshot
   mutationRuntime?: WorkerLifecycleMutationRuntime
 }
 
 const isWorkerLifecycleAdminMutation = (entityType: LabourEntityType) =>
   entityType === 'workers'
+
+const hasReviewFieldMutation = (
+  payload: Record<string, unknown>,
+  current: {
+    reviewStatus: string | null
+    reviewReason: string
+    submittedAt: string
+    reviewedAt: string
+  },
+) =>
+  (Object.hasOwn(payload, 'reviewStatus') && payload.reviewStatus !== current.reviewStatus) ||
+  (Object.hasOwn(payload, 'reviewReason') && payload.reviewReason !== current.reviewReason) ||
+  (Object.hasOwn(payload, 'submittedAt') && payload.submittedAt !== current.submittedAt) ||
+  (Object.hasOwn(payload, 'reviewedAt') && payload.reviewedAt !== current.reviewedAt)
 
 export async function GET(request: Request) {
   try {
@@ -65,7 +80,8 @@ export async function handleAdminLabourPost(
     deleteLabourEntity,
     getLabourAdminVisibleCategories,
     requireAdmin,
-    updateLabourEntity
+    updateLabourEntity,
+    getLabourMarketplaceSnapshot,
   }
 ) {
   try {
@@ -84,6 +100,16 @@ export async function handleAdminLabourPost(
       shouldBlockWorkerLifecycleMutation(dependencies.mutationRuntime)
     ) {
       return buildWorkerLifecycleMutationBlockedResponse()
+    }
+
+    if (
+      entityType === 'jobPosts' &&
+      String((payload as Record<string, unknown>).status || 'draft') === 'live'
+    ) {
+      return Response.json(
+        { error: 'Create the job as a draft, then use the controlled job review workflow.' },
+        { status: 409 },
+      )
     }
 
     const snapshot = await dependencies.createLabourEntity(
@@ -113,7 +139,8 @@ export async function handleAdminLabourPut(
     deleteLabourEntity,
     getLabourAdminVisibleCategories,
     requireAdmin,
-    updateLabourEntity
+    updateLabourEntity,
+    getLabourMarketplaceSnapshot,
   }
 ) {
   try {
@@ -132,6 +159,28 @@ export async function handleAdminLabourPut(
       shouldBlockWorkerLifecycleMutation(dependencies.mutationRuntime)
     ) {
       return buildWorkerLifecycleMutationBlockedResponse()
+    }
+
+
+    if (entityType === 'jobPosts') {
+      const current = (await (dependencies.getLabourMarketplaceSnapshot || getLabourMarketplaceSnapshot)()).jobPosts.find(
+        (jobPost) => jobPost.id === String(id),
+      )
+      if (!current) {
+        return Response.json({ error: 'Record not found' }, { status: 404 })
+      }
+      const jobPayload = payload as Record<string, unknown>
+      if (
+        hasReviewFieldMutation(jobPayload, current) ||
+        (current.reviewStatus !== 'approved' &&
+          current.status !== 'live' &&
+          jobPayload.status === 'live')
+      ) {
+        return Response.json(
+          { error: 'Use the controlled job review workflow to approve or reject this job.' },
+          { status: 409 },
+        )
+      }
     }
 
     const snapshot = await dependencies.updateLabourEntity(
@@ -166,7 +215,8 @@ export async function handleAdminLabourDelete(
     deleteLabourEntity,
     getLabourAdminVisibleCategories,
     requireAdmin,
-    updateLabourEntity
+    updateLabourEntity,
+    getLabourMarketplaceSnapshot,
   }
 ) {
   try {

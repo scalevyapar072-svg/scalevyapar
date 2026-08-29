@@ -271,7 +271,7 @@ export const sendPaymentReceivedEmail = (payload: {
     ]
   })
 
-export const sendNewJobPostedEmail = (payload: {
+export const sendNewJobSubmittedForReviewEmail = (payload: {
   jobPostId: string
   companyName: string
   companyId: string
@@ -291,9 +291,9 @@ export const sendNewJobPostedEmail = (payload: {
   createdAt?: string
 }) =>
   sendRozgarAdminEmail({
-    subject: 'Rozgar - New Job Posted',
-    title: 'New Job Posted',
-    idempotencyKey: `rozgar-new-job-${payload.jobPostId}`,
+    subject: 'Rozgar - New Job Submitted for Review',
+    title: 'New Job Submitted for Review',
+    idempotencyKey: `rozgar-job-review-submission-${payload.jobPostId}`,
     rows: [
       ['Job Post ID', payload.jobPostId],
       ['Company Name', payload.companyName],
@@ -311,6 +311,6 @@ export const sendNewJobPostedEmail = (payload: {
       ['Gender Preference', payload.genderPreference],
       ['Shift', payload.shift],
       ['Facilities', payload.facilities],
-      ['Created Date & Time', formatIndiaDateTime(payload.createdAt)]
+      ['Submitted Date & Time', formatIndiaDateTime(payload.createdAt)]
     ]
   })

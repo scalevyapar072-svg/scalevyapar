@@ -51,6 +51,10 @@ type CompanyJob = {
   categoryId: string
   categoryLabel: string
   status: string
+  reviewStatus: 'under_review' | 'approved' | 'rejected' | null
+  reviewReason: string
+  submittedAt: string
+  reviewedAt: string
   workersNeeded: number
   wageAmount: number
   publishedAt: string
@@ -197,6 +201,11 @@ const companyJobStatusLabel = (value: string) => {
   if (value === 'select_plan') return 'Select Plan'
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
+
+const companyJobDisplayStatus = (job: CompanyJob) =>
+  job.reviewStatus === 'under_review' || job.reviewStatus === 'rejected'
+    ? job.reviewStatus
+    : job.status
 
 const truncateJobTitle = (value: string, maxWords = 5) => {
   const words = String(value || '').trim().split(/\s+/).filter(Boolean)
@@ -1862,8 +1871,8 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
                         <div className={styles.companyDashboardJobIdentityCompact}>
                           <div className={styles.companyDashboardJobTitleWrap}>
                             <p className={styles.companyDashboardJobTitle}>{truncateJobTitle(job.title, 8)}</p>
-                            <span className={styles.companyPanelJobStatusChip} style={statusTone(job.status)}>
-                              {companyJobStatusLabel(job.status)}
+                            <span className={styles.companyPanelJobStatusChip} style={statusTone(companyJobDisplayStatus(job))}>
+                              {companyJobStatusLabel(companyJobDisplayStatus(job))}
                             </span>
                           </div>
                           <div className={styles.companyDashboardJobMetaStack}>
@@ -1871,11 +1880,22 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
                               {optionalText(job.locationLabel) || job.city || 'Location not added'}
                             </p>
                             <p className={styles.companyDashboardJobMeta}>
-                              Posted on {formatDate(job.publishedAt)}
+                              {job.publishedAt
+                                ? `Posted on ${formatDate(job.publishedAt)}`
+                                : job.submittedAt
+                                  ? `Submitted on ${formatDate(job.submittedAt)}`
+                                  : 'Saved as draft'}
                             </p>
                             <p className={styles.companyDashboardJobMeta}>
-                              {job.status === 'expired' ? 'Expired on' : 'Live until'} {formatDate(job.expiresAt)}
+                              {job.expiresAt
+                                ? `${job.status === 'expired' ? 'Expired on' : 'Live until'} ${formatDate(job.expiresAt)}`
+                                : 'Awaiting admin review'}
                             </p>
+                            {job.reviewStatus === 'rejected' && job.reviewReason ? (
+                              <p className={styles.companyDashboardJobMeta} style={{ color: '#b91c1c' }}>
+                                Rejection reason: {job.reviewReason}
+                              </p>
+                            ) : null}
                             {optionalText(dashboard.profile.contactPerson) ? (
                               <p className={styles.companyDashboardJobMeta}>
                                 Posted by {dashboard.profile.contactPerson}
@@ -2810,11 +2830,16 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
                         <div>
                           <div className={styles.companyPanelJobTitleRow}>
                            <p className={styles.companyPanelJobTitle}>{truncateJobTitle(job.title)}</p>
-                             <span className={styles.companyPanelJobStatusChip} style={statusTone(job.status)}>{companyJobStatusLabel(job.status)}</span>
+                             <span className={styles.companyPanelJobStatusChip} style={statusTone(companyJobDisplayStatus(job))}>{companyJobStatusLabel(companyJobDisplayStatus(job))}</span>
                            </div>
                            <p className={styles.companyPanelJobMeta}>
-                             {job.city} | Posted on : {formatDateTime(job.publishedAt)}
+                             {job.city} | {job.publishedAt ? `Posted on: ${formatDateTime(job.publishedAt)}` : job.submittedAt ? `Submitted on: ${formatDateTime(job.submittedAt)}` : 'Saved as draft'}
                            </p>
+                           {job.reviewStatus === 'rejected' && job.reviewReason ? (
+                             <p className={styles.companyPanelJobMeta} style={{ color: '#b91c1c' }}>
+                               Rejection reason: {job.reviewReason}
+                             </p>
+                           ) : null}
                          </div>
                        </div>
 

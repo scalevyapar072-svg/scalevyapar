@@ -28,6 +28,12 @@ import {
   buildWorkerJobMatchPreview,
   type WorkerJobMatchPreviewSummary,
 } from './worker-job-match-preview'
+import {
+  buildWorkerJobMatchOutboxPreview,
+  type WorkerJobMatchOutboxPreviewCandidate,
+  type WorkerJobMatchOutboxPreviewExisting,
+  type WorkerJobMatchOutboxPreviewSummary,
+} from './worker-job-match-outbox-preview'
 import { assertWhatsappServerOnly } from './server-runtime'
 import {
   evaluateWorkerLifecycle,
@@ -175,6 +181,7 @@ export type WhatsappAutomationPreviewSummary = {
   workerKycRejectedPlans: AutomationPreviewPlan[]
   workerLifecycleReconciliation: WorkerLifecycleReconciliationSummary
   workerJobMatchPreview: WorkerJobMatchPreviewSummary
+  workerJobMatchOutboxPreview: WorkerJobMatchOutboxPreviewSummary
 }
 
 type PreviewBuildInput = {
@@ -189,6 +196,9 @@ type PreviewBuildInput = {
   suppressedMobiles?: Iterable<string>
   existingMatchKeys?: Iterable<string>
   matchCandidateReadState?: WorkerJobMatchPreviewSummary['duplicateReadState']
+  matchCandidates?: WorkerJobMatchOutboxPreviewCandidate[]
+  existingMatchOutboxRows?: WorkerJobMatchOutboxPreviewExisting[]
+  matchOutboxReadState?: WorkerJobMatchOutboxPreviewSummary['outboxReadState']
   templateSelections?: Partial<Record<
     AutomationTemplateEventType,
     AutomationTemplateSelection
@@ -205,6 +215,9 @@ type ReadModel = {
   suppressedMobiles: string[]
   existingMatchKeys: string[]
   matchCandidateReadState: WorkerJobMatchPreviewSummary['duplicateReadState']
+  matchCandidates: WorkerJobMatchOutboxPreviewCandidate[]
+  existingMatchOutboxRows: WorkerJobMatchOutboxPreviewExisting[]
+  matchOutboxReadState: WorkerJobMatchOutboxPreviewSummary['outboxReadState']
   templateSelections: Record<AutomationTemplateEventType, AutomationTemplateSelection>
   persistenceAvailable: boolean
   persistenceStatus: string
@@ -725,6 +738,7 @@ const loadExistingMatchKeys = async () => {
   if (!persistence.available) {
     return {
       existingMatchKeys: [],
+      matchCandidates: [],
       matchCandidateReadState: 'persistence_unavailable' as const,
     }
   }
@@ -732,7 +746,7 @@ const loadExistingMatchKeys = async () => {
   try {
     const { data, error } = await persistence.client
       .from('labour_whatsapp_worker_job_match_candidates')
-      .select('match_key')
+      .select('id, match_key, worker_id, job_post_id, company_id, candidate_state, last_validated_at')
       .limit(1000)
 
     if (error) {
@@ -743,12 +757,69 @@ const loadExistingMatchKeys = async () => {
       existingMatchKeys: (data || [])
         .map((row) => toString((row as Record<string, unknown>).match_key))
         .filter(Boolean),
+      matchCandidates: (data || []).map((row) => {
+        const value = row as Record<string, unknown>
+        return {
+          id: toString(value.id),
+          matchKey: toString(value.match_key),
+          workerId: toString(value.worker_id),
+          jobPostId: toString(value.job_post_id),
+          companyId: toString(value.company_id),
+          candidateState: toString(value.candidate_state),
+          lastValidatedAt: toString(value.last_validated_at),
+        }
+      }),
       matchCandidateReadState: 'connected' as const,
     }
   } catch {
     return {
       existingMatchKeys: [],
+      matchCandidates: [],
       matchCandidateReadState: 'query_error' as const,
+    }
+  }
+}
+
+const loadExistingMatchOutboxRows = async () => {
+  const persistence = getWhatsappPersistenceClient()
+  if (!persistence.available) {
+    return {
+      existingMatchOutboxRows: [],
+      matchOutboxReadState: 'persistence_unavailable' as const,
+    }
+  }
+
+  try {
+    const { data, error } = await persistence.client
+      .from('labour_whatsapp_worker_job_match_outbox')
+      .select(
+        'match_key, idempotency_key, worker_id, outbox_status, attempt_count, next_attempt_at, sent_at',
+      )
+      .limit(1000)
+
+    if (error) {
+      throw new Error('Unable to read Worker-job match outbox rows.')
+    }
+
+    return {
+      existingMatchOutboxRows: (data || []).map((row) => {
+        const value = row as Record<string, unknown>
+        return {
+          matchKey: toString(value.match_key),
+          idempotencyKey: toString(value.idempotency_key),
+          workerId: toString(value.worker_id),
+          status: toString(value.outbox_status),
+          attemptCount: toNumber(value.attempt_count),
+          nextAttemptAt: value.next_attempt_at ? toString(value.next_attempt_at) : null,
+          sentAt: value.sent_at ? toString(value.sent_at) : null,
+        }
+      }),
+      matchOutboxReadState: 'connected' as const,
+    }
+  } catch {
+    return {
+      existingMatchOutboxRows: [],
+      matchOutboxReadState: 'query_error' as const,
     }
   }
 }
@@ -761,6 +832,7 @@ const loadReadModel = async (): Promise<ReadModel> => {
     suppressionState,
     templateState,
     matchCandidateState,
+    matchOutboxState,
   ] =
     await Promise.all([
       loadMarketplacePreviewSnapshot(),
@@ -769,6 +841,7 @@ const loadReadModel = async (): Promise<ReadModel> => {
       loadSuppressedMobiles(),
       loadTemplateSelections(),
       loadExistingMatchKeys(),
+      loadExistingMatchOutboxRows(),
     ])
 
   return {
@@ -781,6 +854,9 @@ const loadReadModel = async (): Promise<ReadModel> => {
     suppressedMobiles: suppressionState.suppressedMobiles,
     existingMatchKeys: matchCandidateState.existingMatchKeys,
     matchCandidateReadState: matchCandidateState.matchCandidateReadState,
+    matchCandidates: matchCandidateState.matchCandidates,
+    existingMatchOutboxRows: matchOutboxState.existingMatchOutboxRows,
+    matchOutboxReadState: matchOutboxState.matchOutboxReadState,
     templateSelections: templateState.templateSelections,
     persistenceAvailable: safetySummary.available,
     persistenceStatus: safetySummary.persistenceStatus,
@@ -1194,6 +1270,9 @@ export const buildWhatsappAutomationPreviewSummary = ({
   suppressedMobiles = [],
   existingMatchKeys = [],
   matchCandidateReadState = 'persistence_unavailable',
+  matchCandidates = [],
+  existingMatchOutboxRows = [],
+  matchOutboxReadState = 'persistence_unavailable',
   templateSelections = {
     company_matching_digest: createTemplateSelection('company_matching_digest', null),
     worker_matching_digest: createTemplateSelection('worker_matching_digest', null),
@@ -1328,6 +1407,25 @@ export const buildWhatsappAutomationPreviewSummary = ({
     now,
     timeZone: safetySummary.reviewOnlyDefaults.timeZone,
   })
+  const workerJobMatchOutboxPreview = buildWorkerJobMatchOutboxPreview({
+    snapshot,
+    source: snapshotSource,
+    candidateReadState: matchCandidateReadState,
+    outboxReadState: matchOutboxReadState,
+    candidates: matchCandidates,
+    existingOutboxRows: existingMatchOutboxRows,
+    workerConsentStates,
+    suppressedMobiles,
+    templateState: {
+      configured: workerJobMatchSelection.templateConfigured,
+      approved: workerJobMatchSelection.templateApproved,
+      enabled: workerJobMatchSelection.templateEnabled,
+    },
+    pauseAllSending: safetySummary.pauseAllSending,
+    workerDailyLimit: safetySummary.reviewOnlyDefaults.workerDailyLimit,
+    now,
+    timeZone: safetySummary.reviewOnlyDefaults.timeZone,
+  })
 
   return {
     checkedAt: now.toISOString(),
@@ -1361,6 +1459,7 @@ export const buildWhatsappAutomationPreviewSummary = ({
     workerKycRejectedPlans,
     workerLifecycleReconciliation,
     workerJobMatchPreview,
+    workerJobMatchOutboxPreview,
   }
 }
 
@@ -1376,6 +1475,9 @@ export const getWhatsappAutomationPreviewSummary = async (): Promise<WhatsappAut
     suppressedMobiles: readModel.suppressedMobiles,
     existingMatchKeys: readModel.existingMatchKeys,
     matchCandidateReadState: readModel.matchCandidateReadState,
+    matchCandidates: readModel.matchCandidates,
+    existingMatchOutboxRows: readModel.existingMatchOutboxRows,
+    matchOutboxReadState: readModel.matchOutboxReadState,
     templateSelections: readModel.templateSelections,
   })
 

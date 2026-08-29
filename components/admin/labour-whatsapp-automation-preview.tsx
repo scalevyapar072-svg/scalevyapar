@@ -117,6 +117,43 @@ type AutomationPreviewSummary = {
       templateEligible: boolean
     }>
   }
+  workerJobMatchOutboxPreview: {
+    source: 'supabase' | 'unavailable'
+    candidateReadState: 'connected' | 'persistence_unavailable' | 'query_error'
+    outboxReadState: 'connected' | 'persistence_unavailable' | 'query_error'
+    readOnly: true
+    persistenceAllowed: false
+    metaRequestAllowed: false
+    totalCandidateCount: number
+    evaluatedCandidateCount: number
+    truncated: boolean
+    wouldEnqueueCount: number
+    wouldScheduleCount: number
+    wouldRetryCount: number
+    duplicateCount: number
+    blockedCount: number
+    rows: Array<{
+      candidateId: string
+      matchKey: string
+      jobTitle: string
+      categoryLabel: string
+      city: string
+      maskedMobile: string
+      queueDecision:
+        | 'would_enqueue'
+        | 'would_schedule_after_quiet_hours'
+        | 'would_retry_existing'
+        | 'duplicate'
+        | 'blocked'
+      primaryReason: string
+      reasonCodes: string[]
+      availableAt: string | null
+      attemptCount: number
+      maximumAttempts: number
+      persistenceAllowed: false
+      metaRequestAllowed: false
+    }>
+  }
   workerLifecycleReconciliation: {
     source: 'supabase' | 'unavailable'
     reasonCategory:
@@ -504,6 +541,7 @@ export default function LabourWhatsappAutomationPreviewCard() {
   const [matchDecisionFilter, setMatchDecisionFilter] = useState('all')
   const [matchCategoryFilter, setMatchCategoryFilter] = useState('all')
   const [matchCityFilter, setMatchCityFilter] = useState('all')
+  const [outboxDecisionFilter, setOutboxDecisionFilter] = useState('all')
 
   const matchPreview = summary?.workerJobMatchPreview || null
   const matchCategoryOptions = useMemo(
@@ -524,6 +562,12 @@ export default function LabourWhatsappAutomationPreviewCard() {
       return true
     })
   }, [matchCategoryFilter, matchCityFilter, matchDecisionFilter, matchPreview])
+  const outboxPreview = summary?.workerJobMatchOutboxPreview || null
+  const filteredOutboxRows = useMemo(() => {
+    if (!outboxPreview) return []
+    if (outboxDecisionFilter === 'all') return outboxPreview.rows
+    return outboxPreview.rows.filter((row) => row.queueDecision === outboxDecisionFilter)
+  }, [outboxDecisionFilter, outboxPreview])
 
   const loadSummary = async () => {
     setLoading(true)
@@ -701,6 +745,129 @@ export default function LabourWhatsappAutomationPreviewCard() {
             >
               template read: {summary.templateReadState}
             </span>
+          </div>
+
+          <div
+            style={{
+              border: '1px solid #c7d2fe',
+              borderRadius: '14px',
+              background: '#f5f3ff',
+              padding: '14px',
+              display: 'grid',
+              gap: '12px',
+              color: '#0f172a',
+            }}
+          >
+            <div>
+              <h4 style={{ margin: '0 0 4px', fontSize: '14px' }}>
+                Worker–Job outbox decisions
+              </h4>
+              <p style={{ margin: 0, color: '#475569', fontSize: '12px', lineHeight: 1.6 }}>
+                Read-only queue planning for verified match candidates. No candidate or outbox row is created,
+                no status is changed, and no Meta request is allowed.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={badgeStyle('blue')}>
+                evaluated: {outboxPreview?.evaluatedCandidateCount || 0}
+              </span>
+              <span style={badgeStyle('green')}>
+                would enqueue: {outboxPreview?.wouldEnqueueCount || 0}
+              </span>
+              <span style={badgeStyle('amber')}>
+                would schedule: {outboxPreview?.wouldScheduleCount || 0}
+              </span>
+              <span style={badgeStyle('blue')}>
+                would retry: {outboxPreview?.wouldRetryCount || 0}
+              </span>
+              <span style={badgeStyle('slate')}>
+                duplicate: {outboxPreview?.duplicateCount || 0}
+              </span>
+              <span style={badgeStyle('red')}>
+                blocked: {outboxPreview?.blockedCount || 0}
+              </span>
+            </div>
+
+            <div style={{ fontSize: '12px', lineHeight: 1.7 }}>
+              <div>Candidate read: {outboxPreview?.candidateReadState || 'persistence_unavailable'}</div>
+              <div>Outbox read: {outboxPreview?.outboxReadState || 'persistence_unavailable'}</div>
+              <div>Total candidates: {outboxPreview?.totalCandidateCount || 0}</div>
+              <div>Preview truncated: {outboxPreview?.truncated ? 'YES' : 'NO'}</div>
+              <div>Database writes allowed: {outboxPreview?.persistenceAllowed ? 'YES' : 'NO'}</div>
+              <div>Meta requests allowed: {outboxPreview?.metaRequestAllowed ? 'YES' : 'NO'}</div>
+            </div>
+
+            <label style={{ display: 'grid', gap: '4px', fontSize: '12px', maxWidth: '320px' }}>
+              Queue decision
+              <select
+                aria-label="Filter Worker-job outbox rows by queue decision"
+                value={outboxDecisionFilter}
+                onChange={(event) => setOutboxDecisionFilter(event.target.value)}
+                style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '8px' }}
+              >
+                <option value="all">All queue decisions</option>
+                <option value="would_enqueue">Would enqueue</option>
+                <option value="would_schedule_after_quiet_hours">Would schedule</option>
+                <option value="would_retry_existing">Would retry</option>
+                <option value="duplicate">Duplicate</option>
+                <option value="blocked">Blocked</option>
+              </select>
+            </label>
+
+            {filteredOutboxRows.length > 0 ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '10px',
+                }}
+              >
+                {filteredOutboxRows.slice(0, 100).map((row) => (
+                  <div
+                    key={row.candidateId || row.matchKey}
+                    style={{
+                      border: '1px solid #ddd6fe',
+                      borderRadius: '12px',
+                      background: '#ffffff',
+                      padding: '12px',
+                      display: 'grid',
+                      gap: '6px',
+                      fontSize: '12px',
+                      lineHeight: 1.6,
+                      contentVisibility: 'auto',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                      <strong>{row.jobTitle || row.matchKey}</strong>
+                      <span style={badgeStyle(row.queueDecision === 'blocked' ? 'red' : 'slate')}>
+                        {formatReasonCode(row.queueDecision)}
+                      </span>
+                    </div>
+                    <div>Worker: {row.maskedMobile || 'Invalid mobile'}</div>
+                    <div>Category: {row.categoryLabel || 'Not available'}</div>
+                    <div>City: {row.city || 'Not available'}</div>
+                    <div>Primary reason: {formatReasonCode(row.primaryReason)}</div>
+                    <div>All reasons: {row.reasonCodes.map(formatReasonCode).join(', ') || 'None'}</div>
+                    <div>Available at: {formatDateTime(row.availableAt || '')}</div>
+                    <div>Attempts: {row.attemptCount}/{row.maximumAttempts}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  border: '1px solid #ddd6fe',
+                  borderRadius: '12px',
+                  background: '#ffffff',
+                  padding: '14px',
+                  color: '#64748b',
+                  fontSize: '13px',
+                }}
+              >
+                No Worker–Job outbox rows are available for the selected Preview filter.
+              </div>
+            )}
           </div>
 
           <div

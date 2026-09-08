@@ -7,6 +7,11 @@ import { labourMasterSeedValues } from '@/lib/labour-masters-schema'
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'blocked' | 'rejected'
 type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
+type WorkerDocumentKind = 'profile_photo' | 'identity_proof'
+type WorkerKycMetadataDraft = {
+  identityProofType: WorkerIdentityProofType
+  identityProofNumber: string
+}
 type WorkerKycFilter = 'all' | 'not_submitted' | 'ready_for_review' | 'approved' | 'rejected'
 type CompanyStatus = 'pending' | 'active' | 'inactive' | 'blocked'
 type JobPostStatus = 'draft' | 'live' | 'expired' | 'paused'
@@ -1034,6 +1039,9 @@ export default function LabourExchangeAdminPage() {
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [editingWorkerId, setEditingWorkerId] = useState<string | null>(null)
   const [selectedWorkerReviewId, setSelectedWorkerReviewId] = useState<string | null>(null)
+  const [workerFileBusyKey, setWorkerFileBusyKey] = useState('')
+  const [workerKycMetadataSavingId, setWorkerKycMetadataSavingId] = useState('')
+  const [workerKycMetadataDrafts, setWorkerKycMetadataDrafts] = useState<Record<string, WorkerKycMetadataDraft>>({})
   const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string | null>(null)
   const [selectedCompanyAuditId, setSelectedCompanyAuditId] = useState<string | null>(null)
   const [selectedSavedJobId, setSelectedSavedJobId] = useState<string | null>(null)
@@ -1433,8 +1441,23 @@ export default function LabourExchangeAdminPage() {
     if (state === 'rejected') return { background: '#fff1f2', color: '#be123c', border: '#fda4af' }
     return { background: '#f8fafc', color: '#475569', border: '#cbd5e1' }
   }
-  const getWorkerDocumentHref = (storagePath: string) =>
-    storagePath.trim() ? `/api/admin/labour/worker-file?path=${encodeURIComponent(storagePath.trim())}` : ''
+  const getWorkerDocumentHref = (workerId: string, documentKind: WorkerDocumentKind) =>
+    `/api/admin/labour/worker-file?workerId=${encodeURIComponent(workerId)}&documentKind=${encodeURIComponent(documentKind)}`
+  const getWorkerKycMetadataDraft = (worker: LabourWorker): WorkerKycMetadataDraft =>
+    workerKycMetadataDrafts[worker.id] || {
+      identityProofType: worker.identityProofType,
+      identityProofNumber: worker.identityProofNumber
+    }
+  const updateWorkerKycMetadataDraft = (worker: LabourWorker, patch: Partial<WorkerKycMetadataDraft>) => {
+    setWorkerKycMetadataDrafts(current => ({
+      ...current,
+      [worker.id]: {
+        identityProofType: current[worker.id]?.identityProofType ?? worker.identityProofType,
+        identityProofNumber: current[worker.id]?.identityProofNumber ?? worker.identityProofNumber,
+        ...patch
+      }
+    }))
+  }
   const getJobPostById = (jobPostId: string) => snapshot.jobPosts.find(jobPost => jobPost.id === jobPostId)
   const getEntityCity = (entityType: WalletEntityType, entityId: string) =>
     entityType === 'worker' ? getWorkerById(entityId)?.city || '' : getCompanyById(entityId)?.city || ''
@@ -1744,6 +1767,9 @@ export default function LabourExchangeAdminPage() {
     filteredWorkers.find(worker => getWorkerKycState(worker) === 'ready_for_review') ||
     filteredWorkers[0] ||
     null
+  const selectedWorkerKycMetadata = selectedWorkerReview
+    ? getWorkerKycMetadataDraft(selectedWorkerReview)
+    : null
 
   const filteredCompanies = snapshot.companies.filter(company => {
     if (companyFilters.status !== 'all' && company.status !== companyFilters.status) return false
@@ -2424,6 +2450,92 @@ export default function LabourExchangeAdminPage() {
     if (!ok) return
     resetWorkerDraft()
     showSaved('Worker saved')
+  }
+
+  const uploadWorkerFile = async (
+    worker: LabourWorker,
+    documentKind: WorkerDocumentKind,
+    file: File
+  ) => {
+    const busyKey = `${worker.id}:${documentKind}`
+    setError('')
+    setWorkerFileBusyKey(busyKey)
+
+    try {
+      const formData = new FormData()
+      formData.set('workerId', worker.id)
+      formData.set('documentKind', documentKind)
+      formData.set('file', file)
+
+      const response = await fetch('/api/admin/labour/worker-file', {
+        method: 'POST',
+        body: formData
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        setError(data.error || 'Failed to upload worker file.')
+        return
+      }
+
+      replaceSnapshot(data.snapshot)
+      setSelectedWorkerReviewId(worker.id)
+      showSaved(data.message || 'Worker file saved.')
+    } catch {
+      setError('Failed to upload worker file.')
+    } finally {
+      setWorkerFileBusyKey(current => current === busyKey ? '' : current)
+    }
+  }
+
+  const deleteWorkerFile = async (worker: LabourWorker, documentKind: WorkerDocumentKind) => {
+    const label = documentKind === 'profile_photo' ? 'worker photo' : 'identity document'
+    if (!window.confirm(`Delete this ${label}?`)) return
+
+    const busyKey = `${worker.id}:${documentKind}`
+    setError('')
+    setWorkerFileBusyKey(busyKey)
+
+    try {
+      const response = await fetch('/api/admin/labour/worker-file', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workerId: worker.id, documentKind })
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        setError(data.error || `Failed to delete ${label}.`)
+        return
+      }
+
+      replaceSnapshot(data.snapshot)
+      setSelectedWorkerReviewId(worker.id)
+      showSaved(data.message || `${label} deleted.`)
+    } catch {
+      setError(`Failed to delete ${label}.`)
+    } finally {
+      setWorkerFileBusyKey(current => current === busyKey ? '' : current)
+    }
+  }
+
+  const saveWorkerKycMetadata = async (worker: LabourWorker) => {
+    const draft = getWorkerKycMetadataDraft(worker)
+    setError('')
+    setWorkerKycMetadataSavingId(worker.id)
+
+    try {
+      const ok = await persistEntity('PUT', 'workers', {
+        identityProofType: draft.identityProofType,
+        identityProofNumber: draft.identityProofNumber
+      }, worker.id)
+      if (!ok) return
+
+      setSelectedWorkerReviewId(worker.id)
+      showSaved('Identity proof details saved.')
+    } catch {
+      setError('Failed to save identity proof details.')
+    } finally {
+      setWorkerKycMetadataSavingId(current => current === worker.id ? '' : current)
+    }
   }
 
   const reviewWorkerKyc = async (worker: LabourWorker, decision: 'approve' | 'reject') => {
@@ -3289,33 +3401,151 @@ export default function LabourExchangeAdminPage() {
                           <p style={{ margin: '0 0 10px', color: '#64748b', fontSize: '12px', wordBreak: 'break-word' }}>
                             {selectedWorkerReview.profilePhotoPath || 'No profile photo uploaded yet.'}
                           </p>
-                          {selectedWorkerReview.profilePhotoPath ? (
-                            <a href={getWorkerDocumentHref(selectedWorkerReview.profilePhotoPath)} target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex' }}>
-                              Open Photo
-                            </a>
-                          ) : (
-                            <span style={{ color: '#94a3b8', fontSize: '12px' }}>Waiting for upload</span>
-                          )}
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {selectedWorkerReview.profilePhotoPath ? (
+                              <a href={getWorkerDocumentHref(selectedWorkerReview.id, 'profile_photo')} target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex' }}>
+                                Open Photo
+                              </a>
+                            ) : null}
+                            <label style={{
+                              ...subtleButtonStyle,
+                              display: 'inline-flex',
+                              opacity: workerFileBusyKey === `${selectedWorkerReview.id}:profile_photo` ? 0.6 : 1,
+                              cursor: workerFileBusyKey === `${selectedWorkerReview.id}:profile_photo` ? 'not-allowed' : 'pointer'
+                            }}>
+                              {workerFileBusyKey === `${selectedWorkerReview.id}:profile_photo`
+                                ? 'Uploading...'
+                                : selectedWorkerReview.profilePhotoPath
+                                  ? 'Replace Photo'
+                                  : 'Add Photo'}
+                              <input
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
+                                disabled={workerFileBusyKey === `${selectedWorkerReview.id}:profile_photo`}
+                                onChange={event => {
+                                  const file = event.currentTarget.files?.[0]
+                                  event.currentTarget.value = ''
+                                  if (file) void uploadWorkerFile(selectedWorkerReview, 'profile_photo', file)
+                                }}
+                                style={{ display: 'none' }}
+                              />
+                            </label>
+                            {selectedWorkerReview.profilePhotoPath ? (
+                              <button
+                                onClick={() => void deleteWorkerFile(selectedWorkerReview, 'profile_photo')}
+                                disabled={workerFileBusyKey === `${selectedWorkerReview.id}:profile_photo`}
+                                style={{
+                                  ...subtleButtonStyle,
+                                  background: '#fff1f2',
+                                  color: '#b91c1c',
+                                  border: '1px solid #fecdd3',
+                                  opacity: workerFileBusyKey === `${selectedWorkerReview.id}:profile_photo` ? 0.6 : 1,
+                                  cursor: workerFileBusyKey === `${selectedWorkerReview.id}:profile_photo` ? 'not-allowed' : 'pointer'
+                                }}
+                              >
+                                Delete Photo
+                              </button>
+                            ) : null}
+                          </div>
+                          <p style={{ margin: '10px 0 0', color: '#94a3b8', fontSize: '11px' }}>
+                            JPG, JPEG, PNG, WEBP, HEIC or HEIF. Maximum 10 MB.
+                          </p>
                         </div>
 
                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px' }}>
                           <p style={{ margin: '0 0 8px', color: '#0f172a', fontWeight: '700' }}>Identity Proof</p>
-                          <p style={{ margin: '0 0 4px', color: '#475569', fontSize: '13px' }}>
-                            {formatIdentityProofType(selectedWorkerReview.identityProofType)}
-                          </p>
-                          <p style={{ margin: '0 0 10px', color: '#64748b', fontSize: '12px' }}>
-                            {selectedWorkerReview.identityProofNumber || 'No proof number provided'}
-                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                            <div>
+                              <label style={labelStyle}>Proof Type</label>
+                              <select
+                                value={selectedWorkerKycMetadata?.identityProofType ?? selectedWorkerReview.identityProofType}
+                                onChange={event => updateWorkerKycMetadataDraft(selectedWorkerReview, {
+                                  identityProofType: event.target.value as WorkerIdentityProofType
+                                })}
+                                style={inputStyle}
+                              >
+                                <option value="">Not provided</option>
+                                {workerIdentityProofOptions.map(proofType => (
+                                  <option key={proofType} value={proofType}>{formatIdentityProofType(proofType)}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={labelStyle}>Proof Number</label>
+                              <input
+                                value={selectedWorkerKycMetadata?.identityProofNumber ?? selectedWorkerReview.identityProofNumber}
+                                onChange={event => updateWorkerKycMetadataDraft(selectedWorkerReview, {
+                                  identityProofNumber: event.target.value
+                                })}
+                                placeholder="Identity proof number"
+                                style={inputStyle}
+                              />
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => void saveWorkerKycMetadata(selectedWorkerReview)}
+                            disabled={workerKycMetadataSavingId === selectedWorkerReview.id}
+                            style={{
+                              ...subtleButtonStyle,
+                              marginBottom: '10px',
+                              opacity: workerKycMetadataSavingId === selectedWorkerReview.id ? 0.6 : 1,
+                              cursor: workerKycMetadataSavingId === selectedWorkerReview.id ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            {workerKycMetadataSavingId === selectedWorkerReview.id ? 'Saving...' : 'Save Proof Details'}
+                          </button>
                           <p style={{ margin: '0 0 10px', color: '#64748b', fontSize: '12px', wordBreak: 'break-word' }}>
                             {selectedWorkerReview.identityProofPath || 'No document uploaded yet.'}
                           </p>
-                          {selectedWorkerReview.identityProofPath ? (
-                            <a href={getWorkerDocumentHref(selectedWorkerReview.identityProofPath)} target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex' }}>
-                              Open Document
-                            </a>
-                          ) : (
-                            <span style={{ color: '#94a3b8', fontSize: '12px' }}>Waiting for upload</span>
-                          )}
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {selectedWorkerReview.identityProofPath ? (
+                              <a href={getWorkerDocumentHref(selectedWorkerReview.id, 'identity_proof')} target="_blank" rel="noreferrer" style={{ ...subtleButtonStyle, textDecoration: 'none', display: 'inline-flex' }}>
+                                Open Document
+                              </a>
+                            ) : null}
+                            <label style={{
+                              ...subtleButtonStyle,
+                              display: 'inline-flex',
+                              opacity: workerFileBusyKey === `${selectedWorkerReview.id}:identity_proof` ? 0.6 : 1,
+                              cursor: workerFileBusyKey === `${selectedWorkerReview.id}:identity_proof` ? 'not-allowed' : 'pointer'
+                            }}>
+                              {workerFileBusyKey === `${selectedWorkerReview.id}:identity_proof`
+                                ? 'Uploading...'
+                                : selectedWorkerReview.identityProofPath
+                                  ? 'Replace Document'
+                                  : 'Add Document'}
+                              <input
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf"
+                                disabled={workerFileBusyKey === `${selectedWorkerReview.id}:identity_proof`}
+                                onChange={event => {
+                                  const file = event.currentTarget.files?.[0]
+                                  event.currentTarget.value = ''
+                                  if (file) void uploadWorkerFile(selectedWorkerReview, 'identity_proof', file)
+                                }}
+                                style={{ display: 'none' }}
+                              />
+                            </label>
+                            {selectedWorkerReview.identityProofPath ? (
+                              <button
+                                onClick={() => void deleteWorkerFile(selectedWorkerReview, 'identity_proof')}
+                                disabled={workerFileBusyKey === `${selectedWorkerReview.id}:identity_proof`}
+                                style={{
+                                  ...subtleButtonStyle,
+                                  background: '#fff1f2',
+                                  color: '#b91c1c',
+                                  border: '1px solid #fecdd3',
+                                  opacity: workerFileBusyKey === `${selectedWorkerReview.id}:identity_proof` ? 0.6 : 1,
+                                  cursor: workerFileBusyKey === `${selectedWorkerReview.id}:identity_proof` ? 'not-allowed' : 'pointer'
+                                }}
+                              >
+                                Delete Document
+                              </button>
+                            ) : null}
+                          </div>
+                          <p style={{ margin: '10px 0 0', color: '#94a3b8', fontSize: '11px' }}>
+                            JPG, JPEG, PNG, WEBP, HEIC, HEIF or PDF. Maximum 10 MB.
+                          </p>
                         </div>
                       </div>
 

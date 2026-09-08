@@ -853,6 +853,11 @@ const isWorkerRegistrationComplete = (worker: LabourWorkerRecord) =>
   Boolean(worker.identityProofType) &&
   Boolean(worker.identityProofPath.trim())
 
+const getReconciledWorkerVisibility = (
+  worker: LabourWorkerRecord,
+  status: LabourWorkerRecord['status']
+) => worker.isVisible && isWorkerRegistrationComplete(worker) && status === 'active'
+
 const canWorkerAccessApp = (worker: LabourWorkerRecord) =>
   isWorkerRegistrationComplete(worker) ||
   Boolean(worker.registrationCompletedAt.trim()) ||
@@ -1354,7 +1359,7 @@ const reconcileWorkerRegistrationFee = async (
     await updateLabourEntity('workers', worker.id, {
       registrationFeePaid: true,
       status: nextStatus,
-      isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active'
+      isVisible: getReconciledWorkerVisibility(nextWorker, nextStatus)
     }, 'worker-wallet')
 
     return true
@@ -1363,7 +1368,7 @@ const reconcileWorkerRegistrationFee = async (
   const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
   if (outstandingRegistrationFee <= 0 || worker.walletBalance < outstandingRegistrationFee) {
     const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
-    const shouldBeVisible = isWorkerRegistrationComplete(worker) && effectiveStatus === 'active'
+    const shouldBeVisible = getReconciledWorkerVisibility(worker, effectiveStatus)
     if (worker.status !== effectiveStatus || worker.isVisible !== shouldBeVisible) {
       await updateLabourEntity('workers', worker.id, {
         status: effectiveStatus,
@@ -1387,7 +1392,7 @@ const reconcileWorkerRegistrationFee = async (
     walletBalance: nextWorker.walletBalance,
     registrationFeePaid: true,
     status: nextStatus,
-    isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active'
+    isVisible: getReconciledWorkerVisibility(nextWorker, nextStatus)
   }, 'worker-wallet')
 
   await createLabourEntity('walletTransactions', {
@@ -1991,7 +1996,7 @@ export const completeWorkerAppRegistration = async (
       identityProofPath: nextWorker.identityProofPath,
       registrationCompletedAt: nextWorker.registrationCompletedAt,
       registrationFeePaid: existing.registrationFeePaid,
-      isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active',
+      isVisible: getReconciledWorkerVisibility(nextWorker, nextStatus),
       status: nextStatus
   }, 'worker-app')
 
@@ -2036,7 +2041,7 @@ export const updateWorkerAppProfile = async (
     experienceYears: mergedWorker.experienceYears,
     expectedDailyWage: mergedWorker.expectedDailyWage,
     availability: mergedWorker.availability,
-    isVisible: isWorkerRegistrationComplete(mergedWorker) && nextStatus === 'active',
+    isVisible: getReconciledWorkerVisibility(mergedWorker, nextStatus),
     status: nextStatus
   }, 'worker-app')
 

@@ -16,8 +16,17 @@ test('reviewed match-candidate migration is deduplicated, indexed, and server-on
   assert.match(sql, /\(worker_id, job_post_id\)/)
   assert.match(sql, /unique index idx_labour_whatsapp_match_candidates_match_key/)
   assert.match(sql, /enable row level security/)
+  assert.match(
+    sql,
+    /revoke all on table public\.labour_whatsapp_worker_job_match_candidates\s+from public, anon, authenticated/,
+  )
+  assert.match(
+    sql,
+    /grant select\s+on table public\.labour_whatsapp_worker_job_match_candidates\s+to service_role/,
+  )
   assert.match(sql, /jsonb_typeof\(eligibility_snapshot\) = 'object'/)
-  assert.equal(/\bgrant\b/i.test(sql), false)
+  assert.equal(/grant\s+(?!select\s+on table public\.labour_whatsapp_worker_job_match_candidates\s+to service_role)/i.test(sql), false)
+  assert.equal(/create\s+policy/i.test(sql), false)
   assert.equal(/create\s+(or\s+replace\s+)?function/i.test(sql), false)
   assert.equal(/create\s+trigger/i.test(sql), false)
   assert.equal(/cron\./i.test(sql), false)

@@ -143,7 +143,7 @@ test('service consent, suppression, limits, template approval, and pause state f
   const current = makeWorker({ registrationCompletedAt: '2026-08-29T09:00:00.000Z' })
 
   assert.equal(
-    planWorkerLifecycleWhatsappDryRun({ previous, current })?.dispatchReason,
+    planWorkerLifecycleWhatsappDryRun({ previous, current, now: eligibleInput.now })?.dispatchReason,
     'missing_consent_service_allowed',
   )
   assert.equal(
@@ -152,6 +152,7 @@ test('service consent, suppression, limits, template approval, and pause state f
       current,
       consentState: { service_allowed: true },
       suppressed: true,
+      now: eligibleInput.now,
     })?.dispatchReason,
     'suppressed',
   )
@@ -161,6 +162,7 @@ test('service consent, suppression, limits, template approval, and pause state f
       current,
       consentState: { service_allowed: true },
       withinLimit: false,
+      now: eligibleInput.now,
     })?.dispatchReason,
     'limit_exceeded',
   )
@@ -169,6 +171,7 @@ test('service consent, suppression, limits, template approval, and pause state f
       previous,
       current,
       consentState: { service_allowed: true },
+      now: eligibleInput.now,
     })?.dispatchReason,
     'template_not_configured',
   )
@@ -178,6 +181,7 @@ test('service consent, suppression, limits, template approval, and pause state f
       current,
       consentState: { service_allowed: true },
       templateStates: readyTemplateStates,
+      now: eligibleInput.now,
     })?.dispatchReason,
     'whatsapp_paused',
   )

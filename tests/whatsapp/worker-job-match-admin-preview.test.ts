@@ -25,7 +25,10 @@ test('automation summary integrates bounded pair evaluation and read-only duplic
   assert.match(source, /buildWorkerJobMatchPreview/)
   assert.match(source, /workerJobMatchPreview/)
   assert.match(source, /labour_whatsapp_worker_job_match_candidates/)
-  assert.match(source, /\.select\('match_key'\)/)
+  assert.match(
+    source,
+    /\.from\('labour_whatsapp_worker_job_match_candidates'\)\s*\.select\('(?=[^']*\bmatch_key\b)[^']+'\)/,
+  )
   assert.match(source, /review_status, review_reason, submitted_at, reviewed_at/)
   for (const writeCall of ['.insert(', '.update(', '.upsert(', '.delete(']) {
     assert.equal(source.includes(writeCall), false)

@@ -4,7 +4,10 @@ import test from 'node:test'
 import { buildWhatsappConsentState } from '../../lib/whatsapp/consent'
 import { createWhatsappConsentRepository } from '../../lib/whatsapp/consent-repository'
 import { createWhatsappInboundEventRepository } from '../../lib/whatsapp/inbound-event-repository'
-import { getWhatsappPersistenceClient } from '../../lib/whatsapp/persistence-client'
+import {
+  getWhatsappPersistenceClient,
+  getWhatsappPersistenceWriteAvailability,
+} from '../../lib/whatsapp/persistence-client'
 import type {
   WhatsappConsentEventRow,
   WhatsappConsentRow,
@@ -218,6 +221,65 @@ test('persistence client fails closed when service-role configuration is missing
     }
     if (typeof originalServiceRoleKey !== 'undefined') {
       process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceRoleKey
+    }
+  }
+})
+
+test('persistence writes require exact production before resolving the service-role client', () => {
+  const previousVercelEnv = process.env.VERCEL_ENV
+  const environments: Array<string | undefined> = [
+    'preview',
+    'development',
+    'test',
+    undefined,
+    'staging',
+    'Production',
+  ]
+
+  try {
+    for (const environment of environments) {
+      if (typeof environment === 'undefined') {
+        delete process.env.VERCEL_ENV
+      } else {
+        process.env.VERCEL_ENV = environment
+      }
+
+      let resolverCalls = 0
+      const result = getWhatsappPersistenceWriteAvailability(() => {
+        resolverCalls += 1
+        return {
+          available: true,
+          client: {} as never,
+          presentConfigurationNames: ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'],
+        }
+      })
+
+      assert.deepEqual(result, {
+        enabled: false,
+        reason: 'environment_not_production',
+        message: 'WhatsApp persistence writes are disabled unless VERCEL_ENV is exactly production.',
+      })
+      assert.equal(resolverCalls, 0)
+    }
+
+    process.env.VERCEL_ENV = 'production'
+    let resolverCalls = 0
+    const result = getWhatsappPersistenceWriteAvailability(() => {
+      resolverCalls += 1
+      return {
+        available: true,
+        client: {} as never,
+        presentConfigurationNames: ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'],
+      }
+    })
+
+    assert.deepEqual(result, { enabled: true })
+    assert.equal(resolverCalls, 1)
+  } finally {
+    if (typeof previousVercelEnv === 'string') {
+      process.env.VERCEL_ENV = previousVercelEnv
+    } else {
+      delete process.env.VERCEL_ENV
     }
   }
 })

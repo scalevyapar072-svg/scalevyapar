@@ -63,6 +63,13 @@ on public.labour_whatsapp_worker_job_match_candidates (worker_id, candidate_stat
 
 alter table public.labour_whatsapp_worker_job_match_candidates enable row level security;
 
+revoke all on table public.labour_whatsapp_worker_job_match_candidates
+from public, anon, authenticated;
+
+grant select
+on table public.labour_whatsapp_worker_job_match_candidates
+to service_role;
+
 comment on table public.labour_whatsapp_worker_job_match_candidates is
   'Preview foundation for deterministic Worker-to-job WhatsApp match candidates. No database hook, scheduler, sender, browser permission, or browser RLS policy is created by this migration.';
 

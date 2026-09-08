@@ -165,7 +165,7 @@ test('consent, suppression, limits, template readiness, and pause fail closed', 
   const current = makeJob()
 
   assert.equal(
-    planJobLifecycleWhatsappDryRun({ previous, current, company })?.dispatchReason,
+    planJobLifecycleWhatsappDryRun({ previous, current, company, now: eligibleInput.now })?.dispatchReason,
     'missing_consent_service_allowed',
   )
   assert.equal(
@@ -175,6 +175,7 @@ test('consent, suppression, limits, template readiness, and pause fail closed', 
       company,
       consentState: { service_allowed: true },
       suppressed: true,
+      now: eligibleInput.now,
     })?.dispatchReason,
     'suppressed',
   )
@@ -185,6 +186,7 @@ test('consent, suppression, limits, template readiness, and pause fail closed', 
       company,
       consentState: { service_allowed: true },
       withinLimit: false,
+      now: eligibleInput.now,
     })?.dispatchReason,
     'limit_exceeded',
   )
@@ -194,6 +196,7 @@ test('consent, suppression, limits, template readiness, and pause fail closed', 
       current,
       company,
       consentState: { service_allowed: true },
+      now: eligibleInput.now,
     })?.dispatchReason,
     'template_not_configured',
   )
@@ -204,6 +207,7 @@ test('consent, suppression, limits, template readiness, and pause fail closed', 
       company,
       consentState: { service_allowed: true },
       templateStates: readyTemplateStates,
+      now: eligibleInput.now,
     })?.dispatchReason,
     'whatsapp_paused',
   )

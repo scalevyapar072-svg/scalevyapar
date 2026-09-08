@@ -8,16 +8,18 @@ import { supabaseAdmin } from './supabase-admin'
 import {
   buildLabourLocationOptions,
   findMatchingMasterOption,
-  LabourCategoryDependency,
-  LabourIndustryBusinessDependency,
-  LabourMasterKey,
-  LabourMasterOption,
-  LabourMastersSnapshot,
   labourMasterDefinitions,
   labourMasterKeys,
   labourMasterSeedValues,
   slugifyLabourMaster,
   sortLabourMasterOptions
+} from './labour-masters-schema'
+import type {
+  LabourCategoryDependency,
+  LabourIndustryBusinessDependency,
+  LabourMasterKey,
+  LabourMasterOption,
+  LabourMastersSnapshot,
 } from './labour-masters-schema'
 
 interface LabourMastersData {

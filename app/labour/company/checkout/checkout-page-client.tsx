@@ -11,6 +11,22 @@ import styles from '../company-site.module.css'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
 const COMPANY_PROFILE_KEY = 'labour_company_profile'
+const META_PURCHASE_STORAGE_PREFIX = 'rozgar_meta_purchase_'
+const META_PIXEL_READY_TIMEOUT_MS = 2000
+const META_PIXEL_READY_POLL_INTERVAL_MS = 50
+const META_PURCHASE_REDIRECT_DELAY_MS = 350
+
+const trackedMetaPurchaseIds = new Set<string>()
+const pendingMetaPurchaseIds = new Set<string>()
+
+type MetaPixelFunction = {
+  (
+    command: 'track',
+    eventName: 'Purchase',
+    parameters: { currency: 'INR'; value: number }
+  ): void
+  callMethod?: (...args: unknown[]) => void
+}
 
 type RazorpayCheckoutResponse = {
   razorpay_payment_id: string
@@ -46,6 +62,82 @@ declare global {
       open: () => void
       on?: (eventName: 'payment.failed', handler: (response: { error?: { description?: string; reason?: string } }) => void) => void
     }
+    fbq?: MetaPixelFunction
+  }
+}
+
+const waitForMetaPixelTransport = async (): Promise<MetaPixelFunction | null> => {
+  if (typeof window === 'undefined') return null
+
+  const deadline = Date.now() + META_PIXEL_READY_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    if (typeof window.fbq === 'function' && typeof window.fbq.callMethod === 'function') {
+      return window.fbq
+    }
+
+    await new Promise<void>(resolve => {
+      window.setTimeout(resolve, META_PIXEL_READY_POLL_INTERVAL_MS)
+    })
+  }
+
+  return typeof window.fbq === 'function' && typeof window.fbq.callMethod === 'function'
+    ? window.fbq
+    : null
+}
+
+const trackMetaPurchase = async ({
+  paymentId,
+  amountInPaise
+}: {
+  paymentId: string
+  amountInPaise: unknown
+}): Promise<boolean> => {
+  if (typeof window === 'undefined') return false
+
+  const normalizedPaymentId = paymentId.trim()
+  const normalizedAmountInPaise = Number(amountInPaise)
+  if (
+    !normalizedPaymentId ||
+    !Number.isFinite(normalizedAmountInPaise) ||
+    normalizedAmountInPaise <= 0
+  ) {
+    return false
+  }
+
+  const storageKey = `${META_PURCHASE_STORAGE_PREFIX}${normalizedPaymentId}`
+  if (trackedMetaPurchaseIds.has(normalizedPaymentId) || pendingMetaPurchaseIds.has(normalizedPaymentId)) return false
+
+  try {
+    if (window.localStorage.getItem(storageKey) === '1') {
+      trackedMetaPurchaseIds.add(normalizedPaymentId)
+      return false
+    }
+  } catch {
+    // The in-memory guard still prevents repeats when browser storage is unavailable.
+  }
+
+  pendingMetaPurchaseIds.add(normalizedPaymentId)
+  try {
+    const fbq = await waitForMetaPixelTransport()
+    if (!fbq) return false
+
+    fbq('track', 'Purchase', {
+      currency: 'INR',
+      value: normalizedAmountInPaise / 100
+    })
+    trackedMetaPurchaseIds.add(normalizedPaymentId)
+
+    try {
+      window.localStorage.setItem(storageKey, '1')
+    } catch {
+      // Tracking already completed; keep the in-memory duplicate guard.
+    }
+
+    return true
+  } catch {
+    return false
+  } finally {
+    pendingMetaPurchaseIds.delete(normalizedPaymentId)
   }
 }
 
@@ -291,11 +383,18 @@ export function CheckoutPageClient({
                 window.localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(verifyData.dashboard.profile))
               }
 
+              const metaPurchaseDispatched = verifyData.success === true
+                ? await trackMetaPurchase({
+                  paymentId: response.razorpay_payment_id,
+                  amountInPaise: orderData.amount
+                })
+                : false
+
               setPaymentStatus('success')
               setPaymentNotice(verifyData.message || 'Payment successful. Your Rozgar plan is active.')
               window.setTimeout(() => {
                 window.location.href = resolveHref(verifyData.redirectTo || '/labour/company/job-post')
-              }, 1200)
+              }, metaPurchaseDispatched ? META_PURCHASE_REDIRECT_DELAY_MS : 0)
             } catch (error) {
               setPaymentStatus('error')
               setPaymentNotice(error instanceof Error ? error.message : 'Payment verification failed. Please contact support if money was deducted.')

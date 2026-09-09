@@ -720,6 +720,18 @@ const companyStatuses: CompanyStatus[] = ['pending', 'active', 'inactive', 'bloc
 const companyHiringTypes = ['Daily Basis', 'Weekly Basis', 'Monthly Basis', 'Contract Basis']
 const workerAvailabilityOptions: WorkerAvailability[] = ['available_today', 'available_this_week']
 const workerIdentityProofOptions: Array<Exclude<WorkerIdentityProofType, ''>> = ['aadhaar', 'pan', 'voter_id', 'driving_license', 'other']
+const MAX_WORKER_KYC_UPLOAD_BYTES = 10 * 1024 * 1024
+const workerPhotoExtensions = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'])
+const workerIdentityDocumentExtensions = new Set([...workerPhotoExtensions, 'pdf'])
+const workerKycContentTypesByExtension = new Map([
+  ['jpg', 'image/jpeg'],
+  ['jpeg', 'image/jpeg'],
+  ['png', 'image/png'],
+  ['webp', 'image/webp'],
+  ['heic', 'image/heic'],
+  ['heif', 'image/heif'],
+  ['pdf', 'application/pdf']
+])
 const jobPostStatuses: JobPostStatus[] = ['draft', 'live', 'expired', 'paused']
 const jobApplicationStatuses: JobApplicationStatus[] = ['submitted', 'reviewed', 'shortlisted', 'rejected', 'hired']
 const workerNotificationTypes: WorkerNotificationType[] = ['application_submitted', 'job_saved', 'application_status', 'wallet_reminder']
@@ -1085,6 +1097,42 @@ const blankCompanyFilters: CompanyFilters = {
 const blankWorkerKycReviewDraft: WorkerKycReviewDraft = {
   decision: 'pending',
   remarks: ''
+}
+
+const validateWorkerKycFileSelection = (file: File, documentKind: WorkerDocumentKind) => {
+  if (file.size <= 0) return 'The selected file is empty.'
+  if (file.size > MAX_WORKER_KYC_UPLOAD_BYTES) return 'Worker files must be 10 MB or smaller.'
+
+  const extension = file.name.split('.').pop()?.trim().toLowerCase() || ''
+  const acceptedExtensions = documentKind === 'profile_photo'
+    ? workerPhotoExtensions
+    : workerIdentityDocumentExtensions
+
+  if (!acceptedExtensions.has(extension)) {
+    return documentKind === 'profile_photo'
+      ? 'Worker photos must be JPG, JPEG, PNG, WEBP, HEIC, or HEIF files.'
+      : 'Identity documents must be JPG, JPEG, PNG, WEBP, HEIC, HEIF, or PDF files.'
+  }
+
+  const expectedContentType = workerKycContentTypesByExtension.get(extension) || ''
+  const reportedContentType = file.type.trim().toLowerCase()
+  const acceptedContentTypes = new Set([expectedContentType])
+  if (expectedContentType === 'image/jpeg') acceptedContentTypes.add('image/jpg')
+  if (expectedContentType === 'image/heic' || expectedContentType === 'image/heif') {
+    acceptedContentTypes.add('image/heic')
+    acceptedContentTypes.add('image/heif')
+  }
+  if (
+    reportedContentType &&
+    reportedContentType !== 'application/octet-stream' &&
+    !acceptedContentTypes.has(reportedContentType)
+  ) {
+    return documentKind === 'profile_photo'
+      ? 'Worker photos must be JPG, JPEG, PNG, WEBP, HEIC, or HEIF files.'
+      : 'Identity documents must be JPG, JPEG, PNG, WEBP, HEIC, HEIF, or PDF files.'
+  }
+
+  return ''
 }
 const blankWorkerKycMetadataDraft: WorkerKycMetadataDraft = {
   identityProofType: '',
@@ -2064,6 +2112,9 @@ export default function LabourExchangeAdminPage() {
   const [categoryDraft, setCategoryDraft] = useState<LabourCategory>(blankCategory)
   const [planDraft, setPlanDraft] = useState<LabourPlan>(blankPlan)
   const [workerDraft, setWorkerDraft] = useState<LabourWorker>(blankWorker)
+  const [workerPhotoFile, setWorkerPhotoFile] = useState<File | null>(null)
+  const [workerIdentityDocumentFile, setWorkerIdentityDocumentFile] = useState<File | null>(null)
+  const [workerSaveBusy, setWorkerSaveBusy] = useState(false)
   const [companyDraft, setCompanyDraft] = useState<LabourCompany>(blankCompany)
   const [jobPostDraft, setJobPostDraft] = useState<LabourJobPost>(blankJobPost)
   const [jobReviewReasonDrafts, setJobReviewReasonDrafts] = useState<Record<string, string>>({})
@@ -2298,6 +2349,25 @@ export default function LabourExchangeAdminPage() {
     void fetchReferralSettings()
     void fetchReferralWithdrawals()
   }, [])
+
+  const workerPhotoPreviewUrl = useMemo(
+    () => workerPhotoFile ? URL.createObjectURL(workerPhotoFile) : '',
+    [workerPhotoFile]
+  )
+  const workerIdentityDocumentPreviewUrl = useMemo(
+    () => workerIdentityDocumentFile && !workerIdentityDocumentFile.name.toLowerCase().endsWith('.pdf')
+      ? URL.createObjectURL(workerIdentityDocumentFile)
+      : '',
+    [workerIdentityDocumentFile]
+  )
+
+  useEffect(() => () => {
+    if (workerPhotoPreviewUrl) URL.revokeObjectURL(workerPhotoPreviewUrl)
+  }, [workerPhotoPreviewUrl])
+
+  useEffect(() => () => {
+    if (workerIdentityDocumentPreviewUrl) URL.revokeObjectURL(workerIdentityDocumentPreviewUrl)
+  }, [workerIdentityDocumentPreviewUrl])
 
   const showSaved = (message: string) => {
     setSaved(message)
@@ -3637,7 +3707,7 @@ export default function LabourExchangeAdminPage() {
     }
 
     replaceSnapshot(data.snapshot)
-    return true
+    return data.snapshot as LabourSnapshot
   }
 
   const removeEntity = async (entityType: LabourEntityType, id: string, label: string) => {
@@ -3708,6 +3778,8 @@ export default function LabourExchangeAdminPage() {
 
   const resetWorkerDraft = () => {
     setWorkerDraft(buildWorkerEditorDraft())
+    setWorkerPhotoFile(null)
+    setWorkerIdentityDocumentFile(null)
     setEditingWorkerId(null)
     setIsWorkerCategoryMenuOpen(false)
     setWorkerCategorySearch('')
@@ -5718,26 +5790,194 @@ export default function LabourExchangeAdminPage() {
     showSaved('Plan saved')
   }
 
+  const requestWorkerFileUpload = async (
+    workerId: string,
+    documentKind: WorkerDocumentKind,
+    file: File
+  ) => {
+    const formData = new FormData()
+    formData.set('workerId', workerId)
+    formData.set('documentKind', documentKind)
+    formData.set('file', file)
+
+    const response = await fetch('/api/admin/labour/worker-file', {
+      method: 'POST',
+      body: formData
+    })
+    const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to upload worker file.')
+    }
+    if (!data.snapshot) {
+      throw new Error('The worker file was accepted, but the refreshed worker record was not returned.')
+    }
+
+    return data as { message?: string; snapshot: LabourSnapshot }
+  }
+
+  const requestWorkerMetadataUpdate = async (
+    workerId: string,
+    identityProofType: WorkerIdentityProofType,
+    identityProofNumber: string
+  ) => {
+    const response = await fetch('/api/admin/labour', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entityType: 'workers',
+        id: workerId,
+        payload: { identityProofType, identityProofNumber }
+      })
+    })
+    const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to save identity proof details.')
+    }
+    if (!data.snapshot) {
+      throw new Error('The identity proof details were accepted, but the refreshed worker record was not returned.')
+    }
+
+    return data.snapshot as LabourSnapshot
+  }
+
   const saveWorker = async () => {
+    if (workerSaveBusy) return
+
     setError('')
+    setSaved('')
     const normalizedWorkerDraft = buildWorkerEditorDraft(workerDraft)
     const validationError = validateWorker(normalizedWorkerDraft)
     if (validationError) {
       setError(validationError)
       return
     }
+
+    if (!editingWorkerId) {
+      const photoValidationError = workerPhotoFile
+        ? validateWorkerKycFileSelection(workerPhotoFile, 'profile_photo')
+        : ''
+      if (photoValidationError) {
+        setError(`Worker Photo: ${photoValidationError}`)
+        return
+      }
+
+      const identityValidationError = workerIdentityDocumentFile
+        ? validateWorkerKycFileSelection(workerIdentityDocumentFile, 'identity_proof')
+        : ''
+      if (identityValidationError) {
+        setError(`Identity Proof Document: ${identityValidationError}`)
+        return
+      }
+    }
+
     setWorkerDraft(normalizedWorkerDraft)
+    setWorkerSaveBusy(true)
 
-    const ok = await persistEntity(
-      editingWorkerId ? 'PUT' : 'POST',
-      'workers',
-      buildWorkerSavePayload(normalizedWorkerDraft),
-      editingWorkerId || undefined
-    )
+    try {
+      if (editingWorkerId) {
+        const updatedSnapshot = await persistEntity(
+          'PUT',
+          'workers',
+          buildWorkerSavePayload(normalizedWorkerDraft),
+          editingWorkerId
+        )
+        if (!updatedSnapshot) return
 
-    if (!ok) return
-    resetWorkerDraft()
-    showSaved('Worker saved')
+        resetWorkerDraft()
+        showSaved('Worker saved')
+        return
+      }
+
+      const existingWorkerIds = new Set(snapshot.workers.map(worker => worker.id))
+      const creationPayload = buildWorkerSavePayload({
+        ...normalizedWorkerDraft,
+        profilePhotoPath: '',
+        identityProofType: '',
+        identityProofNumber: '',
+        identityProofPath: ''
+      })
+      const creationSnapshot = await persistEntity('POST', 'workers', creationPayload)
+      if (!creationSnapshot) return
+
+      const createdWorker = creationSnapshot.workers.find(worker =>
+        !existingWorkerIds.has(worker.id) &&
+        worker.mobile.trim() === normalizedWorkerDraft.mobile.trim()
+      )
+      if (!createdWorker) {
+        resetWorkerDraft()
+        setError('Worker created, but the new worker ID could not be confirmed. Refresh Workers and open KYC Review before retrying KYC uploads.')
+        return
+      }
+
+      let latestSnapshot = creationSnapshot
+      const failures: string[] = []
+      const appendFailure = (label: string, error: unknown) => {
+        const detail = (error instanceof Error ? error.message : '').trim().replace(/[.\s]+$/, '')
+        failures.push(
+          `Worker created, but ${label} failed${detail ? `: ${detail}` : ''}. Open KYC Review to retry.`
+        )
+      }
+
+      if (workerPhotoFile) {
+        try {
+          const result = await requestWorkerFileUpload(createdWorker.id, 'profile_photo', workerPhotoFile)
+          latestSnapshot = result.snapshot
+          replaceSnapshot(latestSnapshot)
+        } catch (error) {
+          appendFailure('Worker Photo upload', error)
+        }
+      }
+
+      if (workerIdentityDocumentFile) {
+        try {
+          const result = await requestWorkerFileUpload(createdWorker.id, 'identity_proof', workerIdentityDocumentFile)
+          latestSnapshot = result.snapshot
+          replaceSnapshot(latestSnapshot)
+        } catch (error) {
+          appendFailure('Identity Proof Document upload', error)
+        }
+      }
+
+      const identityProofType = normalizedWorkerDraft.identityProofType
+      const identityProofNumber = normalizedWorkerDraft.identityProofNumber.trim()
+      if (identityProofType || identityProofNumber) {
+        try {
+          latestSnapshot = await requestWorkerMetadataUpdate(
+            createdWorker.id,
+            identityProofType,
+            identityProofNumber
+          )
+          replaceSnapshot(latestSnapshot)
+        } catch (error) {
+          appendFailure('Identity Proof Type/Number save', error)
+        }
+      }
+
+      const refreshedWorker = latestSnapshot.workers.find(worker => worker.id === createdWorker.id) || createdWorker
+      replaceSnapshot(latestSnapshot)
+      setSelectedWorkerReviewId(refreshedWorker.id)
+      setWorkerKycReviewDraft(buildWorkerKycReviewDraft(refreshedWorker))
+      setWorkerKycMetadataDraft({
+        identityProofType: refreshedWorker.identityProofType,
+        identityProofNumber: refreshedWorker.identityProofNumber
+      })
+      setWorkerKycReviewValidation('')
+      setIsWorkerKycReviewOpen(true)
+      resetWorkerDraft()
+
+      if (failures.length > 0) {
+        setError(failures.join(' '))
+        showSaved('Worker created with KYC follow-up required.')
+      } else if (workerPhotoFile || workerIdentityDocumentFile || identityProofType || identityProofNumber) {
+        showSaved('Worker created and optional KYC details saved.')
+      } else {
+        showSaved('Worker saved')
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to save worker.')
+    } finally {
+      setWorkerSaveBusy(false)
+    }
   }
 
   const openWorkerKycReview = (workerId: string) => {
@@ -5772,26 +6012,13 @@ export default function LabourExchangeAdminPage() {
     setWorkerFileBusyKey(busyKey)
 
     try {
-      const formData = new FormData()
-      formData.set('workerId', worker.id)
-      formData.set('documentKind', documentKind)
-      formData.set('file', file)
-
-      const response = await fetch('/api/admin/labour/worker-file', {
-        method: 'POST',
-        body: formData
-      })
-      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
-      if (!response.ok) {
-        setError(data.error || 'Failed to upload worker file.')
-        return
-      }
+      const data = await requestWorkerFileUpload(worker.id, documentKind, file)
 
       replaceSnapshot(data.snapshot)
       setSelectedWorkerReviewId(worker.id)
       showSaved(data.message || 'Worker file saved.')
-    } catch {
-      setError('Failed to upload worker file.')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to upload worker file.')
     } finally {
       setWorkerFileBusyKey(current => current === busyKey ? '' : current)
     }
@@ -7365,7 +7592,18 @@ export default function LabourExchangeAdminPage() {
             <div style={cardStyle}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
                 <h2 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>{editingWorkerId ? 'Edit Worker' : 'Add Worker'}</h2>
-                <button onClick={resetWorkerDraft} style={subtleButtonStyle}>Add More</button>
+                <button
+                  type="button"
+                  onClick={resetWorkerDraft}
+                  disabled={workerSaveBusy}
+                  style={{
+                    ...subtleButtonStyle,
+                    opacity: workerSaveBusy ? 0.6 : 1,
+                    cursor: workerSaveBusy ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Add More
+                </button>
               </div>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -7842,13 +8080,202 @@ export default function LabourExchangeAdminPage() {
                     ) : null}
                   </div>
                 </div>
+                {!editingWorkerId ? (
+                  <section style={{ border: '1px solid #cbd5e1', borderRadius: '16px', padding: '14px', background: '#f8fafc', display: 'grid', gap: '12px' }}>
+                    <div>
+                      <h3 style={{ margin: 0, color: '#0f172a', fontSize: '15px' }}>Worker Photo &amp; Identity Proof</h3>
+                      <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '12px' }}>
+                        Optional. The worker is created first; selected files are uploaded only after a worker ID is returned.
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '10px', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', background: '#ffffff' }}>
+                      <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>Profile / Worker Photo</p>
+                      {workerPhotoFile && workerPhotoPreviewUrl ? (
+                        <img
+                          src={workerPhotoPreviewUrl}
+                          alt="Selected worker photo preview"
+                          style={{ width: '100%', maxHeight: '220px', objectFit: 'contain', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}
+                        />
+                      ) : null}
+                      {workerPhotoFile ? (
+                        <p style={{ margin: 0, color: '#475569', fontSize: '12px', wordBreak: 'break-word' }}>
+                          {workerPhotoFile.name} ({(workerPhotoFile.size / (1024 * 1024)).toFixed(2)} MB)
+                        </p>
+                      ) : (
+                        <p style={{ margin: 0, color: '#94a3b8', fontSize: '12px' }}>No photo selected.</p>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <label style={{
+                          ...subtleButtonStyle,
+                          display: 'inline-flex',
+                          opacity: workerSaveBusy ? 0.6 : 1,
+                          cursor: workerSaveBusy ? 'not-allowed' : 'pointer'
+                        }}>
+                          {workerPhotoFile ? 'Change Photo' : 'Choose Photo'}
+                          <input
+                            type="file"
+                            accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
+                            disabled={workerSaveBusy}
+                            onChange={event => {
+                              const file = event.currentTarget.files?.[0] || null
+                              event.currentTarget.value = ''
+                              if (!file) return
+                              const fileError = validateWorkerKycFileSelection(file, 'profile_photo')
+                              if (fileError) {
+                                setError(`Worker Photo: ${fileError}`)
+                                return
+                              }
+                              setError('')
+                              setWorkerPhotoFile(file)
+                            }}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                        {workerPhotoFile ? (
+                          <button
+                            type="button"
+                            onClick={() => setWorkerPhotoFile(null)}
+                            disabled={workerSaveBusy}
+                            style={{
+                              ...subtleButtonStyle,
+                              background: '#fff1f2',
+                              color: '#b91c1c',
+                              border: '1px solid #fecdd3',
+                              opacity: workerSaveBusy ? 0.6 : 1,
+                              cursor: workerSaveBusy ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            Remove Photo
+                          </button>
+                        ) : null}
+                      </div>
+                      <p style={{ margin: 0, color: '#94a3b8', fontSize: '11px' }}>JPG, JPEG, PNG, WEBP, HEIC or HEIF. Maximum 10 MB.</p>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '10px', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', background: '#ffffff' }}>
+                      <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>Identity Proof</p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <div>
+                          <label style={labelStyle}>Identity Proof Type</label>
+                          <select
+                            value={workerDraft.identityProofType}
+                            onChange={event => setWorkerDraft(current => ({
+                              ...current,
+                              identityProofType: event.target.value as WorkerIdentityProofType
+                            }))}
+                            disabled={workerSaveBusy}
+                            style={inputStyle}
+                          >
+                            <option value="">Not provided</option>
+                            {workerIdentityProofOptions.map(proofType => (
+                              <option key={proofType} value={proofType}>{formatIdentityProofType(proofType)}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Identity Proof Number</label>
+                          <input
+                            value={workerDraft.identityProofNumber}
+                            onChange={event => setWorkerDraft(current => ({ ...current, identityProofNumber: event.target.value }))}
+                            disabled={workerSaveBusy}
+                            placeholder="Optional proof number"
+                            style={inputStyle}
+                          />
+                        </div>
+                      </div>
+                      {workerIdentityDocumentFile && workerIdentityDocumentPreviewUrl ? (
+                        <img
+                          src={workerIdentityDocumentPreviewUrl}
+                          alt="Selected identity proof preview"
+                          style={{ width: '100%', maxHeight: '220px', objectFit: 'contain', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}
+                        />
+                      ) : null}
+                      {workerIdentityDocumentFile ? (
+                        <p style={{ margin: 0, color: '#475569', fontSize: '12px', wordBreak: 'break-word' }}>
+                          {workerIdentityDocumentFile.name} ({(workerIdentityDocumentFile.size / (1024 * 1024)).toFixed(2)} MB)
+                        </p>
+                      ) : (
+                        <p style={{ margin: 0, color: '#94a3b8', fontSize: '12px' }}>No identity document selected.</p>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <label style={{
+                          ...subtleButtonStyle,
+                          display: 'inline-flex',
+                          opacity: workerSaveBusy ? 0.6 : 1,
+                          cursor: workerSaveBusy ? 'not-allowed' : 'pointer'
+                        }}>
+                          {workerIdentityDocumentFile ? 'Change Document' : 'Choose Document'}
+                          <input
+                            type="file"
+                            accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf"
+                            disabled={workerSaveBusy}
+                            onChange={event => {
+                              const file = event.currentTarget.files?.[0] || null
+                              event.currentTarget.value = ''
+                              if (!file) return
+                              const fileError = validateWorkerKycFileSelection(file, 'identity_proof')
+                              if (fileError) {
+                                setError(`Identity Proof Document: ${fileError}`)
+                                return
+                              }
+                              setError('')
+                              setWorkerIdentityDocumentFile(file)
+                            }}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                        {workerIdentityDocumentFile ? (
+                          <button
+                            type="button"
+                            onClick={() => setWorkerIdentityDocumentFile(null)}
+                            disabled={workerSaveBusy}
+                            style={{
+                              ...subtleButtonStyle,
+                              background: '#fff1f2',
+                              color: '#b91c1c',
+                              border: '1px solid #fecdd3',
+                              opacity: workerSaveBusy ? 0.6 : 1,
+                              cursor: workerSaveBusy ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            Remove Document
+                          </button>
+                        ) : null}
+                      </div>
+                      <p style={{ margin: 0, color: '#94a3b8', fontSize: '11px' }}>JPG, JPEG, PNG, WEBP, HEIC, HEIF or PDF. Maximum 10 MB.</p>
+                    </div>
+                  </section>
+                ) : null}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontSize: '13px', fontWeight: '600' }}>
                   <input type="checkbox" checked={workerDraft.isVisible} onChange={event => setWorkerDraft(current => ({ ...current, isVisible: event.target.checked }))} />
                   Worker profile visible to companies
                 </label>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={saveWorker} style={primaryButtonStyle}>Save Worker</button>
-                  <button onClick={resetWorkerDraft} style={subtleButtonStyle}>Reset</button>
+                  <button
+                    type="button"
+                    onClick={() => void saveWorker()}
+                    disabled={workerSaveBusy}
+                    style={{
+                      ...primaryButtonStyle,
+                      opacity: workerSaveBusy ? 0.6 : 1,
+                      cursor: workerSaveBusy ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {workerSaveBusy ? 'Saving Worker...' : 'Save Worker'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetWorkerDraft}
+                    disabled={workerSaveBusy}
+                    style={{
+                      ...subtleButtonStyle,
+                      opacity: workerSaveBusy ? 0.6 : 1,
+                      cursor: workerSaveBusy ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    Reset
+                  </button>
                 </div>
               </div>
             </div>

@@ -1688,7 +1688,7 @@ const normalizeWorker = (
     preferredWorkLocations: Array.isArray(payload.preferredWorkLocations)
       ? normalizePreferredWorkLocations(payload.preferredWorkLocations)
       : existing?.preferredWorkLocations || [],
-    profilePhotoPath: String(payload.profilePhotoPath || existing?.profilePhotoPath || '').trim(),
+    profilePhotoPath: String(payload.profilePhotoPath ?? existing?.profilePhotoPath ?? '').trim(),
     resumeDocumentPath: resolveWorkerResumeDocumentPath(payload, rawPayload, existing),
     skills: toStringArray(payload.skills || existing?.skills || []),
     experienceYears: toNumber(payload.experienceYears, existing?.experienceYears ?? 0),
@@ -1710,9 +1710,9 @@ const normalizeWorker = (
     availability: (payload.availability || existing?.availability || 'available_today') as WorkerAvailability,
     isVisible: toBoolean(payload.isVisible, existing?.isVisible ?? true),
     categoryIds: toStringArray(payload.categoryIds || existing?.categoryIds || []),
-    identityProofType: (payload.identityProofType || existing?.identityProofType || '') as WorkerIdentityProofType,
-    identityProofNumber: String(payload.identityProofNumber || existing?.identityProofNumber || '').trim(),
-    identityProofPath: String(payload.identityProofPath || existing?.identityProofPath || '').trim(),
+    identityProofType: (payload.identityProofType ?? existing?.identityProofType ?? '') as WorkerIdentityProofType,
+    identityProofNumber: String(payload.identityProofNumber ?? existing?.identityProofNumber ?? '').trim(),
+    identityProofPath: String(payload.identityProofPath ?? existing?.identityProofPath ?? '').trim(),
     registrationCompletedAt: String(payload.registrationCompletedAt || existing?.registrationCompletedAt || '').trim(),
     createdAt: existing?.createdAt || now,
     updatedAt: now

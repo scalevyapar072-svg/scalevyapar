@@ -1,4 +1,4 @@
-import { createHash, randomInt } from 'crypto'
+import { createHash, randomInt, randomUUID } from 'crypto'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { EncryptJWT, jwtDecrypt, jwtVerify, SignJWT } from 'jose'
@@ -1119,6 +1119,13 @@ const sanitizeFileName = (fileName: string) =>
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
 
+const sanitizeStoragePathSegment = (value: string) =>
+  value
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
 const normalizeIdentityProofType = (value: unknown): WorkerIdentityProofType => {
   const normalized = String(value || '').trim().toLowerCase()
   if (normalized === 'aadhaar' || normalized === 'pan' || normalized === 'voter_id' || normalized === 'driving_license' || normalized === 'other') {
@@ -1139,6 +1146,11 @@ const isWorkerRegistrationComplete = (worker: LabourWorkerRecord) =>
   Boolean(worker.identityProofType) &&
   Boolean(worker.identityProofNumber.trim()) &&
   Boolean(worker.identityProofPath.trim())
+
+const getReconciledWorkerVisibility = (
+  worker: LabourWorkerRecord,
+  status: LabourWorkerRecord['status']
+) => worker.isVisible && isWorkerRegistrationComplete(worker) && status === 'active'
 
 const canWorkerAccessApp = (worker: LabourWorkerRecord) =>
   isWorkerRegistrationComplete(worker) ||
@@ -1689,7 +1701,7 @@ export const reconcileWorkerRegistrationFee = async (
     await updateLabourEntity('workers', worker.id, {
       registrationFeePaid: true,
       status: nextStatus,
-      isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active'
+      isVisible: getReconciledWorkerVisibility(nextWorker, nextStatus)
     }, 'worker-wallet')
 
     return true
@@ -1698,7 +1710,7 @@ export const reconcileWorkerRegistrationFee = async (
   const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
   if (outstandingRegistrationFee <= 0 || worker.walletBalance < outstandingRegistrationFee) {
     const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
-    const shouldBeVisible = isWorkerRegistrationComplete(worker) && effectiveStatus === 'active'
+    const shouldBeVisible = getReconciledWorkerVisibility(worker, effectiveStatus)
     if (worker.status !== effectiveStatus || worker.isVisible !== shouldBeVisible) {
       await updateLabourEntity('workers', worker.id, {
         status: effectiveStatus,
@@ -1722,7 +1734,7 @@ export const reconcileWorkerRegistrationFee = async (
     walletBalance: nextWorker.walletBalance,
     registrationFeePaid: true,
     status: nextStatus,
-    isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active'
+    isVisible: getReconciledWorkerVisibility(nextWorker, nextStatus)
   }, 'worker-wallet')
 
   await createLabourEntity('walletTransactions', {
@@ -1749,7 +1761,7 @@ export const reconcileWorkerDailyCharge = async (
   assertWorkerLifecycleMutationAllowed()
 
   const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
-  const shouldBeVisible = isWorkerRegistrationComplete(worker) && effectiveStatus === 'active'
+  const shouldBeVisible = getReconciledWorkerVisibility(worker, effectiveStatus)
 
   if (!workerPlan || !worker.activePlan || isWorkerPlanExpiredRecord(worker)) {
     if (worker.status !== effectiveStatus || worker.isVisible !== shouldBeVisible) {
@@ -1803,7 +1815,7 @@ export const reconcileWorkerDailyCharge = async (
 
   if (worker.walletBalance < dailyCharge) {
     const nextStatus = deriveWorkerStatus({ ...worker, walletBalance: 0 }, workerPlan, transactions)
-    const nextVisibility = isWorkerRegistrationComplete(worker) && nextStatus === 'active'
+    const nextVisibility = getReconciledWorkerVisibility(worker, nextStatus)
     if (worker.status !== nextStatus || worker.isVisible !== nextVisibility) {
       await updateLabourEntity('workers', worker.id, {
         status: nextStatus,
@@ -1839,7 +1851,7 @@ export const reconcileWorkerDailyCharge = async (
     walletBalance: nextWorker.walletBalance,
     lastWalletDeductionDate: nextWorker.lastWalletDeductionDate,
     status: nextStatus,
-    isVisible: isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active'
+    isVisible: getReconciledWorkerVisibility(nextWorker, nextStatus)
   }, 'worker-wallet')
 
   return true
@@ -2872,14 +2884,19 @@ export const uploadWorkerRegistrationAsset = async (
     throw new Error('Uploaded file is empty.')
   }
 
+  const safeWorkerId = sanitizeStoragePathSegment(workerId)
+  if (!safeWorkerId) {
+    throw new Error('Worker account has an invalid storage identifier.')
+  }
+
   const safeFileName = sanitizeFileName(payload.fileName || `${payload.documentKind}.bin`) || `${payload.documentKind}.bin`
   const extension = safeFileName.includes('.') ? safeFileName.split('.').pop() : 'bin'
-  const storagePath = `workers/${workerId}/${payload.documentKind}-${Date.now()}.${extension}`
+  const storagePath = `workers/${safeWorkerId}/${payload.documentKind}-${Date.now()}-${randomUUID()}.${extension}`
 
   await ensureWorkerUploadBucket()
   const { error } = await supabaseAdmin.storage.from(WORKER_UPLOAD_BUCKET).upload(storagePath, payload.bytes, {
     contentType: payload.contentType,
-    upsert: true
+    upsert: false
   })
 
   if (error) {
@@ -3027,7 +3044,7 @@ export const completeWorkerAppRegistration = async (
     resumeDocumentPath: nextWorker.resumeDocumentPath,
     registrationCompletedAt: nextWorker.registrationCompletedAt,
     registrationFeePaid: existing.registrationFeePaid,
-    isVisible: shouldResetKycForReview ? false : isWorkerRegistrationComplete(nextWorker) && nextStatus === 'active',
+    isVisible: shouldResetKycForReview ? false : getReconciledWorkerVisibility(nextWorker, nextStatus),
     status: shouldResetKycForReview ? 'pending' : nextStatus,
     ...(shouldResetKycForReview
       ? {
@@ -3162,7 +3179,7 @@ export const updateWorkerAppProfile = async (
     minimumExpectedWage: mergedWorker.minimumExpectedWage,
     maximumExpectedWage: mergedWorker.maximumExpectedWage,
     availability: mergedWorker.availability,
-    isVisible: isWorkerRegistrationComplete(mergedWorker) && nextStatus === 'active',
+    isVisible: getReconciledWorkerVisibility(mergedWorker, nextStatus),
     status: nextStatus
   }, 'worker-app')
 
@@ -3282,7 +3299,7 @@ export const updateWorkerWalletStatus = async (workerId: string, active: boolean
     workerReactivatedAt: now,
     lastWalletDeductionDate: activationCandidate.lastWalletDeductionDate,
     status: nextStatus,
-    isVisible: isWorkerRegistrationComplete(activationCandidate) && nextStatus === 'active'
+    isVisible: getReconciledWorkerVisibility(activationCandidate, nextStatus)
   }, 'worker-wallet')
 
   return getWorkerAppDashboard(workerId)

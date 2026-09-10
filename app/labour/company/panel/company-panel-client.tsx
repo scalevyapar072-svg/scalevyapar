@@ -1889,7 +1889,11 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
                             <p className={styles.companyDashboardJobMeta}>
                               {job.expiresAt
                                 ? `${job.status === 'expired' ? 'Expired on' : 'Live until'} ${formatDate(job.expiresAt)}`
-                                : 'Awaiting admin review'}
+                                : job.reviewStatus === 'under_review'
+                                  ? 'Awaiting admin review'
+                                  : job.status === 'draft'
+                                    ? 'Saved as draft'
+                                    : 'Live dates unavailable'}
                             </p>
                             {job.reviewStatus === 'rejected' && job.reviewReason ? (
                               <p className={styles.companyDashboardJobMeta} style={{ color: '#b91c1c' }}>

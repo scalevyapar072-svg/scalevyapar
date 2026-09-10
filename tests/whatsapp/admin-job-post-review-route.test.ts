@@ -26,13 +26,14 @@ test('generic admin route blocks direct review-field mutation and unreviewed liv
   assert.match(source, /Use the controlled job review workflow/)
 })
 
-test('company submission stores publish requests as explicit review submissions', async () => {
+test('company publish bypasses the legacy review queue and becomes live immediately', async () => {
   const source = await readFile(
     new URL('../../app/api/labour/company/job-post/route.ts', import.meta.url),
     'utf8',
   )
 
-  assert.match(source, /buildJobSubmissionReviewFields/)
-  assert.match(source, /submitted for admin review successfully/)
-  assert.equal(source.includes("mode === 'draft' ? 'draft' : 'live'"), false)
+  assert.doesNotMatch(source, /buildJobSubmissionReviewFields/)
+  assert.match(source, /buildCompanyJobSubmissionFields/)
+  assert.match(source, /Job requirement published successfully\./)
+  assert.match(source, /statusLabel: mode === 'draft' \? 'Draft' : 'Active'/)
 })

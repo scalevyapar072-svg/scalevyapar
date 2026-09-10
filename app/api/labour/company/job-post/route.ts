@@ -19,7 +19,6 @@ import {
   resolveCompanyPlanWindow
 } from '@/lib/labour-plan-utils'
 import { requireCompanyApp } from '@/lib/labour-company-app'
-import { buildJobSubmissionReviewFields } from '@/lib/job-review-workflow'
 import { createLabourEntity, getLabourMarketplaceSnapshot, updateLabourEntity } from '@/lib/labour-marketplace'
 import { sendNewJobSubmittedForReviewEmail } from '@/lib/rozgar-notification-email'
 
@@ -29,6 +28,61 @@ const MOBILE_REGEX = /^\d{10}$/
 const normalize = (value: unknown) => String(value || '').trim()
 const normalizeEmail = (value: unknown) => normalize(value).toLowerCase()
 const normalizeLookup = (value: unknown) => normalize(value).toLowerCase()
+const isPublishedJobStatus = (value: unknown) =>
+  ['live', 'published', 'active'].includes(normalizeLookup(value))
+const normalizeCompanyJobSubmissionId = (value: unknown) => {
+  const normalized = normalize(value)
+  return /^company-job-post-\d{13}$/.test(normalized) ? normalized : ''
+}
+const buildCompanyJobSubmissionId = (companyId: string, submissionId: string) => {
+  const safeCompanyId = normalize(companyId).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 80)
+  const safeSubmissionId = normalizeCompanyJobSubmissionId(submissionId)
+  return safeCompanyId && safeSubmissionId ? `job-${safeCompanyId}-${safeSubmissionId}` : ''
+}
+const isFirstCompanyJobPublication = (mode: 'draft' | 'publish', existingStatus: unknown) =>
+  mode === 'publish' && !isPublishedJobStatus(existingStatus)
+const buildCompanyJobSubmissionFields = ({
+  mode,
+  existingJob,
+  today,
+  liveWindowEndDate
+}: {
+  mode: 'draft' | 'publish'
+  existingJob: {
+    status?: unknown
+    reviewStatus?: 'under_review' | 'approved' | 'rejected' | null
+    reviewReason?: string
+    submittedAt?: string
+    reviewedAt?: string
+    publishedAt?: string
+    expiresAt?: string
+  } | null
+  today: string
+  liveWindowEndDate: string
+}) => {
+  if (mode === 'draft') {
+    return {
+      status: 'draft' as const,
+      reviewStatus: null,
+      reviewReason: '',
+      submittedAt: '',
+      reviewedAt: '',
+      publishedAt: '',
+      expiresAt: ''
+    }
+  }
+
+  const alreadyPublished = isPublishedJobStatus(existingJob?.status)
+  return {
+    status: 'live' as const,
+    reviewStatus: alreadyPublished ? existingJob?.reviewStatus ?? null : null,
+    reviewReason: alreadyPublished ? existingJob?.reviewReason || '' : '',
+    submittedAt: alreadyPublished ? existingJob?.submittedAt || '' : '',
+    reviewedAt: alreadyPublished ? existingJob?.reviewedAt || '' : '',
+    publishedAt: alreadyPublished && existingJob?.publishedAt ? existingJob.publishedAt : today,
+    expiresAt: alreadyPublished && existingJob?.expiresAt ? existingJob.expiresAt : liveWindowEndDate
+  }
+}
 const formatLocalDate = (date: Date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -138,8 +192,9 @@ export async function POST(request: NextRequest) {
     const specialInstructions = normalize(body.specialInstructions)
     const languagesPreferred = normalize(body.languagesPreferred)
 
-    const mode = normalize(body.mode) || 'publish'
+    const mode = normalize(body.mode) === 'draft' ? 'draft' : 'publish'
     const editJobId = normalize(body.editJobId)
+    const submissionId = normalizeCompanyJobSubmissionId(body.submissionId)
 
     const uploadedDocuments = Array.isArray(body.uploadedDocuments)
       ? body.uploadedDocuments
@@ -214,9 +269,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'This company account is blocked. Please contact labour support.' }, { status: 400 })
     }
 
+    if (mode === 'publish' && company.status !== 'active') {
+      return NextResponse.json({ error: 'Only an active company account can publish job requirements.' }, { status: 400 })
+    }
+
+    const idempotentJobId = editJobId ? '' : buildCompanyJobSubmissionId(company.id, submissionId)
     const existingJob = editJobId
       ? snapshot.jobPosts.find(jobPost => jobPost.id === editJobId && jobPost.companyId === company.id) || null
-      : null
+      : idempotentJobId
+        ? snapshot.jobPosts.find(jobPost => jobPost.id === idempotentJobId && jobPost.companyId === company.id) || null
+        : null
 
     if (editJobId && !existingJob) {
       return NextResponse.json({ error: 'This company job could not be found for editing.' }, { status: 404 })
@@ -270,6 +332,11 @@ export async function POST(request: NextRequest) {
 
     if (!selectedPlan) {
       return NextResponse.json({ error: 'Select a valid connected company plan.' }, { status: 400 })
+    }
+
+    const isFirstPublication = isFirstCompanyJobPublication(mode, existingJob?.status)
+    if (isFirstPublication && !selectedPlan.isActive) {
+      return NextResponse.json({ error: 'The selected company plan is inactive and cannot publish job requirements.' }, { status: 400 })
     }
 
     if (selectedPlan.industryCategoryValues.length > 0 && !selectedPlan.industryCategoryValues.includes(resolvedIndustryType)) {
@@ -361,8 +428,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (
-      mode !== 'draft' &&
-      !existingJob &&
+      isFirstPublication &&
       (
         usedJobPostsCount >= selectedPlan.jobPostLimit ||
         selectedPostingPlan?.status === 'limit_used' ||
@@ -379,6 +445,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const today = formatLocalDate(new Date())
+    const planValidityDays = getPlanValidityDays(selectedPlan)
+    const jobPostLiveDays = getJobPostLiveDays(selectedPlan) > 0 ? getJobPostLiveDays(selectedPlan) : 30
+    if (
+      isFirstPublication &&
+      (
+        (planWindow.endDate && new Date(planWindow.endDate).getTime() < new Date(today).getTime()) ||
+        selectedPostingPlan?.status === 'expired' ||
+        (canUseSelectedPlanFromCurrentSummary && currentPostingPlan?.status === 'expired')
+      )
+    ) {
+      return NextResponse.json(
+        {
+          code: 'PLAN_EXPIRED',
+          error: 'Your plan has expired. Please renew or buy a new plan to publish job requirements.',
+          redirectTo: '/labour/company/pricing?reason=plan-expired'
+        },
+        { status: 400 }
+      )
+    }
+    const liveWindow = calculateJobLiveWindow({
+      startDate: existingJob?.publishedAt || today,
+      plan: selectedPlan,
+      planEndDate: planWindow.endDate
+    })
+    const submissionFields = buildCompanyJobSubmissionFields({
+      mode,
+      existingJob,
+      today,
+      liveWindowEndDate: liveWindow.endDate
+    })
     const updatedCompanySnapshot = await updateLabourEntity(
       'companies',
       company.id,
@@ -401,36 +498,6 @@ export async function POST(request: NextRequest) {
     )
 
     const refreshedCompany = updatedCompanySnapshot?.companies.find(item => item.id === company.id) || company
-    const today = formatLocalDate(new Date())
-    const planValidityDays = getPlanValidityDays(selectedPlan)
-    const jobPostLiveDays = getJobPostLiveDays(selectedPlan) > 0 ? getJobPostLiveDays(selectedPlan) : 30
-    if (
-      mode !== 'draft' &&
-      !existingJob &&
-      (
-        (planWindow.endDate && new Date(planWindow.endDate).getTime() < new Date(today).getTime()) ||
-        selectedPostingPlan?.status === 'expired' ||
-        (canUseSelectedPlanFromCurrentSummary && currentPostingPlan?.status === 'expired')
-      )
-    ) {
-      return NextResponse.json(
-        {
-          code: 'PLAN_EXPIRED',
-          error: 'Your plan has expired. Please renew or buy a new plan to publish job requirements.',
-          redirectTo: '/labour/company/pricing?reason=plan-expired'
-        },
-        { status: 400 }
-      )
-    }
-    const submissionReviewFields = buildJobSubmissionReviewFields({
-      mode: mode === 'draft' ? 'draft' : 'publish',
-      submittedAt: new Date().toISOString()
-    })
-    const liveWindow = calculateJobLiveWindow({
-      startDate: existingJob?.publishedAt || today,
-      plan: selectedPlan,
-      planEndDate: planWindow.endDate
-    })
     const resolvedJobLocation = jobLocation || city
     const finalDescription = buildJobRequirementDescription(
       jobDescription,
@@ -463,12 +530,12 @@ export async function POST(request: NextRequest) {
         ['Required skills', requiredSkills],
         ['Special instructions', specialInstructions],
         ['Languages preferred', languagesPreferred],
-        ['Submission mode', mode === 'draft' ? 'Saved as draft' : 'Pending review for publish']
+        ['Submission mode', mode === 'draft' ? 'Saved as draft' : 'Published live']
       ],
       uploadedDocuments
     )
 
-      if (existingJob) {
+    if (existingJob) {
       const updatedSnapshot = await updateLabourEntity(
         'jobPosts',
         existingJob.id,
@@ -483,7 +550,7 @@ export async function POST(request: NextRequest) {
           workersNeeded: workersRequired,
           wageAmount: salaryAmount,
           validityDays: jobPostLiveDays,
-          ...submissionReviewFields
+          ...submissionFields
         },
         'company-job-post'
       )
@@ -494,15 +561,16 @@ export async function POST(request: NextRequest) {
         success: true,
         message: mode === 'draft'
           ? 'Job requirement saved as draft successfully.'
-          : 'Job requirement submitted for admin review successfully.',
+          : 'Job requirement published successfully.',
         jobId: updatedJob.id,
-        statusLabel: mode === 'draft' ? 'Draft' : 'Under Review'
+        statusLabel: mode === 'draft' ? 'Draft' : 'Active'
       })
     }
 
     const finalSnapshot = await createLabourEntity(
       'jobPosts',
       {
+        ...(idempotentJobId ? { id: idempotentJobId } : {}),
         companyId: refreshedCompany.id,
         planId: selectedPlan.id,
         categoryId: effectiveCategoryId,
@@ -513,12 +581,14 @@ export async function POST(request: NextRequest) {
         workersNeeded: workersRequired,
         wageAmount: salaryAmount,
         validityDays: jobPostLiveDays,
-        ...submissionReviewFields
+        ...submissionFields
       },
       'company-job-post'
     )
 
-    const createdJob = [...finalSnapshot.jobPosts].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+    const createdJob = idempotentJobId
+      ? finalSnapshot.jobPosts.find(jobPost => jobPost.id === idempotentJobId) || null
+      : [...finalSnapshot.jobPosts].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
 
     if (createdJob && mode !== 'draft') {
       await sendNewJobSubmittedForReviewEmail({
@@ -551,9 +621,9 @@ export async function POST(request: NextRequest) {
       success: true,
       message: mode === 'draft'
         ? 'Job requirement saved as draft successfully.'
-        : 'Job requirement submitted for admin review successfully.',
+        : 'Job requirement published successfully.',
       jobId: createdJob?.id || '',
-      statusLabel: mode === 'draft' ? 'Draft' : 'Under Review'
+      statusLabel: mode === 'draft' ? 'Draft' : 'Active'
     })
   } catch (error) {
     console.error('Company job post failed:', error)

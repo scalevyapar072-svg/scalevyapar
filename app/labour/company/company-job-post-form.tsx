@@ -1124,6 +1124,7 @@ export function CompanyJobPostForm({
         body: JSON.stringify({
           mode,
           editJobId,
+          submissionId,
           companyName: form.companyName.trim(),
           contactPerson: form.contactPerson.trim(),
           companyEmail: form.companyEmail.trim().toLowerCase(),
@@ -1186,7 +1187,7 @@ export function CompanyJobPostForm({
 
       setSuccessState({
         message: String(data.message || 'Job requirement submitted successfully.'),
-        statusLabel: String(data.statusLabel || (mode === 'draft' ? 'Draft' : 'Pending Review')),
+        statusLabel: String(data.statusLabel || (mode === 'draft' ? 'Draft' : 'Active')),
         jobId: String(data.jobId || '')
       })
 
@@ -1690,7 +1691,7 @@ export function CompanyJobPostForm({
                         ? 'Job post saved as draft successfully.'
                         : isEditMode
                           ? 'Job post updated successfully.'
-                          : 'Job post submitted successfully. Our admin team will review it shortly.'}
+                          : 'Job post published successfully.'}
                     </p>
                     <p className={styles.jobPostInlineSuccessText}>
                       {successState.statusLabel.toLowerCase() === 'draft'
@@ -1703,7 +1704,7 @@ export function CompanyJobPostForm({
               <p className={styles.companyRegisterSubmitNote}>
                 {isValid
                   ? hasActiveConnectedPlans
-                    ? 'The requirement is ready to submit into ScaleVyapar worker admin for review and visibility control.'
+                    ? 'The requirement is ready to publish live for eligible workers on ScaleVyapar Rozgar.'
                     : 'The requirement can be saved as draft and continued to checkout. It will not publish until payment/plan activation succeeds.'
                   : 'Complete these required fields: Job Title, Labour Category, Select Plan, Number of Workers Required, Salary Type, Salary Amount, and Job Description.'}
               </p>

@@ -153,6 +153,12 @@ type JobContextBucketInput = {
 
 type SupabaseQuery = any
 
+const applyCompanySearchVisibilityFilter = (query: SupabaseQuery) =>
+  query.not('is_visible', 'is', false)
+
+const isWorkerVisibleInCompanySearch = (worker: Pick<WorkerRow, 'is_visible'>) =>
+  worker.is_visible !== false
+
 const SEARCHABLE_WORKER_STATUSES = [
   'active',
   'inactive_wallet_empty',
@@ -446,6 +452,7 @@ const applyWorkerFilters = (
   statuses: readonly string[] = SEARCHABLE_WORKER_STATUSES
 ) => {
   let nextQuery = statuses.length ? query.in('status', [...statuses]) : query
+  nextQuery = applyCompanySearchVisibilityFilter(nextQuery)
 
   if (filters.search) {
     const escaped = filters.search.replace(/[%_]/g, value => `\\${value}`)
@@ -882,6 +889,7 @@ const loadOrderedWorkerRows = async (
   }
 
   const effectiveRows = ((data || []) as WorkerRow[])
+    .filter(isWorkerVisibleInCompanySearch)
     .map<EffectiveWorkerRow>(worker => {
       const effectiveStatus = getEffectiveWorkerStatus(worker)
       return {

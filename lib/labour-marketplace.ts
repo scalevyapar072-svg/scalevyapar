@@ -320,6 +320,44 @@ const REFERRED_WORKER_DELETE_MESSAGE =
 const REFERRER_WORKER_DELETE_MESSAGE =
   'This worker cannot be deleted because the worker has Refer & Earn history. Deactivate the worker instead.'
 
+type JobPostWriteError = {
+  code?: string | null
+  message?: string | null
+} | null
+
+type JobPostWriteResult = {
+  error: JobPostWriteError
+}
+
+export const writeJobPostWithSchemaCompatibility = async (
+  operation: 'create' | 'update',
+  payload: Record<string, unknown>,
+  write: (nextPayload: Record<string, unknown>) => PromiseLike<JobPostWriteResult>,
+) => {
+  const initialResult = await write(payload)
+  const errorCode = String(initialResult.error?.code || '')
+  const errorMessage = String(initialResult.error?.message || '')
+  const missingReviewColumnMatch = errorMessage.match(
+    /^Could not find the '(review_status|review_reason|submitted_at|reviewed_at)' column of 'labour_job_posts' in the schema cache$/,
+  )
+
+  if (errorCode !== 'PGRST204' || !missingReviewColumnMatch) {
+    return initialResult
+  }
+
+  const compatiblePayload = { ...payload }
+  delete compatiblePayload.review_status
+  delete compatiblePayload.review_reason
+  delete compatiblePayload.submitted_at
+  delete compatiblePayload.reviewed_at
+
+  console.warn(
+    `[labour-job-post] ${operation} compatibility retry without unsupported review metadata columns.`,
+  )
+
+  return write(compatiblePayload)
+}
+
 const defaultData: LabourMarketplaceData = {
   categories: [
     {
@@ -3499,7 +3537,11 @@ export const createLabourEntity = async (
         created_at: record.createdAt,
         updated_at: record.updatedAt
       }
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.jobPosts).insert(jobPostPayload)
+      const { error } = await writeJobPostWithSchemaCompatibility(
+        'create',
+        jobPostPayload,
+        nextPayload => supabaseAdmin.from(STORAGE_TABLES.jobPosts).insert(nextPayload),
+      )
       if (error) throw new Error(`Failed to create labour job post: ${error.message}`)
       await writeSupabaseAuditLog('create', entityType, record.id, `Created job post ${record.title}`, actor)
       break
@@ -3992,7 +4034,11 @@ export const updateLabourEntity = async (
         expires_at: record.expiresAt || null,
         updated_at: record.updatedAt
       }
-      const { error } = await supabaseAdmin.from(STORAGE_TABLES.jobPosts).update(jobPostPayload).eq('id', id)
+      const { error } = await writeJobPostWithSchemaCompatibility(
+        'update',
+        jobPostPayload,
+        nextPayload => supabaseAdmin.from(STORAGE_TABLES.jobPosts).update(nextPayload).eq('id', id),
+      )
       if (error) throw new Error(`Failed to update labour job post: ${error.message}`)
       await writeSupabaseAuditLog('update', entityType, id, `Updated job post ${record.title}`, actor)
       break

@@ -70,7 +70,11 @@ const importTranspiled = async (source: string) => {
 
 const routeHelpers = await importTranspiled(`
   const normalize = ${extractVariableInitializer(routeSource, 'normalize')}
+  const normalizeEmail = ${extractVariableInitializer(routeSource, 'normalizeEmail')}
   const normalizeLookup = ${extractVariableInitializer(routeSource, 'normalizeLookup')}
+  const normalizeCompanyJobProfileDetails = ${extractVariableInitializer(routeSource, 'normalizeCompanyJobProfileDetails')}
+  const hasMeaningfulCompanyProfileChange = ${extractVariableInitializer(routeSource, 'hasMeaningfulCompanyProfileChange')}
+  const applyCompanyUpdateWhenRequired = ${extractVariableInitializer(routeSource, 'applyCompanyUpdateWhenRequired')}
   const isPublishedJobStatus = ${extractVariableInitializer(routeSource, 'isPublishedJobStatus')}
   const normalizeCompanyJobSubmissionId = ${extractVariableInitializer(routeSource, 'normalizeCompanyJobSubmissionId')}
   const buildCompanyJobSubmissionId = ${extractVariableInitializer(routeSource, 'buildCompanyJobSubmissionId')}
@@ -79,6 +83,9 @@ const routeHelpers = await importTranspiled(`
   export {
     buildCompanyJobSubmissionFields,
     buildCompanyJobSubmissionId,
+    normalizeCompanyJobProfileDetails,
+    hasMeaningfulCompanyProfileChange,
+    applyCompanyUpdateWhenRequired,
     isFirstCompanyJobPublication,
   }
 `)
@@ -153,6 +160,48 @@ const liveWindow = planHelpers.calculateJobLiveWindow as (input: {
   planEndDate?: string
 }) => { startDate: string; endDate: string }
 
+type CompanyProfileDetails = {
+  companyName: string
+  contactPerson: string
+  email: string
+  mobile: string
+  contactMobile: string
+  businessType: string
+  industryCategory: string
+  companyAddress: string
+  state: string
+  city: string
+  area: string
+  pincode: string
+}
+
+const normalizeCompanyDetails = routeHelpers.normalizeCompanyJobProfileDetails as (
+  details: Partial<Record<keyof CompanyProfileDetails, unknown>>,
+) => CompanyProfileDetails
+const hasMeaningfulCompanyChange = routeHelpers.hasMeaningfulCompanyProfileChange as (
+  current: Partial<Record<keyof CompanyProfileDetails, unknown>>,
+  submitted: Partial<Record<keyof CompanyProfileDetails, unknown>>,
+) => boolean
+const applyCompanyUpdate = routeHelpers.applyCompanyUpdateWhenRequired as <T>(
+  shouldUpdate: boolean,
+  update: () => Promise<T>,
+) => Promise<T | null>
+
+const currentCompany: CompanyProfileDetails = {
+  companyName: 'ScaleVyapar Textiles',
+  contactPerson: 'QA Owner',
+  email: 'owner@example.com',
+  mobile: '9876500000',
+  contactMobile: '9876500001',
+  businessType: 'Manufacturer',
+  industryCategory: 'Garment',
+  companyAddress: 'Industrial Area',
+  state: 'Rajasthan',
+  city: 'Jaipur',
+  area: 'Sitapura',
+  pincode: '302022',
+}
+
 const plan = { id: 'plan-company-active', name: 'Company Active' }
 const planDescription = '\n\nJob requirement details\nConnected plan: Company Active'
 
@@ -193,6 +242,92 @@ test('existing draft transitions to live through the same publish workflow', () 
     today: '2026-09-10',
     liveWindowEndDate: '2026-10-10',
   }).status, 'live')
+})
+
+test('existing draft publication with identical company data makes zero company-update calls', async () => {
+  let companyUpdateCalls = 0
+  const shouldUpdate = hasMeaningfulCompanyChange(currentCompany, { ...currentCompany })
+  const result = await applyCompanyUpdate(shouldUpdate, async () => {
+    companyUpdateCalls += 1
+    return { companies: [currentCompany] }
+  })
+
+  assert.equal(shouldUpdate, false)
+  assert.equal(companyUpdateCalls, 0)
+  assert.equal(result, null)
+  assert.match(routeSource, /const shouldUpdateCompany = !existingJob \|\| hasMeaningfulCompanyProfileChange/)
+})
+
+test('identical existing-job company data creates zero company audit entries', async () => {
+  const auditEntries: string[] = []
+  await applyCompanyUpdate(hasMeaningfulCompanyChange(currentCompany, currentCompany), async () => {
+    auditEntries.push('company-update-audit')
+    return null
+  })
+
+  assert.deepEqual(auditEntries, [])
+})
+
+test('whitespace, email case, nulls, and contact-mobile defaults do not create a false company difference', () => {
+  const normalizedStored = normalizeCompanyDetails({
+    ...currentCompany,
+    email: ' OWNER@EXAMPLE.COM ',
+    contactMobile: null,
+    area: null,
+  })
+  const normalizedSubmitted = normalizeCompanyDetails({
+    ...currentCompany,
+    companyName: '  ScaleVyapar Textiles  ',
+    contactPerson: ' QA Owner ',
+    email: 'owner@example.com',
+    contactMobile: '9876500000',
+    companyAddress: ' Industrial Area ',
+    area: '',
+  })
+
+  assert.deepEqual(normalizedStored, normalizedSubmitted)
+  assert.equal(hasMeaningfulCompanyChange(normalizedStored, normalizedSubmitted), false)
+})
+
+test('a genuine existing-job company-field change updates the company exactly once', async () => {
+  let companyUpdateCalls = 0
+  const changedCompany = { ...currentCompany, city: 'Ajmer' }
+  const result = await applyCompanyUpdate(
+    hasMeaningfulCompanyChange(currentCompany, changedCompany),
+    async () => {
+      companyUpdateCalls += 1
+      return { companies: [changedCompany] }
+    },
+  )
+
+  assert.equal(companyUpdateCalls, 1)
+  assert.deepEqual(result, { companies: [changedCompany] })
+})
+
+test('a genuine company change creates exactly one normal company audit entry', async () => {
+  const auditEntries: string[] = []
+  await applyCompanyUpdate(
+    hasMeaningfulCompanyChange(currentCompany, { ...currentCompany, pincode: '305001' }),
+    async () => {
+      auditEntries.push('company-update-audit')
+      return null
+    },
+  )
+
+  assert.deepEqual(auditEntries, ['company-update-audit'])
+  assert.match(marketplaceSource, /writeSupabaseAuditLog\('update', entityType, id, `Updated company/)
+})
+
+test('new-job submissions preserve the existing company synchronization', async () => {
+  let companyUpdateCalls = 0
+  const existingJob = null
+  const shouldUpdate = !existingJob || hasMeaningfulCompanyChange(currentCompany, currentCompany)
+  await applyCompanyUpdate(shouldUpdate, async () => {
+    companyUpdateCalls += 1
+    return null
+  })
+
+  assert.equal(companyUpdateCalls, 1)
 })
 
 test('first publication populates published_at', () => {
@@ -263,12 +398,22 @@ test('same submission retry resolves to one deterministic job ID', () => {
   assert.match(formSource, /submissionId,/)
 })
 
+test('existing-job publishing updates the job row and job audit exactly once', () => {
+  const existingJobBranch = routeSource.slice(
+    routeSource.indexOf('    if (existingJob) {'),
+    routeSource.indexOf('    const finalSnapshot = await createLabourEntity('),
+  )
+
+  assert.equal((existingJobBranch.match(/updateLabourEntity\(\s*'jobPosts'/g) || []).length, 1)
+  assert.equal((marketplaceSource.match(/writeSupabaseAuditLog\('update', entityType, id, `Updated job post/g) || []).length, 1)
+})
+
 test('inactive, expired, and exhausted plans are blocked before first publication write', () => {
   assert.match(routeSource, /isFirstPublication && !selectedPlan\.isActive/)
   assert.match(routeSource, /isFirstPublication &&[\s\S]*JOB_POST_LIMIT_REACHED/)
   assert.match(routeSource, /isFirstPublication &&[\s\S]*PLAN_EXPIRED/)
   const expiryGateIndex = routeSource.indexOf("code: 'PLAN_EXPIRED'")
-  const companyWriteIndex = routeSource.indexOf("const updatedCompanySnapshot = await updateLabourEntity")
+  const companyWriteIndex = routeSource.indexOf('const shouldUpdateCompany =')
   assert.ok(expiryGateIndex > -1 && companyWriteIndex > expiryGateIndex)
 })
 

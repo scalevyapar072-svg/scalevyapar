@@ -19,7 +19,7 @@ import {
   resolveCompanyPlanWindow
 } from '@/lib/labour-plan-utils'
 import { requireCompanyApp } from '@/lib/labour-company-app'
-import { createLabourEntity, getLabourMarketplaceSnapshot, updateLabourEntity } from '@/lib/labour-marketplace'
+import { createLabourEntity, getLabourMarketplaceSnapshot, updateLabourEntity, type LabourCompanyRecord } from '@/lib/labour-marketplace'
 import { sendNewJobSubmittedForReviewEmail } from '@/lib/rozgar-notification-email'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -28,6 +28,55 @@ const MOBILE_REGEX = /^\d{10}$/
 const normalize = (value: unknown) => String(value || '').trim()
 const normalizeEmail = (value: unknown) => normalize(value).toLowerCase()
 const normalizeLookup = (value: unknown) => normalize(value).toLowerCase()
+type CompanyJobProfileDetails = Pick<
+  LabourCompanyRecord,
+  | 'companyName'
+  | 'contactPerson'
+  | 'email'
+  | 'mobile'
+  | 'contactMobile'
+  | 'businessType'
+  | 'industryCategory'
+  | 'companyAddress'
+  | 'state'
+  | 'city'
+  | 'area'
+  | 'pincode'
+>
+const normalizeCompanyJobProfileDetails = (
+  details: Partial<Record<keyof CompanyJobProfileDetails, unknown>>,
+): CompanyJobProfileDetails => {
+  const mobile = normalize(details.mobile)
+
+  return {
+    companyName: normalize(details.companyName),
+    contactPerson: normalize(details.contactPerson),
+    email: normalizeEmail(details.email),
+    mobile,
+    contactMobile: normalize(details.contactMobile) || mobile,
+    businessType: normalize(details.businessType),
+    industryCategory: normalize(details.industryCategory),
+    companyAddress: normalize(details.companyAddress),
+    state: normalize(details.state),
+    city: normalize(details.city),
+    area: normalize(details.area),
+    pincode: normalize(details.pincode),
+  }
+}
+const hasMeaningfulCompanyProfileChange = (
+  current: Partial<Record<keyof CompanyJobProfileDetails, unknown>>,
+  submitted: Partial<Record<keyof CompanyJobProfileDetails, unknown>>,
+) => {
+  const normalizedCurrent = normalizeCompanyJobProfileDetails(current)
+  const normalizedSubmitted = normalizeCompanyJobProfileDetails(submitted)
+
+  return (Object.keys(normalizedCurrent) as Array<keyof CompanyJobProfileDetails>)
+    .some(field => normalizedCurrent[field] !== normalizedSubmitted[field])
+}
+const applyCompanyUpdateWhenRequired = async <T,>(
+  shouldUpdate: boolean,
+  update: () => Promise<T>,
+): Promise<T | null> => shouldUpdate ? update() : null
 const isPublishedJobStatus = (value: unknown) =>
   ['live', 'published', 'active'].includes(normalizeLookup(value))
 const normalizeCompanyJobSubmissionId = (value: unknown) => {
@@ -476,25 +525,32 @@ export async function POST(request: NextRequest) {
       today,
       liveWindowEndDate: liveWindow.endDate
     })
-    const updatedCompanySnapshot = await updateLabourEntity(
-      'companies',
-      company.id,
-      {
-        ...company,
-        companyName: resolvedCompanyName,
-        contactPerson: resolvedContactPerson,
-        email: resolvedCompanyEmail,
-        mobile: resolvedMobile,
-        contactMobile: resolvedWhatsAppNumber,
-        businessType: resolvedBusinessType,
-        industryCategory: resolvedIndustryType,
-        companyAddress: resolvedCompanyAddress,
-        state: resolvedState,
-        city: resolvedCity,
-        area: resolvedArea,
-        pincode: resolvedPincode
-      },
-      'company-job-post'
+    const submittedCompanyDetails = normalizeCompanyJobProfileDetails({
+      companyName: resolvedCompanyName,
+      contactPerson: resolvedContactPerson,
+      email: resolvedCompanyEmail,
+      mobile: resolvedMobile,
+      contactMobile: resolvedWhatsAppNumber,
+      businessType: resolvedBusinessType,
+      industryCategory: resolvedIndustryType,
+      companyAddress: resolvedCompanyAddress,
+      state: resolvedState,
+      city: resolvedCity,
+      area: resolvedArea,
+      pincode: resolvedPincode
+    })
+    const shouldUpdateCompany = !existingJob || hasMeaningfulCompanyProfileChange(company, submittedCompanyDetails)
+    const updatedCompanySnapshot = await applyCompanyUpdateWhenRequired(
+      shouldUpdateCompany,
+      () => updateLabourEntity(
+        'companies',
+        company.id,
+        {
+          ...company,
+          ...submittedCompanyDetails
+        },
+        'company-job-post'
+      )
     )
 
     const refreshedCompany = updatedCompanySnapshot?.companies.find(item => item.id === company.id) || company

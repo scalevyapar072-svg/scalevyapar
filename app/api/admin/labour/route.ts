@@ -13,6 +13,7 @@ import {
   shouldBlockWorkerLifecycleMutation,
   type WorkerLifecycleMutationRuntime
 } from '@/lib/worker-lifecycle-mutation-guard'
+import { isWorkerKycComplete } from '@/lib/worker-kyc-completeness'
 
 const isEntityType = (value: unknown): value is LabourEntityType =>
   value === 'categories' ||
@@ -52,6 +53,24 @@ const hasReviewFieldMutation = (
   (Object.hasOwn(payload, 'reviewReason') && payload.reviewReason !== current.reviewReason) ||
   (Object.hasOwn(payload, 'submittedAt') && payload.submittedAt !== current.submittedAt) ||
   (Object.hasOwn(payload, 'reviewedAt') && payload.reviewedAt !== current.reviewedAt)
+
+const isWorkerKycApprovalMutation = (
+  payload: Record<string, unknown>,
+  currentKycStatus: unknown,
+) => {
+  const reviewLabel = String(payload.kycReviewStatusLabel || '')
+    .trim()
+    .toLowerCase()
+  const hasExplicitKycStatus = Object.hasOwn(payload, 'kycStatus') || Object.hasOwn(payload, 'kyc_status')
+  const nextKycStatus = String(payload.kycStatus || payload.kyc_status || '')
+    .trim()
+    .toLowerCase()
+  const previousKycStatus = String(currentKycStatus || '').trim().toLowerCase()
+
+  return reviewLabel === 'verified' ||
+    reviewLabel === 'approved' ||
+    (hasExplicitKycStatus && nextKycStatus === 'approved' && previousKycStatus !== 'approved')
+}
 
 export async function GET(request: Request) {
   try {
@@ -161,6 +180,24 @@ export async function handleAdminLabourPut(
       return buildWorkerLifecycleMutationBlockedResponse()
     }
 
+    const mutationPayload = payload as Record<string, unknown>
+    if (entityType === 'workers') {
+      const currentWorker = (
+        await (dependencies.getLabourMarketplaceSnapshot || getLabourMarketplaceSnapshot)()
+      ).workers.find(worker => worker.id === String(id))
+      if (!currentWorker) {
+        return Response.json({ error: 'Record not found' }, { status: 404 })
+      }
+      if (
+        isWorkerKycApprovalMutation(mutationPayload, currentWorker.kycStatus) &&
+        !isWorkerKycComplete(currentWorker)
+      ) {
+        return Response.json(
+          { error: 'Worker has not submitted the full KYC set yet.' },
+          { status: 409 },
+        )
+      }
+    }
 
     if (entityType === 'jobPosts') {
       const current = (await (dependencies.getLabourMarketplaceSnapshot || getLabourMarketplaceSnapshot)()).jobPosts.find(
@@ -169,7 +206,7 @@ export async function handleAdminLabourPut(
       if (!current) {
         return Response.json({ error: 'Record not found' }, { status: 404 })
       }
-      const jobPayload = payload as Record<string, unknown>
+      const jobPayload = mutationPayload
       if (
         hasReviewFieldMutation(jobPayload, current) ||
         (current.reviewStatus !== 'approved' &&
@@ -186,7 +223,7 @@ export async function handleAdminLabourPut(
     const snapshot = await dependencies.updateLabourEntity(
       entityType,
       String(id),
-      payload as Record<string, unknown>,
+      mutationPayload,
       admin.email
     )
     if (!snapshot) {

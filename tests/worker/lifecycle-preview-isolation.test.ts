@@ -71,11 +71,15 @@ const loadAdminLabourRouteModule = async () => {
     export const buildWorkerLifecycleMutationBlockedResponse = (status = 503) =>
       Response.json({ error: WORKER_LIFECYCLE_MUTATIONS_DISABLED_MESSAGE }, { status })
   `)
+  const kycCompletenessStubUrl = toDataUrl(`
+    export const isWorkerKycComplete = () => true
+  `)
 
   const routeModuleSource = adminRouteSource
     .replace("'@/lib/auth'", `'${authStubUrl}'`)
     .replace("'@/lib/labour-marketplace'", `'${marketplaceStubUrl}'`)
     .replace("'@/lib/worker-lifecycle-mutation-guard'", `'${guardStubUrl}'`)
+    .replace("'@/lib/worker-kyc-completeness'", `'${kycCompletenessStubUrl}'`)
 
   const transpiled = ts.transpileModule(routeModuleSource, {
     compilerOptions: {

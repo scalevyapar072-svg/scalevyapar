@@ -40,6 +40,12 @@ import LabourWhatsappAutomationPreviewCard from '@/components/admin/labour-whats
 import LabourWhatsappMetaStatusCard from '@/components/admin/labour-whatsapp-meta-status'
 import LabourWhatsappSafetyStatusCard from '@/components/admin/labour-whatsapp-safety-status'
 import LabourWhatsappTemplatesCard from '@/components/admin/labour-whatsapp-templates'
+import {
+  evaluateWorkerKycCompleteness,
+  getWorkerKycReviewState,
+  isWorkerKycComplete,
+  reconcileWorkerKycVisibility
+} from '@/lib/worker-kyc-completeness'
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'inactive_paused_by_worker' | 'blocked' | 'rejected'
 type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
@@ -4187,18 +4193,13 @@ export default function LabourExchangeAdminPage() {
     const normalizedValue = String(value || '').trim()
     return /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(normalizedValue.split('?')[0] || '')
   }
-  const isWorkerKycSubmitted = (worker: LabourWorker) =>
-    Boolean(String(worker.profilePhotoPath || '').trim()) &&
-    Boolean(worker.identityProofType) &&
-    Boolean(String(worker.identityProofNumber || '').trim()) &&
-    Boolean(String(worker.identityProofPath || '').trim()) &&
-    Boolean(String(worker.registrationCompletedAt || '').trim())
-  const getWorkerKycState = (worker: LabourWorker): Exclude<WorkerKycFilter, 'all'> => {
-    if (worker.status === 'rejected') return 'rejected'
-    if (worker.status === 'blocked') return 'needs_correction'
-    if (!isWorkerKycSubmitted(worker)) return 'not_submitted'
-    if (worker.status === 'pending') return 'ready_for_review'
-    return 'approved'
+  const getWorkerKycState = (worker: LabourWorker): Exclude<WorkerKycFilter, 'all'> =>
+    getWorkerKycReviewState(worker)
+  const getWorkerRegistrationCompletionLabel = (worker: LabourWorker) => {
+    if (worker.registrationCompletedAt) return formatDateTime(worker.registrationCompletedAt)
+    return evaluateWorkerKycCompleteness(worker).missingComponents.includes('registration')
+      ? 'Required details incomplete'
+      : 'Required details complete (Admin)'
   }
   const getWorkerKycLabel = (worker: LabourWorker) => {
     const state = getWorkerKycState(worker)
@@ -5016,12 +5017,7 @@ export default function LabourExchangeAdminPage() {
     .filter(([key, value]) => key !== 'pendingKycEscalationHours' && value === true)
     .length
   const pendingKycReviewCount = snapshot.workers.filter(
-    worker =>
-      worker.registrationCompletedAt &&
-      worker.identityProofType &&
-      worker.identityProofNumber &&
-      worker.identityProofPath &&
-      worker.status === 'pending'
+    worker => getWorkerKycState(worker) === 'ready_for_review'
   ).length
   const categoryReportRows = categoryDemandRows.map(row => ({
     category: row.name,
@@ -6057,13 +6053,11 @@ export default function LabourExchangeAdminPage() {
   const saveWorkerKycMetadata = async (worker: LabourWorker) => {
     const identityProofType = workerKycMetadataDraft.identityProofType
     const identityProofNumber = workerKycMetadataDraft.identityProofNumber.trim()
-    const hasCompleteKyc = Boolean(
-      worker.profilePhotoPath.trim() &&
-      identityProofType &&
-      identityProofNumber &&
-      worker.identityProofPath.trim() &&
-      worker.registrationCompletedAt.trim()
-    )
+    const hasCompleteKyc = isWorkerKycComplete({
+      ...worker,
+      identityProofType,
+      identityProofNumber
+    })
 
     setError('')
     setWorkerKycMetadataSavingId(worker.id)
@@ -6298,7 +6292,7 @@ export default function LabourExchangeAdminPage() {
       return
     }
 
-    if (workerKycReviewDraft.decision === 'verified' && !isWorkerKycSubmitted(selectedWorkerReview)) {
+    if (workerKycReviewDraft.decision === 'verified' && !isWorkerKycComplete(selectedWorkerReview)) {
       setError('Worker has not submitted the full KYC set yet.')
       return
     }
@@ -6310,7 +6304,11 @@ export default function LabourExchangeAdminPage() {
     switch (workerKycReviewDraft.decision) {
       case 'verified':
         nextStatus = selectedWorkerReview.walletBalance > 0 ? 'active' : 'inactive_wallet_empty'
-        nextVisibility = selectedWorkerReview.isVisible && selectedWorkerReview.walletBalance > 0
+        nextVisibility = reconcileWorkerKycVisibility(
+          selectedWorkerReview.isVisible,
+          selectedWorkerReview,
+          nextStatus
+        )
         reviewLabel = 'Verified'
         break
       case 'rejected':
@@ -8503,7 +8501,7 @@ export default function LabourExchangeAdminPage() {
                         </div>
                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px' }}>
                           <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Registration Completed</p>
-                          <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '600' }}>{selectedWorkerReview.registrationCompletedAt ? formatDateTime(selectedWorkerReview.registrationCompletedAt) : 'Not completed yet'}</p>
+                          <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '600' }}>{getWorkerRegistrationCompletionLabel(selectedWorkerReview)}</p>
                         </div>
                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px' }}>
                           <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Identity Proof</p>
@@ -8516,7 +8514,7 @@ export default function LabourExchangeAdminPage() {
                       </div>
                     </div>
 
-                    {!isWorkerKycSubmitted(selectedWorkerReview) ? (
+                    {!isWorkerKycComplete(selectedWorkerReview) ? (
                       <div style={{ border: '1px solid #fed7aa', borderRadius: '14px', background: '#fff7ed', color: '#9a3412', padding: '14px 16px', fontSize: '13px', lineHeight: 1.6 }}>
                         This worker has not submitted the full KYC set yet. You can still mark the review as pending, rejected, or needs correction, but verification requires profile photo, proof type, proof number, proof file, and completed registration.
                       </div>
@@ -11474,7 +11472,7 @@ export default function LabourExchangeAdminPage() {
                           </div>
                           <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px' }}>
                             <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Registration Completed</p>
-                            <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '600' }}>{selectedWorkerReview.registrationCompletedAt ? formatDateTime(selectedWorkerReview.registrationCompletedAt) : 'Not completed yet'}</p>
+                            <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '600' }}>{getWorkerRegistrationCompletionLabel(selectedWorkerReview)}</p>
                           </div>
                           <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px' }}>
                             <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Identity Proof</p>
@@ -11487,7 +11485,7 @@ export default function LabourExchangeAdminPage() {
                         </div>
                       </div>
 
-                      {!isWorkerKycSubmitted(selectedWorkerReview) ? (
+                      {!isWorkerKycComplete(selectedWorkerReview) ? (
                         <div style={{ border: '1px solid #fed7aa', borderRadius: '14px', background: '#fff7ed', color: '#9a3412', padding: '14px 16px', fontSize: '13px', lineHeight: 1.6 }}>
                           This worker has not submitted the full KYC set yet. You can still mark the review as pending, rejected, or needs correction, but verification requires profile photo, proof type, proof number, proof file, and completed registration.
                         </div>

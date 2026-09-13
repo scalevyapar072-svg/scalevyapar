@@ -33,6 +33,11 @@ import { createReferralAttribution, getReferralProfileByCode, listReferralEligib
 import { RozgarReferralContext } from './rozgar-referral-context'
 import { evaluateWorkerLifecycle, type WorkerLifecycleFacts } from './worker-lifecycle-evaluator'
 import { assertWorkerLifecycleMutationAllowed } from './worker-lifecycle-mutation-guard'
+import {
+  isWorkerKycComplete,
+  normalizeWorkerIdentityProofType,
+  reconcileWorkerKycVisibility,
+} from './worker-kyc-completeness'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
 const OTP_SESSION_ENCRYPTION_KEY = createHash('sha256')
@@ -1126,34 +1131,8 @@ const sanitizeStoragePathSegment = (value: string) =>
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
 
-const normalizeIdentityProofType = (value: unknown): WorkerIdentityProofType => {
-  const normalized = String(value || '').trim().toLowerCase()
-  if (normalized === 'aadhaar' || normalized === 'pan' || normalized === 'voter_id' || normalized === 'driving_license' || normalized === 'other') {
-    return normalized
-  }
-
-  return ''
-}
-
-const isWorkerProfileComplete = (worker: LabourWorkerRecord) =>
-  Boolean(worker.fullName.trim()) &&
-  Boolean(worker.city.trim()) &&
-  worker.categoryIds.length > 0
-
-const isWorkerRegistrationComplete = (worker: LabourWorkerRecord) =>
-  isWorkerProfileComplete(worker) &&
-  Boolean(worker.profilePhotoPath.trim()) &&
-  Boolean(worker.identityProofType) &&
-  Boolean(worker.identityProofNumber.trim()) &&
-  Boolean(worker.identityProofPath.trim())
-
-const getReconciledWorkerVisibility = (
-  worker: LabourWorkerRecord,
-  status: LabourWorkerRecord['status']
-) => worker.isVisible && isWorkerRegistrationComplete(worker) && status === 'active'
-
 const canWorkerAccessApp = (worker: LabourWorkerRecord) =>
-  isWorkerRegistrationComplete(worker) ||
+  isWorkerKycComplete(worker) ||
   Boolean(worker.registrationCompletedAt.trim()) ||
   worker.status !== 'pending'
 
@@ -1172,7 +1151,7 @@ const deriveWorkerStatus = (
 ): LabourWorkerRecord['status'] => {
   const lifecycleFacts: WorkerLifecycleFacts = {
     persistedStatus: worker.status,
-    registrationComplete: isWorkerRegistrationComplete(worker),
+    registrationComplete: isWorkerKycComplete(worker),
     workerPausedByWorker: worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker',
     activePlanId: worker.activePlan,
     planResolved: Boolean(workerPlan),
@@ -1486,7 +1465,7 @@ const deriveActivationSummary = (
     }
   }
 
-  if (!isWorkerRegistrationComplete(worker)) {
+  if (!isWorkerKycComplete(worker)) {
     return {
       isActive: false,
       isPausedByWorker: false,
@@ -1613,7 +1592,7 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   identityProofNumber: worker.identityProofNumber,
   identityProofPath: worker.identityProofPath,
   resumeDocumentPath: worker.resumeDocumentPath,
-  isRegistrationComplete: isWorkerRegistrationComplete(worker),
+  isRegistrationComplete: isWorkerKycComplete(worker),
   canAccessApp: canWorkerAccessApp(worker),
   registrationCompletedAt: worker.registrationCompletedAt
 })
@@ -1680,7 +1659,7 @@ export const reconcileWorkerRegistrationFee = async (
 ) => {
   assertWorkerLifecycleMutationAllowed()
 
-  if (!isWorkerRegistrationComplete(worker)) {
+  if (!isWorkerKycComplete(worker)) {
     return false
   }
 
@@ -1701,7 +1680,7 @@ export const reconcileWorkerRegistrationFee = async (
     await updateLabourEntity('workers', worker.id, {
       registrationFeePaid: true,
       status: nextStatus,
-      isVisible: getReconciledWorkerVisibility(nextWorker, nextStatus)
+      isVisible: reconcileWorkerKycVisibility(nextWorker.isVisible, nextWorker, nextStatus)
     }, 'worker-wallet')
 
     return true
@@ -1710,7 +1689,7 @@ export const reconcileWorkerRegistrationFee = async (
   const outstandingRegistrationFee = getOutstandingWorkerRegistrationFee(worker, workerPlan, transactions)
   if (outstandingRegistrationFee <= 0 || worker.walletBalance < outstandingRegistrationFee) {
     const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
-    const shouldBeVisible = getReconciledWorkerVisibility(worker, effectiveStatus)
+    const shouldBeVisible = reconcileWorkerKycVisibility(worker.isVisible, worker, effectiveStatus)
     if (worker.status !== effectiveStatus || worker.isVisible !== shouldBeVisible) {
       await updateLabourEntity('workers', worker.id, {
         status: effectiveStatus,
@@ -1734,7 +1713,7 @@ export const reconcileWorkerRegistrationFee = async (
     walletBalance: nextWorker.walletBalance,
     registrationFeePaid: true,
     status: nextStatus,
-    isVisible: getReconciledWorkerVisibility(nextWorker, nextStatus)
+    isVisible: reconcileWorkerKycVisibility(nextWorker.isVisible, nextWorker, nextStatus)
   }, 'worker-wallet')
 
   await createLabourEntity('walletTransactions', {
@@ -1761,7 +1740,7 @@ export const reconcileWorkerDailyCharge = async (
   assertWorkerLifecycleMutationAllowed()
 
   const effectiveStatus = deriveWorkerStatus(worker, workerPlan, transactions)
-  const shouldBeVisible = getReconciledWorkerVisibility(worker, effectiveStatus)
+  const shouldBeVisible = reconcileWorkerKycVisibility(worker.isVisible, worker, effectiveStatus)
 
   if (!workerPlan || !worker.activePlan || isWorkerPlanExpiredRecord(worker)) {
     if (worker.status !== effectiveStatus || worker.isVisible !== shouldBeVisible) {
@@ -1815,7 +1794,7 @@ export const reconcileWorkerDailyCharge = async (
 
   if (worker.walletBalance < dailyCharge) {
     const nextStatus = deriveWorkerStatus({ ...worker, walletBalance: 0 }, workerPlan, transactions)
-    const nextVisibility = getReconciledWorkerVisibility(worker, nextStatus)
+    const nextVisibility = reconcileWorkerKycVisibility(worker.isVisible, worker, nextStatus)
     if (worker.status !== nextStatus || worker.isVisible !== nextVisibility) {
       await updateLabourEntity('workers', worker.id, {
         status: nextStatus,
@@ -1851,7 +1830,7 @@ export const reconcileWorkerDailyCharge = async (
     walletBalance: nextWorker.walletBalance,
     lastWalletDeductionDate: nextWorker.lastWalletDeductionDate,
     status: nextStatus,
-    isVisible: getReconciledWorkerVisibility(nextWorker, nextStatus)
+    isVisible: reconcileWorkerKycVisibility(nextWorker.isVisible, nextWorker, nextStatus)
   }, 'worker-wallet')
 
   return true
@@ -3001,7 +2980,7 @@ export const completeWorkerAppRegistration = async (
     maximumExpectedWage: payload.maximumExpectedWage || 0,
     availability: payload.availability as LabourWorkerRecord['availability'],
     profilePhotoPath: payload.profilePhotoPath.trim(),
-    identityProofType: normalizeIdentityProofType(payload.identityProofType),
+    identityProofType: normalizeWorkerIdentityProofType(payload.identityProofType),
     identityProofNumber: payload.identityProofNumber.trim(),
     identityProofPath: incomingIdentityProofPath,
     resumeDocumentPath: nextResumeDocumentPath,
@@ -3044,7 +3023,9 @@ export const completeWorkerAppRegistration = async (
     resumeDocumentPath: nextWorker.resumeDocumentPath,
     registrationCompletedAt: nextWorker.registrationCompletedAt,
     registrationFeePaid: existing.registrationFeePaid,
-    isVisible: shouldResetKycForReview ? false : getReconciledWorkerVisibility(nextWorker, nextStatus),
+    isVisible: shouldResetKycForReview
+      ? false
+      : reconcileWorkerKycVisibility(existing.isVisible, nextWorker, nextStatus),
     status: shouldResetKycForReview ? 'pending' : nextStatus,
     ...(shouldResetKycForReview
       ? {
@@ -3179,7 +3160,7 @@ export const updateWorkerAppProfile = async (
     minimumExpectedWage: mergedWorker.minimumExpectedWage,
     maximumExpectedWage: mergedWorker.maximumExpectedWage,
     availability: mergedWorker.availability,
-    isVisible: getReconciledWorkerVisibility(mergedWorker, nextStatus),
+    isVisible: reconcileWorkerKycVisibility(mergedWorker.isVisible, mergedWorker, nextStatus),
     status: nextStatus
   }, 'worker-app')
 
@@ -3299,7 +3280,11 @@ export const updateWorkerWalletStatus = async (workerId: string, active: boolean
     workerReactivatedAt: now,
     lastWalletDeductionDate: activationCandidate.lastWalletDeductionDate,
     status: nextStatus,
-    isVisible: getReconciledWorkerVisibility(activationCandidate, nextStatus)
+    isVisible: reconcileWorkerKycVisibility(
+      activationCandidate.isVisible,
+      activationCandidate,
+      nextStatus
+    )
   }, 'worker-wallet')
 
   return getWorkerAppDashboard(workerId)

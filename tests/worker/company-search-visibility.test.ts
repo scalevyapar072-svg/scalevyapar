@@ -2,9 +2,15 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
+import { pathToFileURL } from 'node:url'
 import ts from 'typescript'
 
 const workspaceRoot = process.cwd()
+const { reconcileWorkerKycVisibility } = await import(
+  pathToFileURL(
+    path.join(workspaceRoot, 'lib', 'worker-kyc-completeness.ts'),
+  ).href,
+)
 const companySearchSource = readFileSync(
   path.join(workspaceRoot, 'app', 'labour', 'company', 'search', 'page.tsx'),
   'utf8',
@@ -13,11 +19,6 @@ const companySearchClientSource = readFileSync(
   path.join(workspaceRoot, 'app', 'labour', 'company', 'search', 'labour-search-client.tsx'),
   'utf8',
 )
-const workerAppSource = readFileSync(
-  path.join(workspaceRoot, 'lib', 'labour-worker-app.ts'),
-  'utf8',
-)
-
 const toDataUrl = (source: string) =>
   `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
 
@@ -234,22 +235,8 @@ test('combined active and inactive assembly cannot reintroduce explicit false', 
   assert.ok(companySearchSource.includes('.filter(isWorkerVisibleInCompanySearch)'))
 })
 
-const reconciliationModule = await import(
-  transpileToDataUrl(`
-    const isWorkerProfileComplete = ${extractVariableInitializer(workerAppSource, 'isWorkerProfileComplete')}
-    const isWorkerRegistrationComplete = ${extractVariableInitializer(workerAppSource, 'isWorkerRegistrationComplete')}
-    const getReconciledWorkerVisibility = ${extractVariableInitializer(workerAppSource, 'getReconciledWorkerVisibility')}
-    export { getReconciledWorkerVisibility }
-  `),
-)
-
 test('admin-hidden false survives worker reconciliation', () => {
-  const reconcile = reconciliationModule.getReconciledWorkerVisibility as (
-    worker: Record<string, unknown>,
-    status: string,
-  ) => boolean
-
-  assert.equal(reconcile({
+  const worker = {
     fullName: 'Synthetic Worker',
     city: 'Jaipur',
     categoryIds: ['category-welder'],
@@ -258,7 +245,9 @@ test('admin-hidden false survives worker reconciliation', () => {
     identityProofNumber: 'QA-TEST',
     identityProofPath: 'workers/synthetic/identity.png',
     isVisible: false,
-  }, 'active'), false)
+  }
+
+  assert.equal(reconcileWorkerKycVisibility(worker.isVisible, worker, 'active'), false)
 })
 
 test('visibility exclusion stays server-side without changing company-search controls', () => {

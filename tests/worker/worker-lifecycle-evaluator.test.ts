@@ -468,7 +468,7 @@ test('mutation-side deriveWorkerStatus stays a thin compatibility wrapper over t
   for (const expected of [
     'const lifecycleFacts: WorkerLifecycleFacts = {',
     'persistedStatus: worker.status,',
-    'registrationComplete: isWorkerRegistrationComplete(worker),',
+    'registrationComplete: isWorkerKycComplete(worker),',
     "workerPausedByWorker: worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker',",
     'activePlanId: worker.activePlan,',
     'planResolved: Boolean(workerPlan),',

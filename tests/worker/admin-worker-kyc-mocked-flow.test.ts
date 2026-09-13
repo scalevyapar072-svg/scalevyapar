@@ -2,9 +2,15 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
+import { pathToFileURL } from 'node:url'
 import ts from 'typescript'
 
 const workspaceRoot = process.cwd()
+const { reconcileWorkerKycVisibility } = await import(
+  pathToFileURL(
+    path.join(workspaceRoot, 'lib', 'worker-kyc-completeness.ts'),
+  ).href,
+)
 const labourAdminPageSource = readFileSync(
   path.join(workspaceRoot, 'app', 'admin', 'labour', 'page.tsx'),
   'utf8',
@@ -17,11 +23,6 @@ const marketplaceSource = readFileSync(
   path.join(workspaceRoot, 'lib', 'labour-marketplace.ts'),
   'utf8',
 )
-const workerAppSource = readFileSync(
-  path.join(workspaceRoot, 'lib', 'labour-worker-app.ts'),
-  'utf8',
-)
-
 const toDataUrl = (source: string) =>
   `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
 
@@ -421,21 +422,10 @@ const makeWorkerFileDeleteRequest = (
   body: JSON.stringify({ workerId, documentKind }),
 })
 
-const visibilityHarnessModule = await import(
-  transpileToDataUrl(`
-    export const createVisibilityReconciler = () => {
-      const isWorkerProfileComplete = ${extractVariableInitializer(workerAppSource, 'isWorkerProfileComplete')}
-      const isWorkerRegistrationComplete = ${extractVariableInitializer(workerAppSource, 'isWorkerRegistrationComplete')}
-      const getReconciledWorkerVisibility = ${extractVariableInitializer(workerAppSource, 'getReconciledWorkerVisibility')}
-      return getReconciledWorkerVisibility
-    }
-  `),
-)
-
-const reconcileVisibility = visibilityHarnessModule.createVisibilityReconciler() as (
+const reconcileVisibility = (
   worker: Record<string, unknown>,
   status: string,
-) => boolean
+) => reconcileWorkerKycVisibility(Boolean(worker.isVisible), worker, status)
 
 const completeVisibilityWorker = (isVisible: boolean) => ({
   fullName: 'Synthetic Worker',

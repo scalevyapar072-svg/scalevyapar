@@ -12,6 +12,9 @@ if (!supabaseServiceRoleKey) {
 }
 
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+  db: {
+    timeout: 8_000
+  },
   auth: {
     persistSession: false,
     autoRefreshToken: false

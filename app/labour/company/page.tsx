@@ -1,8 +1,8 @@
 import { headers } from 'next/headers'
 import { LabourCompanyHomeClient } from './labour-company-home-client'
-import { getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
-import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
-import { getLabourMastersSnapshot } from '@/lib/labour-masters'
+import { getPublicLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
+import { getPublicLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getPublicLabourMastersSnapshot } from '@/lib/labour-masters'
 import { getVisibleLabourMasterOptions } from '@/lib/labour-masters-schema'
 
 export const dynamic = 'force-dynamic'
@@ -11,14 +11,16 @@ export const revalidate = 0
 export default async function LabourCompanyHomePage() {
   const headerStore = await headers()
   const hostname = (headerStore.get('x-forwarded-host') || headerStore.get('host'))?.split(',')[0]?.split(':')[0] ?? null
-  const [website, snapshot, masters] = await Promise.all([
-    getLabourCompanyWebsiteContent(),
-    getLabourMarketplaceSnapshot(),
-    getLabourMastersSnapshot()
+  const [website, marketplaceResult, mastersResult] = await Promise.all([
+    getPublicLabourCompanyWebsiteContent(),
+    getPublicLabourMarketplaceSnapshot(),
+    getPublicLabourMastersSnapshot()
   ])
 
   const content = website.content
-  const companyPlans = snapshot.plans.filter(plan => plan.audience === 'company' && plan.isActive)
+  const snapshot = marketplaceResult.snapshot
+  const masters = mastersResult.snapshot
+  const companyPlans = (snapshot?.plans || []).filter(plan => plan.audience === 'company' && plan.isActive)
   const industryCategoryOptions = getVisibleLabourMasterOptions(
     masters.options.filter(option => option.masterKey === 'industry_category')
   )
@@ -28,7 +30,7 @@ export default async function LabourCompanyHomePage() {
   const cityOptions = masters.activeCities
     .map(option => option.value.trim() || option.label.trim())
     .filter(Boolean)
-  const categoryOptions = snapshot.categories
+  const categoryOptions = (snapshot?.categories || [])
     .filter(category => category.isActive)
     .map(category => ({
       id: category.id,
@@ -56,12 +58,14 @@ export default async function LabourCompanyHomePage() {
         categoryId: plan.categoryId
       }))}
       stats={{
-        activeCompanies: snapshot.companies.length,
-        activeWorkers: snapshot.stats.activeWorkers,
-        liveJobs: snapshot.jobPosts.length,
-        totalJobs: snapshot.jobPosts.length,
+        activeCompanies: snapshot?.stats.totalCompanies || 0,
+        activeWorkers: snapshot?.stats.activeWorkers || 0,
+        liveJobs: snapshot?.stats.totalJobs || 0,
+        totalJobs: snapshot?.stats.totalJobs || 0,
         industriesCovered: 8
       }}
+      dataUnavailable={marketplaceResult.degraded}
+      showDegradedNotice={website.degraded || mastersResult.degraded || marketplaceResult.degraded}
       initialHostname={hostname}
     />
   )

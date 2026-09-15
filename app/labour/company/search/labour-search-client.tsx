@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { CheckCircle2, Heart, MessageCircle, Phone, Search, ShieldCheck, Sparkles, Users } from 'lucide-react'
@@ -191,6 +192,39 @@ type Props = {
   authenticatedCompany: FeaturedCompany | null
   initialRequestedJobId: string
   initialHostname?: string | null
+  dataUnavailable?: boolean
+}
+
+function SearchHeroImage({ src }: { src: string }) {
+  const resolvedSrc = src || '/worker-hero-reference.png'
+  const isRemote = /^https?:\/\//i.test(resolvedSrc)
+
+  if (isRemote) {
+    return (
+      <img
+        src={resolvedSrc}
+        alt="Search Worker banner"
+        className={styles.searchHeroImage}
+        width={809}
+        height={1942}
+        loading="eager"
+        fetchPriority="high"
+        decoding="async"
+      />
+    )
+  }
+
+  return (
+    <Image
+      src={resolvedSrc}
+      alt="Search Worker banner"
+      className={styles.searchHeroImage}
+      width={809}
+      height={1942}
+      sizes="(max-width: 920px) calc(100vw - 32px), 44vw"
+      preload
+    />
+  )
 }
 
 const sortOptions = [
@@ -535,7 +569,8 @@ export function LabourSearchClient({
   featuredCompany,
   authenticatedCompany,
   initialRequestedJobId,
-  initialHostname = null
+  initialHostname = null,
+  dataUnavailable = false,
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -543,6 +578,7 @@ export function LabourSearchClient({
   const [hostname, setHostname] = useState<string | null>(initialHostname)
   const hasMountedRef = useRef(false)
   const hasAppliedInitialFilterResetRef = useRef(false)
+  const openingCompanyPanelRef = useRef(false)
   const [search, setSearch] = useState(initialFilters.search)
   const [city, setCity] = useState(initialFilters.city)
   const [category, setCategory] = useState(initialFilters.category)
@@ -1415,7 +1451,8 @@ export function LabourSearchClient({
   }
 
   const openCompanyPanel = async () => {
-    if (openingCompanyPanel) return
+    if (openingCompanyPanelRef.current) return
+    openingCompanyPanelRef.current = true
     setOpeningCompanyPanel(true)
 
     try {
@@ -1426,7 +1463,8 @@ export function LabourSearchClient({
       }
 
       const response = await fetch('/api/labour/company/auth/dashboard-session', {
-        cache: 'no-store'
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10_000),
       })
 
       if (response.ok) {
@@ -1434,10 +1472,16 @@ export function LabourSearchClient({
         return
       }
 
-      router.push(resolveHref('/labour/company/signin'))
+      if (response.status === 401 || response.status === 403) {
+        router.push(resolveHref('/labour/company/signin'))
+        return
+      }
+
+      window.alert('The company panel is temporarily unavailable. Your existing session has not been removed.')
     } catch {
-      router.push(resolveHref('/labour/company/signin'))
+      window.alert('The company panel is temporarily unavailable. Your existing session has not been removed.')
     } finally {
+      openingCompanyPanelRef.current = false
       setOpeningCompanyPanel(false)
     }
   }
@@ -1469,11 +1513,7 @@ export function LabourSearchClient({
 
         <div className={styles.searchHeroMedia}>
           <div className={styles.searchHeroImageFrame}>
-            <img
-              src={searchPage.imageSrc || '/worker-hero-reference.png'}
-              alt="Search Worker banner"
-              className={styles.searchHeroImage}
-            />
+            <SearchHeroImage src={searchPage.imageSrc} />
             <div className={styles.searchHeroFloatingCard}>
               <div className={styles.searchHeroFloatingIcon}>
                 <Users size={18} strokeWidth={2.2} />
@@ -1636,8 +1676,10 @@ export function LabourSearchClient({
             <div className={styles.searchResultsToolbar}>
               <div>
                 <p className={styles.searchResultsCount}>
-                  Showing {pagination.totalCount === 0 ? 0 : (currentPage - 1) * pagination.pageSize + 1}-
-                  {Math.min(currentPage * pagination.pageSize, pagination.totalCount)} of {pagination.totalCount} workers
+                  {dataUnavailable
+                    ? 'Worker data unavailable'
+                    : <>Showing {pagination.totalCount === 0 ? 0 : (currentPage - 1) * pagination.pageSize + 1}-
+                        {Math.min(currentPage * pagination.pageSize, pagination.totalCount)} of {pagination.totalCount} workers</>}
                 </p>
                 <p className={styles.searchResultsHint}>
                   {isPending ? 'Loading updated matches...' : 'Use the filters to narrow results by industry, business type, city, availability and skills.'}
@@ -1701,7 +1743,17 @@ export function LabourSearchClient({
               </div>
             </div>
 
-            {pagination.totalCount === 0 ? (
+            {dataUnavailable ? (
+              <div className={styles.resultsEmptyCard} role="status" aria-live="polite">
+                <h2 className={styles.sectionTitle}>Worker data is temporarily unavailable</h2>
+                <p className={styles.textMuted}>This is not an empty search result. Retry to reload the same filters.</p>
+                <div className={styles.buttonRow} style={{ marginTop: '18px' }}>
+                  <button type="button" onClick={() => router.refresh()} className={styles.homeHeroSecondaryButton}>
+                    Retry
+                  </button>
+                </div>
+              </div>
+            ) : pagination.totalCount === 0 ? (
               <div className={styles.resultsEmptyCard}>
                 <h2 className={styles.sectionTitle}>{emptyStateCopy.title}</h2>
                 <p className={styles.textMuted}>{emptyStateCopy.description}</p>
@@ -1744,8 +1796,11 @@ export function LabourSearchClient({
                               src={worker.profilePhotoUrl || worker.profilePhotoPath}
                               alt={worker.fullName}
                               className={styles.searchWorkerAvatarImage}
+                              width={160}
+                              height={160}
                               loading="lazy"
                               decoding="async"
+                              fetchPriority="low"
                               onError={() =>
                                 setImageFallbackWorkerIds(current =>
                                   current.includes(worker.id) ? current : [...current, worker.id]

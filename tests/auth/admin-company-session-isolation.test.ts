@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { handleCompanyDashboardSessionGet } from '../../app/api/labour/company/auth/dashboard-session/route'
+import { handleCompanyDashboardGet } from '../../app/api/labour/company/dashboard/route'
 import { handleCompanyLoginPost } from '../../app/api/labour/company/auth/login/route'
 import { handleCompanyLogoutPost } from '../../app/api/labour/company/auth/logout/route'
 import {
@@ -250,4 +251,96 @@ test('Admin authorization ignores the Company cookie and Company authorization i
 
   assert.ok(wrongRoleCompanyResponse instanceof Response)
   assert.equal(wrongRoleCompanyResponse.status, 401)
+})
+
+test('Company dashboard session distinguishes a provider outage from an invalid Company cookie', async () => {
+  const validCompanyUser = { ...companyDashboardUser }
+  const outageResponse = await handleCompanyDashboardSessionGet(
+    makeRequest('https://qa-profile-sync.scalevyapar.in/api/labour/company/auth/dashboard-session'),
+    {
+      loginCompanyAppFromDashboard: async () => {
+        throw new Error('synthetic provider outage')
+      },
+      requireCompanyDashboardUser: async () => validCompanyUser,
+    },
+  )
+
+  assert.equal(outageResponse.status, 503)
+  assert.deepEqual(await outageResponse.json(), {
+    error: 'Company dashboard is temporarily unavailable.',
+  })
+
+  const invalidResponse = await handleCompanyDashboardSessionGet(
+    makeRequest('https://qa-profile-sync.scalevyapar.in/api/labour/company/auth/dashboard-session'),
+    {
+      loginCompanyAppFromDashboard: async () => {
+        throw new Error('should not reach company app bootstrap')
+      },
+      requireCompanyDashboardUser,
+    },
+  )
+
+  assert.equal(invalidResponse.status, 401)
+})
+
+test('Known Company-account bootstrap failures preserve the existing 400 contract', async () => {
+  const response = await handleCompanyDashboardSessionGet(
+    makeRequest('https://qa-profile-sync.scalevyapar.in/api/labour/company/auth/dashboard-session'),
+    {
+      loginCompanyAppFromDashboard: async () => {
+        throw new Error('No registered company was found for this dashboard account.')
+      },
+      requireCompanyDashboardUser: async () => companyDashboardUser,
+    },
+  )
+
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), {
+    error: 'No registered company was found for this dashboard account.',
+  })
+})
+
+test('Company dashboard read preserves the session distinction during provider outages', async () => {
+  const outageResponse = await handleCompanyDashboardGet(
+    makeRequest('https://qa-profile-sync.scalevyapar.in/api/labour/company/dashboard'),
+    {
+      getCompanyAppDashboard: async () => {
+        throw new Error('synthetic provider outage')
+      },
+      requireCompanyApp: async () => ({ companyId: 'company-1' } as never),
+    },
+  )
+
+  assert.equal(outageResponse.status, 503)
+  assert.deepEqual(await outageResponse.json(), {
+    error: 'Company dashboard is temporarily unavailable.',
+  })
+
+  const invalidResponse = await handleCompanyDashboardGet(
+    makeRequest('https://qa-profile-sync.scalevyapar.in/api/labour/company/dashboard'),
+    {
+      getCompanyAppDashboard: async () => {
+        throw new Error('should not read the dashboard')
+      },
+      requireCompanyApp: async () => {
+        throw new Error('Unauthorized')
+      },
+    },
+  )
+
+  assert.equal(invalidResponse.status, 401)
+})
+
+test('Missing Company account remains an authentication failure', async () => {
+  const response = await handleCompanyDashboardGet(
+    makeRequest('https://qa-profile-sync.scalevyapar.in/api/labour/company/dashboard'),
+    {
+      getCompanyAppDashboard: async () => {
+        throw new Error('Company account not found.')
+      },
+      requireCompanyApp: async () => ({ companyId: 'company-1' } as never),
+    },
+  )
+
+  assert.equal(response.status, 401)
 })

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import styles from './company-site.module.css'
 import { toRozgarPublicPath } from '@/lib/labour-company-host'
 import {
@@ -175,6 +175,7 @@ export function CompanyRegistrationForm({
   const [form, setForm] = useState<FormState>(initialFormState)
   const [errors, setErrors] = useState<Partial<Record<keyof FormState | UploadKey | 'submit', string>>>({})
   const [submitting, setSubmitting] = useState(false)
+  const submitInFlightRef = useRef(false)
   const [success, setSuccess] = useState('')
   const [submissionId, setSubmissionId] = useState(() => `company-intake-${Date.now()}`)
   const [consentLanguage, setConsentLanguage] = useState<WhatsappConsentLanguage>('en')
@@ -447,6 +448,7 @@ export function CompanyRegistrationForm({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
+    if (submitInFlightRef.current) return
     setSuccess('')
 
     const nextErrors = validate()
@@ -454,6 +456,7 @@ export function CompanyRegistrationForm({
       return
     }
 
+    submitInFlightRef.current = true
     setSubmitting(true)
 
     try {
@@ -510,6 +513,7 @@ export function CompanyRegistrationForm({
         submit: error instanceof Error ? error.message : 'Failed to submit company registration.'
       }))
     } finally {
+      submitInFlightRef.current = false
       setSubmitting(false)
     }
   }

@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import {
@@ -36,6 +36,7 @@ import {
   type LabourMasterOption
 } from '@/lib/labour-masters-schema'
 import { PublicAssetImage } from './public-asset-image'
+import { PublicDataNotice } from './public-data-notice'
 import { attachRozgarMotion } from './rozgar-motion'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
@@ -70,6 +71,8 @@ type Props = {
     totalJobs: number
     industriesCovered: number
   }
+  dataUnavailable?: boolean
+  showDegradedNotice?: boolean
   initialHostname?: string | null
 }
 
@@ -185,7 +188,18 @@ function HeroBannerImage({ src, alt, priority = false }: { src: string; alt: str
   const isRemote = /^https?:\/\//i.test(src)
 
   if (isRemote) {
-    return <img src={src} alt={alt} className={styles.homeHeroVisualImage} loading={priority ? 'eager' : 'lazy'} />
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={styles.homeHeroVisualImage}
+        width={960}
+        height={720}
+        loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : 'low'}
+        decoding="async"
+      />
+    )
   }
 
   return (
@@ -195,7 +209,7 @@ function HeroBannerImage({ src, alt, priority = false }: { src: string; alt: str
       fill
       sizes="(max-width: 960px) 100vw, 42vw"
       className={styles.homeHeroVisualImage}
-      priority={priority}
+      preload={priority}
     />
   )
 }
@@ -210,10 +224,11 @@ export function LabourCompanyHomeClient({
   cityOptions,
   companyPlans,
   stats,
+  dataUnavailable = false,
+  showDegradedNotice = false,
   initialHostname = null
 }: Props) {
   const pathname = usePathname()
-  const router = useRouter()
   const homeRef = useRef<HTMLDivElement | null>(null)
   const testimonialTouchStartXRef = useRef<number | null>(null)
   const categoryTouchStartXRef = useRef<number | null>(null)
@@ -248,22 +263,6 @@ export function LabourCompanyHomeClient({
     { label: 'Contact', href: '/labour/company/contact' }
   ]
   useMobileMenuScrollLock(menuOpen)
-
-  useEffect(() => {
-    const routesToPrefetch = [
-      '/labour/company',
-      searchHref,
-      jobPostHref,
-      registrationHref,
-      loginHref,
-      panelHref,
-      '/labour/company/contact'
-    ]
-
-    Array.from(new Set(routesToPrefetch.map(resolveHref))).forEach(route => {
-      router.prefetch(route)
-    })
-  }, [hostname, jobPostHref, loginHref, panelHref, registrationHref, router, searchHref])
 
   const announcementText = content.header.announcement?.trim()
   const primaryCtaLabel = content.header.primaryCtaLabel?.trim() || 'Post a Job'
@@ -609,15 +608,15 @@ export function LabourCompanyHomeClient({
   const statItems = [
     {
       ...content.home.stats.items[0],
-      value: stats.activeWorkers > 0 ? `${stats.activeWorkers}+` : (content.home.stats.items[0]?.value || '500+')
+      value: dataUnavailable ? 'Live count unavailable' : stats.activeWorkers > 0 ? `${stats.activeWorkers}+` : (content.home.stats.items[0]?.value || '500+')
     },
     {
       ...content.home.stats.items[1],
-      value: stats.activeCompanies > 0 ? `${stats.activeCompanies}+` : (content.home.stats.items[1]?.value || '120+')
+      value: dataUnavailable ? 'Live count unavailable' : stats.activeCompanies > 0 ? `${stats.activeCompanies}+` : (content.home.stats.items[1]?.value || '120+')
     },
     {
       ...content.home.stats.items[2],
-      value: (stats.totalJobs || stats.liveJobs) > 0 ? `${stats.totalJobs || stats.liveJobs}+` : (content.home.stats.items[2]?.value || '300+')
+      value: dataUnavailable ? 'Live count unavailable' : (stats.totalJobs || stats.liveJobs) > 0 ? `${stats.totalJobs || stats.liveJobs}+` : (content.home.stats.items[2]?.value || '300+')
     },
     {
       ...content.home.stats.items[3],
@@ -727,6 +726,8 @@ export function LabourCompanyHomeClient({
           </div>
         </div>
       </header>
+
+      {showDegradedNotice ? <PublicDataNotice retryHref={resolveHref('/labour/company')} /> : null}
 
       <main className={styles.homeLandingMain}>
         <section className={styles.homeHeroSection}>

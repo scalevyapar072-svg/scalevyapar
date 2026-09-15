@@ -1,7 +1,7 @@
 'use client'
 
 import { BadgeCheck, CircleAlert, Download, PhoneCall, RotateCcw, X } from 'lucide-react'
-import { useEffect, useEffectEvent, useMemo, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from '../company-site.module.css'
 import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
@@ -23,6 +23,20 @@ import {
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
 const COMPANY_PROFILE_KEY = 'labour_company_profile'
+
+class CompanyPanelRequestError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'CompanyPanelRequestError'
+    this.status = status
+  }
+}
+
+const isAuthenticationFailure = (error: unknown) =>
+  error instanceof CompanyPanelRequestError && (error.status === 400 || error.status === 401 || error.status === 403 || error.status === 404)
+
 type CompanyApplicant = {
   applicationId: string
   appliedAt: string
@@ -298,6 +312,12 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
   const [loading, setLoading] = useState(!signinMode)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [sessionUnavailable, setSessionUnavailable] = useState(false)
+  const loginInFlightRef = useRef(false)
+  const billingProfileInFlightRef = useRef(false)
+  const communicationPreferencesInFlightRef = useRef(false)
+  const applicationNoteInFlightRef = useRef(false)
+  const applicationMutationInFlightRef = useRef(new Set<string>())
   const companyConsentCopy = useMemo(
     () =>
       getWhatsappConsentCopy({
@@ -313,16 +333,40 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
       headers: {
         Authorization: `Bearer ${authToken}`
       },
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
     })
 
-    const data = await response.json()
+    const data = await response.json().catch(() => ({ error: 'Failed to load company panel.' }))
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to load company panel.')
+      throw new CompanyPanelRequestError(response.status, data.error || 'Failed to load company panel.')
     }
 
     setDashboard(data.dashboard as CompanyDashboard)
     setToken(authToken)
+    setSessionUnavailable(false)
+    localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
+    localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify((data.dashboard as CompanyDashboard).profile))
+  }
+
+  const loadDashboardSession = async () => {
+    const response = await fetch('/api/labour/company/auth/dashboard-session', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
+    })
+    const data = await response.json().catch(() => ({ error: 'Company dashboard session was not found.' }))
+    if (!response.ok) {
+      throw new CompanyPanelRequestError(response.status, data.error || 'Company dashboard session was not found.')
+    }
+
+    const authToken = String(data.token || '')
+    if (!authToken) {
+      throw new CompanyPanelRequestError(502, 'Company token is missing from the dashboard session response.')
+    }
+
+    setDashboard(data.dashboard as CompanyDashboard)
+    setToken(authToken)
+    setSessionUnavailable(false)
     localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
     localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify((data.dashboard as CompanyDashboard).profile))
   }
@@ -371,59 +415,42 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
       return
     }
 
-    const stored = localStorage.getItem(COMPANY_TOKEN_KEY)
-    if (!stored) {
-      fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
-        .then(async response => {
-          const data = await response.json()
-          if (!response.ok) {
-            throw new Error(data.error || 'Company dashboard session was not found.')
-          }
+    const initializePanel = async () => {
+      const stored = localStorage.getItem(COMPANY_TOKEN_KEY)
 
-          const authToken = String(data.token || '')
-          if (!authToken) {
-            throw new Error('Company token is missing from the dashboard session response.')
-          }
+      try {
+        if (stored) {
+          try {
+            await loadDashboard(stored)
+            return
+          } catch (dashboardError) {
+            if (!isAuthenticationFailure(dashboardError)) {
+              setToken(stored)
+              setSessionUnavailable(true)
+              return
+            }
 
-          setDashboard(data.dashboard as CompanyDashboard)
-          setToken(authToken)
-          localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
-          localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify((data.dashboard as CompanyDashboard).profile))
-        })
-        .catch(() => {
+            localStorage.removeItem(COMPANY_TOKEN_KEY)
+          }
+        }
+
+        await loadDashboardSession()
+      } catch (sessionError) {
+        if (isAuthenticationFailure(sessionError)) {
           setToken(null)
           setDashboard(null)
-        })
-        .finally(() => setLoading(false))
-      return
+          setSessionUnavailable(false)
+          return
+        }
+
+        if (stored) setToken(stored)
+        setSessionUnavailable(true)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    loadDashboard(stored)
-      .catch(() => {
-        localStorage.removeItem(COMPANY_TOKEN_KEY)
-        return fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
-          .then(async response => {
-            const data = await response.json()
-            if (!response.ok) {
-              throw new Error(data.error || 'Company dashboard session was not found.')
-            }
-
-            const authToken = String(data.token || '')
-            if (!authToken) {
-              throw new Error('Company token is missing from the dashboard session response.')
-            }
-
-            setDashboard(data.dashboard as CompanyDashboard)
-            setToken(authToken)
-            localStorage.setItem(COMPANY_TOKEN_KEY, authToken)
-            localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify((data.dashboard as CompanyDashboard).profile))
-          })
-          .catch(() => {
-            setToken(null)
-            setDashboard(null)
-          })
-      })
-      .finally(() => setLoading(false))
+    void initializePanel()
   }, [signinMode])
 
   useEffect(() => {
@@ -433,6 +460,8 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
 
   const submitLogin = async (event: React.FormEvent) => {
     event.preventDefault()
+    if (loginInFlightRef.current) return
+    loginInFlightRef.current = true
     setSubmitting(true)
     setError('')
 
@@ -471,10 +500,12 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
 
       setDashboard(data.dashboard as CompanyDashboard)
       setToken(authToken)
+      setSessionUnavailable(false)
       localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify((data.dashboard as CompanyDashboard).profile))
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'Failed to sign in company panel.')
     } finally {
+      loginInFlightRef.current = false
       setSubmitting(false)
     }
   }
@@ -593,11 +624,13 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
 
   const saveBillingProfile = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (billingProfileInFlightRef.current) return
     if (!token) {
       setBillingProfileError('Company session expired. Please sign in again and retry.')
       return
     }
 
+    billingProfileInFlightRef.current = true
     setBillingProfileSaving(true)
     setBillingProfileError('')
     setActionMessage('')
@@ -629,17 +662,20 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
           : 'Failed to save billing profile.'
       )
     } finally {
+      billingProfileInFlightRef.current = false
       setBillingProfileSaving(false)
     }
   }
 
   const saveCommunicationPreferences = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (communicationPreferencesInFlightRef.current) return
     if (!token) {
       setCommunicationPreferencesError('Company session expired. Please sign in again and retry.')
       return
     }
 
+    communicationPreferencesInFlightRef.current = true
     setCommunicationPreferencesSaving(true)
     setCommunicationPreferencesError('')
     setCommunicationPreferencesNotice('')
@@ -674,6 +710,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
           : 'Failed to save communication preferences.',
       )
     } finally {
+      communicationPreferencesInFlightRef.current = false
       setCommunicationPreferencesSaving(false)
     }
   }
@@ -714,12 +751,14 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
 
   const saveApplicationNote = async (event: React.FormEvent) => {
     event.preventDefault()
+    if (applicationNoteInFlightRef.current) return
 
     if (!token || !activeApplicationId) {
       setApplicationNoteError('Company session expired. Please sign in again and retry.')
       return
     }
 
+    applicationNoteInFlightRef.current = true
     setApplicationNoteSaving(true)
     setApplicationNoteError('')
     setError('')
@@ -741,6 +780,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
     } catch (noteError) {
       setApplicationNoteError(noteError instanceof Error ? noteError.message : 'Failed to save application note.')
     } finally {
+      applicationNoteInFlightRef.current = false
       setApplicationNoteSaving(false)
     }
   }
@@ -933,22 +973,31 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
       throw new Error('Company session expired. Please sign in again and retry.')
     }
 
-    const response = await fetch('/api/labour/company/applications', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
-    })
-
-    const data = await response.json().catch(() => ({ error: 'Failed to update worker application.' }))
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to update worker application.')
+    if (applicationMutationInFlightRef.current.has(payload.applicationId)) {
+      throw new Error('This application update is already in progress.')
     }
+    applicationMutationInFlightRef.current.add(payload.applicationId)
 
-    setDashboard(data.dashboard as CompanyDashboard)
-    return data as { dashboard: CompanyDashboard, message?: string }
+    try {
+      const response = await fetch('/api/labour/company/applications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      })
+
+      const data = await response.json().catch(() => ({ error: 'Failed to update worker application.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update worker application.')
+      }
+
+      setDashboard(data.dashboard as CompanyDashboard)
+      return data as { dashboard: CompanyDashboard, message?: string }
+    } finally {
+      applicationMutationInFlightRef.current.delete(payload.applicationId)
+    }
   }
 
   const markApplicationReviewedIfNeeded = async (applicationId: string) => {
@@ -1160,6 +1209,26 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
       <section className={styles.card}>
         <p className={styles.sectionTitle}>Loading company panel...</p>
         <p className={styles.textMuted}>Fetching job posts and worker applications.</p>
+      </section>
+    )
+  }
+
+  if (sessionUnavailable && !dashboard) {
+    return (
+      <section className={styles.card} role="status" aria-live="polite">
+        <p className={styles.eyebrow}>Company panel</p>
+        <h1 className={styles.pageTitle}>Company data is temporarily unavailable</h1>
+        <p className={styles.textMuted} style={{ marginBottom: '20px' }}>
+          Your existing login session was preserved. Retry when the service is available; no company data has been shown from a private cache.
+        </p>
+        <div className={styles.buttonRow}>
+          <button type="button" className={styles.primaryButton} onClick={() => window.location.reload()}>
+            Retry company panel
+          </button>
+          <button type="button" className={styles.secondaryButton} onClick={() => void handleLogout()}>
+            Sign out
+          </button>
+        </div>
       </section>
     )
   }

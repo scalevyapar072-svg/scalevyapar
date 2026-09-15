@@ -1,10 +1,11 @@
 import { headers } from 'next/headers'
 import { CompanyJobPostForm } from '../company-job-post-form'
 import { CompanySiteShell } from '../company-site-shell'
-import { getLabourMastersSnapshot } from '@/lib/labour-masters'
+import { getPublicLabourMastersSnapshot } from '@/lib/labour-masters'
 import { groupLabourMasterOptions } from '@/lib/labour-masters-schema'
-import { getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
-import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getPublicLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
+import { getPublicLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { PublicDataNotice } from '../public-data-notice'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -12,15 +13,17 @@ export const revalidate = 0
 export default async function LabourCompanyJobPostPage() {
   const headerStore = await headers()
   const hostname = (headerStore.get('x-forwarded-host') || headerStore.get('host'))?.split(',')[0]?.split(':')[0] ?? null
-  const [website, snapshot, mastersSnapshot] = await Promise.all([
-    getLabourCompanyWebsiteContent(),
-    getLabourMarketplaceSnapshot(),
-    getLabourMastersSnapshot()
+  const [website, marketplaceResult, mastersResult] = await Promise.all([
+    getPublicLabourCompanyWebsiteContent(),
+    getPublicLabourMarketplaceSnapshot(),
+    getPublicLabourMastersSnapshot()
   ])
 
   const content = website.content
-  const activeCategories = snapshot.categories.filter(category => category.isActive)
-  const activeCompanyPlans = snapshot.plans.filter(plan => plan.isActive && plan.audience === 'company')
+  const snapshot = marketplaceResult.snapshot
+  const mastersSnapshot = mastersResult.snapshot
+  const activeCategories = (snapshot?.categories || []).filter(category => category.isActive)
+  const activeCompanyPlans = (snapshot?.plans || []).filter(plan => plan.isActive && plan.audience === 'company')
   const cityOptions = mastersSnapshot.activeCities
     .map(option => option.value.trim() || option.label.trim())
     .filter(Boolean)
@@ -28,7 +31,15 @@ export default async function LabourCompanyJobPostPage() {
 
   return (
     <CompanySiteShell content={content} currentPath="/labour/company/job-post" initialHostname={hostname}>
-      <CompanyJobPostForm
+      {website.degraded || mastersResult.degraded ? (
+        <PublicDataNotice retryHref="/labour/company/job-post" />
+      ) : null}
+      {!snapshot ? (
+        <PublicDataNotice
+          retryHref="/labour/company/job-post"
+          message="Job posting options are temporarily unavailable. No job was created or changed."
+        />
+      ) : <CompanyJobPostForm
         categories={activeCategories.map(category => ({
           id: category.id,
           name: category.name,
@@ -53,7 +64,7 @@ export default async function LabourCompanyJobPostPage() {
         cityOptions={cityOptions}
         accentColor={content.theme.highlightColor || content.theme.accentColor}
         initialHostname={hostname}
-      />
+      />}
     </CompanySiteShell>
   )
 }

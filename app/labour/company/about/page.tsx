@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { CompanySiteShell } from '../company-site-shell'
 import styles from '../company-site.module.css'
-import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getPublicLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -78,7 +78,7 @@ function renderHighlightedText(title: string, highlightedText: string, className
 }
 
 export default async function LabourCompanyAboutPage() {
-  const { content } = await getLabourCompanyWebsiteContent()
+  const { content } = await getPublicLabourCompanyWebsiteContent()
   const about = content.aboutPage
   const floatingIcons = [Building2, Users, Factory]
 

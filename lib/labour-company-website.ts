@@ -1,7 +1,9 @@
 ﻿import { promises as fs } from 'fs'
 import path from 'path'
-import { unstable_noStore as noStore } from 'next/cache'
+import { unstable_cache, unstable_noStore as noStore } from 'next/cache'
 import { supabaseAdmin } from './supabase-admin'
+import { ReadResponseError, runBoundedRead } from './bounded-read'
+import { logSafeServerEvent } from './safe-observability'
 import {
   DEFAULT_CONTACT_SUPPORT_SRC,
   DEFAULT_ROZGAR_LOGO_SRC,
@@ -537,6 +539,7 @@ export interface LabourCompanyWebsiteContent {
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'labour-company-website.json')
 const TABLE_NAME = 'labour_website_content'
 const RECORD_ID = 'company-website'
+export const PUBLIC_LABOUR_WEBSITE_CACHE_TAG = 'public-labour-company-website'
 const LEGACY_ROZGAR_LOGO_SRCS = new Set([
   '/images/rozgar/rozgar-logo-3d.png',
   '/rozgar-logo-source.png'
@@ -2643,6 +2646,7 @@ export const getLabourCompanyWebsiteContent = async (): Promise<{ content: Labou
     .select('content_json')
     .eq('id', RECORD_ID)
     .maybeSingle()
+    .retry(false)
 
   if (error && isMissingSupabaseTableError(error.message)) {
     return { content: normalizeContent(await readJsonContent()), storage: 'json' }
@@ -2661,6 +2665,75 @@ export const getLabourCompanyWebsiteContent = async (): Promise<{ content: Labou
   return {
     content: normalizeContent(data.content_json),
     storage: 'supabase'
+  }
+}
+
+const readPublicLabourCompanyWebsiteContent = async (): Promise<{
+  content: LabourCompanyWebsiteContent
+  storage: 'supabase' | 'json'
+}> => runBoundedRead(async ({ signal }) => {
+  const result = await supabaseAdmin
+    .from(TABLE_NAME)
+    .select('content_json')
+    .eq('id', RECORD_ID)
+    .abortSignal(signal)
+    .maybeSingle()
+    .retry(false)
+
+  if (result.error && isMissingSupabaseTableError(result.error.message)) {
+    return { content: normalizeContent(await readJsonContent()), storage: 'json' as const }
+  }
+
+  if (result.error) {
+    throw new ReadResponseError(result.status, 'Public website content read failed')
+  }
+
+  if (!result.data?.content_json) {
+    return { content: normalizeContent(await readJsonContent()), storage: 'json' as const }
+  }
+
+  return {
+    content: normalizeContent(result.data.content_json),
+    storage: 'supabase' as const,
+  }
+}, {
+  maxRetries: 1,
+})
+
+const getCachedPublicLabourCompanyWebsiteContent = unstable_cache(
+  readPublicLabourCompanyWebsiteContent,
+  [PUBLIC_LABOUR_WEBSITE_CACHE_TAG],
+  {
+    revalidate: 300,
+    tags: [PUBLIC_LABOUR_WEBSITE_CACHE_TAG],
+  },
+)
+
+export const getPublicLabourCompanyWebsiteContent = async (): Promise<{
+  content: LabourCompanyWebsiteContent
+  storage: 'supabase' | 'json'
+  degraded: boolean
+}> => {
+  const startedAt = Date.now()
+
+  try {
+    const result = await getCachedPublicLabourCompanyWebsiteContent()
+    logSafeServerEvent({
+      event: 'public_labour_website_read',
+      outcome: 'success',
+      durationMs: Date.now() - startedAt,
+      source: result.storage,
+    })
+    return { ...result, degraded: false }
+  } catch {
+    const fallback = normalizeContent(await readJsonContent().catch(() => defaultContent))
+    logSafeServerEvent({
+      event: 'public_labour_website_read',
+      outcome: 'degraded',
+      durationMs: Date.now() - startedAt,
+      source: 'json',
+    })
+    return { content: fallback, storage: 'json', degraded: true }
   }
 }
 

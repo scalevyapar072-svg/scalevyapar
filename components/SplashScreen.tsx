@@ -2,16 +2,24 @@
 
 import { useState, useEffect } from 'react'
 
-export default function SplashScreen() {
+type Props = {
+  disabled?: boolean
+}
+
+export default function SplashScreen({ disabled = false }: Props) {
   const [phase, setPhase] = useState<'logo' | 'split' | 'done'>('logo')
 
   useEffect(() => {
+    if (disabled || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return
+    }
+
     const t1 = setTimeout(() => setPhase('split'), 1800)
     const t2 = setTimeout(() => setPhase('done'), 2800)
     return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [])
+  }, [disabled])
 
-  if (phase === 'done') return null
+  if (disabled || phase === 'done') return null
 
   return (
     <>
@@ -79,11 +87,26 @@ export default function SplashScreen() {
           0%,100% { opacity: 0.3; transform: scale(1); }
           50% { opacity: 1; transform: scale(1.4); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .sp-overlay,
+          .sp-center,
+          .sp-brand,
+          .sp-tagline,
+          .sp-dots,
+          .sp-dot {
+            animation: none !important;
+            transition: none !important;
+          }
+          .sp-overlay,
+          .sp-center {
+            display: none !important;
+          }
+        }
       `}</style>
 
-      <div className={`sp-overlay ${phase === 'split' ? 'split' : ''}`} />
+      <div className={`sp-overlay ${phase === 'split' ? 'split' : ''}`} aria-hidden="true" />
 
-      <div className={`sp-center ${phase === 'split' ? 'split' : ''}`}>
+      <div className={`sp-center ${phase === 'split' ? 'split' : ''}`} aria-hidden="true">
         <div className="sp-brand">ScaleVyapar</div>
         <div className="sp-tagline">Business Automation Platform</div>
         <div className="sp-dots">

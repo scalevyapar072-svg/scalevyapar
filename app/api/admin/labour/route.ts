@@ -35,6 +35,12 @@ type AdminLabourMutationDependencies = {
   updateLabourEntity: typeof updateLabourEntity
   getLabourMarketplaceSnapshot?: typeof getLabourMarketplaceSnapshot
   mutationRuntime?: WorkerLifecycleMutationRuntime
+  revalidatePublicCache?: () => void | Promise<void>
+}
+
+const revalidatePublicLabourMarketplace = async () => {
+  const { revalidateTag } = await import('next/cache')
+  revalidateTag('public-labour-marketplace', 'max')
 }
 
 const isWorkerLifecycleAdminMutation = (entityType: LabourEntityType) =>
@@ -82,8 +88,8 @@ export async function GET(request: Request) {
     const snapshot = await getLabourMarketplaceSnapshot()
     const adminCategories = await getLabourAdminVisibleCategories()
     return Response.json({ ...snapshot, adminCategories })
-  } catch (error) {
-    console.error('Labour marketplace fetch failed:', error)
+  } catch {
+    console.error('Labour marketplace fetch failed.')
     return Response.json({ error: 'Failed to load labour marketplace data' }, { status: 500 })
   }
 }
@@ -101,6 +107,7 @@ export async function handleAdminLabourPost(
     requireAdmin,
     updateLabourEntity,
     getLabourMarketplaceSnapshot,
+    revalidatePublicCache: revalidatePublicLabourMarketplace,
   }
 ) {
   try {
@@ -136,10 +143,11 @@ export async function handleAdminLabourPost(
       payload as Record<string, unknown>,
       admin.email
     )
+    await dependencies.revalidatePublicCache?.()
     const adminCategories = await dependencies.getLabourAdminVisibleCategories()
     return Response.json({ success: true, snapshot: { ...snapshot, adminCategories } })
   } catch (error) {
-    console.error('Labour marketplace create failed:', error)
+    console.error('Labour marketplace create failed.')
     return Response.json(
       { error: error instanceof Error ? error.message : 'Failed to create labour record' },
       { status: 500 }
@@ -160,6 +168,7 @@ export async function handleAdminLabourPut(
     requireAdmin,
     updateLabourEntity,
     getLabourMarketplaceSnapshot,
+    revalidatePublicCache: revalidatePublicLabourMarketplace,
   }
 ) {
   try {
@@ -230,10 +239,12 @@ export async function handleAdminLabourPut(
       return Response.json({ error: 'Record not found' }, { status: 404 })
     }
 
+    await dependencies.revalidatePublicCache?.()
+
     const adminCategories = await dependencies.getLabourAdminVisibleCategories()
     return Response.json({ success: true, snapshot: { ...snapshot, adminCategories } })
   } catch (error) {
-    console.error('Labour marketplace update failed:', error)
+    console.error('Labour marketplace update failed.')
     return Response.json(
       { error: error instanceof Error ? error.message : 'Failed to update labour record' },
       { status: 500 }
@@ -254,6 +265,7 @@ export async function handleAdminLabourDelete(
     requireAdmin,
     updateLabourEntity,
     getLabourMarketplaceSnapshot,
+    revalidatePublicCache: revalidatePublicLabourMarketplace,
   }
 ) {
   try {
@@ -279,10 +291,12 @@ export async function handleAdminLabourDelete(
       return Response.json({ error: 'Record not found' }, { status: 404 })
     }
 
+    await dependencies.revalidatePublicCache?.()
+
     const adminCategories = await dependencies.getLabourAdminVisibleCategories()
     return Response.json({ success: true, snapshot: { ...snapshot, adminCategories } })
   } catch (error) {
-    console.error('Labour marketplace delete failed:', error)
+    console.error('Labour marketplace delete failed.')
     if (error instanceof LabourEntityConflictError) {
       return Response.json({ error: error.message }, { status: error.statusCode })
     }

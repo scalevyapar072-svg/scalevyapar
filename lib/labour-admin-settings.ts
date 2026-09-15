@@ -366,6 +366,7 @@ const readSupabaseSettings = async () => {
     .select('settings_json')
     .eq('id', RECORD_ID)
     .maybeSingle()
+    .retry(false)
 
   if (error && isMissingSupabaseTableError(error.message)) {
     return null

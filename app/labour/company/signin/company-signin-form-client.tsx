@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { isRozgarSubdomainHost, toRozgarPublicPath } from '@/lib/labour-company-host'
 import styles from '../company-site.module.css'
 
@@ -39,6 +39,8 @@ export function CompanySigninFormClient({ content }: Props) {
   const [forgotOpen, setForgotOpen] = useState(false)
   const [forgotIdentity, setForgotIdentity] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
+  const submitInFlightRef = useRef(false)
+  const forgotInFlightRef = useRef(false)
   const [forgotError, setForgotError] = useState('')
   const [forgotMessage, setForgotMessage] = useState('')
   const [previewResetUrl, setPreviewResetUrl] = useState('')
@@ -64,6 +66,7 @@ export function CompanySigninFormClient({ content }: Props) {
   }
 
   const handleForgotPassword = async () => {
+    if (forgotInFlightRef.current) return
     const normalizedForgotEmail = forgotIdentity.trim().toLowerCase()
 
     if (!normalizedForgotEmail) {
@@ -80,6 +83,7 @@ export function CompanySigninFormClient({ content }: Props) {
       return
     }
 
+    forgotInFlightRef.current = true
     setForgotLoading(true)
     setForgotError('')
     setForgotMessage('')
@@ -109,12 +113,15 @@ export function CompanySigninFormClient({ content }: Props) {
     } catch {
       setForgotError('Something went wrong. Please try again.')
     } finally {
+      forgotInFlightRef.current = false
       setForgotLoading(false)
     }
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (submitInFlightRef.current) return
+    submitInFlightRef.current = true
     setSubmitting(true)
     setError('')
 
@@ -154,6 +161,7 @@ export function CompanySigninFormClient({ content }: Props) {
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'Failed to sign in company account.')
     } finally {
+      submitInFlightRef.current = false
       setSubmitting(false)
     }
   }

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { CompanySiteShell } from '../company-site-shell'
 import styles from '../company-site.module.css'
-import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getPublicLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import { toRozgarPublicPath } from '@/lib/labour-company-host'
 import { DEFAULT_CONTACT_SUPPORT_SRC, normalizeWebsiteAssetPath } from '@/lib/labour-company-public-assets'
 import { PublicAssetImage } from '../public-asset-image'
@@ -91,7 +91,7 @@ function splitContactAddress(address: string) {
 export default async function LabourCompanyContactPage() {
   const headerStore = await headers()
   const hostname = (headerStore.get('x-forwarded-host') || headerStore.get('host'))?.split(',')[0]?.split(':')[0] ?? null
-  const { content } = await getLabourCompanyWebsiteContent()
+  const { content } = await getPublicLabourCompanyWebsiteContent()
   const contact = content.contactPage
   const address = splitContactAddress(contact.address)
   const resolveHref = (href: string) => toRozgarPublicPath(href, hostname)

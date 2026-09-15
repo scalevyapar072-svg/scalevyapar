@@ -143,7 +143,7 @@ export default async function RootLayout({
             </noscript>
           </>
         ) : null}
-        <SplashScreen />
+        <SplashScreen disabled={isRozgarRoute || isAdminRoute} />
         {children}
         {showFloatingWhatsApp ? (
           <FloatingWhatsApp

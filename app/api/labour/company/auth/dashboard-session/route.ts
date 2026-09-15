@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCompanyDashboardUser } from '../../../../../../lib/auth'
 import { loginCompanyAppFromDashboard } from '../../../../../../lib/labour-company-app'
+import { logSafeServerEvent } from '../../../../../../lib/safe-observability'
 
 type CompanyDashboardSessionDependencies = {
   loginCompanyAppFromDashboard: typeof loginCompanyAppFromDashboard
   requireCompanyDashboardUser: typeof requireCompanyDashboardUser
+}
+
+const isKnownCompanySessionError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : ''
+  return message === 'No registered company was found for this dashboard account.' ||
+    message === 'This company account is blocked. Please contact labour support.'
 }
 
 export async function handleCompanyDashboardSessionGet(
@@ -28,9 +35,17 @@ export async function handleCompanyDashboardSessionGet(
       dashboard: result.dashboard
     })
   } catch (error) {
+    if (isKnownCompanySessionError(error)) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Failed to open company panel from dashboard session.' },
+        { status: 400 }
+      )
+    }
+
+    logSafeServerEvent({ event: 'company_dashboard_session_read', outcome: 'failure', status: 503 })
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to open company panel from dashboard session.' },
-      { status: 400 }
+      { error: 'Company dashboard is temporarily unavailable.' },
+      { status: 503 }
     )
   }
 }

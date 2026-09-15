@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { requireAdmin } from '@/lib/auth'
-import { getLabourCompanyWebsiteContent, updateLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getLabourCompanyWebsiteContent, PUBLIC_LABOUR_WEBSITE_CACHE_TAG, updateLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { logSafeServerEvent } from '@/lib/safe-observability'
 
 const COMPANY_WEBSITE_PATHS = [
   '/labour/company',
@@ -25,8 +26,8 @@ export async function GET(request: NextRequest) {
 
     const data = await getLabourCompanyWebsiteContent()
     return NextResponse.json(data)
-  } catch (error) {
-    console.error('Failed to load labour company website content:', error)
+  } catch {
+    logSafeServerEvent({ event: 'admin_labour_website_read', outcome: 'failure' })
     return NextResponse.json({ error: 'Failed to load labour company website content.' }, { status: 500 })
   }
 }
@@ -44,10 +45,11 @@ export async function PUT(request: NextRequest) {
     }
 
     const data = await updateLabourCompanyWebsiteContent(content)
+    revalidateTag(PUBLIC_LABOUR_WEBSITE_CACHE_TAG, 'max')
     COMPANY_WEBSITE_PATHS.forEach(path => revalidatePath(path))
     return NextResponse.json({ success: true, ...data })
   } catch (error) {
-    console.error('Failed to update labour company website content:', error)
+    logSafeServerEvent({ event: 'admin_labour_website_update', outcome: 'failure' })
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to update labour company website content.' }, { status: 500 })
   }
 }

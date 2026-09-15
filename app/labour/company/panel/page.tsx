@@ -1,13 +1,13 @@
 import { CompanySiteShell } from '../company-site-shell'
 import styles from '../company-site.module.css'
-import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getPublicLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import { CompanyPanelClient } from './company-panel-client'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function LabourCompanyPanelPage() {
-  const { content } = await getLabourCompanyWebsiteContent()
+  const { content } = await getPublicLabourCompanyWebsiteContent()
 
   return (
     <CompanySiteShell content={content} currentPath="/labour/company/panel">

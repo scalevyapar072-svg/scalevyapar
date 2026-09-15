@@ -1,10 +1,13 @@
 import { promises as fs } from 'fs'
 import path from 'path'
+import { unstable_cache } from 'next/cache'
 import {
   getSeededMasterAliases,
   getSeededMasterCatalogForKey
 } from './labour-dependency-seeds'
 import { supabaseAdmin } from './supabase-admin'
+import { ReadResponseError, runBoundedRead } from './bounded-read'
+import { logSafeServerEvent } from './safe-observability'
 import {
   buildLabourLocationOptions,
   findMatchingMasterOption,
@@ -30,6 +33,7 @@ interface LabourMastersData {
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'labour-masters.json')
 const TABLE_NAME = 'labour_admin_settings'
 const RECORD_ID = 'labour-master-data'
+export const PUBLIC_LABOUR_MASTERS_CACHE_TAG = 'public-labour-masters'
 const AUDIT_TABLE_NAME = 'labour_audit_logs'
 const INDUSTRY_CATEGORY_CATALOG_SYNC_VERSION = 1
 const BUSINESS_TYPE_CATALOG_SYNC_VERSION = 2
@@ -530,6 +534,7 @@ const readSupabaseData = async () => {
     .select('settings_json')
     .eq('id', RECORD_ID)
     .maybeSingle()
+    .retry(false)
 
   if (error && isMissingSupabaseTableError(error.message)) {
     return null
@@ -933,6 +938,70 @@ const resolveLabelForAudit = (
 export const getLabourMastersSnapshot = async (): Promise<LabourMastersSnapshot> => {
   const { data, storage } = await readDataWithStorage()
   return createSnapshot(data, storage)
+}
+
+const readPublicLabourMastersSnapshot = async (): Promise<LabourMastersSnapshot> =>
+  runBoundedRead(async ({ signal }) => {
+    const result = await supabaseAdmin
+      .from(TABLE_NAME)
+      .select('settings_json')
+      .eq('id', RECORD_ID)
+      .abortSignal(signal)
+      .maybeSingle()
+      .retry(false)
+
+    if (result.error && isMissingSupabaseTableError(result.error.message)) {
+      return createSnapshot(await readJsonData(), 'json')
+    }
+
+    if (result.error) {
+      throw new ReadResponseError(result.status, 'Public labour masters read failed')
+    }
+
+    const data = result.data?.settings_json
+      ? normalizeLabourMastersData(result.data.settings_json)
+      : defaultLabourMastersData()
+    return createSnapshot(data, result.data ? 'supabase' : 'json')
+  }, {
+    maxRetries: 1,
+  })
+
+const getCachedPublicLabourMastersSnapshot = unstable_cache(
+  readPublicLabourMastersSnapshot,
+  [PUBLIC_LABOUR_MASTERS_CACHE_TAG],
+  {
+    revalidate: 300,
+    tags: [PUBLIC_LABOUR_MASTERS_CACHE_TAG],
+  },
+)
+
+export const getPublicLabourMastersSnapshot = async (): Promise<{
+  snapshot: LabourMastersSnapshot
+  degraded: boolean
+}> => {
+  const startedAt = Date.now()
+
+  try {
+    const snapshot = await getCachedPublicLabourMastersSnapshot()
+    logSafeServerEvent({
+      event: 'public_labour_masters_read',
+      outcome: 'success',
+      durationMs: Date.now() - startedAt,
+      source: snapshot.storage,
+    })
+    return { snapshot, degraded: false }
+  } catch {
+    logSafeServerEvent({
+      event: 'public_labour_masters_read',
+      outcome: 'degraded',
+      durationMs: Date.now() - startedAt,
+      source: 'json',
+    })
+    return {
+      snapshot: createSnapshot(defaultLabourMastersData(), 'json'),
+      degraded: true,
+    }
+  }
 }
 
 export const createLabourMasterOption = async (

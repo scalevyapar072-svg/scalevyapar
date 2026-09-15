@@ -3,14 +3,14 @@ import { headers } from 'next/headers'
 import { CompanySiteShell } from '../company-site-shell'
 import styles from '../company-site.module.css'
 import { toRozgarAbsoluteUrl, toRozgarPublicPath } from '@/lib/labour-company-host'
-import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getPublicLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import { CompanySigninFormClient } from './company-signin-form-client'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function LabourCompanySigninPage() {
-  const { content } = await getLabourCompanyWebsiteContent()
+  const { content } = await getPublicLabourCompanyWebsiteContent()
   const signinContent = content.signinPage
   const headerStore = await headers()
   const hostname = headerStore.get('host')?.split(':')[0] ?? null

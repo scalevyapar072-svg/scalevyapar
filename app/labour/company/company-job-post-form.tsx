@@ -331,7 +331,7 @@ export function CompanyJobPostForm({
   const [companyActivePlanId, setCompanyActivePlanId] = useState('')
   const [companyPlanValidFrom, setCompanyPlanValidFrom] = useState('')
   const [companyPlanValidUntil, setCompanyPlanValidUntil] = useState('')
-  const [autofillState, setAutofillState] = useState<'idle' | 'loading' | 'ready' | 'not-found'>('loading')
+  const [autofillState, setAutofillState] = useState<'idle' | 'loading' | 'ready' | 'not-found' | 'unavailable'>('loading')
   const [submitMode, setSubmitMode] = useState<'publish' | 'draft' | 'checkout'>('publish')
   const [submitting, setSubmitting] = useState(false)
   const submitInFlightRef = useRef(false)
@@ -350,7 +350,7 @@ export function CompanyJobPostForm({
     supportingDocuments: emptyUploadState()
   })
   const companyFieldsLocked = autofillState === 'ready'
-  const isAccessLocked = autofillState === 'loading' || autofillState === 'not-found'
+  const isAccessLocked = autofillState === 'loading' || autofillState === 'not-found' || autofillState === 'unavailable'
   const jobLockedFields = isEditMode
 
   const availableCities = useMemo(() => {
@@ -655,7 +655,8 @@ export function CompanyJobPostForm({
             headers: {
               Authorization: `Bearer ${storedToken}`
             },
-            cache: 'no-store'
+            cache: 'no-store',
+            signal: AbortSignal.timeout(10_000),
           })
 
           if (dashboardResponse.ok) {
@@ -675,16 +676,24 @@ export function CompanyJobPostForm({
               applyCompanyProfile(profile, storedToken)
               return
             }
-          } else if (typeof window !== 'undefined') {
-            localStorage.removeItem(COMPANY_TOKEN_KEY)
-            localStorage.removeItem(COMPANY_PROFILE_KEY)
+          } else if (dashboardResponse.status === 401 || dashboardResponse.status === 403) {
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem(COMPANY_TOKEN_KEY)
+              localStorage.removeItem(COMPANY_PROFILE_KEY)
+            }
+          } else {
+            if (!cancelled) setAutofillState('unavailable')
+            return
           }
         }
 
-        const response = await fetch('/api/labour/company/auth/dashboard-session', { cache: 'no-store' })
+        const response = await fetch('/api/labour/company/auth/dashboard-session', {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(10_000),
+        })
         if (!response.ok) {
           if (!cancelled) {
-            setAutofillState('not-found')
+            setAutofillState(response.status === 401 || response.status === 403 || response.status === 400 ? 'not-found' : 'unavailable')
           }
           return
         }
@@ -716,7 +725,7 @@ export function CompanyJobPostForm({
         applyCompanyProfile(profile, token)
       } catch {
         if (!cancelled) {
-          setAutofillState('not-found')
+          setAutofillState('unavailable')
         }
       }
     }
@@ -1716,16 +1725,29 @@ export function CompanyJobPostForm({
         <div className={styles.companyJobPostGateOverlay}>
           <div className={styles.companyJobPostGateCard}>
             <div className={styles.companyJobPostGateIcon} aria-hidden="true">
-              {autofillState === 'loading' ? '...' : '🔒'}
+              {autofillState === 'loading' ? '...' : autofillState === 'unavailable' ? '!' : '🔒'}
             </div>
             <h2 className={styles.companyJobPostGateTitle}>
-              {autofillState === 'loading' ? 'Checking company access...' : 'Register or Log In to Post a Job'}
+              {autofillState === 'loading'
+                ? 'Checking company access...'
+                : autofillState === 'unavailable'
+                  ? 'Company access is temporarily unavailable'
+                  : 'Register or Log In to Post a Job'}
             </h2>
             <p className={styles.companyJobPostGateText}>
               {autofillState === 'loading'
                 ? 'We are verifying whether your company session is active before opening the job posting workflow.'
-                : 'Please register your company or log in to your account before posting a job requirement.'}
+                : autofillState === 'unavailable'
+                  ? 'Your existing session was preserved. Retry when the company service is available.'
+                  : 'Please register your company or log in to your account before posting a job requirement.'}
             </p>
+            {autofillState === 'unavailable' ? (
+              <div className={styles.companyJobPostGateActions}>
+                <button type="button" className={styles.companyJobPostGatePrimary} onClick={() => window.location.reload()}>
+                  Retry
+                </button>
+              </div>
+            ) : null}
             {autofillState === 'not-found' ? (
               <div className={styles.companyJobPostGateActions}>
                 <Link href={resolveHref('/labour/company/signin')} className={styles.companyJobPostGatePrimary}>

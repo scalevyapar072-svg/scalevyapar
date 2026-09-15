@@ -1,6 +1,6 @@
 import { CompanySiteShell } from '../../company-site-shell'
 import styles from '../../company-site.module.css'
-import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getPublicLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import { CompanyPanelClient } from '../company-panel-client'
 
 export const dynamic = 'force-dynamic'
@@ -14,7 +14,7 @@ type PageProps = {
 
 export default async function LabourCompanyPanelJobPage({ params }: PageProps) {
   const [{ content }, resolvedParams] = await Promise.all([
-    getLabourCompanyWebsiteContent(),
+    getPublicLabourCompanyWebsiteContent(),
     params
   ])
 

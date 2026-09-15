@@ -1,6 +1,6 @@
 import { CompanySiteShell } from '../company-site-shell'
 import { CheckoutPageClient } from './checkout-page-client'
-import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getPublicLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import { headers } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
@@ -11,7 +11,7 @@ export default async function LabourCompanyCheckoutPage({
 }: {
   searchParams: Promise<{ plan?: string; billing?: string }>
 }) {
-  const { content } = await getLabourCompanyWebsiteContent()
+  const { content } = await getPublicLabourCompanyWebsiteContent()
   const params = await searchParams
   const headerStore = await headers()
   const hostname = (headerStore.get('x-forwarded-host') || headerStore.get('host'))?.split(',')[0]?.split(':')[0] ?? null

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { normalizeRozgarCurrentPath, toRozgarPublicPath } from '@/lib/labour-company-host'
@@ -78,7 +78,6 @@ export function CompanySiteShell({
   initialHostname = null
 }: Props) {
   const pathname = usePathname()
-  const router = useRouter()
   const shellRef = useRef<HTMLDivElement | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -155,22 +154,6 @@ export function CompanySiteShell({
   ]
 
   useMobileMenuScrollLock(menuOpen)
-
-  useEffect(() => {
-    const routesToPrefetch = [
-      '/labour/company',
-      searchHref,
-      jobPostHref,
-      registrationHref,
-      loginHref,
-      dashboardHref,
-      '/labour/company/contact'
-    ]
-
-    Array.from(new Set(routesToPrefetch.map(resolveHref))).forEach(route => {
-      router.prefetch(route)
-    })
-  }, [dashboardHref, hostname, jobPostHref, loginHref, registrationHref, router, searchHref])
 
   useEffect(() => {
     const syncAuthState = () => {

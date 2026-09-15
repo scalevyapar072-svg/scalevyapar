@@ -968,6 +968,30 @@ const blankReferralAdminWithdrawalSnapshot: ReferralAdminWithdrawalSnapshot = {
   }
 }
 
+const blankLabourSnapshot: LabourSnapshot = {
+  categories: [],
+  adminCategories: [],
+  plans: [],
+  workers: [],
+  companies: [],
+  jobPosts: [],
+  jobApplications: [],
+  savedJobs: [],
+  workerNotifications: [],
+  walletTransactions: [],
+  rechargeRequests: [],
+  auditLogs: [],
+  stats: {
+    activeWorkers: 0,
+    inactiveWorkers: 0,
+    activeCompanies: 0,
+    liveJobPosts: 0,
+    totalWalletBalance: 0,
+    recentAuditLogs: [],
+  },
+  storage: 'supabase',
+}
+
 const blankReferralLedgerFilters: ReferralLedgerFilters = {
   search: '',
   agentWorkerId: 'all',
@@ -2067,7 +2091,8 @@ const buildJobPostDescription = (jobPost: LabourJobPost) => {
 }
 
 export default function LabourExchangeAdminPage() {
-  const [snapshot, setSnapshot] = useState<LabourSnapshot | null>(null)
+  const [snapshot, setSnapshot] = useState<LabourSnapshot>(blankLabourSnapshot)
+  const [snapshotLoaded, setSnapshotLoaded] = useState(false)
   const [referralSnapshot, setReferralSnapshot] = useState<ReferralAdminSnapshot>(blankReferralAdminSnapshot)
   const [referralWithdrawalSnapshot, setReferralWithdrawalSnapshot] = useState<ReferralAdminWithdrawalSnapshot>(blankReferralAdminWithdrawalSnapshot)
   const [withdrawalPaymentDetails, setWithdrawalPaymentDetails] = useState<ReferralAdminWithdrawalPaymentDetails | null>(null)
@@ -2079,13 +2104,22 @@ export default function LabourExchangeAdminPage() {
   const [settingsStorage, setSettingsStorage] = useState<'supabase' | 'json'>('json')
   const [loading, setLoading] = useState(true)
   const [referralLoading, setReferralLoading] = useState(true)
+  const [referralLoaded, setReferralLoaded] = useState(false)
   const [referralWithdrawalsLoading, setReferralWithdrawalsLoading] = useState(true)
+  const [referralWithdrawalsLoaded, setReferralWithdrawalsLoaded] = useState(false)
   const [referralSaving, setReferralSaving] = useState(false)
   const [referralWithdrawalSaving, setReferralWithdrawalSaving] = useState(false)
   const [withdrawalPaymentDetailsLoading, setWithdrawalPaymentDetailsLoading] = useState(false)
   const [referralSettingsLoading, setReferralSettingsLoading] = useState(true)
+  const [referralSettingsLoaded, setReferralSettingsLoaded] = useState(false)
   const [referralSettingsSaving, setReferralSettingsSaving] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(true)
+  const [snapshotReadError, setSnapshotReadError] = useState('')
+  const [settingsReadError, setSettingsReadError] = useState('')
+  const [mastersReadError, setMastersReadError] = useState('')
+  const [referralReadError, setReferralReadError] = useState('')
+  const [referralSettingsReadError, setReferralSettingsReadError] = useState('')
+  const [referralWithdrawalsReadError, setReferralWithdrawalsReadError] = useState('')
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
   const [isWorkerCategoryMenuOpen, setIsWorkerCategoryMenuOpen] = useState(false)
@@ -2148,6 +2182,7 @@ export default function LabourExchangeAdminPage() {
   const [editingWalletTransactionId, setEditingWalletTransactionId] = useState<string | null>(null)
   const [editingRechargeRequestId, setEditingRechargeRequestId] = useState<string | null>(null)
   const workerKycPanelRef = useRef<HTMLDivElement | null>(null)
+  const readInFlightRef = useRef(new Set<string>())
 
   const [categoryFilters, setCategoryFilters] = useState<CategoryFilters>(blankCategoryFilters)
   const [planFilters, setPlanFilters] = useState<PlanFilters>(blankPlanFilters)
@@ -2237,113 +2272,150 @@ export default function LabourExchangeAdminPage() {
     textDecoration: 'none'
   }
 
+  const beginRead = (key: string) => {
+    if (readInFlightRef.current.has(key)) return false
+    readInFlightRef.current.add(key)
+    return true
+  }
+
+  const endRead = (key: string) => {
+    readInFlightRef.current.delete(key)
+  }
+
+  const fetchAdminRead = (url: string) => fetch(url, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10_000),
+  })
+
   const fetchSnapshot = async () => {
+    if (!beginRead('snapshot')) return
     setLoading(true)
-    setError('')
+    setSnapshotReadError('')
 
     try {
-      const response = await fetch('/api/admin/labour', { cache: 'no-store' })
+      const response = await fetchAdminRead('/api/admin/labour')
       if (!response.ok) {
         throw new Error('Unable to load labour exchange data.')
       }
 
       const data = await response.json()
       setSnapshot(data)
+      setSnapshotLoaded(true)
     } catch {
-      setError('Unable to load labour exchange data right now.')
+      setSnapshotReadError('Unable to load labour exchange data right now. Previously loaded data is still shown when available.')
     } finally {
       setLoading(false)
+      endRead('snapshot')
     }
   }
 
   const fetchSettings = async () => {
+    if (!beginRead('settings')) return
     setSettingsLoading(true)
+    setSettingsReadError('')
 
     try {
-      const response = await fetch('/api/admin/labour/settings', { cache: 'no-store' })
+      const response = await fetchAdminRead('/api/admin/labour/settings')
       const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
       if (!response.ok) {
         throw new Error(data.error || 'Unable to load labour admin settings.')
       }
 
-      setSettingsDraft(data.settings || blankLabourAdminSettings)
+      if (!data.settings) throw new Error('Settings payload is missing.')
+      setSettingsDraft(data.settings)
       setSettingsStorage(data.storage === 'supabase' ? 'supabase' : 'json')
     } catch {
-      setError(current => current || 'Unable to load labour admin settings right now.')
+      setSettingsReadError('Labour Admin settings are temporarily unavailable. Existing values were preserved.')
     } finally {
       setSettingsLoading(false)
+      endRead('settings')
     }
   }
 
   const fetchMasters = async () => {
+    if (!beginRead('masters')) return
+    setMastersReadError('')
     try {
-      const response = await fetch('/api/admin/labour/masters', { cache: 'no-store' })
+      const response = await fetchAdminRead('/api/admin/labour/masters')
       if (!response.ok) {
         throw new Error('Unable to load labour master data.')
       }
 
       const data = await response.json()
       setMastersSnapshot(data)
-    } catch (fetchError) {
-      console.warn('Labour masters fallback in use:', fetchError)
-      setMastersSnapshot(null)
+    } catch {
+      setMastersReadError('Categories and master options are temporarily unavailable. Existing values were preserved.')
+    } finally {
+      endRead('masters')
     }
   }
 
   const fetchReferralSnapshot = async () => {
+    if (!beginRead('referrals')) return
     setReferralLoading(true)
+    setReferralReadError('')
 
     try {
-      const response = await fetch('/api/admin/labour/referrals', { cache: 'no-store' })
+      const response = await fetchAdminRead('/api/admin/labour/referrals')
       const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
       if (!response.ok) {
         throw new Error(data.error || 'Unable to load referral data.')
       }
 
+      if (!data.stats) throw new Error('Referral payload is missing.')
       setReferralSnapshot(data)
+      setReferralLoaded(true)
     } catch {
-      setError(current => current || 'Unable to load Refer & Earn data right now.')
-      setReferralSnapshot(blankReferralAdminSnapshot)
+      setReferralReadError('Refer & Earn data is temporarily unavailable. Existing values were preserved.')
     } finally {
       setReferralLoading(false)
+      endRead('referrals')
     }
   }
 
   const fetchReferralSettings = async () => {
+    if (!beginRead('referral-settings')) return
     setReferralSettingsLoading(true)
+    setReferralSettingsReadError('')
 
     try {
-      const response = await fetch('/api/admin/labour/referral-settings', { cache: 'no-store' })
+      const response = await fetchAdminRead('/api/admin/labour/referral-settings')
       const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
       if (!response.ok) {
         throw new Error(data.error || 'Unable to load referral settings.')
       }
 
-      setReferralSettingsDraft(data.settings || blankReferralAdminSettings)
+      if (!data.settings) throw new Error('Referral settings payload is missing.')
+      setReferralSettingsDraft(data.settings)
+      setReferralSettingsLoaded(true)
     } catch {
-      setError(current => current || 'Unable to load Refer & Earn settings right now.')
-      setReferralSettingsDraft(blankReferralAdminSettings)
+      setReferralSettingsReadError('Refer & Earn settings are temporarily unavailable. Existing values were preserved.')
     } finally {
       setReferralSettingsLoading(false)
+      endRead('referral-settings')
     }
   }
 
   const fetchReferralWithdrawals = async () => {
+    if (!beginRead('referral-withdrawals')) return
     setReferralWithdrawalsLoading(true)
+    setReferralWithdrawalsReadError('')
 
     try {
-      const response = await fetch('/api/admin/labour/withdrawals', { cache: 'no-store' })
+      const response = await fetchAdminRead('/api/admin/labour/withdrawals')
       const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
       if (!response.ok) {
         throw new Error(data.error || 'Unable to load withdrawal requests.')
       }
 
-      setReferralWithdrawalSnapshot(data || blankReferralAdminWithdrawalSnapshot)
+      if (!data?.summary) throw new Error('Withdrawal payload is missing.')
+      setReferralWithdrawalSnapshot(data)
+      setReferralWithdrawalsLoaded(true)
     } catch {
-      setError(current => current || 'Unable to load Refer & Earn withdrawal requests right now.')
-      setReferralWithdrawalSnapshot(blankReferralAdminWithdrawalSnapshot)
+      setReferralWithdrawalsReadError('Withdrawal requests are temporarily unavailable. Existing values were preserved.')
     } finally {
       setReferralWithdrawalsLoading(false)
+      endRead('referral-withdrawals')
     }
   }
 
@@ -3833,25 +3905,6 @@ export default function LabourExchangeAdminPage() {
 
   const onMultiSelectChange = (values: string[], nextValue: string) =>
     values.includes(nextValue) ? values.filter(item => item !== nextValue) : [...values, nextValue]
-
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#f6f8fb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#64748b', fontSize: '14px' }}>Loading labour exchange admin...</p>
-      </div>
-    )
-  }
-
-  if (!snapshot) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#f6f8fb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px' }}>
-        <p style={{ color: '#b91c1c', fontSize: '14px' }}>{error || 'Unable to load the labour exchange module.'}</p>
-        <button onClick={() => void fetchSnapshot()} style={primaryButtonStyle}>
-          Retry
-        </button>
-      </div>
-    )
-  }
 
   const getPlanIndustryLabels = (plan: LabourPlan) =>
     (plan.industryCategoryValues || []).map(getIndustryCategoryLabel).filter(Boolean)
@@ -7055,15 +7108,75 @@ export default function LabourExchangeAdminPage() {
                 <ArrowLeft className="labour-nav-icon" />
                 Back To Admin
               </Link>
-              <button onClick={() => { void fetchSnapshot(); void fetchMasters() }} style={primaryButtonStyle}>
+              <button
+                onClick={() => { void fetchSnapshot(); void fetchMasters() }}
+                style={primaryButtonStyle}
+                disabled={loading}
+                aria-busy={loading}
+              >
                 <RefreshCw className="labour-nav-icon" />
-                Refresh
+                {loading ? 'Refreshing…' : 'Refresh'}
               </button>
             </div>
           </header>
 
           <div className="labour-page-body">
             <div className="labour-page-stack">
+              {!snapshotLoaded ? (
+                <section role="status" aria-live="polite" style={{ ...cardStyle, borderColor: snapshotReadError ? '#fecaca' : '#bfdbfe' }}>
+                  <p style={{ margin: '0 0 6px', color: snapshotReadError ? '#b91c1c' : '#1d4ed8', fontSize: '14px', fontWeight: 700 }}>
+                    {snapshotReadError ? 'Labour data is temporarily unavailable' : 'Loading Labour Admin data…'}
+                  </p>
+                  <p style={{ margin: '0 0 12px', color: '#64748b', fontSize: '13px', lineHeight: 1.55 }}>
+                    {snapshotReadError || 'The workspace and navigation remain available while the main data loads.'}
+                  </p>
+                  {snapshotReadError ? (
+                    <button type="button" onClick={() => void fetchSnapshot()} disabled={loading} style={primaryButtonStyle}>
+                      {loading ? 'Retrying…' : 'Retry'}
+                    </button>
+                  ) : null}
+                </section>
+              ) : null}
+
+              {snapshotLoaded && snapshotReadError ? (
+                <section role="status" aria-live="polite" style={{ ...cardStyle, borderColor: '#fed7aa', background: '#fff7ed' }}>
+                  <p style={{ margin: '0 0 10px', color: '#9a3412', fontSize: '13px', fontWeight: 700 }}>{snapshotReadError}</p>
+                  <button type="button" onClick={() => void fetchSnapshot()} disabled={loading} style={subtleButtonStyle}>Retry main data</button>
+                </section>
+              ) : null}
+
+              {settingsReadError ? (
+                <section role="status" aria-live="polite" style={{ ...cardStyle, borderColor: '#fed7aa', background: '#fff7ed' }}>
+                  <p style={{ margin: '0 0 10px', color: '#9a3412', fontSize: '13px', fontWeight: 700 }}>{settingsReadError}</p>
+                  <button type="button" onClick={() => void fetchSettings()} disabled={settingsLoading} style={subtleButtonStyle}>Retry settings</button>
+                </section>
+              ) : null}
+
+              {mastersReadError ? (
+                <section role="status" aria-live="polite" style={{ ...cardStyle, borderColor: '#fed7aa', background: '#fff7ed' }}>
+                  <p style={{ margin: '0 0 10px', color: '#9a3412', fontSize: '13px', fontWeight: 700 }}>{mastersReadError}</p>
+                  <button type="button" onClick={() => void fetchMasters()} style={subtleButtonStyle}>Retry masters</button>
+                </section>
+              ) : null}
+
+              {activeSection === 'referrals' && (referralReadError || referralSettingsReadError || referralWithdrawalsReadError) ? (
+                <section role="status" aria-live="polite" style={{ ...cardStyle, borderColor: '#fed7aa', background: '#fff7ed' }}>
+                  {[referralReadError, referralSettingsReadError, referralWithdrawalsReadError].filter(Boolean).map(message => (
+                    <p key={message} style={{ margin: '0 0 8px', color: '#9a3412', fontSize: '13px', fontWeight: 700 }}>{message}</p>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => { void fetchReferralSnapshot(); void fetchReferralSettings(); void fetchReferralWithdrawals() }}
+                    disabled={referralLoading || referralSettingsLoading || referralWithdrawalsLoading}
+                    style={subtleButtonStyle}
+                  >
+                    Retry referral sections
+                  </button>
+                </section>
+              ) : null}
+
+              {snapshotLoaded ? (
+                <>
               {activeSection !== 'whatsappAutomation' && (
                 <>
                   <div style={{ ...cardStyle }} className="labour-storage-card">
@@ -8662,7 +8775,21 @@ export default function LabourExchangeAdminPage() {
               </div>
             </div>
 
-            {referralAdminTab === 'dashboard' && (
+            {(['dashboard', 'referrers', 'tracking', 'ledger'].includes(referralAdminTab) && !referralLoaded) ||
+            (referralAdminTab === 'settings' && !referralSettingsLoaded) ||
+            (referralAdminTab === 'withdrawals' && !referralWithdrawalsLoaded) ? (
+              <section role="status" aria-live="polite" style={{ ...cardStyle, borderColor: '#bfdbfe' }}>
+                <p style={{ margin: 0, color: '#1d4ed8', fontSize: '13px', fontWeight: 700 }}>
+                  {referralAdminTab === 'settings'
+                    ? referralSettingsLoading ? 'Loading referral settings…' : 'Referral settings are unavailable.'
+                    : referralAdminTab === 'withdrawals'
+                      ? referralWithdrawalsLoading ? 'Loading withdrawal requests…' : 'Withdrawal requests are unavailable.'
+                      : referralLoading ? 'Loading Refer & Earn data…' : 'Refer & Earn data is unavailable.'}
+                </p>
+              </section>
+            ) : null}
+
+            {referralAdminTab === 'dashboard' && referralLoaded && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px' }}>
                 {referralMetricCards.map(card => (
                   <div key={card.label} style={{ ...cardStyle, padding: '16px' }}>
@@ -8677,7 +8804,7 @@ export default function LabourExchangeAdminPage() {
               </div>
             )}
 
-            {referralAdminTab === 'referrers' && (
+            {referralAdminTab === 'referrers' && referralLoaded && (
               <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '20px' }}>
                 <div style={cardStyle}>
                   <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '18px' }}>Select Worker 1</h3>
@@ -8905,7 +9032,7 @@ export default function LabourExchangeAdminPage() {
               </div>
             )}
 
-            {referralAdminTab === 'tracking' && (
+            {referralAdminTab === 'tracking' && referralLoaded && (
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '18px' }}>Referral Tracking</h3>
                 <div style={compactFilterPanelStyle}>
@@ -9018,7 +9145,7 @@ export default function LabourExchangeAdminPage() {
               </div>
             )}
 
-            {referralAdminTab === 'ledger' && (
+            {referralAdminTab === 'ledger' && referralLoaded && (
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 12px', color: '#0f172a', fontSize: '18px' }}>Reward Ledger</h3>
                 <div style={compactFilterPanelStyle}>
@@ -9151,7 +9278,7 @@ export default function LabourExchangeAdminPage() {
               </div>
             )}
 
-            {referralAdminTab === 'settings' && (
+            {referralAdminTab === 'settings' && referralSettingsLoaded && (
               <div style={cardStyle}>
                 <h3 style={{ margin: '0 0 10px', color: '#0f172a', fontSize: '18px' }}>Referral Settings</h3>
                 <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
@@ -9208,7 +9335,7 @@ export default function LabourExchangeAdminPage() {
               </div>
             )}
 
-            {referralAdminTab === 'withdrawals' && (
+            {referralAdminTab === 'withdrawals' && referralWithdrawalsLoaded && (
               <div style={{ display: 'grid', gap: '16px' }}>
                 <div style={cardStyle}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -13102,6 +13229,8 @@ export default function LabourExchangeAdminPage() {
             </div>
           </div>
         ) : null}
+                </>
+              ) : null}
       </div>
           </div>
         </main>

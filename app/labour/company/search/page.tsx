@@ -2,12 +2,16 @@ import { headers } from 'next/headers'
 import { CompanySiteShell } from '../company-site-shell'
 import { LabourSearchClient } from './labour-search-client'
 import { getCurrentUser } from '@/lib/auth'
-import { getLabourAdminSettings } from '@/lib/labour-admin-settings'
-import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
-import { getLabourMastersSnapshot } from '@/lib/labour-masters'
+import { defaultLabourAdminSettings, getLabourAdminSettings } from '@/lib/labour-admin-settings'
+import { getPublicLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getPublicLabourMastersSnapshot } from '@/lib/labour-masters'
 import { filterCategoriesByLabourDependency, getVisibleLabourMasterOptions, resolveLabourMasterLabel } from '@/lib/labour-masters-schema'
 import type { LabourCategoryDependency, LabourMasterOption } from '@/lib/labour-masters-schema'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { ReadResponseError, runBoundedRead } from '@/lib/bounded-read'
+import { logSafeServerEvent } from '@/lib/safe-observability'
+import { toRozgarPublicPath } from '@/lib/labour-company-host'
+import { PublicDataNotice } from '../public-data-notice'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -153,6 +157,25 @@ type JobContextBucketInput = {
 
 type SupabaseQuery = any
 
+const executeSearchRead = async (
+  buildQuery: () => SupabaseQuery,
+  options: { allowOptionalWorkerColumns?: boolean } = {},
+) => runBoundedRead(async ({ signal }) => {
+  const result = await buildQuery().abortSignal(signal).retry(false)
+  const message = String(result.error?.message || '')
+  const isOptionalColumnCompatibilityError = options.allowOptionalWorkerColumns && (
+    isMissingPreferredWorkLocationsColumnError(message) || isMissingSalaryRangeColumnError(message)
+  )
+
+  if (result.error && !isOptionalColumnCompatibilityError) {
+    throw new ReadResponseError(result.status, 'Rozgar search read failed')
+  }
+
+  return result
+}, {
+  maxRetries: 1,
+})
+
 const applyCompanySearchVisibilityFilter = (query: SupabaseQuery) =>
   query.not('is_visible', 'is', false)
 
@@ -182,7 +205,14 @@ const getSignedWorkerFileUrl = async (storagePath: string) => {
 
   const { data, error } = await supabaseAdmin.storage
     .from(WORKER_UPLOAD_BUCKET)
-    .createSignedUrl(trimmedPath, 60 * 60 * 6)
+    .createSignedUrl(trimmedPath, 60 * 60 * 6, {
+      transform: {
+        width: 320,
+        height: 320,
+        resize: 'cover',
+        quality: 70,
+      },
+    })
 
   if (error || !data?.signedUrl) {
     return ''
@@ -639,10 +669,14 @@ const fetchWorkerRange = async (
     return applyWorkerOrder(query, filters.sortBy).range(rangeStart, rangeEnd)
   }
 
-  let { data, error } = await buildQuery()
+  let { data, error } = await executeSearchRead(buildQuery, { allowOptionalWorkerColumns: true })
 
   if (error && (isMissingPreferredWorkLocationsColumnError(error.message) || isMissingSalaryRangeColumnError(error.message))) {
-    ;({ data, error } = await buildQuery(getWorkerOptionalColumnFlags(error.message)))
+    const optionalColumnFlags = getWorkerOptionalColumnFlags(error.message)
+    ;({ data, error } = await executeSearchRead(
+      () => buildQuery(optionalColumnFlags),
+      { allowOptionalWorkerColumns: true },
+    ))
   }
 
   if (error) {
@@ -721,10 +755,14 @@ const fetchWorkerBucketRange = async (
     return applyWorkerOrder(query, filters.sortBy).range(rangeStart, rangeEnd)
   }
 
-  let { data, error } = await buildQuery()
+  let { data, error } = await executeSearchRead(buildQuery, { allowOptionalWorkerColumns: true })
 
   if (error && (isMissingPreferredWorkLocationsColumnError(error.message) || isMissingSalaryRangeColumnError(error.message))) {
-    ;({ data, error } = await buildQuery(getWorkerOptionalColumnFlags(error.message)))
+    const optionalColumnFlags = getWorkerOptionalColumnFlags(error.message)
+    ;({ data, error } = await executeSearchRead(
+      () => buildQuery(optionalColumnFlags),
+      { allowOptionalWorkerColumns: true },
+    ))
   }
 
   if (error) {
@@ -878,10 +916,14 @@ const loadOrderedWorkerRows = async (
     filters.sortBy
   )
 
-  let { data, error } = await buildQuery()
+  let { data, error } = await executeSearchRead(buildQuery, { allowOptionalWorkerColumns: true })
 
   if (error && (isMissingPreferredWorkLocationsColumnError(error.message) || isMissingSalaryRangeColumnError(error.message))) {
-    ;({ data, error } = await buildQuery(getWorkerOptionalColumnFlags(error.message)))
+    const optionalColumnFlags = getWorkerOptionalColumnFlags(error.message)
+    ;({ data, error } = await executeSearchRead(
+      () => buildQuery(optionalColumnFlags),
+      { allowOptionalWorkerColumns: true },
+    ))
   }
 
   if (error) {
@@ -966,36 +1008,50 @@ const getPaginatedWorkers = async (
 export default async function LabourCompanySearchPage({ searchParams }: PageProps) {
   const headerStore = await headers()
   const hostname = (headerStore.get('x-forwarded-host') || headerStore.get('host'))?.split(',')[0]?.split(':')[0] ?? null
-  const [website, categoriesResult, companiesResult, jobPostsResult, adminSettings, mastersSnapshot, resolvedSearchParams, currentUser] = await Promise.all([
-    getLabourCompanyWebsiteContent(),
-    supabaseAdmin.from('labour_categories').select('id,name,is_active').order('created_at', { ascending: true }),
-    supabaseAdmin
+  const directoryRead = Promise.all([
+    executeSearchRead(() => supabaseAdmin.from('labour_categories').select('id,name,is_active').order('created_at', { ascending: true })),
+    executeSearchRead(() => supabaseAdmin
       .from('labour_companies')
       .select('id,company_name,contact_person,email,city,status,industry_category,business_type,category_ids')
-      .order('created_at', { ascending: true }),
-    supabaseAdmin
+      .order('created_at', { ascending: true })),
+    executeSearchRead(() => supabaseAdmin
       .from('labour_job_posts')
       .select('id,company_id,title,city,category_id,status,created_at,published_at,expires_at')
-      .order('created_at', { ascending: true }),
-    getLabourAdminSettings(),
-    getLabourMastersSnapshot(),
+      .order('created_at', { ascending: true })),
+  ]).then(([categoriesResult, companiesResult, jobPostsResult]) => {
+    logSafeServerEvent({
+      event: 'public_labour_search_directory_read',
+      outcome: 'success',
+      source: 'supabase',
+    })
+    return {
+      categoryRows: (categoriesResult.data || []) as CategoryRow[],
+      companyRows: (companiesResult.data || []) as CompanyRow[],
+      jobPostRows: (jobPostsResult.data || []) as JobPostRow[],
+    }
+  }).catch(() => {
+    logSafeServerEvent({
+      event: 'public_labour_search_directory_read',
+      outcome: 'degraded',
+    })
+    return null
+  })
+  const adminSettingsRead = getLabourAdminSettings()
+    .then(payload => ({ ...payload, degraded: false }))
+    .catch(() => ({ settings: defaultLabourAdminSettings, storage: 'json' as const, degraded: true }))
+  const [website, mastersResult, adminSettings, resolvedSearchParams, currentUser, directoryData] = await Promise.all([
+    getPublicLabourCompanyWebsiteContent(),
+    getPublicLabourMastersSnapshot(),
+    adminSettingsRead,
     searchParams,
-    getCurrentUser()
+    getCurrentUser(),
+    directoryRead,
   ])
 
-  const queryErrors = [
-    categoriesResult.error,
-    companiesResult.error,
-    jobPostsResult.error
-  ].filter(Boolean)
-
-  if (queryErrors.length > 0) {
-    throw new Error(queryErrors.map(error => error?.message).join('; '))
-  }
-
-  const categoryRows = (categoriesResult.data || []) as CategoryRow[]
-  const companyRows = (companiesResult.data || []) as CompanyRow[]
-  const jobPostRows = (jobPostsResult.data || []) as JobPostRow[]
+  const mastersSnapshot = mastersResult.snapshot
+  const categoryRows = directoryData?.categoryRows || []
+  const companyRows = directoryData?.companyRows || []
+  const jobPostRows = directoryData?.jobPostRows || []
   const filters = buildFilters(resolvedSearchParams)
   const content = website.content
   const industryCategoryOptions = getVisibleLabourMasterOptions(
@@ -1160,7 +1216,31 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
         city: jobContext.city
       }
     : null
-  const paginatedWorkerResult = await getPaginatedWorkers(filters, selectedCategoryIds, jobContextBucketInput)
+  let searchDataUnavailable = !directoryData
+  let paginatedWorkerResult: WorkerSearchResult = {
+    rows: [],
+    totalCount: 0,
+    page: 1,
+    pageSize: SEARCH_PAGE_SIZE,
+    totalPages: 1,
+  }
+
+  if (directoryData) {
+    try {
+      paginatedWorkerResult = await getPaginatedWorkers(filters, selectedCategoryIds, jobContextBucketInput)
+      logSafeServerEvent({
+        event: 'public_labour_search_workers_read',
+        outcome: 'success',
+        source: 'supabase',
+      })
+    } catch {
+      searchDataUnavailable = true
+      logSafeServerEvent({
+        event: 'public_labour_search_workers_read',
+        outcome: 'degraded',
+      })
+    }
+  }
 
   const mappedWorkers = await Promise.all(
     paginatedWorkerResult.rows.map(async worker => ({
@@ -1300,9 +1380,24 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
 
   const categories = activeCategoryOptions
     .sort((left, right) => left.name.localeCompare(right.name))
+  const retrySearchParams = new URLSearchParams()
+  Object.entries(resolvedSearchParams).forEach(([key, value]) => {
+    if (typeof value === 'string' && value.trim()) retrySearchParams.set(key, value)
+  })
+  const retryQuery = retrySearchParams.toString()
+  const retryHref = toRozgarPublicPath(`/labour/company/search${retryQuery ? `?${retryQuery}` : ''}`, hostname)
+  const configDataDegraded = website.degraded || mastersResult.degraded || adminSettings.degraded
 
   return (
     <CompanySiteShell content={publicSearchContent} currentPath="/labour/company/search" initialHostname={hostname}>
+      {searchDataUnavailable ? (
+        <PublicDataNotice
+          retryHref={retryHref}
+          message="Worker search data is temporarily unavailable. No empty-result conclusion has been made; your filters were preserved."
+        />
+      ) : configDataDegraded ? (
+        <PublicDataNotice retryHref={retryHref} />
+      ) : null}
       <LabourSearchClient
         workers={visibleWorkers}
         pagination={{
@@ -1338,6 +1433,7 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
         authenticatedCompany={authenticatedCompany}
         initialRequestedJobId={requestedJobId}
         initialHostname={hostname}
+        dataUnavailable={searchDataUnavailable}
       />
     </CompanySiteShell>
   )

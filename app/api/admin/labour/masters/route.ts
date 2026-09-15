@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { requireAdmin } from '@/lib/auth'
 import {
   clearLabourCategoryDependencyGroup,
@@ -14,6 +15,8 @@ import {
   updateIndustryBusinessDependency,
   updateLabourMasterOption
 } from '@/lib/labour-masters'
+import { PUBLIC_LABOUR_MASTERS_CACHE_TAG } from '@/lib/labour-masters'
+import { logSafeServerEvent } from '@/lib/safe-observability'
 
 const isMutationKind = (value: unknown): value is 'option' | 'dependency' | 'industryBusiness' =>
   value === 'option' || value === 'dependency' || value === 'industryBusiness'
@@ -30,8 +33,8 @@ export async function GET(request: NextRequest) {
 
     const snapshot = await getLabourMastersSnapshot()
     return NextResponse.json(snapshot)
-  } catch (error) {
-    console.error('Labour masters fetch failed:', error)
+  } catch {
+    logSafeServerEvent({ event: 'admin_labour_masters_read', outcome: 'failure' })
     return NextResponse.json({ error: 'Failed to load labour master data' }, { status: 500 })
   }
 }
@@ -55,9 +58,10 @@ export async function POST(request: NextRequest) {
           ? await createIndustryBusinessDependency(payload as Record<string, unknown>, admin.email)
           : await createLabourCategoryDependency(payload as Record<string, unknown>, admin.email)
 
+    revalidateTag(PUBLIC_LABOUR_MASTERS_CACHE_TAG, 'max')
     return NextResponse.json({ success: true, snapshot })
   } catch (error) {
-    console.error('Labour masters create failed:', error)
+    logSafeServerEvent({ event: 'admin_labour_masters_create', outcome: 'failure' })
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create labour master record' },
       { status: 500 }
@@ -88,9 +92,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
+    revalidateTag(PUBLIC_LABOUR_MASTERS_CACHE_TAG, 'max')
     return NextResponse.json({ success: true, snapshot })
   } catch (error) {
-    console.error('Labour masters update failed:', error)
+    logSafeServerEvent({ event: 'admin_labour_masters_update', outcome: 'failure' })
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to update labour master record' },
       { status: 500 }
@@ -125,9 +130,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
+    revalidateTag(PUBLIC_LABOUR_MASTERS_CACHE_TAG, 'max')
     return NextResponse.json({ success: true, snapshot })
   } catch (error) {
-    console.error('Labour masters delete failed:', error)
+    logSafeServerEvent({ event: 'admin_labour_masters_delete', outcome: 'failure' })
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to delete labour master mapping' },
       { status: 500 }

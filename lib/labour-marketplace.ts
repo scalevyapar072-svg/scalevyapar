@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs'
 import path from 'path'
+import { unstable_cache } from 'next/cache'
 import { seededLabourCategoryCatalog } from './labour-dependency-seeds'
 import {
   getLabourMastersSnapshot,
@@ -17,6 +18,8 @@ import {
   resolveCompanyPlanWindow
 } from './labour-plan-utils'
 import { supabaseAdmin } from './supabase-admin'
+import { ReadResponseError, runBoundedRead } from './bounded-read'
+import { logSafeServerEvent } from './safe-observability'
 
 export type LabourEntityType =
   | 'categories'
@@ -299,6 +302,17 @@ export interface LabourMarketplaceSnapshot extends LabourMarketplaceData {
   storage: 'supabase' | 'json'
 }
 
+export interface LabourPublicMarketplaceSnapshot {
+  categories: LabourCategoryRecord[]
+  plans: LabourPlanRecord[]
+  stats: {
+    activeWorkers: number
+    totalCompanies: number
+    totalJobs: number
+  }
+  storage: 'supabase' | 'json'
+}
+
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'labour-marketplace.json')
 
 const STORAGE_TABLES = {
@@ -314,6 +328,8 @@ const STORAGE_TABLES = {
   rechargeRequests: 'labour_recharge_requests',
   auditLogs: 'labour_audit_logs'
 } as const
+
+export const PUBLIC_LABOUR_MARKETPLACE_CACHE_TAG = 'public-labour-marketplace'
 
 const REFERRED_WORKER_DELETE_MESSAGE =
   'This worker cannot be deleted because the worker was registered through Refer & Earn history. Deactivate the worker instead.'
@@ -2656,12 +2672,13 @@ const getStorageBackend = async (): Promise<'supabase' | 'json'> => {
     .from(STORAGE_TABLES.categories)
     .select('id')
     .limit(1)
+    .retry(false)
 
   return error && isMissingSupabaseTableError(error.message) ? 'json' : 'supabase'
 }
 
 const readOptionalSupabaseRows = async <TRow>(tableName: string) => {
-  const result = await supabaseAdmin.from(tableName).select('*').order('created_at', { ascending: false })
+  const result = await supabaseAdmin.from(tableName).select('*').order('created_at', { ascending: false }).retry(false)
   if (result.error && isMissingSupabaseTableError(result.error.message)) {
     return [] as TRow[]
   }
@@ -2687,11 +2704,11 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
     rechargeRequestsRows,
     auditLogsResult
   ] = await Promise.all([
-    supabaseAdmin.from(STORAGE_TABLES.categories).select('*').order('created_at', { ascending: true }),
-    supabaseAdmin.from(STORAGE_TABLES.plans).select('*').order('created_at', { ascending: true }),
-    supabaseAdmin.from(STORAGE_TABLES.workers).select('*').order('created_at', { ascending: true }),
-    supabaseAdmin.from(STORAGE_TABLES.companies).select('*').order('created_at', { ascending: true }),
-    supabaseAdmin.from(STORAGE_TABLES.jobPosts).select('*').order('created_at', { ascending: true }),
+    supabaseAdmin.from(STORAGE_TABLES.categories).select('*').order('created_at', { ascending: true }).retry(false),
+    supabaseAdmin.from(STORAGE_TABLES.plans).select('*').order('created_at', { ascending: true }).retry(false),
+    supabaseAdmin.from(STORAGE_TABLES.workers).select('*').order('created_at', { ascending: true }).retry(false),
+    supabaseAdmin.from(STORAGE_TABLES.companies).select('*').order('created_at', { ascending: true }).retry(false),
+    supabaseAdmin.from(STORAGE_TABLES.jobPosts).select('*').order('created_at', { ascending: true }).retry(false),
     readOptionalSupabaseRows<{
       id: string
       worker_id: string
@@ -2754,7 +2771,7 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
       created_at: string
       updated_at: string
     }>(STORAGE_TABLES.rechargeRequests),
-    supabaseAdmin.from(STORAGE_TABLES.auditLogs).select('*').order('created_at', { ascending: false })
+    supabaseAdmin.from(STORAGE_TABLES.auditLogs).select('*').order('created_at', { ascending: false }).retry(false)
   ])
 
   const errors = [
@@ -3178,6 +3195,142 @@ const writeSupabaseAuditLog = async (
 export const getLabourMarketplaceSnapshot = async (): Promise<LabourMarketplaceSnapshot> => {
   const { data, storage } = await readDataWithStorage()
   return buildSnapshot(data, storage)
+}
+
+const buildPublicMarketplaceSnapshot = (
+  data: Pick<LabourMarketplaceData, 'categories' | 'plans' | 'workers' | 'companies' | 'jobPosts'>,
+  storage: 'supabase' | 'json',
+): LabourPublicMarketplaceSnapshot => ({
+  categories: data.categories,
+  plans: ensureFreeWorkerPlan(data.plans),
+  stats: {
+    activeWorkers: data.workers.filter(worker => isWorkerSearchActiveRecord(worker)).length,
+    totalCompanies: data.companies.length,
+    totalJobs: data.jobPosts.length,
+  },
+  storage,
+})
+
+const readPublicLabourMarketplaceSnapshot = async (): Promise<LabourPublicMarketplaceSnapshot> =>
+  runBoundedRead(async ({ signal }) => {
+    const [categoriesResult, plansResult, workersResult, companiesResult, jobPostsResult, auditLogsResult] = await Promise.all([
+      supabaseAdmin
+        .from(STORAGE_TABLES.categories)
+        .select('*')
+        .order('created_at', { ascending: true })
+        .abortSignal(signal)
+        .retry(false),
+      supabaseAdmin
+        .from(STORAGE_TABLES.plans)
+        .select('*')
+        .order('created_at', { ascending: true })
+        .abortSignal(signal)
+        .retry(false),
+      supabaseAdmin
+        .from(STORAGE_TABLES.workers)
+        .select('status,is_visible,active_plan,plan_valid_until')
+        .abortSignal(signal)
+        .retry(false),
+      supabaseAdmin
+        .from(STORAGE_TABLES.companies)
+        .select('id', { count: 'exact', head: true })
+        .abortSignal(signal)
+        .retry(false),
+      supabaseAdmin
+        .from(STORAGE_TABLES.jobPosts)
+        .select('id', { count: 'exact', head: true })
+        .abortSignal(signal)
+        .retry(false),
+      supabaseAdmin
+        .from(STORAGE_TABLES.auditLogs)
+        .select('action,entity_type,entity_id,summary')
+        .eq('entity_type', 'categories')
+        .eq('action', 'delete')
+        .abortSignal(signal)
+        .retry(false),
+    ])
+
+    const results = [categoriesResult, plansResult, workersResult, companiesResult, jobPostsResult, auditLogsResult]
+    const missingTable = results.find(result => result.error && isMissingSupabaseTableError(result.error.message))
+    if (missingTable) {
+      return buildPublicMarketplaceSnapshot(await readJsonData(), 'json')
+    }
+
+    const failed = results.find(result => result.error)
+    if (failed?.error) {
+      throw new ReadResponseError(failed.status, 'Public labour marketplace read failed')
+    }
+
+    const categoryRows = categoriesResult.data || []
+    const deletedCategoryIds = (auditLogsResult.data || [])
+      .map(row => String(row.entity_id || ''))
+      .filter(categoryId => categoryId && !categoryRows.some(row => row.id === categoryId))
+    const deletedCategorySlugs = (auditLogsResult.data || [])
+      .map(row => String(row.summary || '').match(/\(([^)]+)\)/)?.[1] || '')
+      .filter(slugValue => {
+        const normalizedSlug = slugify(slugValue)
+        return normalizedSlug.length > 0 && !categoryRows.some(row => slugify(String(row.slug || row.name || '')) === normalizedSlug)
+      })
+
+    const categories = mergeSeededCategories(categoryRows.map(mapCategoryRow), {
+      includeMissing: true,
+      excludedCategoryIds: deletedCategoryIds,
+      excludedCategorySlugs: deletedCategorySlugs,
+    })
+    const plans = ensureFreeWorkerPlan((plansResult.data || []).map(mapPlanRow))
+    const activeWorkers = (workersResult.data || []).filter(row => isWorkerSearchActiveRecord({
+      status: (row.status || 'pending') as WorkerStatus,
+      isVisible: row.is_visible ?? true,
+      activePlan: row.active_plan || '',
+      planValidUntil: row.plan_valid_until || '',
+    })).length
+
+    return {
+      categories,
+      plans,
+      stats: {
+        activeWorkers,
+        totalCompanies: companiesResult.count || 0,
+        totalJobs: jobPostsResult.count || 0,
+      },
+      storage: 'supabase',
+    }
+  }, {
+    maxRetries: 1,
+  })
+
+const getCachedPublicLabourMarketplaceSnapshot = unstable_cache(
+  readPublicLabourMarketplaceSnapshot,
+  [PUBLIC_LABOUR_MARKETPLACE_CACHE_TAG],
+  {
+    revalidate: 60,
+    tags: [PUBLIC_LABOUR_MARKETPLACE_CACHE_TAG],
+  },
+)
+
+export const getPublicLabourMarketplaceSnapshot = async (): Promise<{
+  snapshot: LabourPublicMarketplaceSnapshot | null
+  degraded: boolean
+}> => {
+  const startedAt = Date.now()
+
+  try {
+    const snapshot = await getCachedPublicLabourMarketplaceSnapshot()
+    logSafeServerEvent({
+      event: 'public_labour_marketplace_read',
+      outcome: 'success',
+      durationMs: Date.now() - startedAt,
+      source: snapshot.storage,
+    })
+    return { snapshot, degraded: false }
+  } catch {
+    logSafeServerEvent({
+      event: 'public_labour_marketplace_read',
+      outcome: 'degraded',
+      durationMs: Date.now() - startedAt,
+    })
+    return { snapshot: null, degraded: true }
+  }
 }
 
 export const getLabourAdminVisibleCategories = async (): Promise<LabourCategoryRecord[]> => {

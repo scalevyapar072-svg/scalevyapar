@@ -2001,6 +2001,20 @@ const getTodayDateValue = () => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+const normalizeWorkerPlanDateValue = (value: unknown) => {
+  const dateValue = String(value ?? '').trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    return ''
+  }
+
+  const parsedDate = new Date(`${dateValue}T00:00:00.000Z`)
+  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dateValue) {
+    return ''
+  }
+
+  return dateValue
+}
+
 const getWorkerPlanById = (plans: LabourPlanRecord[], planId: string) =>
   plans.find(plan => plan.id === planId && plan.audience === 'worker') || null
 
@@ -2040,7 +2054,8 @@ const buildWorkerPlanWalletCreditTransaction = (
 const syncWorkerPlanAssignment = (
   worker: LabourWorkerRecord,
   plans: LabourPlanRecord[],
-  existing?: LabourWorkerRecord
+  existing?: LabourWorkerRecord,
+  sourcePayload: Record<string, unknown> = {}
 ) => {
   const nextWorker: LabourWorkerRecord = { ...worker }
   const fallbackWorkerPlan = getDefaultWorkerPlan(plans)
@@ -2063,18 +2078,48 @@ const syncWorkerPlanAssignment = (
   }
 
   const previousPlanId = existing?.activePlan || ''
-  const canActivateAssignedPlan = Boolean(nextWorker.registrationCompletedAt || existing?.registrationCompletedAt)
-  const fallbackStartDate = canActivateAssignedPlan
-    ? (
-        nextWorker.planValidFrom ||
-        (previousPlanId === assignedPlan.id ? existing?.planValidFrom || '' : '') ||
-        getTodayDateValue()
-      )
+  const hasSubmittedPlanValidFrom = Object.prototype.hasOwnProperty.call(sourcePayload, 'planValidFrom')
+  const hasSubmittedPlanValidUntil = Object.prototype.hasOwnProperty.call(sourcePayload, 'planValidUntil')
+  const hasSubmittedPlanDate = hasSubmittedPlanValidFrom || hasSubmittedPlanValidUntil
+  const submittedPlanValidFrom = hasSubmittedPlanValidFrom
+    ? normalizeWorkerPlanDateValue(sourcePayload.planValidFrom)
     : ''
-  nextWorker.planValidFrom = fallbackStartDate
-  nextWorker.planValidUntil = canActivateAssignedPlan
-    ? (nextWorker.planValidUntil || addDays(fallbackStartDate, getPlanValidityDays(assignedPlan)))
+  const submittedPlanValidUntil = hasSubmittedPlanValidUntil
+    ? normalizeWorkerPlanDateValue(sourcePayload.planValidUntil)
     : ''
+  const hasValidSubmittedPlanPeriod =
+    hasSubmittedPlanValidFrom &&
+    hasSubmittedPlanValidUntil &&
+    Boolean(submittedPlanValidFrom) &&
+    Boolean(submittedPlanValidUntil) &&
+    submittedPlanValidUntil >= submittedPlanValidFrom
+  const existingPlanValidFrom = previousPlanId === assignedPlan.id
+    ? normalizeWorkerPlanDateValue(existing?.planValidFrom)
+    : ''
+  const existingPlanValidUntil = previousPlanId === assignedPlan.id
+    ? normalizeWorkerPlanDateValue(existing?.planValidUntil)
+    : ''
+  const hasValidExistingPlanPeriod =
+    Boolean(existingPlanValidFrom) &&
+    Boolean(existingPlanValidUntil) &&
+    existingPlanValidUntil >= existingPlanValidFrom
+  const registrationCompletedInPayload =
+    Object.prototype.hasOwnProperty.call(sourcePayload, 'registrationCompletedAt') &&
+    Boolean(nextWorker.registrationCompletedAt)
+
+  if (hasSubmittedPlanDate) {
+    nextWorker.planValidFrom = hasValidSubmittedPlanPeriod ? submittedPlanValidFrom : ''
+    nextWorker.planValidUntil = hasValidSubmittedPlanPeriod ? submittedPlanValidUntil : ''
+  } else if (hasValidExistingPlanPeriod) {
+    nextWorker.planValidFrom = existingPlanValidFrom
+    nextWorker.planValidUntil = existingPlanValidUntil
+  } else if (registrationCompletedInPayload) {
+    nextWorker.planValidFrom = getTodayDateValue()
+    nextWorker.planValidUntil = addDays(nextWorker.planValidFrom, getPlanValidityDays(assignedPlan))
+  } else {
+    nextWorker.planValidFrom = ''
+    nextWorker.planValidUntil = ''
+  }
 
   if (previousPlanId !== assignedPlan.id) {
     nextWorker.lastWalletDeductionDate = ''
@@ -3226,7 +3271,7 @@ export const createLabourEntity = async (
       }
       case 'workers': {
         const normalized = normalizeWorker(payload)
-        const { worker: record, walletCreditTransaction } = syncWorkerPlanAssignment(normalized, data.plans)
+        const { worker: record, walletCreditTransaction } = syncWorkerPlanAssignment(normalized, data.plans, undefined, payload)
         data.workers.unshift(record)
         if (walletCreditTransaction) {
           data.walletTransactions.unshift(walletCreditTransaction)
@@ -3347,7 +3392,7 @@ export const createLabourEntity = async (
     case 'workers': {
       const normalized = normalizeWorker(payload)
       const supabaseData = await readSupabaseData()
-      const { worker: record, walletCreditTransaction } = syncWorkerPlanAssignment(normalized, supabaseData.plans)
+      const { worker: record, walletCreditTransaction } = syncWorkerPlanAssignment(normalized, supabaseData.plans, undefined, payload)
       const workerPayload = {
         id: record.id,
         full_name: record.fullName,
@@ -3678,7 +3723,7 @@ export const updateLabourEntity = async (
         if (index === -1) return null
         const existing = data.workers[index]
         const normalized = normalizeWorker(payload, existing)
-        const { worker: updated, walletCreditTransaction } = syncWorkerPlanAssignment(normalized, data.plans, existing)
+        const { worker: updated, walletCreditTransaction } = syncWorkerPlanAssignment(normalized, data.plans, existing, payload)
         data.workers[index] = updated
         if (walletCreditTransaction) {
           data.walletTransactions.unshift(walletCreditTransaction)
@@ -3822,7 +3867,7 @@ export const updateLabourEntity = async (
       if (!existing) return null
       const supabaseData = await readSupabaseData()
       const normalized = normalizeWorker(payload, existing)
-      const { worker: record, walletCreditTransaction } = syncWorkerPlanAssignment(normalized, supabaseData.plans, existing)
+      const { worker: record, walletCreditTransaction } = syncWorkerPlanAssignment(normalized, supabaseData.plans, existing, payload)
       const workerPayload = {
         full_name: record.fullName,
         mobile: record.mobile,

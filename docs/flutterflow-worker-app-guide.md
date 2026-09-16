@@ -190,12 +190,14 @@ Authorization: Bearer <workerToken>
       "availability": "available_today",
       "walletBalance": 40,
       "status": "active",
+      "operationalStatus": "active",
       "isVisible": true
     },
     "wallet": {
       "balance": 40,
       "dailyCharge": 5,
       "estimatedDaysRemaining": 8,
+      "balanceCoverageDays": 8,
       "visibilityRule": "Rs 5 is deducted every active day. Company details unlock only while your worker access is active.",
       "lastDeductionAt": "2026-04-25T00:00:00.000Z",
       "transactions": []
@@ -207,6 +209,15 @@ Authorization: Bearer <workerToken>
       "headline": "Worker access is active",
       "description": "Your wallet is active. Daily deduction is Rs 5 and company details are unlocked.",
       "recommendedAction": "Apply to matching job posts"
+    },
+    "lifecycle": {
+      "profileStatus": "active",
+      "planStatus": "active",
+      "accessEligibility": "active",
+      "remainingDays": 8,
+      "balanceCoverageDays": 8,
+      "evaluatedOn": "2026-04-25",
+      "timeZone": "Asia/Kolkata"
     },
     "feed": [
       {
@@ -237,6 +248,11 @@ Authorization: Bearer <workerToken>
       "id": "plan-worker-basic",
       "name": "Worker Access 10 Days",
       "validityDays": 10,
+      "planValidityDays": 10,
+      "planStartDate": "2026-04-23",
+      "planEndDate": "2026-05-03",
+      "status": "active",
+      "remainingDays": 8,
       "dailyCharge": 5,
       "registrationFee": 50,
       "walletCredit": 50
@@ -248,6 +264,13 @@ Authorization: Bearer <workerToken>
 **FlutterFlow use**
 
 Use this API as the main source for:
+
+- profile status: `dashboard.lifecycle.profileStatus`
+- plan status: `dashboard.lifecycle.planStatus`
+- access eligibility: `dashboard.lifecycle.accessEligibility`
+- effective days remaining: `dashboard.lifecycle.remainingDays`
+
+`dashboard.workerPlan.validityDays` and `dashboard.workerPlan.planValidityDays` are plan-template duration fields. Never display either value as “days left.” `dashboard.wallet.balanceCoverageDays` is wallet coverage only and must never override plan expiry.
 
 - `Home top banner`
 - `Job Feed`
@@ -307,7 +330,10 @@ Bind:
 
 - balance: `dashboard.wallet.balance`
 - daily deduction: `dashboard.wallet.dailyCharge`
-- days remaining: `dashboard.wallet.estimatedDaysRemaining`
+- days remaining: `dashboard.lifecycle.remainingDays`
+- plan status: `dashboard.lifecycle.planStatus`
+- access status: `dashboard.lifecycle.accessEligibility`
+- wallet coverage: `dashboard.wallet.balanceCoverageDays` (label as coverage, not plan days)
 - rule text: `dashboard.wallet.visibilityRule`
 - last deduction: `dashboard.wallet.lastDeductionAt`
 
@@ -409,6 +435,14 @@ Content-Type: application/json
 
 ## Worker Status Rules
 
+Display the three lifecycle concepts separately:
+
+- **Profile status** comes from `dashboard.lifecycle.profileStatus` and describes the operational worker profile.
+- **Plan status** comes from `dashboard.lifecycle.planStatus` and is `active` or `expired` from the effective end date.
+- **Access eligibility** comes from `dashboard.lifecycle.accessEligibility` and controls protected company details and applications.
+
+An operationally active profile with an expired plan is valid data: show `Profile Active`, `Plan Expired`, and `Access Inactive`. A positive wallet balance does not renew or extend an expired plan.
+
 Possible worker statuses:
 
 - `pending`
@@ -484,6 +518,15 @@ On page load:
 
 1. call `Worker Dashboard API`
 2. bind result to local page state
+
+Also call the Worker Dashboard API and replace the complete local dashboard state:
+
+- immediately after login
+- whenever the app returns to the foreground
+- after every successful profile, wallet, payment, pause, or activation action
+- when the user performs pull-to-refresh or taps Refresh
+
+Do not merge only individual status fields into an older cached dashboard object. Treat each successful dashboard response as the authoritative lifecycle snapshot. The API response is marked `no-store`; the Flutter HTTP client must also bypass or invalidate any local GET cache.
 
 ## Feed Tab
 

@@ -46,6 +46,11 @@ import {
   isWorkerKycComplete,
   reconcileWorkerKycVisibility
 } from '@/lib/worker-kyc-completeness'
+import {
+  buildWorkerLifecyclePresentation,
+  evaluateWorkerLifecycle,
+  getWorkerLifecycleDateValue,
+} from '@/lib/worker-lifecycle-evaluator'
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'inactive_paused_by_worker' | 'blocked' | 'rejected'
 type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
@@ -1793,30 +1798,6 @@ const isExpiredJobPost = (jobPost: LabourJobPost) => {
 
 const isLiveJobPost = (jobPost: LabourJobPost) => jobPost.status === 'live' && !isExpiredJobPost(jobPost)
 
-const isWorkerPlanExpired = (worker: LabourWorker) => {
-  const expiryValue = String(worker.planValidUntil || '').trim()
-  if (!expiryValue) return true
-
-  const expiresAt = new Date(expiryValue)
-  if (Number.isNaN(expiresAt.getTime())) return true
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  expiresAt.setHours(0, 0, 0, 0)
-  return expiresAt < today
-}
-
-const getEffectiveWorkerStatus = (worker: LabourWorker): WorkerStatus => {
-  if (worker.status !== 'active') return worker.status
-  if (!worker.isVisible) return 'inactive_subscription_expired'
-  if (!String(worker.activePlan || '').trim()) return 'inactive_subscription_expired'
-  if (isWorkerPlanExpired(worker)) return 'inactive_subscription_expired'
-  return 'active'
-}
-
-const getEffectiveWorkerAvailability = (worker: LabourWorker): WorkerAvailability =>
-  getEffectiveWorkerStatus(worker) === 'active' ? worker.availability : 'not_available'
-
 const titleCase = (value: string) =>
   value
     .split('_')
@@ -2121,6 +2102,7 @@ export default function LabourExchangeAdminPage() {
   const [workerPhotoFile, setWorkerPhotoFile] = useState<File | null>(null)
   const [workerIdentityDocumentFile, setWorkerIdentityDocumentFile] = useState<File | null>(null)
   const [workerSaveBusy, setWorkerSaveBusy] = useState(false)
+  const [workerRenewalBusy, setWorkerRenewalBusy] = useState(false)
   const [companyDraft, setCompanyDraft] = useState<LabourCompany>(blankCompany)
   const [jobPostDraft, setJobPostDraft] = useState<LabourJobPost>(blankJobPost)
   const [jobReviewReasonDrafts, setJobReviewReasonDrafts] = useState<Record<string, string>>({})
@@ -2810,6 +2792,41 @@ export default function LabourExchangeAdminPage() {
     ? [selectedWorkerPlan, ...activeWorkerPlans]
     : activeWorkerPlans
   const selectedWorkerPlanValidityDays = selectedWorkerPlan ? getPlanValidityDays(selectedWorkerPlan) : 0
+  const getWorkerLifecycle = (worker: LabourWorker) => {
+    const workerPlan = (snapshot?.plans || []).find(
+      plan => plan.id === worker.activePlan && plan.audience === 'worker'
+    ) || null
+    const registrationFeeTransactionComplete = (snapshot?.walletTransactions || []).some(
+      transaction =>
+        transaction.entityType === 'worker' &&
+        transaction.entityId === worker.id &&
+        transaction.transactionType === 'registration_fee' &&
+        transaction.status === 'completed'
+    )
+    const facts = {
+      persistedStatus: worker.status,
+      registrationComplete: isWorkerKycComplete(worker),
+      workerPausedByWorker: worker.status === 'inactive_paused_by_worker',
+      activePlanId: worker.activePlan,
+      planResolved: Boolean(workerPlan),
+      planAudience: workerPlan?.audience || '',
+      planName: workerPlan?.name || '',
+      planRegistrationFee: workerPlan?.registrationFee || 0,
+      planDailyCharge: workerPlan?.dailyCharge || 0,
+      planValidUntil: worker.planValidUntil,
+      walletBalance: worker.walletBalance,
+      registrationFeePaid: worker.registrationFeePaid,
+      hasCompletedRegistrationFeeTransaction: registrationFeeTransactionComplete,
+      currentDateValue: getWorkerLifecycleDateValue(new Date()),
+    } as const
+    const evaluation = evaluateWorkerLifecycle(facts)
+
+    return {
+      effectiveStatus: evaluation.derivedStatus,
+      presentation: buildWorkerLifecyclePresentation(facts, evaluation),
+    }
+  }
+  const selectedWorkerLifecycle = getWorkerLifecycle(workerDraft)
   const visibleWorkerIndustryMasterOptions = getVisibleLabourMasterOptions(masterOptionsByKey.industry_category || [])
   const visibleWorkerBusinessTypeMasterOptions = getVisibleLabourMasterOptions(masterOptionsByKey.business_type || [])
   const getWorkerBusinessTypeMasterOptionsForIndustry = (industryCategoryValue: string) =>
@@ -3030,22 +3047,23 @@ export default function LabourExchangeAdminPage() {
       }
     }
 
-    const nextPlanValidFrom =
-      forceRecalculateDates || !draft.planValidFrom
-        ? draft.planValidFrom || getTodayDateValue()
-        : draft.planValidFrom
+    const planChanged = draft.activePlan !== selectedPlan.id
+    const shouldStartNewPeriod = forceRecalculateDates && planChanged
+    const nextPlanValidFrom = shouldStartNewPeriod
+      ? getTodayDateValue()
+      : draft.planValidFrom || getTodayDateValue()
 
     return {
       ...draft,
       activePlan: selectedPlan.id,
       planValidFrom: nextPlanValidFrom,
       planValidUntil:
-        forceRecalculateDates || !draft.planValidUntil
+        shouldStartNewPeriod || !draft.planValidUntil
           ? addDays(nextPlanValidFrom, getPlanValidityDays(selectedPlan))
           : draft.planValidUntil,
-      lastWalletDeductionDate: draft.activePlan && draft.activePlan !== selectedPlan.id ? '' : draft.lastWalletDeductionDate,
+      lastWalletDeductionDate: draft.activePlan && planChanged ? '' : draft.lastWalletDeductionDate,
       registrationFeePaid:
-        !draft.activePlan || draft.activePlan !== selectedPlan.id
+        !draft.activePlan || planChanged
           ? (selectedPlan.registrationFee <= 0 ? true : draft.registrationFeePaid)
           : draft.registrationFeePaid
     }
@@ -3101,7 +3119,7 @@ export default function LabourExchangeAdminPage() {
     const maximumExpectedWage = Number(worker.maximumExpectedWage || 0)
     const expectedDailyWage = minimumExpectedWage || maximumExpectedWage || Number(worker.expectedDailyWage || 0)
 
-    return {
+    const payload: Record<string, unknown> = {
       ...worker,
       expectedDailyWage,
       minimumExpectedWage,
@@ -3120,6 +3138,18 @@ export default function LabourExchangeAdminPage() {
           cityLabels: location.cityLabels
         }))
     }
+
+    for (const lifecycleField of [
+      'walletBalance',
+      'registrationFeePaid',
+      'planValidFrom',
+      'planValidUntil',
+      'lastWalletDeductionDate',
+    ]) {
+      delete payload[lifecycleField]
+    }
+
+    return payload
   }
 
   const getWorkerPreferredWorkCityLabels = (worker: LabourWorker) => {
@@ -4325,11 +4355,6 @@ export default function LabourExchangeAdminPage() {
     return Number.isNaN(timestamp) ? Number.NaN : timestamp
   }
 
-  const activeWorkerPlan =
-    snapshot.plans.find(plan => plan.audience === 'worker' && plan.isActive) ||
-    snapshot.plans.find(plan => plan.audience === 'worker') ||
-    null
-
   const expiredJobPostsCount = snapshot.jobPosts.filter(isExpiredJobPost).length
   const workerRegistrationRevenue = snapshot.walletTransactions
     .filter(transaction => transaction.entityType === 'worker' && transaction.transactionType === 'registration_fee' && transaction.direction === 'credit')
@@ -4353,7 +4378,7 @@ export default function LabourExchangeAdminPage() {
     .map(category => {
       const workersCount = snapshot.workers.filter(worker => getWorkerCategoryIds(worker).includes(category.id)).length
       const activeWorkersCount = snapshot.workers.filter(
-        worker => getWorkerCategoryIds(worker).includes(category.id) && getEffectiveWorkerStatus(worker) === 'active'
+        worker => getWorkerCategoryIds(worker).includes(category.id) && getWorkerLifecycle(worker).effectiveStatus === 'active'
       ).length
       const companiesCount = snapshot.companies.filter(company => getCompanyCategoryIds(company).includes(category.id)).length
       const liveJobsCount = snapshot.jobPosts.filter(
@@ -4379,7 +4404,7 @@ export default function LabourExchangeAdminPage() {
 
   const workerStatusBreakdown = workerStatuses.map(status => ({
     status,
-    count: snapshot.workers.filter(worker => getEffectiveWorkerStatus(worker) === status).length
+    count: snapshot.workers.filter(worker => getWorkerLifecycle(worker).effectiveStatus === status).length
   }))
 
   const companyStatusBreakdown = companyStatuses.map(status => ({
@@ -4471,8 +4496,11 @@ export default function LabourExchangeAdminPage() {
   const filteredWorkers = [...snapshot.workers]
     .filter(worker => {
       if (workerFilters.companyId && worker.companyId !== workerFilters.companyId) return false
-      if (workerFilters.status !== 'all' && getEffectiveWorkerStatus(worker) !== workerFilters.status) return false
-      if (workerFilters.availability !== 'all' && getEffectiveWorkerAvailability(worker) !== workerFilters.availability) return false
+      if (workerFilters.status !== 'all' && getWorkerLifecycle(worker).effectiveStatus !== workerFilters.status) return false
+      if (
+        workerFilters.availability !== 'all' &&
+        (getWorkerLifecycle(worker).effectiveStatus === 'active' ? worker.availability : 'not_available') !== workerFilters.availability
+      ) return false
       if (workerFilters.categoryId && !getWorkerCategoryIds(worker).includes(workerFilters.categoryId)) return false
       if (workerFilters.visibility === 'visible' && !worker.isVisible) return false
       if (workerFilters.visibility === 'hidden' && worker.isVisible) return false
@@ -5834,6 +5862,42 @@ export default function LabourExchangeAdminPage() {
     }
 
     return data.snapshot as LabourSnapshot
+  }
+
+  const renewWorkerPlanPeriod = async () => {
+    if (!editingWorkerId || !workerDraft.activePlan || workerRenewalBusy) return
+
+    setError('')
+    setSaved('')
+    setWorkerRenewalBusy(true)
+    try {
+      const response = await fetch('/api/admin/labour/worker-renewal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workerId: editingWorkerId,
+          planId: workerDraft.activePlan,
+        }),
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to renew worker plan.')
+      }
+
+      setWorkerDraft(current => ({
+        ...current,
+        activePlan: data.renewal.planId,
+        planValidFrom: data.renewal.planValidFrom,
+        planValidUntil: data.renewal.planValidUntil,
+        lastWalletDeductionDate: '',
+      }))
+      await fetchSnapshot()
+      showSaved(data.renewal.renewed ? 'Worker plan renewed explicitly' : 'Worker plan is already current')
+    } catch (renewalError) {
+      setError(renewalError instanceof Error ? renewalError.message : 'Failed to renew worker plan.')
+    } finally {
+      setWorkerRenewalBusy(false)
+    }
   }
 
   const saveWorker = async () => {
@@ -7866,7 +7930,8 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div>
                     <label style={labelStyle}>Wallet Balance</label>
-                    <input type="number" min="0" value={workerDraft.walletBalance} onChange={event => setWorkerDraft(current => ({ ...current, walletBalance: Number(event.target.value) }))} style={inputStyle} />
+                    <input type="number" min="0" value={workerDraft.walletBalance} readOnly style={{ ...inputStyle, background: '#f8fafc' }} />
+                    <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>Wallet balance changes only through verified payment, recharge, or deduction flows.</p>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -7876,16 +7941,11 @@ export default function LabourExchangeAdminPage() {
                       value={workerDraft.activePlan}
                       onChange={event => {
                         const nextPlanId = event.target.value
-                        setWorkerDraft(current =>
-                          syncWorkerPlanDraft(
-                            {
-                              ...current,
-                              activePlan: nextPlanId
-                            },
-                            nextPlanId,
-                            true
-                          )
-                        )
+                        setWorkerDraft(current => syncWorkerPlanDraft(
+                          current,
+                          nextPlanId,
+                          current.activePlan !== nextPlanId
+                        ))
                       }}
                       style={inputStyle}
                     >
@@ -7898,19 +7958,16 @@ export default function LabourExchangeAdminPage() {
                     </select>
                     <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '12px' }}>
                       {selectedWorkerPlan
-                        ? 'Assigning a new worker plan applies that plan wallet credit once and uses its daily charge for worker access.'
-                        : 'Assign an active worker plan to activate wallet-based worker access in the Rozgar app.'}
+                        ? 'Saving a different plan starts its effective period but does not credit the wallet. Renewing the same expired plan requires the explicit action below.'
+                        : 'Assign an active worker plan. Wallet funding remains a separate verified payment or recharge action.'}
                     </p>
                   </div>
                   <div>
                     <label style={labelStyle}>Registration Fee Status</label>
                     <select
                       value={workerDraft.registrationFeePaid ? 'paid' : 'pending'}
-                      onChange={event => setWorkerDraft(current => ({
-                        ...current,
-                        registrationFeePaid: event.target.value === 'paid' || event.target.value === 'free'
-                      }))}
-                      style={inputStyle}
+                      disabled
+                      style={{ ...inputStyle, background: '#f8fafc' }}
                     >
                       <option value="paid">Paid</option>
                       <option value="pending">Pending</option>
@@ -7924,17 +7981,8 @@ export default function LabourExchangeAdminPage() {
                     <input
                       type="date"
                       value={workerDraft.planValidFrom}
-                      onChange={event => {
-                        const nextPlanValidFrom = event.target.value
-                        setWorkerDraft(current => ({
-                          ...current,
-                          planValidFrom: nextPlanValidFrom,
-                          planValidUntil: selectedWorkerPlan && nextPlanValidFrom
-                            ? addDays(nextPlanValidFrom, getPlanValidityDays(selectedWorkerPlan))
-                            : current.planValidUntil
-                        }))
-                      }}
-                      style={inputStyle}
+                      readOnly
+                      style={{ ...inputStyle, background: '#f8fafc' }}
                     />
                   </div>
                   <div>
@@ -7942,15 +7990,31 @@ export default function LabourExchangeAdminPage() {
                     <input
                       type="date"
                       value={workerDraft.planValidUntil}
-                      onChange={event => setWorkerDraft(current => ({ ...current, planValidUntil: event.target.value }))}
-                      style={inputStyle}
+                      readOnly
+                      style={{ ...inputStyle, background: '#f8fafc' }}
                     />
                   </div>
                 </div>
+                {editingWorkerId && selectedWorkerPlan ? (
+                  <div style={{ ...compactFilterPanelStyle, alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
+                    <div>
+                      <strong style={{ color: '#0f172a', fontSize: '13px' }}>Explicit plan renewal</strong>
+                      <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '12px' }}>Starts a new {selectedWorkerPlanValidityDays}-day period once. It does not credit the wallet or create a financial ledger entry.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void renewWorkerPlanPeriod()}
+                      disabled={workerRenewalBusy}
+                      style={{ ...primaryButtonStyle, opacity: workerRenewalBusy ? 0.6 : 1, cursor: workerRenewalBusy ? 'not-allowed' : 'pointer' }}
+                    >
+                      {workerRenewalBusy ? 'Renewing…' : 'Renew plan explicitly'}
+                    </button>
+                  </div>
+                ) : null}
                 {selectedWorkerPlan ? (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                     <div>
-                      <label style={labelStyle}>Wallet Credit From Plan</label>
+                      <label style={labelStyle}>Plan Wallet Credit (not applied by Save)</label>
                       <input value={formatCurrency(selectedWorkerPlan.walletCredit)} readOnly style={{ ...inputStyle, background: '#f8fafc' }} />
                     </div>
                     <div>
@@ -7963,9 +8027,23 @@ export default function LabourExchangeAdminPage() {
                     </div>
                   </div>
                 ) : null}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
+                  <div style={{ ...compactFilterPanelStyle, display: 'block', margin: 0 }}>
+                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase' }}>Profile status</span>
+                    <strong style={{ display: 'block', marginTop: '4px', color: '#0f172a' }}>{titleCase(selectedWorkerLifecycle.presentation.profileStatus)}</strong>
+                  </div>
+                  <div style={{ ...compactFilterPanelStyle, display: 'block', margin: 0 }}>
+                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase' }}>Plan status</span>
+                    <strong style={{ display: 'block', marginTop: '4px', color: '#0f172a' }}>{titleCase(selectedWorkerLifecycle.presentation.planStatus)}</strong>
+                  </div>
+                  <div style={{ ...compactFilterPanelStyle, display: 'block', margin: 0 }}>
+                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase' }}>Access eligibility</span>
+                    <strong style={{ display: 'block', marginTop: '4px', color: '#0f172a' }}>{titleCase(selectedWorkerLifecycle.presentation.accessEligibility)}</strong>
+                  </div>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>Status</label>
+                    <label style={labelStyle}>Stored Operational Status</label>
                     <select value={workerDraft.status} onChange={event => setWorkerDraft(current => ({ ...current, status: event.target.value as WorkerStatus }))} style={inputStyle}>
                       {workerStatuses.map(status => (
                         <option key={status} value={status}>{getWorkerStatusLabel(status)}</option>
@@ -8358,8 +8436,9 @@ export default function LabourExchangeAdminPage() {
                   ) : (
                     filteredWorkers.map(worker => {
                       const kycTone = getWorkerKycTone(worker)
-                      const effectiveWorkerStatus = getEffectiveWorkerStatus(worker)
-                      const effectiveWorkerAvailability = getEffectiveWorkerAvailability(worker)
+                      const workerLifecycle = getWorkerLifecycle(worker)
+                      const effectiveWorkerStatus = workerLifecycle.effectiveStatus
+                      const effectiveWorkerAvailability = effectiveWorkerStatus === 'active' ? worker.availability : 'not_available'
                       const workerAvailabilityFallback =
                         effectiveWorkerAvailability === 'available_today'
                           ? 'Ready to Work today'
@@ -8379,6 +8458,15 @@ export default function LabourExchangeAdminPage() {
                               <p style={{ margin: 0, color: '#0f172a', fontWeight: '700' }}>{worker.fullName}</p>
                               <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '999px', padding: '5px 9px', background: kycTone.background, color: kycTone.color, border: `1px solid ${kycTone.border}` }}>
                                 {getWorkerKycLabel(worker)}
+                              </span>
+                              <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '999px', padding: '5px 9px', background: workerLifecycle.presentation.profileStatus === 'active' ? '#ecfdf5' : '#f1f5f9', color: workerLifecycle.presentation.profileStatus === 'active' ? '#047857' : '#475569', border: `1px solid ${workerLifecycle.presentation.profileStatus === 'active' ? '#a7f3d0' : '#cbd5e1'}` }}>
+                                Profile {titleCase(workerLifecycle.presentation.profileStatus)}
+                              </span>
+                              <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '999px', padding: '5px 9px', background: workerLifecycle.presentation.planStatus === 'active' ? '#ecfdf5' : '#fff7ed', color: workerLifecycle.presentation.planStatus === 'active' ? '#047857' : '#c2410c', border: `1px solid ${workerLifecycle.presentation.planStatus === 'active' ? '#a7f3d0' : '#fed7aa'}` }}>
+                                Plan {titleCase(workerLifecycle.presentation.planStatus)}
+                              </span>
+                              <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '999px', padding: '5px 9px', background: workerLifecycle.presentation.accessEligibility === 'active' ? '#ecfeff' : '#f1f5f9', color: workerLifecycle.presentation.accessEligibility === 'active' ? '#0f766e' : '#475569', border: `1px solid ${workerLifecycle.presentation.accessEligibility === 'active' ? '#99f6e4' : '#cbd5e1'}` }}>
+                                Access {titleCase(workerLifecycle.presentation.accessEligibility)}
                               </span>
                             </div>
                             <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>

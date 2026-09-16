@@ -16,7 +16,10 @@ import type {
 } from '../../lib/worker-lifecycle-evaluator.ts'
 
 const {
+  buildWorkerLifecyclePresentation,
   evaluateWorkerLifecycle,
+  getWorkerLifecycleDateValue,
+  getWorkerPlanRemainingDays,
 } = await import(
   pathToFileURL(
     path.join(process.cwd(), 'lib', 'worker-lifecycle-evaluator.ts'),
@@ -457,16 +460,16 @@ const buildWorkerLifecycleFactsReference = (
   currentDateValue,
 })
 
-test('mutation-side deriveWorkerStatus stays a thin compatibility wrapper over the approved evaluator facts contract', () => {
+test('mutation-side lifecycle helpers stay thin wrappers over the approved evaluator facts contract', () => {
   const source = readWorkspaceFile('lib', 'labour-worker-app.ts')
   const deriveWorkerStatusBlock = sliceBetween(
     source,
-    'const deriveWorkerStatus = (',
-    'const ensureWorkerUploadBucket = async',
+    'const buildWorkerLifecycleFacts = (',
+    'const deriveWorkerLifecyclePresentation = (',
   )
 
   for (const expected of [
-    'const lifecycleFacts: WorkerLifecycleFacts = {',
+    '): WorkerLifecycleFacts => ({',
     'persistedStatus: worker.status,',
     'registrationComplete: isWorkerKycComplete(worker),',
     "workerPausedByWorker: worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker',",
@@ -480,8 +483,9 @@ test('mutation-side deriveWorkerStatus stays a thin compatibility wrapper over t
     'walletBalance: worker.walletBalance,',
     'registrationFeePaid: worker.registrationFeePaid,',
     'hasCompletedRegistrationFeeTransaction: hasCompletedWorkerRegistrationFeeTransaction(worker, transactions),',
-    'currentDateValue: getDateValue(new Date())',
-    'return evaluateWorkerLifecycle(lifecycleFacts).derivedStatus',
+    'currentDateValue = getWorkerLifecycleDateValue(new Date()),',
+    'buildWorkerLifecycleFacts(worker, workerPlan, transactions)',
+    ').derivedStatus',
   ]) {
     assert.ok(
       deriveWorkerStatusBlock.includes(expected),
@@ -626,6 +630,65 @@ test('pure evaluator respects the explicit evaluation date boundary', () => {
     }),
     withVisibility(true, 'inactive_subscription_expired', 'expired_active_plan'),
   )
+})
+
+test('lifecycle presentation distinguishes profile, plan, access, and wallet coverage', () => {
+  const active = makeFacts({
+    persistedStatus: 'active',
+    planValidUntil: '2026-09-26',
+    currentDateValue: '2026-09-16',
+    walletBalance: 50,
+    planDailyCharge: 5,
+  })
+  assert.deepEqual(buildWorkerLifecyclePresentation(active), {
+    profileStatus: 'active',
+    planStatus: 'active',
+    accessEligibility: 'active',
+    remainingDays: 10,
+    balanceCoverageDays: 10,
+    evaluatedOn: '2026-09-16',
+    timeZone: 'Asia/Kolkata',
+  })
+
+  const expiredWithBalance = {
+    ...active,
+    planValidUntil: '2026-09-13',
+  }
+  assert.deepEqual(buildWorkerLifecyclePresentation(expiredWithBalance), {
+    profileStatus: 'active',
+    planStatus: 'expired',
+    accessEligibility: 'inactive',
+    remainingDays: 0,
+    balanceCoverageDays: 10,
+    evaluatedOn: '2026-09-16',
+    timeZone: 'Asia/Kolkata',
+  })
+
+  const inactiveProfileWithActivePlan = {
+    ...active,
+    persistedStatus: 'blocked' as const,
+  }
+  assert.deepEqual(buildWorkerLifecyclePresentation(inactiveProfileWithActivePlan), {
+    profileStatus: 'inactive',
+    planStatus: 'active',
+    accessEligibility: 'inactive',
+    remainingDays: 10,
+    balanceCoverageDays: 10,
+    evaluatedOn: '2026-09-16',
+    timeZone: 'Asia/Kolkata',
+  })
+})
+
+test('remaining days use date-only arithmetic and IST evaluation boundaries', () => {
+  assert.equal(getWorkerPlanRemainingDays('2026-09-13', '2026-09-16'), 0)
+  assert.equal(getWorkerPlanRemainingDays('2026-09-16', '2026-09-16'), 0)
+  assert.equal(getWorkerPlanRemainingDays('2026-09-26', '2026-09-16'), 10)
+  assert.equal(getWorkerPlanRemainingDays('invalid', '2026-09-16'), 0)
+
+  const beforeIstMidnight = new Date('2026-09-15T18:29:59.999Z')
+  const atIstMidnight = new Date('2026-09-15T18:30:00.000Z')
+  assert.equal(getWorkerLifecycleDateValue(beforeIstMidnight), '2026-09-15')
+  assert.equal(getWorkerLifecycleDateValue(atIstMidnight), '2026-09-16')
 })
 
 test('legacy mutation-side reference and compatibility-wrapper facts stay identical across approved parity scenarios', () => {

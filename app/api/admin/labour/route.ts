@@ -40,6 +40,31 @@ type AdminLabourMutationDependencies = {
 const isWorkerLifecycleAdminMutation = (entityType: LabourEntityType) =>
   entityType === 'workers'
 
+const stripOrdinaryWorkerSaveLifecycleFields = (payload: Record<string, unknown>) => {
+  const ordinarySavePayload = { ...payload }
+  for (const field of [
+    'walletBalance',
+    'wallet_balance',
+    'registrationFeePaid',
+    'registration_fee_paid',
+    'planValidFrom',
+    'plan_valid_from',
+    'planValidUntil',
+    'plan_valid_until',
+    'lastWalletDeductionDate',
+    'last_wallet_deduction_date',
+    'workerPausedByWorker',
+    'worker_paused_by_worker',
+    'workerPausedAt',
+    'worker_paused_at',
+    'workerReactivatedAt',
+    'worker_reactivated_at',
+  ]) {
+    delete ordinarySavePayload[field]
+  }
+  return ordinarySavePayload
+}
+
 const hasReviewFieldMutation = (
   payload: Record<string, unknown>,
   current: {
@@ -131,9 +156,12 @@ export async function handleAdminLabourPost(
       )
     }
 
+    const createPayload = entityType === 'workers'
+      ? stripOrdinaryWorkerSaveLifecycleFields(payload as Record<string, unknown>)
+      : payload as Record<string, unknown>
     const snapshot = await dependencies.createLabourEntity(
       entityType,
-      payload as Record<string, unknown>,
+      createPayload,
       admin.email
     )
     const adminCategories = await dependencies.getLabourAdminVisibleCategories()
@@ -180,7 +208,9 @@ export async function handleAdminLabourPut(
       return buildWorkerLifecycleMutationBlockedResponse()
     }
 
-    const mutationPayload = payload as Record<string, unknown>
+    const mutationPayload = entityType === 'workers'
+      ? stripOrdinaryWorkerSaveLifecycleFields(payload as Record<string, unknown>)
+      : payload as Record<string, unknown>
     if (entityType === 'workers') {
       const currentWorker = (
         await (dependencies.getLabourMarketplaceSnapshot || getLabourMarketplaceSnapshot)()

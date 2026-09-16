@@ -37,6 +37,18 @@ export type WorkerLifecycleEvaluation = {
   recommendedIsVisible: boolean
 }
 
+export type WorkerLifecyclePresentation = {
+  profileStatus: 'active' | 'inactive'
+  planStatus: 'active' | 'expired'
+  accessEligibility: 'active' | 'inactive'
+  remainingDays: number
+  balanceCoverageDays: number
+  evaluatedOn: string
+  timeZone: typeof WORKER_LIFECYCLE_TIME_ZONE
+}
+
+export const WORKER_LIFECYCLE_TIME_ZONE = 'Asia/Kolkata' as const
+
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const DATE_PREFIX_PATTERN = /^(\d{4}-\d{2}-\d{2})/
 
@@ -52,6 +64,43 @@ const normalizeDateValue = (value: string) => {
 
   const match = normalized.match(DATE_PREFIX_PATTERN)
   return match ? match[1] : ''
+}
+
+export const getWorkerLifecycleDateValue = (
+  date: Date,
+  timeZone = WORKER_LIFECYCLE_TIME_ZONE,
+) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const values = new Map(parts.map(part => [part.type, part.value]))
+
+  return `${values.get('year')}-${values.get('month')}-${values.get('day')}`
+}
+
+export const getWorkerPlanRemainingDays = (
+  planValidUntil: string,
+  currentDateValue: string,
+) => {
+  const expiryDateValue = normalizeDateValue(planValidUntil)
+  const normalizedCurrentDateValue = normalizeDateValue(currentDateValue)
+  if (!expiryDateValue || !normalizedCurrentDateValue) {
+    return 0
+  }
+
+  const expiryTimestamp = Date.parse(`${expiryDateValue}T00:00:00.000Z`)
+  const currentTimestamp = Date.parse(`${normalizedCurrentDateValue}T00:00:00.000Z`)
+  if (!Number.isFinite(expiryTimestamp) || !Number.isFinite(currentTimestamp)) {
+    return 0
+  }
+
+  return Math.max(
+    0,
+    Math.floor((expiryTimestamp - currentTimestamp) / (24 * 60 * 60 * 1000)),
+  )
 }
 
 const isZeroChargeWorkerPlan = (facts: WorkerLifecycleFacts) =>
@@ -199,3 +248,22 @@ export const evaluateWorkerLifecycle = (
     'eligible_active',
   )
 }
+
+export const buildWorkerLifecyclePresentation = (
+  facts: WorkerLifecycleFacts,
+  evaluation = evaluateWorkerLifecycle(facts),
+): WorkerLifecyclePresentation => ({
+  profileStatus: ['pending', 'blocked', 'rejected'].includes(facts.persistedStatus)
+    ? 'inactive'
+    : 'active',
+  planStatus: isPlanExpired(facts) ? 'expired' : 'active',
+  accessEligibility: evaluation.derivedStatus === 'active' ? 'active' : 'inactive',
+  remainingDays: isPlanExpired(facts)
+    ? 0
+    : getWorkerPlanRemainingDays(facts.planValidUntil, facts.currentDateValue),
+  balanceCoverageDays: facts.planDailyCharge > 0
+    ? Math.max(0, Math.floor(facts.walletBalance / facts.planDailyCharge))
+    : 0,
+  evaluatedOn: normalizeDateValue(facts.currentDateValue),
+  timeZone: WORKER_LIFECYCLE_TIME_ZONE,
+})

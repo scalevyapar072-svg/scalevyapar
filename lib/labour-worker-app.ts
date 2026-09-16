@@ -31,7 +31,13 @@ import { supabaseAdmin } from './supabase-admin'
 import { sendTwoFactorOtp } from './two-factor'
 import { createReferralAttribution, getReferralProfileByCode, listReferralEligibleCategories } from './labour-worker-referral'
 import { RozgarReferralContext } from './rozgar-referral-context'
-import { evaluateWorkerLifecycle, type WorkerLifecycleFacts } from './worker-lifecycle-evaluator'
+import {
+  buildWorkerLifecyclePresentation,
+  evaluateWorkerLifecycle,
+  getWorkerLifecycleDateValue,
+  type WorkerLifecycleFacts,
+  type WorkerLifecyclePresentation,
+} from './worker-lifecycle-evaluator'
 import { assertWorkerLifecycleMutationAllowed } from './worker-lifecycle-mutation-guard'
 import {
   isWorkerKycComplete,
@@ -139,6 +145,7 @@ export type WorkerAppProfile = {
   availability: string
   walletBalance: number
   status: string
+  operationalStatus: WorkerLifecyclePresentation['profileStatus']
   kycStatus: string
   kycRemarks: string
   isVisible: boolean
@@ -188,6 +195,7 @@ export type WorkerAppWalletSummary = {
   registrationFee: number
   registrationFeePaid: boolean
   estimatedDaysRemaining: number
+  balanceCoverageDays: number
   visibilityRule: string
   isPausedByWorker: boolean
   pausedAt: string | null
@@ -320,6 +328,7 @@ export type WorkerAppDashboard = {
   profile: WorkerAppProfile
   wallet: WorkerAppWalletSummary
   activation: WorkerAppActivationSummary
+  lifecycle: WorkerLifecyclePresentation
   support: {
     showHeaderHelpButton: boolean
     title: string
@@ -357,6 +366,8 @@ export type WorkerAppDashboard = {
     planValidityDays: number
     planStartDate: string | null
     planEndDate: string | null
+    status: WorkerLifecyclePresentation['planStatus']
+    remainingDays: number
     dailyCharge: number
     registrationFee: number
     registrationFeePaid: boolean
@@ -1144,31 +1155,45 @@ const isWorkerKycCorrectionStatus = (value: unknown) => {
     normalized === 'correction_required'
 }
 
+const buildWorkerLifecycleFacts = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null = null,
+  transactions: LabourWalletTransactionRecord[] = [],
+  currentDateValue = getWorkerLifecycleDateValue(new Date()),
+): WorkerLifecycleFacts => ({
+  persistedStatus: worker.status,
+  registrationComplete: isWorkerKycComplete(worker),
+  workerPausedByWorker: worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker',
+  activePlanId: worker.activePlan,
+  planResolved: Boolean(workerPlan),
+  planAudience: workerPlan?.audience === 'worker' || workerPlan?.audience === 'company'
+    ? workerPlan.audience
+    : '',
+  planName: workerPlan?.name || '',
+  planRegistrationFee: workerPlan?.registrationFee || 0,
+  planDailyCharge: workerPlan?.dailyCharge || 0,
+  planValidUntil: worker.planValidUntil,
+  walletBalance: worker.walletBalance,
+  registrationFeePaid: worker.registrationFeePaid,
+  hasCompletedRegistrationFeeTransaction: hasCompletedWorkerRegistrationFeeTransaction(worker, transactions),
+  currentDateValue,
+})
+
 const deriveWorkerStatus = (
   worker: LabourWorkerRecord,
   workerPlan: LabourPlanRecord | null = null,
   transactions: LabourWalletTransactionRecord[] = []
-): LabourWorkerRecord['status'] => {
-  const lifecycleFacts: WorkerLifecycleFacts = {
-    persistedStatus: worker.status,
-    registrationComplete: isWorkerKycComplete(worker),
-    workerPausedByWorker: worker.workerPausedByWorker || worker.status === 'inactive_paused_by_worker',
-    activePlanId: worker.activePlan,
-    planResolved: Boolean(workerPlan),
-    planAudience: workerPlan?.audience === 'worker' || workerPlan?.audience === 'company'
-      ? workerPlan.audience
-      : '',
-    planName: workerPlan?.name || '',
-    planRegistrationFee: workerPlan?.registrationFee || 0,
-    planDailyCharge: workerPlan?.dailyCharge || 0,
-    planValidUntil: worker.planValidUntil,
-    walletBalance: worker.walletBalance,
-    registrationFeePaid: worker.registrationFeePaid,
-    hasCompletedRegistrationFeeTransaction: hasCompletedWorkerRegistrationFeeTransaction(worker, transactions),
-    currentDateValue: getDateValue(new Date())
-  }
+): LabourWorkerRecord['status'] => evaluateWorkerLifecycle(
+  buildWorkerLifecycleFacts(worker, workerPlan, transactions),
+).derivedStatus
 
-  return evaluateWorkerLifecycle(lifecycleFacts).derivedStatus
+const deriveWorkerLifecyclePresentation = (
+  worker: LabourWorkerRecord,
+  workerPlan: LabourPlanRecord | null,
+  transactions: LabourWalletTransactionRecord[],
+) => {
+  const facts = buildWorkerLifecycleFacts(worker, workerPlan, transactions)
+  return buildWorkerLifecyclePresentation(facts, evaluateWorkerLifecycle(facts))
 }
 
 const ensureWorkerUploadBucket = async () => {
@@ -1270,15 +1295,6 @@ const DAILY_WORKER_DEDUCTION_INTERVAL_MS = 24 * 60 * 60 * 1000
 
 const getDateValue = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-
-const addDaysToDateValue = (dateValue: string, days: number) => {
-  const baseDate = new Date(dateValue)
-  if (Number.isNaN(baseDate.getTime())) {
-    return dateValue
-  }
-  baseDate.setDate(baseDate.getDate() + days)
-  return getDateValue(baseDate)
-}
 
 const parseWorkerDate = (value: string | null | undefined) => {
   if (!value) return null
@@ -1560,7 +1576,11 @@ const deriveActivationSummary = (
   }
 }
 
-const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryRecord[]): WorkerAppProfile => ({
+const toWorkerProfile = (
+  worker: LabourWorkerRecord,
+  categories: LabourCategoryRecord[],
+  lifecycle: WorkerLifecyclePresentation,
+): WorkerAppProfile => ({
   id: worker.id,
   fullName: worker.fullName,
   mobile: worker.mobile,
@@ -1582,6 +1602,7 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
   availability: worker.availability,
   walletBalance: worker.walletBalance,
   status: worker.status,
+  operationalStatus: lifecycle.profileStatus,
   kycStatus: worker.kycStatus || '',
   kycRemarks: worker.kycRemarks || '',
   isVisible: worker.isVisible,
@@ -1600,7 +1621,8 @@ const toWorkerProfile = (worker: LabourWorkerRecord, categories: LabourCategoryR
 const toWorkerWalletSummary = (
   worker: LabourWorkerRecord,
   transactions: LabourWalletTransactionRecord[],
-  workerPlan: LabourPlanRecord | null
+  workerPlan: LabourPlanRecord | null,
+  lifecycle: WorkerLifecyclePresentation,
 ): WorkerAppWalletSummary => {
   const dailyCharge = workerPlan?.dailyCharge || 0
   const registrationFee = workerPlan?.registrationFee || 0
@@ -1617,9 +1639,12 @@ const toWorkerWalletSummary = (
     dailyCharge,
     registrationFee,
     registrationFeePaid,
-    estimatedDaysRemaining: dailyCharge > 0 ? Math.floor(worker.walletBalance / dailyCharge) : 0,
+    estimatedDaysRemaining: lifecycle.remainingDays,
+    balanceCoverageDays: lifecycle.balanceCoverageDays,
     visibilityRule: !worker.activePlan || !workerPlan
       ? 'No active worker plan is assigned yet. Company details stay locked until a valid worker plan is assigned and funded.'
+      : lifecycle.planStatus === 'expired'
+      ? `Your worker plan expired on ${worker.planValidUntil || 'the previous validity date'}. Wallet balance does not extend the plan period.`
       : pausedByWorker
       ? 'Your paid worker plan is paused. Daily deduction will stay stopped until you activate worker access again.'
       : outstandingRegistrationFee > 0
@@ -1920,27 +1945,6 @@ const settleWorkerDailyChargeForToday = async ({
     },
     transactions: [nextTransaction, ...transactions],
     deducted: true
-  }
-}
-
-const buildReactivatedWorkerPlanWindow = (
-  worker: LabourWorkerRecord,
-  workerPlan: LabourPlanRecord,
-  now: string
-) => {
-  if (!isWorkerPlanExpiredRecord(worker)) {
-    return {
-      planValidFrom: worker.planValidFrom || '',
-      planValidUntil: worker.planValidUntil || ''
-    }
-  }
-
-  const validityDays = Math.max(getWorkerPlanValidityDays(workerPlan), 1)
-  const planValidFrom = getDateValue(new Date(now))
-  const planValidUntil = addDaysToDateValue(planValidFrom, validityDays)
-  return {
-    planValidFrom,
-    planValidUntil
   }
 }
 
@@ -2742,6 +2746,7 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
     .filter(transaction => transaction.entityType === 'worker' && transaction.entityId === worker.id)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 
+  const lifecycle = deriveWorkerLifecyclePresentation(worker, workerPlan, walletTransactions)
   const activation = deriveActivationSummary(worker, workerPlan, walletTransactions)
   const applications = snapshot.jobApplications
     .filter(application => application.workerId === worker.id)
@@ -2802,9 +2807,10 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
   )
 
   return {
-    profile: toWorkerProfile(worker, snapshot.categories),
-    wallet: toWorkerWalletSummary(worker, walletTransactions, workerPlan),
+    profile: toWorkerProfile(worker, snapshot.categories, lifecycle),
+    wallet: toWorkerWalletSummary(worker, walletTransactions, workerPlan, lifecycle),
     activation,
+    lifecycle,
     support: {
       showHeaderHelpButton: adminSettings.settings.helpControls.showHeaderHelpButton,
       title: adminSettings.settings.helpControls.supportTitle,
@@ -2835,6 +2841,8 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
       planValidityDays: getWorkerPlanValidityDays(workerPlan),
       planStartDate: worker.planValidFrom || null,
       planEndDate: worker.planValidUntil || null,
+      status: lifecycle.planStatus,
+      remainingDays: lifecycle.remainingDays,
       dailyCharge: workerPlan.dailyCharge,
       registrationFee: workerPlan.registrationFee,
       registrationFeePaid: isWorkerRegistrationFeeSettled(worker, workerPlan, walletTransactions),
@@ -3232,22 +3240,19 @@ export const updateWorkerWalletStatus = async (workerId: string, active: boolean
     return getWorkerAppDashboard(workerId)
   }
 
-  if (worker.walletBalance < minimumWalletRecharge) {
-    throw new Error('Insufficient wallet balance. Please recharge to activate worker access.')
+  if (effectiveStatus === 'inactive_subscription_expired') {
+    throw new Error('Worker access cannot be activated until an admin explicitly renews the expired plan.')
   }
 
-  const reactivatedPlanWindow = buildReactivatedWorkerPlanWindow(worker, workerPlan, now)
-  const workerReadyForActivation: LabourWorkerRecord = {
-    ...worker,
-    planValidFrom: reactivatedPlanWindow.planValidFrom,
-    planValidUntil: reactivatedPlanWindow.planValidUntil
+  if (worker.walletBalance < minimumWalletRecharge) {
+    throw new Error('Insufficient wallet balance. Please recharge to activate worker access.')
   }
 
   const {
     worker: workerAfterCharge,
     transactions: transactionsAfterCharge
   } = await settleWorkerDailyChargeForToday({
-    worker: workerReadyForActivation,
+    worker,
     workerPlan,
     transactions,
     now,

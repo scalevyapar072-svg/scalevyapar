@@ -2009,34 +2009,6 @@ const getDefaultWorkerPlan = (plans: LabourPlanRecord[]) =>
   plans.find(plan => plan.audience === 'worker' && plan.isActive) ||
   null
 
-const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100
-
-const buildWorkerPlanWalletCreditTransaction = (
-  worker: LabourWorkerRecord,
-  workerPlan: LabourPlanRecord,
-  createdAt: string
-): LabourWalletTransactionRecord | null => {
-  if (workerPlan.walletCredit <= 0) {
-    return null
-  }
-
-  return {
-    id: createWalletTransactionId(),
-    entityType: 'worker',
-    entityId: worker.id,
-    entityName: worker.fullName || worker.mobile,
-    city: worker.city,
-    transactionType: 'wallet_recharge',
-    amount: workerPlan.walletCredit,
-    direction: 'credit',
-    status: 'completed',
-    reference: workerPlan.id,
-    note: `Wallet credited from assigned worker plan ${workerPlan.name}.`,
-    createdAt,
-    updatedAt: createdAt
-  }
-}
-
 const syncWorkerPlanAssignment = (
   worker: LabourWorkerRecord,
   plans: LabourPlanRecord[],
@@ -2063,36 +2035,33 @@ const syncWorkerPlanAssignment = (
   }
 
   const previousPlanId = existing?.activePlan || ''
+  const planChanged = previousPlanId !== assignedPlan.id
   const canActivateAssignedPlan = Boolean(nextWorker.registrationCompletedAt || existing?.registrationCompletedAt)
   const fallbackStartDate = canActivateAssignedPlan
-    ? (
+    ? planChanged
+      ? getTodayDateValue()
+      : (
         nextWorker.planValidFrom ||
-        (previousPlanId === assignedPlan.id ? existing?.planValidFrom || '' : '') ||
+        existing?.planValidFrom ||
         getTodayDateValue()
       )
     : ''
   nextWorker.planValidFrom = fallbackStartDate
   nextWorker.planValidUntil = canActivateAssignedPlan
-    ? (nextWorker.planValidUntil || addDays(fallbackStartDate, getPlanValidityDays(assignedPlan)))
+    ? planChanged
+      ? addDays(fallbackStartDate, getPlanValidityDays(assignedPlan))
+      : (nextWorker.planValidUntil || addDays(fallbackStartDate, getPlanValidityDays(assignedPlan)))
     : ''
 
-  if (previousPlanId !== assignedPlan.id) {
+  if (planChanged) {
     nextWorker.lastWalletDeductionDate = ''
     nextWorker.registrationFeePaid = assignedPlan.registrationFee <= 0
-  }
-
-  const walletCreditTransaction = previousPlanId !== assignedPlan.id
-    ? buildWorkerPlanWalletCreditTransaction(nextWorker, assignedPlan, nextWorker.updatedAt)
-    : null
-
-  if (walletCreditTransaction) {
-    nextWorker.walletBalance = roundCurrency(nextWorker.walletBalance + walletCreditTransaction.amount)
   }
 
   return {
     worker: nextWorker,
     assignedPlan,
-    walletCreditTransaction
+    walletCreditTransaction: null as LabourWalletTransactionRecord | null
   }
 }
 

@@ -16,11 +16,13 @@ import {
   CheckCircle,
   LayoutDashboard,
   LifeBuoy,
+  Menu,
   RefreshCw,
   Settings2,
   Shapes,
   Users,
-  WalletCards
+  WalletCards,
+  X
 } from 'lucide-react'
 import {
   buildLabourLocationOptions,
@@ -2094,6 +2096,7 @@ export default function LabourExchangeAdminPage() {
   const [showAllWorkerPreferredStates, setShowAllWorkerPreferredStates] = useState(false)
   const [expandedWorkerPreferredCityStates, setExpandedWorkerPreferredCityStates] = useState<string[]>([])
   const [activeSection, setActiveSection] = useState<LabourSection>('overview')
+  const [isMobileNavigationOpen, setIsMobileNavigationOpen] = useState(false)
   const [referralAdminTab, setReferralAdminTab] = useState<ReferralAdminTab>('dashboard')
   const [referralWorkerSearch, setReferralWorkerSearch] = useState('')
   const [referralWorkerStatusFilter, setReferralWorkerStatusFilter] = useState<ReferralWorkerStatusFilter>('all')
@@ -2148,6 +2151,8 @@ export default function LabourExchangeAdminPage() {
   const [editingWalletTransactionId, setEditingWalletTransactionId] = useState<string | null>(null)
   const [editingRechargeRequestId, setEditingRechargeRequestId] = useState<string | null>(null)
   const workerKycPanelRef = useRef<HTMLDivElement | null>(null)
+  const mobileNavigationTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const mobileNavigationCloseRef = useRef<HTMLButtonElement | null>(null)
 
   const [categoryFilters, setCategoryFilters] = useState<CategoryFilters>(blankCategoryFilters)
   const [planFilters, setPlanFilters] = useState<PlanFilters>(blankPlanFilters)
@@ -2355,6 +2360,51 @@ export default function LabourExchangeAdminPage() {
     void fetchReferralSettings()
     void fetchReferralWithdrawals()
   }, [])
+
+  useEffect(() => {
+    if (!isMobileNavigationOpen) return
+
+    const previousBodyOverflow = document.body.style.overflow
+    const navigationTrigger = mobileNavigationTriggerRef.current
+    const desktopMedia = window.matchMedia('(min-width: 1121px)')
+    const closeAtDesktop = () => {
+      if (desktopMedia.matches) setIsMobileNavigationOpen(false)
+    }
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileNavigationOpen(false)
+    }
+
+    document.body.style.overflow = 'hidden'
+    desktopMedia.addEventListener('change', closeAtDesktop)
+    document.addEventListener('keydown', closeOnEscape)
+    mobileNavigationCloseRef.current?.focus()
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      desktopMedia.removeEventListener('change', closeAtDesktop)
+      document.removeEventListener('keydown', closeOnEscape)
+      navigationTrigger?.focus()
+    }
+  }, [isMobileNavigationOpen])
+
+  const handleMobileNavigationKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Tab') return
+
+    const focusableElements = event.currentTarget.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+    if (!focusableElements?.length) return
+
+    const firstElement = focusableElements[0]
+    const lastElement = focusableElements[focusableElements.length - 1]
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault()
+      lastElement.focus()
+    } else if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault()
+      firstElement.focus()
+    }
+  }
 
   const workerPhotoPreviewUrl = useMemo(
     () => workerPhotoFile ? URL.createObjectURL(workerPhotoFile) : '',
@@ -6631,6 +6681,11 @@ export default function LabourExchangeAdminPage() {
           color: #ffffff;
           overflow: hidden;
         }
+        .labour-mobile-menu-button,
+        .labour-sidebar-close,
+        .labour-sidebar-backdrop {
+          display: none;
+        }
         .labour-sidebar-panel {
           height: 100%;
           display: grid;
@@ -6743,7 +6798,12 @@ export default function LabourExchangeAdminPage() {
         .labour-content-shell {
           min-width: 0;
           display: grid;
+          grid-template-columns: minmax(0, 1fr);
           grid-template-rows: auto 1fr;
+        }
+        .labour-header-primary {
+          min-width: 0;
+          flex: 1 1 240px;
         }
         .labour-topbar {
           position: sticky;
@@ -6788,12 +6848,21 @@ export default function LabourExchangeAdminPage() {
           justify-content: flex-end;
         }
         .labour-page-body {
+          min-width: 0;
           padding: 20px 24px 28px;
         }
         .labour-page-stack {
           width: min(1420px, 100%);
+          min-width: 0;
           display: grid;
           gap: 14px;
+        }
+        .labour-page-stack > * {
+          min-width: 0;
+          max-width: 100%;
+        }
+        .labour-page-stack [style*="overflow-x: auto"] {
+          max-width: 100%;
         }
         .labour-storage-card {
           display: grid;
@@ -6933,23 +7002,94 @@ export default function LabourExchangeAdminPage() {
         }
         @media (max-width: 1120px) {
           .labour-admin-shell {
-            grid-template-columns: 1fr;
+            width: 100%;
+            min-width: 0;
+            grid-template-columns: minmax(0, 1fr);
           }
           .labour-sidebar {
-            position: static;
-            height: auto;
-            overflow: visible;
+            position: fixed;
+            inset: 0 auto 0 0;
+            z-index: 60;
+            width: min(320px, calc(100vw - 24px));
+            height: 100dvh;
+            overflow: hidden;
+            visibility: hidden;
+            transform: translateX(-105%);
+            transition: transform 0.2s ease, visibility 0s linear 0.2s;
+            box-shadow: 22px 0 48px rgba(15, 23, 42, 0.24);
+          }
+          .labour-sidebar.open {
+            visibility: visible;
+            transform: translateX(0);
+            transition-delay: 0s;
           }
           .labour-sidebar-panel {
-            grid-template-rows: auto auto auto;
+            grid-template-rows: auto auto minmax(0, 1fr) auto;
           }
           .labour-sidebar-footer {
-            display: none;
+            display: grid;
           }
           .labour-sidebar-nav {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            overflow: visible;
-            padding-right: 0;
+            grid-template-columns: 1fr;
+            overflow-y: auto;
+            padding-right: 4px;
+          }
+          .labour-sidebar-close {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            z-index: 2;
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(191, 219, 254, 0.26);
+            border-radius: 13px;
+            background: rgba(15, 23, 42, 0.42);
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+          }
+          .labour-sidebar-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            display: block;
+            background: rgba(15, 23, 42, 0.48);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+          }
+          .labour-sidebar-backdrop.open {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transition-delay: 0s;
+          }
+          .labour-mobile-menu-button {
+            min-width: 44px;
+            min-height: 44px;
+            padding: 9px 12px;
+            border: 1px solid #d7dfeb;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #0f172a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            flex: 0 0 auto;
+          }
+          .labour-content-shell {
+            width: 100%;
           }
           .labour-metric-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6961,6 +7101,10 @@ export default function LabourExchangeAdminPage() {
           }
         }
         @media (max-width: 920px) {
+          .labour-page-stack [style*="grid-template-columns"] {
+            min-width: 0 !important;
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
           .labour-storage-card {
             grid-template-columns: 1fr;
           }
@@ -6998,6 +7142,12 @@ export default function LabourExchangeAdminPage() {
             width: 100%;
           }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .labour-sidebar,
+          .labour-sidebar-backdrop {
+            transition: none;
+          }
+        }
       `}</style>
       {(saved || error) && (
         <div style={{ position: 'fixed', top: '20px', right: '20px', background: error ? '#fff1f2' : '#eff6ff', color: error ? '#b91c1c' : '#1d4ed8', border: `1px solid ${error ? '#fecdd3' : '#bfdbfe'}`, fontSize: '13px', fontWeight: '700', padding: '12px 20px', borderRadius: '12px', zIndex: 9999, boxShadow: '0 12px 30px rgba(15,23,42,0.08)' }}>
@@ -7006,7 +7156,30 @@ export default function LabourExchangeAdminPage() {
       )}
 
       <div className="labour-admin-shell">
-        <aside className="labour-sidebar">
+        <button
+          type="button"
+          className={`labour-sidebar-backdrop ${isMobileNavigationOpen ? 'open' : ''}`}
+          onClick={() => setIsMobileNavigationOpen(false)}
+          aria-label="Close Labour Admin navigation"
+          tabIndex={-1}
+        />
+        <aside
+          id="labour-admin-navigation"
+          className={`labour-sidebar ${isMobileNavigationOpen ? 'open' : ''}`}
+          aria-label="Labour Admin navigation"
+          aria-modal={isMobileNavigationOpen ? true : undefined}
+          role={isMobileNavigationOpen ? 'dialog' : undefined}
+          onKeyDown={handleMobileNavigationKeyDown}
+        >
+          <button
+            ref={mobileNavigationCloseRef}
+            type="button"
+            className="labour-sidebar-close"
+            onClick={() => setIsMobileNavigationOpen(false)}
+            aria-label="Close Labour Admin navigation"
+          >
+            <X aria-hidden="true" size={20} />
+          </button>
           <div className="labour-sidebar-panel">
             <div className="labour-brand">
               <div className="labour-brand-mark">LX</div>
@@ -7025,9 +7198,14 @@ export default function LabourExchangeAdminPage() {
                 const Icon = item.icon
                 return (
                   <button
+                    type="button"
                     key={item.key}
-                    onClick={() => setActiveSection(item.key)}
+                    onClick={() => {
+                      setActiveSection(item.key)
+                      setIsMobileNavigationOpen(false)
+                    }}
                     className={`labour-nav-item ${activeSection === item.key ? 'active' : ''}`}
+                    aria-current={activeSection === item.key ? 'page' : undefined}
                   >
                     <Icon className="labour-nav-icon" />
                     <span>{item.label}</span>
@@ -7045,7 +7223,19 @@ export default function LabourExchangeAdminPage() {
 
         <main className="labour-content-shell">
           <header className="labour-topbar">
-            <div>
+            <button
+              ref={mobileNavigationTriggerRef}
+              type="button"
+              className="labour-mobile-menu-button"
+              onClick={() => setIsMobileNavigationOpen(true)}
+              aria-controls="labour-admin-navigation"
+              aria-expanded={isMobileNavigationOpen}
+              aria-label="Open Labour Admin navigation"
+            >
+              <Menu aria-hidden="true" size={20} />
+              <span>Menu</span>
+            </button>
+            <div className="labour-header-primary">
               <p className="labour-header-kicker">Labour Admin Workspace</p>
               <h2 className="labour-header-title">{currentSectionLabel}</h2>
               <p className="labour-header-copy">{currentSectionCopy}</p>

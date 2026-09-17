@@ -205,7 +205,8 @@ test('read-only automation preview helper preserves admin protection and no-stor
   assertNoStoreHeaders(response)
 })
 
-test('automation preview masks recipients and reports preview, pause, quiet-hours, consent, and suppression blocks', () => {
+test('automation preview masks recipients and reports preview, pause, quiet-hours, consent, and suppression blocks', (t) => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-08-25T06:00:00.000Z'))
   const snapshot = makeSnapshot()
   snapshot.plans.push(makePlan('worker-plan'))
   snapshot.companies.push({
@@ -674,7 +675,8 @@ test('automation preview masks recipients and reports preview, pause, quiet-hour
   assert.equal(missingConsentSummary.companyFunnel.consentEligiblePlans, 0)
 })
 
-test('automation preview blocks missing templates after consent succeeds', () => {
+test('automation preview blocks missing templates after consent succeeds', (t) => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-08-25T06:00:00.000Z'))
   const snapshot = makeSnapshot()
   snapshot.plans.push(makePlan('worker-plan'))
   snapshot.companies.push({

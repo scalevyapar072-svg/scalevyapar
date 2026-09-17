@@ -81,7 +81,8 @@ test('72-hour automation cycle windows are deterministic at exact boundaries', (
   )
 })
 
-test('company digest consolidates multiple live job posts into one masked dry-run plan', () => {
+test('company digest consolidates multiple live job posts into one masked dry-run plan', (t) => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-08-25T06:00:00.000Z'))
   const snapshot = makeSnapshot()
   snapshot.companies.push({
     id: 'company-1',
@@ -312,7 +313,8 @@ test('company digest consolidates multiple live job posts into one masked dry-ru
   )
 })
 
-test('worker digest consolidates multiple live matches and requires an injected app link', () => {
+test('worker digest consolidates multiple live matches and requires an injected app link', (t) => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-08-25T06:00:00.000Z'))
   const snapshot = makeSnapshot()
   snapshot.workers.push({
     id: 'worker-1',
@@ -859,7 +861,8 @@ test('worker service planners require service consent, respect suppression, and 
   )
 })
 
-test('quiet hours, suppression, consent, preview blocking, pause gate, and masked idempotency stay fail-closed', () => {
+test('quiet hours, suppression, consent, preview blocking, pause gate, and masked idempotency stay fail-closed', (t) => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-08-25T06:00:00.000Z'))
   const snapshot = makeSnapshot()
   snapshot.companies.push({
     id: 'company-1',

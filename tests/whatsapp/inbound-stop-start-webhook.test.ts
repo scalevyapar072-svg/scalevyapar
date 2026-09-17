@@ -15,6 +15,11 @@ import { createWhatsappSuppressionRepository } from '../../lib/whatsapp/suppress
 import { handleWhatsappWebhookPost } from '../../lib/whatsapp/webhook-route'
 
 const appSecret = 'app-secret'
+const businessAccountId = '1234567890123573'
+const phoneNumberId = '1234567890120825'
+
+const webhookConfig = { appSecret, businessAccountId, phoneNumberId }
+const enabledPersistence = () => ({ enabled: true as const })
 
 const buildSignature = (body: string) =>
   `sha256=${createHmac('sha256', appSecret).update(Buffer.from(body, 'utf8')).digest('hex')}`
@@ -209,10 +214,14 @@ const buildWebhookBody = ({
     object: 'whatsapp_business_account',
     entry: [
       {
+        id: businessAccountId,
         changes: [
           {
             field: 'messages',
             value: {
+              metadata: {
+                phone_number_id: phoneNumberId,
+              },
               messages: [
                 {
                   id: messageId,
@@ -321,7 +330,7 @@ test('missing signature rejects before JSON parsing for inbound payloads', async
     }),
     resolveWebhookPostConfig: () => ({
       ok: true,
-      config: { appSecret },
+      config: webhookConfig,
     }),
     verifySignature: verifyMetaWebhookSignature,
     extractStatusEvents: () => [],
@@ -347,7 +356,7 @@ test('invalid signature rejects before JSON parsing for inbound payloads', async
     }),
     resolveWebhookPostConfig: () => ({
       ok: true,
-      config: { appSecret },
+      config: webhookConfig,
     }),
     verifySignature: verifyMetaWebhookSignature,
     extractStatusEvents: () => [],
@@ -382,11 +391,12 @@ test('STOP command creates one suppression and blocks unique recipient consent o
     }),
     resolveWebhookPostConfig: () => ({
       ok: true,
-      config: { appSecret },
+      config: webhookConfig,
     }),
     verifySignature: verifyMetaWebhookSignature,
     extractStatusEvents: () => [],
     persistStatusEvents: async () => {},
+    resolvePersistenceWriteAvailability: enabledPersistence,
     resolveInboundProcessingContext: () => context,
     logger,
   })
@@ -428,11 +438,12 @@ test('duplicate message ids have no repeated STOP side effects', async () => {
       }),
       resolveWebhookPostConfig: () => ({
         ok: true,
-        config: { appSecret },
+        config: webhookConfig,
       }),
       verifySignature: verifyMetaWebhookSignature,
       extractStatusEvents: () => [],
       persistStatusEvents: async () => {},
+      resolvePersistenceWriteAvailability: enabledPersistence,
       resolveInboundProcessingContext: () => context,
       logger: {
         log() {},
@@ -488,11 +499,12 @@ test('unknown and ambiguous recipients never mutate recipient consent rows', asy
       }),
       resolveWebhookPostConfig: () => ({
         ok: true,
-        config: { appSecret },
+        config: webhookConfig,
       }),
       verifySignature: verifyMetaWebhookSignature,
       extractStatusEvents: () => [],
       persistStatusEvents: async () => {},
+      resolvePersistenceWriteAvailability: enabledPersistence,
       resolveInboundProcessingContext: () => state.context,
       logger: {
         log() {},
@@ -545,11 +557,12 @@ test('invalid mobile fails closed before persistence and START never restores co
     }),
     resolveWebhookPostConfig: () => ({
       ok: true,
-      config: { appSecret },
+      config: webhookConfig,
     }),
     verifySignature: verifyMetaWebhookSignature,
     extractStatusEvents: () => [],
     persistStatusEvents: async () => {},
+    resolvePersistenceWriteAvailability: enabledPersistence,
     resolveInboundProcessingContext: () => context,
     logger,
   })
@@ -576,11 +589,12 @@ test('invalid mobile fails closed before persistence and START never restores co
     }),
     resolveWebhookPostConfig: () => ({
       ok: true,
-      config: { appSecret },
+      config: webhookConfig,
     }),
     verifySignature: verifyMetaWebhookSignature,
     extractStatusEvents: () => [],
     persistStatusEvents: async () => {},
+    resolvePersistenceWriteAvailability: enabledPersistence,
     resolveInboundProcessingContext: () => context,
     logger,
   })
@@ -596,11 +610,12 @@ test('invalid mobile fails closed before persistence and START never restores co
     }),
     resolveWebhookPostConfig: () => ({
       ok: true,
-      config: { appSecret },
+      config: webhookConfig,
     }),
     verifySignature: verifyMetaWebhookSignature,
     extractStatusEvents: () => [],
     persistStatusEvents: async () => {},
+    resolvePersistenceWriteAvailability: enabledPersistence,
     resolveInboundProcessingContext: () => context,
     logger,
   })

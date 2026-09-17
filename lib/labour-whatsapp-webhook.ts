@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './supabase-admin'
+import { getWhatsappPersistenceWriteAvailability } from './whatsapp/persistence-client'
 
 type WhatsappWebhookStatusError = {
   code?: number
@@ -112,6 +113,9 @@ export const extractWhatsappWebhookStatusEvents = (payload: WhatsappWebhookPaylo
 
 export const persistWhatsappWebhookStatusEvents = async (events: WhatsappWebhookStatusEvent[]) => {
   if (events.length === 0) return
+
+  const writeAvailability = getWhatsappPersistenceWriteAvailability()
+  if (!writeAvailability.enabled) return
 
   const payload = events.map(event => ({
     id: createWebhookAuditId(),

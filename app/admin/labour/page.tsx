@@ -6981,6 +6981,22 @@ export default function LabourExchangeAdminPage() {
         .labour-content-section {
           min-width: 0;
         }
+        .labour-category-card {
+          min-width: 0;
+        }
+        .labour-category-card-copy {
+          min-width: 0;
+          flex: 1 1 auto;
+        }
+        .labour-category-card-copy p {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+        .labour-category-card-actions {
+          max-width: 100%;
+          flex: 0 0 auto;
+          flex-wrap: wrap;
+        }
         .labour-nav-item:focus-visible,
         .labour-header-actions a:focus-visible,
         .labour-header-actions button:focus-visible,
@@ -7139,6 +7155,13 @@ export default function LabourExchangeAdminPage() {
             align-items: flex-start;
           }
           .labour-header-actions {
+            width: 100%;
+          }
+          .labour-category-card {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .labour-category-card-actions {
             width: 100%;
           }
         }
@@ -7479,8 +7502,8 @@ export default function LabourExchangeAdminPage() {
                   </p>
                 ) : (
                   filteredCategories.map(category => (
-                    <div key={category.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                      <div>
+                    <div className="labour-category-card" key={category.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                      <div className="labour-category-card-copy">
                         <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{category.name}</p>
                         <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
                           {category.slug} | {category.demandLevel} demand | {category.isActive ? 'Active' : 'Inactive'} | Home: {category.showOnHome ? `Yes (#${category.homeOrder})` : 'No'}
@@ -7523,7 +7546,7 @@ export default function LabourExchangeAdminPage() {
                           </div>
                         ) : null}
                       </div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <div className="labour-category-card-actions" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                         <button onClick={() => { setCategoryDraft({ ...category }); setEditingCategoryId(category.id) }} style={subtleButtonStyle}>Edit</button>
                         <button onClick={() => void removeEntity('categories', category.id, category.name)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
                       </div>

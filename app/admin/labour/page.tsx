@@ -7043,6 +7043,21 @@ export default function LabourExchangeAdminPage() {
           flex: 0 0 auto;
           flex-wrap: wrap;
         }
+        .labour-plan-card {
+          min-width: 0;
+        }
+        .labour-plan-card-copy {
+          min-width: 0;
+          flex: 1 1 auto;
+        }
+        .labour-plan-card-copy p {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+        .labour-plan-card-actions {
+          max-width: 100%;
+          flex: 0 0 auto;
+        }
         .labour-nav-item:focus-visible,
         .labour-header-actions a:focus-visible,
         .labour-header-actions button:focus-visible,
@@ -7209,6 +7224,19 @@ export default function LabourExchangeAdminPage() {
           }
           .labour-category-card-actions {
             width: 100%;
+          }
+          .labour-plan-card {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .labour-plan-card-actions {
+            width: 100%;
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .labour-plan-card-actions button {
+            width: 100%;
+            min-width: 0;
           }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -7814,8 +7842,8 @@ export default function LabourExchangeAdminPage() {
                     const canMoveDown = audiencePlanIndex >= 0 && audiencePlanIndex < audiencePlanIds.length - 1
 
                     return (
-                    <div key={plan.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                      <div>
+                    <div className="labour-plan-card" key={plan.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                      <div className="labour-plan-card-copy">
                         <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{plan.name}</p>
                         <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
                           {plan.audience === 'company'
@@ -7839,7 +7867,7 @@ export default function LabourExchangeAdminPage() {
                           Categories: {summarizeSelection(getPlanLabourCategoryLabels(plan), 'categories')}
                         </p>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <div className="labour-plan-card-actions" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                         <button
                           type="button"
                           onClick={() => void movePlan(plan.id, 'up')}

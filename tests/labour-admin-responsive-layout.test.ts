@@ -63,3 +63,61 @@ test('Categories contain long content and actions without changing the desktop c
   assert.match(pageSource, /@media \(max-width: 720px\)[\s\S]*?\.labour-category-card\s*\{[\s\S]*?flex-direction: column;[\s\S]*?align-items: stretch/)
   assert.match(pageSource, /@media \(max-width: 720px\)[\s\S]*?\.labour-category-card-actions\s*\{[\s\S]*?width: 100%/)
 })
+
+test('Plan card actions use a contained two-column mobile grid and preserve the desktop row', () => {
+  assert.match(
+    pageSource,
+    /className="labour-plan-card"[\s\S]*?display: 'flex'[\s\S]*?justifyContent: 'space-between'/,
+  )
+  assert.match(pageSource, /className="labour-plan-card-copy"/)
+  assert.match(
+    pageSource,
+    /className="labour-plan-card-actions"[\s\S]*?display: 'flex'[\s\S]*?alignItems: 'flex-start'/,
+  )
+  assert.match(
+    pageSource,
+    /@media \(max-width: 720px\)[\s\S]*?\.labour-plan-card\s*\{[\s\S]*?flex-direction: column;[\s\S]*?align-items: stretch/,
+  )
+  assert.match(
+    pageSource,
+    /@media \(max-width: 720px\)[\s\S]*?\.labour-plan-card-actions\s*\{[\s\S]*?width: 100%;[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/,
+  )
+  assert.match(
+    pageSource,
+    /\.labour-plan-card-actions button\s*\{[\s\S]*?width: 100%;[\s\S]*?min-width: 0/,
+  )
+  assert.doesNotMatch(pageSource, /(?:html|body)\s*\{[^}]*overflow-x:\s*hidden/)
+})
+
+test('Plan action responsive contract covers every required verification viewport', () => {
+  const viewports = [360, 390, 430, 626, 768, 1024, 1440]
+
+  assert.deepEqual(
+    viewports.map(width => ({
+      width,
+      actionLayout: width <= 720 ? 'two-column-grid' : 'desktop-row',
+    })),
+    [
+      { width: 360, actionLayout: 'two-column-grid' },
+      { width: 390, actionLayout: 'two-column-grid' },
+      { width: 430, actionLayout: 'two-column-grid' },
+      { width: 626, actionLayout: 'two-column-grid' },
+      { width: 768, actionLayout: 'desktop-row' },
+      { width: 1024, actionLayout: 'desktop-row' },
+      { width: 1440, actionLayout: 'desktop-row' },
+    ],
+  )
+})
+
+test('Plan action labels, handlers, and first/last move boundaries remain wired', () => {
+  assert.match(pageSource, /const canMoveUp = audiencePlanIndex > 0/)
+  assert.match(pageSource, /const canMoveDown = audiencePlanIndex >= 0 && audiencePlanIndex < audiencePlanIds\.length - 1/)
+  assert.match(pageSource, /onClick=\{\(\) => void movePlan\(plan\.id, 'up'\)\}/)
+  assert.match(pageSource, /onClick=\{\(\) => void movePlan\(plan\.id, 'down'\)\}/)
+  assert.match(pageSource, /disabled=\{!canMoveUp \|\| Boolean\(movingPlanId\)\}/)
+  assert.match(pageSource, /disabled=\{!canMoveDown \|\| Boolean\(movingPlanId\)\}/)
+  assert.match(pageSource, /aria-label=\{`Move \$\{plan\.name\} up`\}/)
+  assert.match(pageSource, /aria-label=\{`Move \$\{plan\.name\} down`\}/)
+  assert.match(pageSource, />Edit<\/button>/)
+  assert.match(pageSource, />Delete<\/button>/)
+})

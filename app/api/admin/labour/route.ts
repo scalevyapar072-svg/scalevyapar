@@ -23,6 +23,17 @@ const getCompanyPlanAmountValidationError = (audience: unknown, planAmount: unkn
   return planAmount < 0 ? 'Plan amounts cannot be negative.' : ''
 }
 
+const getCompanyFreePlanJobPostLimitValidationError = (
+  audience: unknown,
+  planAmount: unknown,
+  jobPostLimit: unknown,
+) => {
+  if (audience !== 'company' || planAmount !== 0) return ''
+  return typeof jobPostLimit === 'number' && Number.isFinite(jobPostLimit) && jobPostLimit === 1
+    ? ''
+    : 'A ₹0 Company plan must allow exactly 1 job post.'
+}
+
 const isEntityType = (value: unknown): value is LabourEntityType =>
   value === 'categories' ||
   value === 'plans' ||
@@ -145,6 +156,14 @@ export async function handleAdminLabourPost(
       if (planAmountError) {
         return Response.json({ error: planAmountError }, { status: 400 })
       }
+      const jobPostLimitError = getCompanyFreePlanJobPostLimitValidationError(
+        planPayload.audience,
+        planPayload.planAmount,
+        planPayload.jobPostLimit,
+      )
+      if (jobPostLimitError) {
+        return Response.json({ error: jobPostLimitError }, { status: 400 })
+      }
     }
 
     const snapshot = await dependencies.createLabourEntity(
@@ -210,9 +229,20 @@ export async function handleAdminLabourPut(
       const nextPlanAmount = Object.hasOwn(mutationPayload, 'planAmount')
         ? mutationPayload.planAmount
         : currentPlan.planAmount
+      const nextJobPostLimit = Object.hasOwn(mutationPayload, 'jobPostLimit')
+        ? mutationPayload.jobPostLimit
+        : currentPlan.jobPostLimit
       const planAmountError = getCompanyPlanAmountValidationError(nextAudience, nextPlanAmount)
       if (planAmountError) {
         return Response.json({ error: planAmountError }, { status: 400 })
+      }
+      const jobPostLimitError = getCompanyFreePlanJobPostLimitValidationError(
+        nextAudience,
+        nextPlanAmount,
+        nextJobPostLimit,
+      )
+      if (jobPostLimitError) {
+        return Response.json({ error: jobPostLimitError }, { status: 400 })
       }
     }
 

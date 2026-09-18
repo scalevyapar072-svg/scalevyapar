@@ -15,6 +15,13 @@ type CompanyFreeTrialAuditLike = {
   createdAt?: unknown
 }
 
+export type CompanyJobPublicationMarker = {
+  companyId: string
+  planId: string
+  jobId: string
+  publishedAt: string
+}
+
 export type CompanyFreeTrialMarkerStatus = 'reserved' | 'consumed'
 
 export type CompanyFreeTrialMarker = {
@@ -28,6 +35,8 @@ export type CompanyFreeTrialMarker = {
 }
 
 export const COMPANY_FREE_TRIAL_MARKER_PREFIX = 'company-job-post-free-trial:v1:'
+export const COMPANY_JOB_PUBLICATION_MARKER_PREFIX = 'company-job-publication-history:v1:'
+export const COMPANY_FREE_TRIAL_RESERVATION_TTL_MS = 5 * 60 * 1000
 
 const normalize = (value: unknown) => String(value || '').trim()
 const normalizeLookup = (value: unknown) => normalize(value).toLowerCase()
@@ -44,6 +53,17 @@ export const getCompanyPlanAmountValidationError = (
     return 'Plan amounts cannot be negative.'
   }
   return ''
+}
+
+export const getCompanyFreePlanJobPostLimitValidationError = (
+  audience: unknown,
+  planAmount: unknown,
+  jobPostLimit: unknown,
+) => {
+  if (audience !== 'company' || planAmount !== 0) return ''
+  return typeof jobPostLimit === 'number' && Number.isFinite(jobPostLimit) && jobPostLimit === 1
+    ? ''
+    : 'A ₹0 Company plan must allow exactly 1 job post.'
 }
 
 export const resolveStoredCompanyPlanAmount = (plan: CompanyPlanAmountLike) => {
@@ -68,6 +88,9 @@ export const hasSuccessfulCompanyJobPublication = (
 
 export const buildCompanyFreeTrialMarkerId = (companyId: string) =>
   `audit-company-free-trial-${normalize(companyId)}`
+
+export const buildCompanyJobPublicationMarkerId = (companyId: string) =>
+  `audit-company-job-publication-${normalize(companyId)}`
 
 export const serializeCompanyFreeTrialMarker = (marker: CompanyFreeTrialMarker) =>
   `${COMPANY_FREE_TRIAL_MARKER_PREFIX}${JSON.stringify(marker)}`
@@ -99,6 +122,27 @@ export const parseCompanyFreeTrialMarker = (value: unknown): CompanyFreeTrialMar
   }
 }
 
+export const serializeCompanyJobPublicationMarker = (marker: CompanyJobPublicationMarker) =>
+  `${COMPANY_JOB_PUBLICATION_MARKER_PREFIX}${JSON.stringify(marker)}`
+
+export const parseCompanyJobPublicationMarker = (value: unknown): CompanyJobPublicationMarker | null => {
+  const normalized = normalize(value)
+  if (!normalized.startsWith(COMPANY_JOB_PUBLICATION_MARKER_PREFIX)) return null
+
+  try {
+    const parsed = JSON.parse(normalized.slice(COMPANY_JOB_PUBLICATION_MARKER_PREFIX.length)) as Partial<CompanyJobPublicationMarker>
+    const marker = {
+      companyId: normalize(parsed.companyId),
+      planId: normalize(parsed.planId),
+      jobId: normalize(parsed.jobId),
+      publishedAt: normalize(parsed.publishedAt),
+    }
+    return marker.companyId && marker.jobId && marker.publishedAt ? marker : null
+  } catch {
+    return null
+  }
+}
+
 export const findCompanyFreeTrialMarker = (
   auditLogs: CompanyFreeTrialAuditLike[],
   companyId: string,
@@ -118,3 +162,14 @@ export const isMatchingCompanyFreeTrialRetry = (
   marker.planId === normalize(input.planId) &&
   marker.submissionId === normalize(input.submissionId) &&
   marker.jobId === normalize(input.jobId)
+
+export const isCompanyFreeTrialReservationStale = (
+  marker: CompanyFreeTrialMarker,
+  now: Date | string | number = new Date(),
+  staleAfterMs = COMPANY_FREE_TRIAL_RESERVATION_TTL_MS,
+) => {
+  if (marker.status !== 'reserved' || !Number.isFinite(staleAfterMs) || staleAfterMs < 0) return false
+  const reservedAt = new Date(marker.reservedAt).getTime()
+  const nowAt = now instanceof Date ? now.getTime() : new Date(now).getTime()
+  return Number.isFinite(reservedAt) && Number.isFinite(nowAt) && nowAt - reservedAt >= staleAfterMs
+}

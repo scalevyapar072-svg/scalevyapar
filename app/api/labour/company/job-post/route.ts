@@ -23,7 +23,9 @@ import { requireCompanyApp } from '@/lib/labour-company-app'
 import {
   completeCompanyFreeTrialPublication,
   createLabourEntity,
+  getCompanyJobPublicationHistory,
   getLabourMarketplaceSnapshot,
+  recordCompanyJobPublication,
   releaseCompanyFreeTrialPublication,
   reserveCompanyFreeTrialPublication,
   updateLabourEntity,
@@ -215,6 +217,8 @@ type CompanyJobPostDependencies = {
   requireCompanyApp: typeof requireCompanyApp
   createLabourEntity: typeof createLabourEntity
   updateLabourEntity: typeof updateLabourEntity
+  getCompanyJobPublicationHistory: typeof getCompanyJobPublicationHistory
+  recordCompanyJobPublication: typeof recordCompanyJobPublication
   reserveCompanyFreeTrialPublication: typeof reserveCompanyFreeTrialPublication
   completeCompanyFreeTrialPublication: typeof completeCompanyFreeTrialPublication
   releaseCompanyFreeTrialPublication: typeof releaseCompanyFreeTrialPublication
@@ -227,6 +231,8 @@ const defaultDependencies: CompanyJobPostDependencies = {
   requireCompanyApp,
   createLabourEntity,
   updateLabourEntity,
+  getCompanyJobPublicationHistory,
+  recordCompanyJobPublication,
   reserveCompanyFreeTrialPublication,
   completeCompanyFreeTrialPublication,
   releaseCompanyFreeTrialPublication,
@@ -238,6 +244,7 @@ type FreeTrialPublicationReservation = {
   planId: string
   submissionId: string
   jobId: string
+  reservedAt: string
 }
 
 const buildSuccessfulJobResponse = (mode: 'draft' | 'publish', jobId: string) => NextResponse.json({
@@ -452,6 +459,12 @@ export async function handleCompanyJobPost(
       return NextResponse.json({ error: 'The selected company plan has an invalid stored amount.' }, { status: 400 })
     }
     const isFreeCompanyPlan = storedPlanAmount === 0
+    if (isFreeCompanyPlan && selectedPlan.jobPostLimit !== 1) {
+      return NextResponse.json(
+        { code: 'INVALID_FREE_PLAN_CONFIGURATION', error: 'A ₹0 Company plan must allow exactly 1 job post.' },
+        { status: 400 },
+      )
+    }
 
     const isFirstPublication = isFirstCompanyJobPublication(mode, existingJob?.status)
     if (isFirstPublication && !selectedPlan.isActive) {
@@ -541,6 +554,31 @@ export async function handleCompanyJobPost(
       })
     )
 
+    if (
+      mode === 'publish' &&
+      isFreeCompanyPlan &&
+      matchingFreeTrialRetry &&
+      existingJob &&
+      isPublishedJobStatus(existingJob.status)
+    ) {
+      await dependencies.recordCompanyJobPublication({
+        companyId: company.id,
+        planId: selectedPlan.id,
+        jobId: existingJob.id,
+        publishedAt: existingJob.publishedAt || existingJob.createdAt || dependencies.now().toISOString(),
+      })
+      if (existingFreeTrialMarker?.marker.status === 'reserved') {
+        await dependencies.completeCompanyFreeTrialPublication({
+          companyId: company.id,
+          planId: selectedPlan.id,
+          submissionId,
+          jobId: existingJob.id,
+          reservedAt: existingFreeTrialMarker.marker.reservedAt,
+        })
+      }
+      return buildSuccessfulJobResponse('publish', existingJob.id)
+    }
+
     if (isFirstPublication && isFreeCompanyPlan) {
       if (!submissionId || !freeTrialJobId) {
         return NextResponse.json({ error: 'A valid publication request ID is required for the free trial.' }, { status: 400 })
@@ -551,23 +589,32 @@ export async function handleCompanyJobPost(
           { status: 409 },
         )
       }
-      if (
-        existingFreeTrialMarker?.marker.status === 'consumed' &&
-        matchingFreeTrialRetry &&
-        existingJob &&
-        isPublishedJobStatus(existingJob.status)
-      ) {
-        return buildSuccessfulJobResponse('publish', existingJob.id)
-      }
-      if (!existingFreeTrialMarker && hasSuccessfulCompanyJobPublication(snapshot.jobPosts, company.id)) {
-        return NextResponse.json(
-          { code: 'FREE_TRIAL_NOT_ELIGIBLE', error: 'The free job-post trial is available only before a company has published its first job.' },
-          { status: 409 },
-        )
-      }
       if (existingFreeTrialMarker?.marker.status === 'consumed') {
         return NextResponse.json(
           { code: 'FREE_TRIAL_ALREADY_USED', error: 'This company has already used its free job-post trial.' },
+          { status: 409 },
+        )
+      }
+      const hasCurrentHistoricalPublication = hasSuccessfulCompanyJobPublication(snapshot.jobPosts, company.id)
+      if (hasCurrentHistoricalPublication) {
+        const historicalJob = snapshot.jobPosts.find(jobPost =>
+          jobPost.companyId === company.id &&
+          (Boolean(normalize(jobPost.publishedAt)) || isPublishedJobStatus(jobPost.status))
+        )
+        if (historicalJob) {
+          await dependencies.recordCompanyJobPublication({
+            companyId: company.id,
+            planId: historicalJob.planId || '',
+            jobId: historicalJob.id,
+            publishedAt: historicalJob.publishedAt || historicalJob.createdAt || dependencies.now().toISOString(),
+          })
+        }
+      }
+      const historicalPublication = hasCurrentHistoricalPublication ||
+        Boolean(await dependencies.getCompanyJobPublicationHistory(company.id))
+      if (historicalPublication) {
+        return NextResponse.json(
+          { code: 'FREE_TRIAL_NOT_ELIGIBLE', error: 'The free job-post trial is available only before a company has published its first job.' },
           { status: 409 },
         )
       }
@@ -659,13 +706,18 @@ export async function handleCompanyJobPost(
     })
     const shouldUpdateCompany = !existingJob || hasMeaningfulCompanyProfileChange(company, submittedCompanyDetails)
     if (isFirstPublication && isFreeCompanyPlan) {
+      const reservationRequestedAt = dependencies.now().toISOString()
       freeTrialReservation = {
         companyId: company.id,
         planId: selectedPlan.id,
         submissionId,
         jobId: freeTrialJobId,
+        reservedAt: reservationRequestedAt,
       }
-      const claim = await dependencies.reserveCompanyFreeTrialPublication(freeTrialReservation)
+      const claim = await dependencies.reserveCompanyFreeTrialPublication(
+        freeTrialReservation,
+        reservationRequestedAt,
+      )
       if (claim.status === 'conflict') {
         freeTrialReservation = null
         return NextResponse.json(
@@ -681,11 +733,25 @@ export async function handleCompanyJobPost(
           isPublishedJobStatus(jobPost.status)
         )
         freeTrialReservation = null
-        if (publishedJob) return buildSuccessfulJobResponse('publish', publishedJob.id)
+        if (publishedJob) {
+          await dependencies.recordCompanyJobPublication({
+            companyId: company.id,
+            planId: selectedPlan.id,
+            jobId: publishedJob.id,
+            publishedAt: publishedJob.publishedAt || publishedJob.createdAt || today,
+          })
+          return buildSuccessfulJobResponse('publish', publishedJob.id)
+        }
         return NextResponse.json(
           { code: 'FREE_TRIAL_ALREADY_USED', error: 'This company has already used its free job-post trial.' },
           { status: 409 },
         )
+      }
+      if (claim.marker) {
+        freeTrialReservation = {
+          ...freeTrialReservation,
+          reservedAt: claim.marker.reservedAt,
+        }
       }
     }
 
@@ -762,6 +828,15 @@ export async function handleCompanyJobPost(
 
       const updatedJob = updatedSnapshot?.jobPosts.find(jobPost => jobPost.id === existingJob.id) || existingJob
 
+      if (mode !== 'draft' && isPublishedJobStatus(updatedJob.status)) {
+        await dependencies.recordCompanyJobPublication({
+          companyId: refreshedCompany.id,
+          planId: selectedPlan.id,
+          jobId: updatedJob.id,
+          publishedAt: updatedJob.publishedAt || updatedJob.createdAt || today,
+        })
+      }
+
       if (freeTrialReservation && mode !== 'draft') {
         await dependencies.completeCompanyFreeTrialPublication(freeTrialReservation)
         freeTrialCompleted = true
@@ -792,6 +867,15 @@ export async function handleCompanyJobPost(
     const createdJob = idempotentJobId
       ? finalSnapshot.jobPosts.find(jobPost => jobPost.id === idempotentJobId) || null
       : [...finalSnapshot.jobPosts].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+
+    if (createdJob && mode !== 'draft' && isPublishedJobStatus(createdJob.status)) {
+      await dependencies.recordCompanyJobPublication({
+        companyId: refreshedCompany.id,
+        planId: selectedPlan.id,
+        jobId: createdJob.id,
+        publishedAt: createdJob.publishedAt || createdJob.createdAt || today,
+      })
+    }
 
     if (freeTrialReservation && mode !== 'draft') {
       if (!createdJob || !isPublishedJobStatus(createdJob.status)) {
@@ -839,6 +923,12 @@ export async function handleCompanyJobPost(
           isPublishedJobStatus(jobPost.status)
         )
         if (publishedJob) {
+          await dependencies.recordCompanyJobPublication({
+            companyId: freeTrialReservation.companyId,
+            planId: freeTrialReservation.planId,
+            jobId: publishedJob.id,
+            publishedAt: publishedJob.publishedAt || publishedJob.createdAt || dependencies.now().toISOString(),
+          })
           await dependencies.completeCompanyFreeTrialPublication(freeTrialReservation)
           return buildSuccessfulJobResponse('publish', publishedJob.id)
         }

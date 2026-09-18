@@ -48,7 +48,10 @@ import {
   isWorkerKycComplete,
   reconcileWorkerKycVisibility
 } from '@/lib/worker-kyc-completeness'
-import { getCompanyPlanAmountValidationError } from '@/lib/labour-company-free-trial'
+import {
+  getCompanyFreePlanJobPostLimitValidationError,
+  getCompanyPlanAmountValidationError,
+} from '@/lib/labour-company-free-trial'
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'inactive_paused_by_worker' | 'blocked' | 'rejected'
 type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
@@ -5652,6 +5655,13 @@ export default function LabourExchangeAdminPage() {
 
     const companyPlanAmountError = getCompanyPlanAmountValidationError(planDraft.audience, planDraft.planAmount)
     if (companyPlanAmountError) return companyPlanAmountError
+
+    const companyFreePlanJobPostLimitError = getCompanyFreePlanJobPostLimitValidationError(
+      planDraft.audience,
+      planDraft.planAmount,
+      planDraft.jobPostLimit,
+    )
+    if (companyFreePlanJobPostLimitError) return companyFreePlanJobPostLimitError
 
     if (planDraft.audience === 'company' && planDraft.jobPostLimit <= 0) {
       return 'Number of job posts allowed must be at least 1.'

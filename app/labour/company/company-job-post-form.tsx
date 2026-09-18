@@ -414,6 +414,7 @@ export function CompanyJobPostForm({
     () => plans.find(plan => plan.id === form.selectedPlanId) || null,
     [form.selectedPlanId, plans]
   )
+  const selectedPlanIsFree = selectedPlan?.planAmount === 0
   const activeJobPostingPlanSummaries = useMemo(
     () => currentJobPostingPlans.filter(plan => plan.status === 'active'),
     [currentJobPostingPlans]
@@ -426,6 +427,7 @@ export function CompanyJobPostForm({
     [activeJobPostingPlanSummaries, plans]
   )
   const hasActiveConnectedPlans = connectedJobPostingPlans.length > 0
+  const canPublishSelectedPlan = hasActiveConnectedPlans || selectedPlanIsFree
   const selectableJobPostingPlans = hasActiveConnectedPlans ? connectedJobPostingPlans : plans
   const selectedCurrentPlan = selectedPlan
     ? currentJobPostingPlans.find(plan => plan.planId === selectedPlan.id) || null
@@ -480,14 +482,16 @@ export function CompanyJobPostForm({
   const selectedPlanStatus = selectedCurrentPlan?.status
     || (
       selectedPlan
-        ? companyActivePlanId && selectedPlan.id === companyActivePlanId && selectedPlanValidUntil
+        ? selectedPlanIsFree
+          ? 'active'
+          : companyActivePlanId && selectedPlan.id === companyActivePlanId && selectedPlanValidUntil
           ? 'active'
           : 'inactive'
         : null
     )
 
   const selectedPlanUpgradeWarning = useMemo<PublishModalState | null>(() => {
-    if (!selectedPlan || isEditMode) return null
+    if (!selectedPlan || selectedPlanIsFree || isEditMode) return null
     if (!selectedCurrentPlan || selectedPlanStatus === 'inactive') {
       return {
         variant: 'upgrade',
@@ -528,7 +532,7 @@ export function CompanyJobPostForm({
       }
     }
     return null
-  }, [isEditMode, selectedCurrentPlan, selectedPlan, selectedPlanLiveStartDate, selectedPlanRemainingPosts, selectedPlanStatus, selectedPlanUsageLine, selectedPlanValidUntil])
+  }, [isEditMode, selectedCurrentPlan, selectedPlan, selectedPlanIsFree, selectedPlanLiveStartDate, selectedPlanRemainingPosts, selectedPlanStatus, selectedPlanUsageLine, selectedPlanValidUntil])
 
   const openPlanUpgradeModal = (reason: PlanUpgradeReason, message: string) => {
     const planName = selectedPlan?.name || 'Selected plan'
@@ -1277,7 +1281,7 @@ export function CompanyJobPostForm({
       return
     }
 
-    if (!selectedCurrentPlan || selectedPlanStatus === 'inactive') {
+    if (!selectedPlanIsFree && (!selectedCurrentPlan || selectedPlanStatus === 'inactive')) {
       openPlanUpgradeModal('plan-payment-required', 'Payment has not been completed for this plan. Please complete payment before publishing a job requirement.')
       return
     }
@@ -1392,7 +1396,7 @@ export function CompanyJobPostForm({
             className={styles.companyRegisterForm}
             onSubmit={event => {
               event.preventDefault()
-              void submitForm(hasActiveConnectedPlans ? 'publish' : 'checkout')
+              void submitForm(canPublishSelectedPlan ? 'publish' : 'checkout')
             }}
             noValidate
           >
@@ -1449,7 +1453,9 @@ export function CompanyJobPostForm({
                   {errors.selectedPlanId ? <p className={styles.companyRegisterFieldError}>{errors.selectedPlanId}</p> : null}
                   {!isEditMode && !hasActiveConnectedPlans ? (
                     <p className={styles.jobPostPlanWarningHint}>
-                      No active job posting plan is connected yet. Select a plan, save this requirement, then continue to checkout before publishing.
+                      {selectedPlanIsFree
+                        ? 'This zero-value plan can be published without checkout if the company is eligible.'
+                        : 'No active job posting plan is connected yet. Select a plan, save this requirement, then continue to checkout before publishing.'}
                     </p>
                   ) : null}
                 </div>
@@ -1473,7 +1479,9 @@ export function CompanyJobPostForm({
                       <p style={{ margin: 0, color: '#2563eb', fontSize: '13px', fontWeight: 700 }}>
                         {selectedCurrentPlan
                           ? `Active plan status: ${selectedCurrentPlan.status.replace(/_/g, ' ')}`
-                          : 'Purchase option: checkout is required before this job can be published.'}
+                          : selectedPlanIsFree
+                            ? 'Free plan eligibility is verified securely when the job is published.'
+                            : 'Purchase option: checkout is required before this job can be published.'}
                       </p>
                       <p style={{ margin: 0, color: '#475569', fontSize: '14px' }}>
                         {selectedPlanValidUntil
@@ -1677,7 +1685,7 @@ export function CompanyJobPostForm({
                       ? 'Preparing checkout...'
                       : isEditMode
                         ? 'Update Job Requirement'
-                        : hasActiveConnectedPlans
+                        : canPublishSelectedPlan
                           ? 'Publish Job Requirement'
                           : 'Checkout'}
                 </button>
@@ -1703,7 +1711,7 @@ export function CompanyJobPostForm({
               ) : null}
               <p className={styles.companyRegisterSubmitNote}>
                 {isValid
-                  ? hasActiveConnectedPlans
+                  ? canPublishSelectedPlan
                     ? 'The requirement is ready to publish live for eligible workers on ScaleVyapar Rozgar.'
                     : 'The requirement can be saved as draft and continued to checkout. It will not publish until payment/plan activation succeeds.'
                   : 'Complete these required fields: Job Title, Labour Category, Select Plan, Number of Workers Required, Salary Type, Salary Amount, and Job Description.'}

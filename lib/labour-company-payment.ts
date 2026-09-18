@@ -3,6 +3,7 @@ import { createPricingPlanSlug, type CheckoutSummary } from './labour-company-ch
 import { getCompanyAppDashboard } from './labour-company-app'
 import { supabaseAdmin } from './supabase-admin'
 import { sendPaymentReceivedEmail } from './rozgar-notification-email'
+import { resolveStoredCompanyPlanAmount } from './labour-company-free-trial'
 
 const normalize = (value: unknown) =>
   String(value || '')
@@ -53,15 +54,25 @@ export const resolveCompanyPlanForCheckout = (
   )
   if (summaryNameMatch) return summaryNameMatch
 
-  const requestedTier = tierRank(requestedSlug || summarySlug)
-  if (requestedTier >= 3) {
-    return companyPlans[companyPlans.length - 1]
-  }
-  if (requestedTier === 2) {
-    return companyPlans[Math.min(1, companyPlans.length - 1)]
+  // Keep the legacy paid-tier fallback stable when a zero-value trial plan is added.
+  // Exact ID/name/slug matches above can still select the trial explicitly.
+  const paidCompanyPlans = companyPlans.filter(plan => {
+    const amount = resolveStoredCompanyPlanAmount(plan)
+    return amount !== null && amount > 0
+  })
+  if (!paidCompanyPlans.length) {
+    return null
   }
 
-  return companyPlans[0]
+  const requestedTier = tierRank(requestedSlug || summarySlug)
+  if (requestedTier >= 3) {
+    return paidCompanyPlans[paidCompanyPlans.length - 1]
+  }
+  if (requestedTier === 2) {
+    return paidCompanyPlans[Math.min(1, paidCompanyPlans.length - 1)]
+  }
+
+  return paidCompanyPlans[0]
 }
 
 const buildRazorpayTransactionId = (paymentId: string) =>
@@ -94,6 +105,14 @@ export const activateCompanyPlanFromRazorpay = async ({
 
   if (!plan) {
     throw new Error('Selected company plan is no longer available.')
+  }
+
+  const storedPlanAmount = resolveStoredCompanyPlanAmount(plan)
+  if (storedPlanAmount === null) {
+    throw new Error('Selected company plan has an invalid stored amount.')
+  }
+  if (storedPlanAmount === 0) {
+    throw new Error('A zero-value company plan cannot be activated through payment verification.')
   }
 
   const now = new Date().toISOString()

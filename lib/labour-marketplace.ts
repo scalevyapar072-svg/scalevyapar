@@ -16,6 +16,13 @@ import {
   countUsedJobPostsForPlan,
   resolveCompanyPlanWindow
 } from './labour-plan-utils'
+import {
+  buildCompanyFreeTrialMarkerId,
+  isMatchingCompanyFreeTrialRetry,
+  parseCompanyFreeTrialMarker,
+  serializeCompanyFreeTrialMarker,
+  type CompanyFreeTrialMarker
+} from './labour-company-free-trial'
 import { supabaseAdmin } from './supabase-admin'
 
 export type LabourEntityType =
@@ -3223,6 +3230,182 @@ const writeSupabaseAuditLog = async (
 export const getLabourMarketplaceSnapshot = async (): Promise<LabourMarketplaceSnapshot> => {
   const { data, storage } = await readDataWithStorage()
   return buildSnapshot(data, storage)
+}
+
+export type CompanyFreeTrialClaimResult = {
+  status: 'claimed' | 'consumed' | 'conflict'
+  marker: CompanyFreeTrialMarker | null
+}
+
+type CompanyFreeTrialPublicationInput = {
+  companyId: string
+  planId: string
+  submissionId: string
+  jobId: string
+}
+
+const buildCompanyFreeTrialReservation = (
+  input: CompanyFreeTrialPublicationInput,
+  reservedAt = new Date().toISOString(),
+): CompanyFreeTrialMarker => ({
+  companyId: input.companyId.trim(),
+  planId: input.planId.trim(),
+  submissionId: input.submissionId.trim(),
+  jobId: input.jobId.trim(),
+  status: 'reserved',
+  reservedAt,
+  consumedAt: '',
+})
+
+const resolveCompanyFreeTrialClaimResult = (
+  marker: CompanyFreeTrialMarker | null,
+  input: CompanyFreeTrialPublicationInput,
+): CompanyFreeTrialClaimResult => {
+  if (!marker || !isMatchingCompanyFreeTrialRetry(marker, input)) {
+    return { status: 'conflict', marker }
+  }
+  return marker.status === 'consumed'
+    ? { status: 'consumed', marker }
+    : { status: 'conflict', marker }
+}
+
+export const reserveCompanyFreeTrialPublication = async (
+  input: CompanyFreeTrialPublicationInput,
+): Promise<CompanyFreeTrialClaimResult> => {
+  const marker = buildCompanyFreeTrialReservation(input)
+  const auditRecord: LabourAuditLogRecord = {
+    id: buildCompanyFreeTrialMarkerId(marker.companyId),
+    action: 'create',
+    entityType: 'jobPosts',
+    entityId: marker.jobId,
+    summary: serializeCompanyFreeTrialMarker(marker),
+    actor: 'company-job-post-free-trial',
+    createdAt: marker.reservedAt,
+  }
+  const backend = await getStorageBackend()
+
+  if (backend === 'json') {
+    const data = await readJsonData()
+    const existing = data.auditLogs.find(record => record.id === auditRecord.id) || null
+    if (existing) {
+      return resolveCompanyFreeTrialClaimResult(parseCompanyFreeTrialMarker(existing.summary), input)
+    }
+    data.auditLogs.unshift(auditRecord)
+    await writeJsonData(data)
+    return { status: 'claimed', marker }
+  }
+
+  const { error } = await supabaseAdmin.from(STORAGE_TABLES.auditLogs).insert({
+    id: auditRecord.id,
+    action: auditRecord.action,
+    entity_type: auditRecord.entityType,
+    entity_id: auditRecord.entityId,
+    summary: auditRecord.summary,
+    actor: auditRecord.actor,
+    created_at: auditRecord.createdAt,
+  })
+  if (!error) {
+    return { status: 'claimed', marker }
+  }
+  if (error.code !== '23505') {
+    throw new Error(`Failed to reserve company free trial: ${error.message}`)
+  }
+
+  const { data: existing, error: readError } = await supabaseAdmin
+    .from(STORAGE_TABLES.auditLogs)
+    .select('summary')
+    .eq('id', auditRecord.id)
+    .maybeSingle()
+  if (readError) {
+    throw new Error(`Failed to verify company free trial reservation: ${readError.message}`)
+  }
+  return resolveCompanyFreeTrialClaimResult(parseCompanyFreeTrialMarker(existing?.summary), input)
+}
+
+export const completeCompanyFreeTrialPublication = async (
+  input: CompanyFreeTrialPublicationInput,
+) => {
+  const markerId = buildCompanyFreeTrialMarkerId(input.companyId)
+  const backend = await getStorageBackend()
+
+  if (backend === 'json') {
+    const data = await readJsonData()
+    const index = data.auditLogs.findIndex(record => record.id === markerId)
+    if (index === -1) throw new Error('Company free trial reservation could not be found.')
+    const existingMarker = parseCompanyFreeTrialMarker(data.auditLogs[index].summary)
+    if (!existingMarker || !isMatchingCompanyFreeTrialRetry(existingMarker, input)) {
+      throw new Error('Company free trial reservation does not match this publication.')
+    }
+    if (existingMarker.status === 'consumed') return existingMarker
+    const completedMarker: CompanyFreeTrialMarker = {
+      ...existingMarker,
+      status: 'consumed',
+      consumedAt: new Date().toISOString(),
+    }
+    data.auditLogs[index] = {
+      ...data.auditLogs[index],
+      summary: serializeCompanyFreeTrialMarker(completedMarker),
+    }
+    await writeJsonData(data)
+    return completedMarker
+  }
+
+  const { data: existing, error: readError } = await supabaseAdmin
+    .from(STORAGE_TABLES.auditLogs)
+    .select('summary')
+    .eq('id', markerId)
+    .maybeSingle()
+  if (readError) throw new Error(`Failed to read company free trial reservation: ${readError.message}`)
+  const existingMarker = parseCompanyFreeTrialMarker(existing?.summary)
+  if (!existingMarker || !isMatchingCompanyFreeTrialRetry(existingMarker, input)) {
+    throw new Error('Company free trial reservation does not match this publication.')
+  }
+  if (existingMarker.status === 'consumed') return existingMarker
+
+  const completedMarker: CompanyFreeTrialMarker = {
+    ...existingMarker,
+    status: 'consumed',
+    consumedAt: new Date().toISOString(),
+  }
+  const { error } = await supabaseAdmin
+    .from(STORAGE_TABLES.auditLogs)
+    .update({ summary: serializeCompanyFreeTrialMarker(completedMarker) })
+    .eq('id', markerId)
+    .eq('summary', serializeCompanyFreeTrialMarker(existingMarker))
+  if (error) throw new Error(`Failed to complete company free trial reservation: ${error.message}`)
+  return completedMarker
+}
+
+export const releaseCompanyFreeTrialPublication = async (
+  input: CompanyFreeTrialPublicationInput,
+) => {
+  const markerId = buildCompanyFreeTrialMarkerId(input.companyId)
+  const backend = await getStorageBackend()
+
+  if (backend === 'json') {
+    const data = await readJsonData()
+    const existing = data.auditLogs.find(record => record.id === markerId) || null
+    const marker = parseCompanyFreeTrialMarker(existing?.summary)
+    if (!marker || marker.status !== 'reserved' || !isMatchingCompanyFreeTrialRetry(marker, input)) return
+    data.auditLogs = data.auditLogs.filter(record => record.id !== markerId)
+    await writeJsonData(data)
+    return
+  }
+
+  const { data: existing, error: readError } = await supabaseAdmin
+    .from(STORAGE_TABLES.auditLogs)
+    .select('summary')
+    .eq('id', markerId)
+    .maybeSingle()
+  if (readError) throw new Error(`Failed to read company free trial reservation: ${readError.message}`)
+  const marker = parseCompanyFreeTrialMarker(existing?.summary)
+  if (!marker || marker.status !== 'reserved' || !isMatchingCompanyFreeTrialRetry(marker, input)) return
+  const { error } = await supabaseAdmin
+    .from(STORAGE_TABLES.auditLogs)
+    .delete()
+    .eq('id', markerId)
+    .eq('summary', serializeCompanyFreeTrialMarker(marker))
+  if (error) throw new Error(`Failed to release company free trial reservation: ${error.message}`)
 }
 
 export const getLabourAdminVisibleCategories = async (): Promise<LabourCategoryRecord[]> => {

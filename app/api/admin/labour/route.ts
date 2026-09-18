@@ -15,6 +15,14 @@ import {
 } from '@/lib/worker-lifecycle-mutation-guard'
 import { isWorkerKycComplete } from '@/lib/worker-kyc-completeness'
 
+const getCompanyPlanAmountValidationError = (audience: unknown, planAmount: unknown) => {
+  if (audience !== 'company') return ''
+  if (typeof planAmount !== 'number' || !Number.isFinite(planAmount)) {
+    return 'Company plan amount must be a valid number.'
+  }
+  return planAmount < 0 ? 'Plan amounts cannot be negative.' : ''
+}
+
 const isEntityType = (value: unknown): value is LabourEntityType =>
   value === 'categories' ||
   value === 'plans' ||
@@ -131,6 +139,14 @@ export async function handleAdminLabourPost(
       )
     }
 
+    if (entityType === 'plans') {
+      const planPayload = payload as Record<string, unknown>
+      const planAmountError = getCompanyPlanAmountValidationError(planPayload.audience, planPayload.planAmount)
+      if (planAmountError) {
+        return Response.json({ error: planAmountError }, { status: 400 })
+      }
+    }
+
     const snapshot = await dependencies.createLabourEntity(
       entityType,
       payload as Record<string, unknown>,
@@ -181,6 +197,25 @@ export async function handleAdminLabourPut(
     }
 
     const mutationPayload = payload as Record<string, unknown>
+    if (entityType === 'plans') {
+      const currentPlan = (
+        await (dependencies.getLabourMarketplaceSnapshot || getLabourMarketplaceSnapshot)()
+      ).plans.find(plan => plan.id === String(id))
+      if (!currentPlan) {
+        return Response.json({ error: 'Record not found' }, { status: 404 })
+      }
+      const nextAudience = Object.hasOwn(mutationPayload, 'audience')
+        ? mutationPayload.audience
+        : currentPlan.audience
+      const nextPlanAmount = Object.hasOwn(mutationPayload, 'planAmount')
+        ? mutationPayload.planAmount
+        : currentPlan.planAmount
+      const planAmountError = getCompanyPlanAmountValidationError(nextAudience, nextPlanAmount)
+      if (planAmountError) {
+        return Response.json({ error: planAmountError }, { status: 400 })
+      }
+    }
+
     if (entityType === 'workers') {
       const currentWorker = (
         await (dependencies.getLabourMarketplaceSnapshot || getLabourMarketplaceSnapshot)()

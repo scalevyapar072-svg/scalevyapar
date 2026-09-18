@@ -14,6 +14,26 @@ export type LabourPlanRestrictionLike = {
   audience?: string
 }
 
+export type CompanyPlanAccessSelection = {
+  industryCategoryValue?: string
+  businessTypeValue?: string
+  labourCategoryId?: string
+}
+
+export type CompanyPlanAccessEligibility = {
+  eligible: boolean
+  code:
+    | 'eligible'
+    | 'inactive_plan'
+    | 'invalid_audience'
+    | 'missing_selection'
+    | 'incomplete_plan_access'
+    | 'industry_mismatch'
+    | 'business_type_mismatch'
+    | 'labour_category_mismatch'
+  error: string
+}
+
 export type LabourPlanUsageJobLike = {
   id: string
   companyId: string
@@ -124,6 +144,63 @@ export const getPlanLabourCategoryIds = (plan: LabourPlanRestrictionLike) => {
   }
 
   return plan.categoryId ? [String(plan.categoryId).trim()].filter(Boolean) : []
+}
+
+export const getCompanyPlanAccessEligibility = (
+  plan: LabourPlanRestrictionLike,
+  selection: CompanyPlanAccessSelection,
+): CompanyPlanAccessEligibility => {
+  if (plan.audience !== 'company') {
+    return { eligible: false, code: 'invalid_audience', error: 'Select a valid Company plan.' }
+  }
+  if (plan.isActive === false) {
+    return { eligible: false, code: 'inactive_plan', error: 'The selected Company plan is inactive.' }
+  }
+
+  const industryCategoryValue = String(selection.industryCategoryValue || '').trim()
+  const businessTypeValue = String(selection.businessTypeValue || '').trim()
+  const labourCategoryId = String(selection.labourCategoryId || '').trim()
+  if (!industryCategoryValue || !businessTypeValue || !labourCategoryId) {
+    return {
+      eligible: false,
+      code: 'missing_selection',
+      error: 'Select a valid Industry, Business Type, and Labour Category before choosing a plan.',
+    }
+  }
+
+  const industryCategoryValues = getPlanIndustryCategoryValues(plan)
+  const businessTypeValues = getPlanBusinessTypeValues(plan)
+  const labourCategoryIds = getPlanLabourCategoryIds(plan)
+  if (!industryCategoryValues.length || !businessTypeValues.length || !labourCategoryIds.length) {
+    return {
+      eligible: false,
+      code: 'incomplete_plan_access',
+      error: 'The selected Company plan has incomplete Industry, Business Type, or Labour Category access.',
+    }
+  }
+  if (!industryCategoryValues.includes(industryCategoryValue)) {
+    return {
+      eligible: false,
+      code: 'industry_mismatch',
+      error: 'This plan is not available for the selected Industry.',
+    }
+  }
+  if (!businessTypeValues.includes(businessTypeValue)) {
+    return {
+      eligible: false,
+      code: 'business_type_mismatch',
+      error: 'This plan is not available for the selected Business Type.',
+    }
+  }
+  if (!labourCategoryIds.includes(labourCategoryId)) {
+    return {
+      eligible: false,
+      code: 'labour_category_mismatch',
+      error: 'This plan is not available for the selected Labour Category.',
+    }
+  }
+
+  return { eligible: true, code: 'eligible', error: '' }
 }
 
 export const extractConnectedPlanLabel = (description: string) => {

@@ -11,6 +11,7 @@ import {
   addDays,
   calculateJobLiveWindow,
   countUsedJobPostsForPlan,
+  getCompanyPlanAccessEligibility,
   getJobPostLiveDays,
   getPlanLabourCategoryIds,
   getPlanValidityDays,
@@ -222,6 +223,7 @@ type CompanyJobPostDependencies = {
   reserveCompanyFreeTrialPublication: typeof reserveCompanyFreeTrialPublication
   completeCompanyFreeTrialPublication: typeof completeCompanyFreeTrialPublication
   releaseCompanyFreeTrialPublication: typeof releaseCompanyFreeTrialPublication
+  getCompanyPlanAccessEligibility?: typeof getCompanyPlanAccessEligibility
   now: () => Date
 }
 
@@ -236,7 +238,63 @@ const defaultDependencies: CompanyJobPostDependencies = {
   reserveCompanyFreeTrialPublication,
   completeCompanyFreeTrialPublication,
   releaseCompanyFreeTrialPublication,
+  getCompanyPlanAccessEligibility: (plan, selection) => getCompanyPlanAccessEligibility(plan, selection),
   now: () => new Date(),
+}
+
+const getCompanyPlanAccessEligibilityFallback = (
+  plan: {
+    audience?: string
+    isActive?: boolean
+    industryCategoryValues?: string[]
+    businessTypeValues?: string[]
+    labourCategoryIds?: string[]
+    categoryId?: string
+  },
+  selection: {
+    industryCategoryValue?: string
+    businessTypeValue?: string
+    labourCategoryId?: string
+  },
+) => {
+  if (plan.audience !== 'company') {
+    return { eligible: false, error: 'Select a valid Company plan.' }
+  }
+  if (plan.isActive === false) {
+    return { eligible: false, error: 'The selected Company plan is inactive.' }
+  }
+
+  const industryCategoryValue = normalize(selection.industryCategoryValue)
+  const businessTypeValue = normalize(selection.businessTypeValue)
+  const labourCategoryId = normalize(selection.labourCategoryId)
+  if (!industryCategoryValue || !businessTypeValue || !labourCategoryId) {
+    return { eligible: false, error: 'Select a valid Industry, Business Type, and Labour Category before choosing a plan.' }
+  }
+
+  const industryCategoryValues = plan.industryCategoryValues || []
+  const businessTypeValues = plan.businessTypeValues || []
+  const labourCategoryIds = plan.labourCategoryIds?.length
+    ? plan.labourCategoryIds
+    : plan.categoryId
+      ? [plan.categoryId]
+      : []
+  if (!industryCategoryValues.length || !businessTypeValues.length || !labourCategoryIds.length) {
+    return { eligible: false, error: 'The selected Company plan has incomplete Industry, Business Type, or Labour Category access.' }
+  }
+
+  return {
+    eligible:
+      industryCategoryValues.includes(industryCategoryValue) &&
+      businessTypeValues.includes(businessTypeValue) &&
+      labourCategoryIds.includes(labourCategoryId),
+    error: !industryCategoryValues.includes(industryCategoryValue)
+      ? 'This plan is not available for the selected Industry.'
+      : !businessTypeValues.includes(businessTypeValue)
+        ? 'This plan is not available for the selected Business Type.'
+        : !labourCategoryIds.includes(labourCategoryId)
+          ? 'This plan is not available for the selected Labour Category.'
+          : '',
+  }
 }
 
 type FreeTrialPublicationReservation = {
@@ -277,8 +335,6 @@ export async function handleCompanyJobPost(
     const companyEmail = normalizeEmail(body.companyEmail)
     const mobile = normalize(body.mobile)
     const whatsAppNumber = normalize(body.whatsAppNumber)
-    const industryType = normalize(body.industryType)
-    const businessType = normalize(body.businessType)
     const companyAddress = normalize(body.companyAddress)
     const state = normalize(body.state)
     const city = normalize(body.city)
@@ -361,8 +417,8 @@ export async function handleCompanyJobPost(
     const resolvedCompanyEmail = companyEmail || normalizeEmail(company.email)
     const resolvedMobile = mobile || normalize(company.mobile)
     const resolvedWhatsAppNumber = whatsAppNumber || normalize(company.contactMobile) || normalize(company.mobile)
-    const resolvedIndustryType = industryType || normalize(company.industryCategory)
-    const resolvedBusinessType = businessType || normalize(company.businessType)
+    const resolvedIndustryType = normalize(company.industryCategory)
+    const resolvedBusinessType = normalize(company.businessType)
     const resolvedCompanyAddress = companyAddress || normalize(company.companyAddress)
     const resolvedState = state || normalize(company.state)
     const resolvedCity = city || normalize(company.city)
@@ -471,17 +527,24 @@ export async function handleCompanyJobPost(
       return NextResponse.json({ error: 'The selected company plan is inactive and cannot publish job requirements.' }, { status: 400 })
     }
 
-    if (selectedPlan.industryCategoryValues.length > 0 && !selectedPlan.industryCategoryValues.includes(resolvedIndustryType)) {
-      return NextResponse.json({ error: 'This plan is not mapped to the selected industry category.' }, { status: 400 })
+    const selectedPlanAccess = {
+      ...selectedPlan,
+      industryCategoryValues: selectedPlan.industryCategoryValues,
+      businessTypeValues: selectedPlan.businessTypeValues,
+      labourCategoryIds: getPlanLabourCategoryIds(selectedPlan),
     }
-
-    if (selectedPlan.businessTypeValues.length > 0 && !selectedPlan.businessTypeValues.includes(resolvedBusinessType)) {
-      return NextResponse.json({ error: 'This plan is not mapped to the selected business type.' }, { status: 400 })
-    }
-
-    const allowedPlanCategoryIds = getPlanLabourCategoryIds(selectedPlan)
-    if (mode !== 'draft' && allowedPlanCategoryIds.length > 0 && !allowedPlanCategoryIds.includes(effectiveCategoryId)) {
-      return NextResponse.json({ error: 'This labour category is not allowed under the selected plan.' }, { status: 400 })
+    const planAccessEligibility = (
+      dependencies.getCompanyPlanAccessEligibility || getCompanyPlanAccessEligibilityFallback
+    )(selectedPlanAccess, {
+      industryCategoryValue: resolvedIndustryType,
+      businessTypeValue: resolvedBusinessType,
+      labourCategoryId: effectiveCategoryId,
+    })
+    if (!planAccessEligibility.eligible) {
+      return NextResponse.json(
+        { code: 'PLAN_ACCESS_NOT_ELIGIBLE', error: planAccessEligibility.error },
+        { status: 400 },
+      )
     }
 
     const usedJobPostsCount = countUsedJobPostsForPlan(

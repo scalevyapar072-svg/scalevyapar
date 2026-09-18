@@ -36,6 +36,8 @@ export default async function LabourCompanyJobPostPage() {
         }))}
         plans={activeCompanyPlans.map(plan => ({
           id: plan.id,
+          audience: 'company' as const,
+          displayOrder: plan.displayOrder ?? 0,
           name: plan.name,
           planValidityDays: plan.planValidityDays,
           jobPostLiveDays: plan.jobPostLiveDays,
@@ -44,7 +46,8 @@ export default async function LabourCompanyJobPostPage() {
           jobPostLimit: plan.jobPostLimit,
           industryCategoryValues: plan.industryCategoryValues,
           businessTypeValues: plan.businessTypeValues,
-          labourCategoryIds: plan.labourCategoryIds?.length ? plan.labourCategoryIds : plan.categoryId ? [plan.categoryId] : []
+          labourCategoryIds: plan.labourCategoryIds?.length ? plan.labourCategoryIds : plan.categoryId ? [plan.categoryId] : [],
+          isActive: plan.isActive
         }))}
         industryCategoryOptions={masterOptionsByKey.industry_category || []}
         businessTypeOptions={masterOptionsByKey.business_type || []}

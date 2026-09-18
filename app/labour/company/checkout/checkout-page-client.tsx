@@ -324,6 +324,7 @@ export function CheckoutPageClient({
         },
         body: JSON.stringify({
           plan: searchParams.get('plan') || initialPlan,
+          jobId: searchParams.get('jobId') || '',
           billing: searchParams.get('billing') || initialBilling,
           discountCode: appliedDiscountCode,
           gstin: gstinOverride,

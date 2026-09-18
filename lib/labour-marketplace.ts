@@ -87,6 +87,7 @@ export interface LabourCategoryRecord {
 export interface LabourPlanRecord {
   id: string
   audience: PlanAudience
+  displayOrder?: number
   name: string
   categoryId?: string
   industryCategoryValues: string[]
@@ -429,6 +430,7 @@ const defaultData: LabourMarketplaceData = {
     {
       id: 'plan-worker-free-7-days',
       audience: 'worker',
+      displayOrder: 1,
       name: 'Free Worker Plan',
       industryCategoryValues: [],
       businessTypeValues: [],
@@ -449,6 +451,7 @@ const defaultData: LabourMarketplaceData = {
     {
       id: 'plan-worker-basic',
       audience: 'worker',
+      displayOrder: 2,
       name: 'Worker Access 10 Days',
       industryCategoryValues: [],
       businessTypeValues: [],
@@ -469,6 +472,7 @@ const defaultData: LabourMarketplaceData = {
     {
       id: 'plan-company-basic',
       audience: 'company',
+      displayOrder: 1,
       name: 'Company Basic 3 Days',
       industryCategoryValues: [],
       businessTypeValues: [],
@@ -489,6 +493,7 @@ const defaultData: LabourMarketplaceData = {
     {
       id: 'plan-company-stitching',
       audience: 'company',
+      displayOrder: 2,
       name: 'Stitching Karighar Priority 3 Days',
       categoryId: 'cat-stitching',
       industryCategoryValues: [],
@@ -1004,6 +1009,7 @@ const buildFreeWorkerPlan = (existing?: Partial<LabourPlanRecord>): LabourPlanRe
   return {
     id: existing?.id || FREE_WORKER_PLAN_ID,
     audience: 'worker',
+    displayOrder: existing?.displayOrder ?? 0,
     name: FREE_WORKER_PLAN_NAME,
     categoryId: existing?.categoryId,
     industryCategoryValues: existing?.industryCategoryValues || [],
@@ -1024,30 +1030,24 @@ const buildFreeWorkerPlan = (existing?: Partial<LabourPlanRecord>): LabourPlanRe
   }
 }
 
-const prioritizeWorkerPlans = (plans: LabourPlanRecord[]) => {
-  const freePlan = plans.find(plan => isFreeWorkerPlan(plan)) || null
-  if (!freePlan) return plans
-
-  return [
-    freePlan,
-    ...plans.filter(plan => plan.id !== freePlan.id)
-  ]
-}
-
 const ensureFreeWorkerPlan = (plans: LabourPlanRecord[]) => {
   const existingFreePlan = plans.find(plan => isFreeWorkerPlan(plan)) || null
   const nextFreePlan = buildFreeWorkerPlan(existingFreePlan || undefined)
   const dedupedPlans = plans.filter(
     plan => !isFreeWorkerPlan(plan) || plan.id === (existingFreePlan?.id || nextFreePlan.id)
   )
-  const remainingPlans = dedupedPlans.filter(plan => plan.id !== nextFreePlan.id)
 
-  return prioritizeWorkerPlans([nextFreePlan, ...remainingPlans])
+  if (!existingFreePlan) {
+    return [...dedupedPlans, nextFreePlan]
+  }
+
+  return dedupedPlans.map(plan => plan.id === existingFreePlan.id ? nextFreePlan : plan)
 }
 
 const buildPlanStoragePayload = (plan: LabourPlanRecord) => ({
   id: plan.id,
   audience: plan.audience,
+  display_order: (plan.displayOrder ?? 0) > 0 ? plan.displayOrder : null,
   name: plan.name,
   category_id: plan.categoryId || null,
   industry_category_values: plan.industryCategoryValues,
@@ -1096,6 +1096,7 @@ const mapCategoryRow = (row: {
 const mapPlanRow = (row: {
   id: string
   audience: string
+  display_order?: number | null
   name: string
   category_id: string | null
   industry_category_values?: string[] | null
@@ -1116,6 +1117,7 @@ const mapPlanRow = (row: {
 }): LabourPlanRecord => ({
   id: row.id,
   audience: row.audience as PlanAudience,
+  displayOrder: row.display_order ?? 0,
   name: row.name,
   categoryId: row.category_id || undefined,
   industryCategoryValues: toStringArray(row.industry_category_values),
@@ -1690,6 +1692,7 @@ const normalizePlan = (
   return {
     id: existing?.id || String(payload.id || createId('plan')),
     audience: (payload.audience || existing?.audience || 'worker') as PlanAudience,
+    displayOrder: Math.max(0, toNumber(payload.displayOrder, existing?.displayOrder ?? 0)),
     name: String(payload.name || existing?.name || '').trim(),
     categoryId: payload.categoryId || existing?.categoryId || undefined,
     industryCategoryValues: toStringArray(payload.industryCategoryValues || existing?.industryCategoryValues || []),
@@ -1952,7 +1955,8 @@ const isMissingPlanMetadataColumnsError = (message: string) => {
     normalized.includes('labour_category_ids') ||
     normalized.includes('job_post_limit') ||
     normalized.includes('plan_validity_days') ||
-    normalized.includes('job_post_live_days')
+    normalized.includes('job_post_live_days') ||
+    normalized.includes('display_order')
   )
 }
 
@@ -2730,6 +2734,26 @@ const readOptionalSupabaseRows = async <TRow>(tableName: string) => {
   return (result.data || []) as TRow[]
 }
 
+const readSupabasePlans = async () => {
+  const orderedResult = await supabaseAdmin
+    .from(STORAGE_TABLES.plans)
+    .select('*')
+    .order('audience', { ascending: true })
+    .order('display_order', { ascending: true })
+    .order('id', { ascending: true })
+
+  if (!orderedResult.error || !isMissingPlanMetadataColumnsError(orderedResult.error.message)) {
+    return orderedResult
+  }
+
+  return supabaseAdmin
+    .from(STORAGE_TABLES.plans)
+    .select('*')
+    .order('audience', { ascending: true })
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
+}
+
 const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
   const [
     categoriesResult,
@@ -2745,7 +2769,7 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
     auditLogsResult
   ] = await Promise.all([
     supabaseAdmin.from(STORAGE_TABLES.categories).select('*').order('created_at', { ascending: true }),
-    supabaseAdmin.from(STORAGE_TABLES.plans).select('*').order('created_at', { ascending: true }),
+    readSupabasePlans(),
     supabaseAdmin.from(STORAGE_TABLES.workers).select('*').order('created_at', { ascending: true }),
     supabaseAdmin.from(STORAGE_TABLES.companies).select('*').order('created_at', { ascending: true }),
     supabaseAdmin.from(STORAGE_TABLES.jobPosts).select('*').order('created_at', { ascending: true }),
@@ -2842,6 +2866,7 @@ const readSupabaseData = async (): Promise<LabourMarketplaceData> => {
       delete legacyPlanPayload.job_post_limit
       delete legacyPlanPayload.plan_validity_days
       delete legacyPlanPayload.job_post_live_days
+      delete legacyPlanPayload.display_order
       ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.plans).insert(legacyPlanPayload))
     }
     if (error) {
@@ -2957,27 +2982,39 @@ const seedSupabaseFromJson = async (data: LabourMarketplaceData) => {
     updated_at: category.updatedAt
   }))
 
-  const plansPayload = data.plans.map(plan => ({
-    id: plan.id,
-    audience: plan.audience,
-    name: plan.name,
-    category_id: plan.categoryId || null,
-    industry_category_values: plan.industryCategoryValues,
-    business_type_values: plan.businessTypeValues,
-    labour_category_ids: plan.labourCategoryIds,
-    job_post_limit: plan.jobPostLimit,
-    plan_validity_days: plan.planValidityDays,
-    job_post_live_days: plan.jobPostLiveDays,
-    registration_fee: plan.registrationFee,
-    wallet_credit: plan.walletCredit,
-    plan_amount: plan.planAmount,
-    validity_days: plan.validityDays,
-    daily_charge: plan.dailyCharge,
-    description: plan.description,
-    is_active: plan.isActive,
-    created_at: plan.createdAt,
-    updated_at: plan.updatedAt
-  }))
+  const planDisplayOrderByAudience = new Map<PlanAudience, number>()
+  const plansPayload = data.plans.map(plan => {
+    const nextDisplayOrder = (plan.displayOrder ?? 0) > 0
+      ? (plan.displayOrder ?? 0)
+      : (planDisplayOrderByAudience.get(plan.audience) || 0) + 1
+    planDisplayOrderByAudience.set(
+      plan.audience,
+      Math.max(planDisplayOrderByAudience.get(plan.audience) || 0, nextDisplayOrder)
+    )
+
+    return {
+      id: plan.id,
+      audience: plan.audience,
+      display_order: nextDisplayOrder,
+      name: plan.name,
+      category_id: plan.categoryId || null,
+      industry_category_values: plan.industryCategoryValues,
+      business_type_values: plan.businessTypeValues,
+      labour_category_ids: plan.labourCategoryIds,
+      job_post_limit: plan.jobPostLimit,
+      plan_validity_days: plan.planValidityDays,
+      job_post_live_days: plan.jobPostLiveDays,
+      registration_fee: plan.registrationFee,
+      wallet_credit: plan.walletCredit,
+      plan_amount: plan.planAmount,
+      validity_days: plan.validityDays,
+      daily_charge: plan.dailyCharge,
+      description: plan.description,
+      is_active: plan.isActive,
+      created_at: plan.createdAt,
+      updated_at: plan.updatedAt
+    }
+  })
 
   const workersPayload = data.workers.map(worker => ({
     id: worker.id,
@@ -3235,6 +3272,29 @@ const writeSupabaseAuditLog = async (
 export const getLabourMarketplaceSnapshot = async (): Promise<LabourMarketplaceSnapshot> => {
   const { data, storage } = await readDataWithStorage()
   return buildSnapshot(data, storage)
+}
+
+export type LabourPlanMoveDirection = 'up' | 'down'
+
+export const moveLabourPlan = async (
+  planId: string,
+  direction: LabourPlanMoveDirection,
+): Promise<LabourMarketplaceSnapshot> => {
+  const backend = await getStorageBackend()
+  if (backend !== 'supabase') {
+    throw new Error('Persistent plan ordering requires the Supabase labour plan migration.')
+  }
+
+  const { error } = await supabaseAdmin.rpc('move_labour_plan', {
+    p_plan_id: String(planId || '').trim(),
+    p_direction: direction,
+  })
+
+  if (error) {
+    throw new Error(`Failed to reorder labour plan: ${error.message}`)
+  }
+
+  return buildSnapshot(await readSupabaseData(), 'supabase')
 }
 
 export type CompanyFreeTrialClaimResult = {
@@ -3739,6 +3799,7 @@ export const createLabourEntity = async (
       const planPayload = {
         id: record.id,
         audience: record.audience,
+        display_order: (record.displayOrder ?? 0) > 0 ? record.displayOrder : null,
         name: record.name,
         category_id: record.categoryId || null,
         industry_category_values: record.industryCategoryValues,
@@ -3766,6 +3827,7 @@ export const createLabourEntity = async (
         delete legacyPlanPayload.job_post_limit
         delete legacyPlanPayload.plan_validity_days
         delete legacyPlanPayload.job_post_live_days
+        delete legacyPlanPayload.display_order
         ;({ error } = await supabaseAdmin.from(STORAGE_TABLES.plans).insert(legacyPlanPayload))
       }
       if (error) throw new Error(`Failed to create labour plan: ${error.message}`)

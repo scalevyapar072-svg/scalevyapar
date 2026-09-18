@@ -15,6 +15,12 @@ import {
 } from '@/lib/worker-lifecycle-mutation-guard'
 import { isWorkerKycComplete } from '@/lib/worker-kyc-completeness'
 
+type MoveLabourPlan = typeof import('@/lib/labour-marketplace')['moveLabourPlan']
+const moveLabourPlan: MoveLabourPlan = async (planId, direction) => {
+  const marketplace = await import('@/lib/labour-marketplace')
+  return marketplace.moveLabourPlan(planId, direction)
+}
+
 const getCompanyPlanAmountValidationError = (audience: unknown, planAmount: unknown) => {
   if (audience !== 'company') return ''
   if (typeof planAmount !== 'number' || !Number.isFinite(planAmount)) {
@@ -51,6 +57,7 @@ type AdminLabourMutationDependencies = {
   deleteLabourEntity: typeof deleteLabourEntity
   getLabourAdminVisibleCategories: typeof getLabourAdminVisibleCategories
   requireAdmin: typeof requireAdmin
+  moveLabourPlan?: typeof moveLabourPlan
   updateLabourEntity: typeof updateLabourEntity
   getLabourMarketplaceSnapshot?: typeof getLabourMarketplaceSnapshot
   mutationRuntime?: WorkerLifecycleMutationRuntime
@@ -118,6 +125,7 @@ export async function handleAdminLabourPost(
     deleteLabourEntity,
     getLabourAdminVisibleCategories,
     requireAdmin,
+    moveLabourPlan,
     updateLabourEntity,
     getLabourMarketplaceSnapshot,
   }
@@ -182,6 +190,41 @@ export async function handleAdminLabourPost(
   }
 }
 
+export async function PATCH(request: Request) {
+  return handleAdminLabourPatch(request)
+}
+
+export async function handleAdminLabourPatch(
+  request: Request,
+  dependencies: Pick<AdminLabourMutationDependencies, 'getLabourAdminVisibleCategories' | 'moveLabourPlan' | 'requireAdmin'> = {
+    getLabourAdminVisibleCategories,
+    moveLabourPlan,
+    requireAdmin,
+  }
+) {
+  try {
+    const admin = await dependencies.requireAdmin(request)
+    if (admin instanceof Response) {
+      return admin
+    }
+
+    const { action, planId, direction } = await request.json()
+    if (action !== 'movePlan' || !String(planId || '').trim() || (direction !== 'up' && direction !== 'down')) {
+      return Response.json({ error: 'A valid plan and move direction are required.' }, { status: 400 })
+    }
+
+    const snapshot = await (dependencies.moveLabourPlan || moveLabourPlan)(String(planId).trim(), direction)
+    const adminCategories = await dependencies.getLabourAdminVisibleCategories()
+    return Response.json({ success: true, snapshot: { ...snapshot, adminCategories } })
+  } catch (error) {
+    console.error('Labour plan reorder failed:', error)
+    return Response.json(
+      { error: error instanceof Error ? error.message : 'Failed to reorder labour plan' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PUT(request: Request) {
   return handleAdminLabourPut(request)
 }
@@ -193,6 +236,7 @@ export async function handleAdminLabourPut(
     deleteLabourEntity,
     getLabourAdminVisibleCategories,
     requireAdmin,
+    moveLabourPlan,
     updateLabourEntity,
     getLabourMarketplaceSnapshot,
   }
@@ -317,6 +361,7 @@ export async function handleAdminLabourDelete(
     deleteLabourEntity,
     getLabourAdminVisibleCategories,
     requireAdmin,
+    moveLabourPlan,
     updateLabourEntity,
     getLabourMarketplaceSnapshot,
   }

@@ -142,6 +142,7 @@ type LabourCategory = {
 type LabourPlan = {
   id: string
   audience: PlanAudience
+  displayOrder: number
   name: string
   categoryId?: string
   industryCategoryValues: string[]
@@ -768,6 +769,7 @@ const blankCategory: LabourCategory = {
 const blankPlan: LabourPlan = {
   id: '',
   audience: 'company',
+  displayOrder: 0,
   name: '',
   categoryId: '',
   industryCategoryValues: [],
@@ -2138,6 +2140,7 @@ export default function LabourExchangeAdminPage() {
 
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
+  const [movingPlanId, setMovingPlanId] = useState<string | null>(null)
   const [editingWorkerId, setEditingWorkerId] = useState<string | null>(null)
   const [selectedWorkerReviewId, setSelectedWorkerReviewId] = useState<string | null>(null)
   const [isWorkerKycReviewOpen, setIsWorkerKycReviewOpen] = useState(false)
@@ -3770,6 +3773,32 @@ export default function LabourExchangeAdminPage() {
     return data.snapshot as LabourSnapshot
   }
 
+  const movePlan = async (planId: string, direction: 'up' | 'down') => {
+    if (movingPlanId) return
+
+    setError('')
+    setMovingPlanId(planId)
+    try {
+      const response = await fetch('/api/admin/labour', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'movePlan', planId, direction })
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) {
+        setError(data.error || 'Failed to reorder plan.')
+        return
+      }
+
+      replaceSnapshot(data.snapshot)
+      showSaved(direction === 'up' ? 'Plan moved up' : 'Plan moved down')
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to reorder plan.')
+    } finally {
+      setMovingPlanId(null)
+    }
+  }
+
   const removeEntity = async (entityType: LabourEntityType, id: string, label: string) => {
     setError('')
     const confirmed = window.confirm(`Delete ${label}?`)
@@ -4521,6 +4550,13 @@ export default function LabourExchangeAdminPage() {
       ...getPlanLabourCategoryLabels(plan)
     ])
   })
+  const planIdsByAudience = snapshot.plans.reduce<Record<PlanAudience, string[]>>(
+    (result, plan) => {
+      result[plan.audience].push(plan.id)
+      return result
+    },
+    { company: [], worker: [] }
+  )
 
   const filteredWorkers = [...snapshot.workers]
     .filter(worker => {
@@ -7770,7 +7806,14 @@ export default function LabourExchangeAdminPage() {
                 {filteredPlans.length === 0 ? (
                   <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No plans match the current filters.</p>
                 ) : (
-                  filteredPlans.map(plan => (
+                  filteredPlans.map(plan => {
+                    const audiencePlanIds = planIdsByAudience[plan.audience]
+                    const audiencePlanIndex = audiencePlanIds.indexOf(plan.id)
+                    const planMoveBusy = movingPlanId === plan.id
+                    const canMoveUp = audiencePlanIndex > 0
+                    const canMoveDown = audiencePlanIndex >= 0 && audiencePlanIndex < audiencePlanIds.length - 1
+
+                    return (
                     <div key={plan.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                       <div>
                         <p style={{ margin: '0 0 4px', color: '#0f172a', fontWeight: '700' }}>{plan.name}</p>
@@ -7797,11 +7840,30 @@ export default function LabourExchangeAdminPage() {
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <button
+                          type="button"
+                          onClick={() => void movePlan(plan.id, 'up')}
+                          disabled={!canMoveUp || Boolean(movingPlanId)}
+                          aria-label={`Move ${plan.name} up`}
+                          style={{ ...subtleButtonStyle, opacity: !canMoveUp || movingPlanId ? 0.5 : 1, cursor: !canMoveUp || movingPlanId ? 'not-allowed' : 'pointer' }}
+                        >
+                          {planMoveBusy ? 'Moving...' : 'Move Up'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void movePlan(plan.id, 'down')}
+                          disabled={!canMoveDown || Boolean(movingPlanId)}
+                          aria-label={`Move ${plan.name} down`}
+                          style={{ ...subtleButtonStyle, opacity: !canMoveDown || movingPlanId ? 0.5 : 1, cursor: !canMoveDown || movingPlanId ? 'not-allowed' : 'pointer' }}
+                        >
+                          {planMoveBusy ? 'Moving...' : 'Move Down'}
+                        </button>
                         <button onClick={() => { setPlanDraft({ ...blankPlan, ...plan, categoryId: plan.categoryId || '', industryCategoryValues: plan.industryCategoryValues || [], businessTypeValues: plan.businessTypeValues || [], labourCategoryIds: plan.labourCategoryIds || [], jobPostLimit: plan.jobPostLimit || 1, planValidityDays: plan.planValidityDays || plan.validityDays || 0, jobPostLiveDays: plan.jobPostLiveDays || plan.validityDays || 0, validityDays: plan.planValidityDays || plan.validityDays || 0 }); setEditingPlanId(plan.id) }} style={subtleButtonStyle}>Edit</button>
                         <button onClick={() => void removeEntity('plans', plan.id, plan.name)} style={{ ...subtleButtonStyle, background: '#fff1f2', color: '#b91c1c', border: '1px solid #fecdd3' }}>Delete</button>
                       </div>
                     </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>

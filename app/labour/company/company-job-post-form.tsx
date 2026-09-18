@@ -15,7 +15,7 @@ import {
   filterCategoriesByLabourDependency,
   getVisibleLabourMasterOptions
 } from '@/lib/labour-masters-schema'
-import { calculateJobLiveWindow, countUsedJobPostsForPlan, getJobPostLiveDays, getPlanValidityDays, type CompanyJobPostingPlanSummary } from '@/lib/labour-plan-utils'
+import { calculateJobLiveWindow, countUsedJobPostsForPlan, getCompanyPlanAccessEligibility, getJobPostLiveDays, getPlanValidityDays, type CompanyJobPostingPlanSummary } from '@/lib/labour-plan-utils'
 import { createPricingPlanSlug } from '@/lib/labour-company-checkout'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
@@ -45,6 +45,8 @@ type CategoryOption = {
 
 type PlanOption = {
   id: string
+  audience: 'company'
+  displayOrder: number
   name: string
   planValidityDays: number
   jobPostLiveDays: number
@@ -54,6 +56,7 @@ type PlanOption = {
   industryCategoryValues: string[]
   businessTypeValues: string[]
   labourCategoryIds: string[]
+  isActive: boolean
 }
 
 type Props = {
@@ -414,21 +417,29 @@ export function CompanyJobPostForm({
     () => plans.find(plan => plan.id === form.selectedPlanId) || null,
     [form.selectedPlanId, plans]
   )
+  const eligiblePlans = useMemo(
+    () => plans.filter(plan => getCompanyPlanAccessEligibility(plan, {
+      industryCategoryValue: form.industryType,
+      businessTypeValue: form.businessType,
+      labourCategoryId: form.labourCategoryId
+    }).eligible),
+    [form.businessType, form.industryType, form.labourCategoryId, plans]
+  )
   const selectedPlanIsFree = selectedPlan?.planAmount === 0
   const activeJobPostingPlanSummaries = useMemo(
     () => currentJobPostingPlans.filter(plan => plan.status === 'active'),
     [currentJobPostingPlans]
   )
   const connectedJobPostingPlans = useMemo(
-    () =>
-      activeJobPostingPlanSummaries
-        .map(summary => plans.find(plan => plan.id === summary.planId) || null)
-        .filter((plan): plan is PlanOption => Boolean(plan)),
-    [activeJobPostingPlanSummaries, plans]
+    () => {
+      const connectedPlanIds = new Set(activeJobPostingPlanSummaries.map(summary => summary.planId))
+      return eligiblePlans.filter(plan => connectedPlanIds.has(plan.id))
+    },
+    [activeJobPostingPlanSummaries, eligiblePlans]
   )
   const hasActiveConnectedPlans = connectedJobPostingPlans.length > 0
   const canPublishSelectedPlan = hasActiveConnectedPlans || selectedPlanIsFree
-  const selectableJobPostingPlans = hasActiveConnectedPlans ? connectedJobPostingPlans : plans
+  const selectableJobPostingPlans = hasActiveConnectedPlans ? connectedJobPostingPlans : eligiblePlans
   const selectedCurrentPlan = selectedPlan
     ? currentJobPostingPlans.find(plan => plan.planId === selectedPlan.id) || null
     : null
@@ -464,16 +475,11 @@ export function CompanyJobPostForm({
   }, [selectedPlan, selectedPlanLiveStartDate, selectedPlanValidUntil])
   const selectedPlanCompatibilityError = useMemo(() => {
     if (!selectedPlan) return ''
-    if (selectedPlan.industryCategoryValues.length > 0 && form.industryType && !selectedPlan.industryCategoryValues.includes(form.industryType)) {
-      return 'This plan is not available for the selected industry category.'
-    }
-    if (selectedPlan.businessTypeValues.length > 0 && form.businessType && !selectedPlan.businessTypeValues.includes(form.businessType)) {
-      return 'This plan is not available for the selected business type.'
-    }
-    if (selectedPlan.labourCategoryIds.length > 0 && form.labourCategoryId && !selectedPlan.labourCategoryIds.includes(form.labourCategoryId)) {
-      return 'This labour category is not allowed under the selected plan.'
-    }
-    return ''
+    return getCompanyPlanAccessEligibility(selectedPlan, {
+      industryCategoryValue: form.industryType,
+      businessTypeValue: form.businessType,
+      labourCategoryId: form.labourCategoryId
+    }).error
   }, [form.businessType, form.industryType, form.labourCategoryId, selectedPlan])
 
   const selectedPlanUsageLine = selectedPlan
@@ -883,7 +889,7 @@ export function CompanyJobPostForm({
     if (isEditMode) return
     if (!hasActiveConnectedPlans) return
 
-    const resolvedPlanId = activeJobPostingPlanSummaries[0]?.planId || currentJobPostingPlan?.planId || ''
+    const resolvedPlanId = connectedJobPostingPlans[0]?.id || ''
     if (resolvedPlanId === form.selectedPlanId) return
 
     setForm(current => ({
@@ -891,7 +897,15 @@ export function CompanyJobPostForm({
       selectedPlanId: resolvedPlanId
     }))
     setErrors(current => ({ ...current, selectedPlanId: '', form: '' }))
-  }, [activeJobPostingPlanSummaries, currentJobPostingPlan?.planId, form.selectedPlanId, hasActiveConnectedPlans, isEditMode])
+  }, [connectedJobPostingPlans, form.selectedPlanId, hasActiveConnectedPlans, isEditMode])
+
+  useEffect(() => {
+    if (isEditMode || !form.selectedPlanId) return
+    if (selectableJobPostingPlans.some(plan => plan.id === form.selectedPlanId)) return
+
+    setForm(current => ({ ...current, selectedPlanId: '' }))
+    setErrors(current => ({ ...current, selectedPlanId: '', form: '' }))
+  }, [form.selectedPlanId, isEditMode, selectableJobPostingPlans])
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm(current => ({ ...current, [key]: value }))
@@ -1221,7 +1235,7 @@ export function CompanyJobPostForm({
           jobLocation: current.jobLocation
         }))
       }
-      return true
+      return { jobId: String(data.jobId || '') }
     } catch (error) {
       setErrors(current => ({
         ...current,
@@ -1267,12 +1281,12 @@ export function CompanyJobPostForm({
       }
 
       const saved = await executeSubmit('draft', { redirectingToCheckout: true })
-      if (!saved || typeof window === 'undefined') return
+      if (!saved || !saved.jobId || typeof window === 'undefined') return
 
       submitInFlightRef.current = true
       setSubmitting(true)
       setSubmitMode('checkout')
-      window.location.assign(resolveHref(`/labour/company/checkout?plan=${encodeURIComponent(getCheckoutPlanSlug(selectedPlan.name))}&billing=monthly`))
+      window.location.assign(resolveHref(`/labour/company/checkout?plan=${encodeURIComponent(getCheckoutPlanSlug(selectedPlan.name))}&billing=monthly&jobId=${encodeURIComponent(saved.jobId)}`))
       return
     }
 

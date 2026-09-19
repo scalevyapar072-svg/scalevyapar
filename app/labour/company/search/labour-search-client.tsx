@@ -191,6 +191,7 @@ type Props = {
   featuredCompany: FeaturedCompany | null
   authenticatedCompany: FeaturedCompany | null
   initialRequestedJobId: string
+  initialRequestedJobAuthorized: boolean
   initialHostname?: string | null
 }
 
@@ -536,6 +537,7 @@ export function LabourSearchClient({
   featuredCompany,
   authenticatedCompany,
   initialRequestedJobId,
+  initialRequestedJobAuthorized,
   initialHostname = null
 }: Props) {
   const router = useRouter()
@@ -726,13 +728,19 @@ export function LabourSearchClient({
     }
   }
 
-  const latestLiveJobForRuntimeCompany = useMemo(() => {
-    if (!runtimeCompany) return null
+  const accessCompany = useMemo(() => {
+    if (authenticatedCompany) return authenticatedCompany
+    if (runtimeCompany) return runtimeCompany
+    return null
+  }, [authenticatedCompany, runtimeCompany])
+
+  const latestLiveJobForAccessCompany = useMemo(() => {
+    if (!accessCompany) return null
 
     let latestJob: SearchJobPostLite | null = null
 
     for (const jobPost of jobPosts) {
-      if (jobPost.companyId !== runtimeCompany.id || !isLiveSearchJobPost(jobPost)) continue
+      if (jobPost.companyId !== accessCompany.id || !isLiveSearchJobPost(jobPost)) continue
 
       if (
         !latestJob ||
@@ -745,30 +753,24 @@ export function LabourSearchClient({
     }
 
     return latestJob
-  }, [jobPosts, runtimeCompany])
+  }, [accessCompany, jobPosts])
 
   const requestedJobPost = useMemo(
     () => (
-      requestedJobId && runtimeCompany
-        ? jobPosts.find(jobPost => jobPost.id === requestedJobId && jobPost.companyId === runtimeCompany.id) || null
+      requestedJobId && accessCompany
+        ? jobPosts.find(jobPost => jobPost.id === requestedJobId && jobPost.companyId === accessCompany.id) || null
         : null
     ),
-    [jobPosts, requestedJobId, runtimeCompany]
+    [accessCompany, jobPosts, requestedJobId]
   )
 
   const requestedJobCompany = useMemo(
-    () => (requestedJobPost && runtimeCompany && requestedJobPost.companyId === runtimeCompany.id ? runtimeCompany : null),
-    [requestedJobPost, runtimeCompany]
+    () => (requestedJobPost && accessCompany && requestedJobPost.companyId === accessCompany.id ? accessCompany : null),
+    [accessCompany, requestedJobPost]
   )
 
-  const accessCompany = useMemo(() => {
-    if (authenticatedCompany) return authenticatedCompany
-    if (runtimeCompany) return runtimeCompany
-    return null
-  }, [authenticatedCompany, runtimeCompany])
-
   const effectiveJobContext = useMemo(() => {
-    if (requestedJobPost && requestedJobCompany) {
+    if (requestedJobPost && requestedJobCompany && isLiveSearchJobPost(requestedJobPost)) {
       return buildJobContext(requestedJobPost, requestedJobCompany)
     }
 
@@ -776,17 +778,22 @@ export function LabourSearchClient({
       return jobContext
     }
 
-    if (accessCompany && latestLiveJobForRuntimeCompany) {
-      return buildJobContext(latestLiveJobForRuntimeCompany, accessCompany)
+    if (accessCompany && latestLiveJobForAccessCompany) {
+      return buildJobContext(latestLiveJobForAccessCompany, accessCompany)
     }
 
     return null
-  }, [accessCompany, jobContext, latestLiveJobForRuntimeCompany, requestedJobCompany, requestedJobPost])
+  }, [accessCompany, jobContext, latestLiveJobForAccessCompany, requestedJobCompany, requestedJobPost])
   const hasValidRequestedJobContext = Boolean(
-    requestedJobPost &&
-    requestedJobCompany &&
-    isLiveSearchJobPost(requestedJobPost) &&
-    shouldUseGlobalWorkerTierOrdering(requestedJobId, effectiveJobContext?.jobId)
+    initialRequestedJobAuthorized &&
+    shouldUseGlobalWorkerTierOrdering({
+      requestedJobId,
+      selectedJobId: requestedJobPost?.id,
+      selectedJobCompanyId: requestedJobPost?.companyId,
+      authenticatedCompanyId: accessCompany?.id,
+      selectedJobIsLive: Boolean(requestedJobPost && isLiveSearchJobPost(requestedJobPost))
+    }) &&
+    effectiveJobContext?.jobId === requestedJobPost?.id
   )
 
   const isCompanyAuthenticated = Boolean(accessCompany)
@@ -1228,9 +1235,11 @@ export function LabourSearchClient({
         if (hasValidRequestedJobContext) {
           const tierDelta = getWorkerGlobalOrderTier({
             categoryMatch: left.matchMeta.exactCategoryMatch,
+            cityMatch: left.matchMeta.cityMatch,
             active: left.matchMeta.activeStatusMatch
           }) - getWorkerGlobalOrderTier({
             categoryMatch: right.matchMeta.exactCategoryMatch,
+            cityMatch: right.matchMeta.cityMatch,
             active: right.matchMeta.activeStatusMatch
           })
           if (tierDelta !== 0) return tierDelta

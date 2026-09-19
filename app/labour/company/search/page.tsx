@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import { CompanySiteShell } from '../company-site-shell'
 import { LabourSearchClient } from './labour-search-client'
-import { getCurrentUser } from '@/lib/auth'
+import { getCompanyUserFromRequest, getCurrentUser } from '@/lib/auth'
 import { getLabourAdminSettings } from '@/lib/labour-admin-settings'
 import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import { getLabourMastersSnapshot } from '@/lib/labour-masters'
@@ -942,6 +942,7 @@ const loadOrderedWorkerRows = async (
           key: {
             id: worker.id,
             categoryMatch: (worker.category_ids || []).some(categoryId => matchingCategoryIds.has(categoryId)),
+            cityMatch: Boolean(jobContext.city && workerMatchesLocation(worker, jobContext.city)),
             active: isActiveWorkerStatus(worker.effectiveStatus),
             secondaryRank: secondaryRank === -1 ? buckets.length : secondaryRank,
             availabilityRank: getWorkerAvailabilityPriority(worker.availability),
@@ -1007,7 +1008,8 @@ const getPaginatedWorkers = async (
 export default async function LabourCompanySearchPage({ searchParams }: PageProps) {
   const headerStore = await headers()
   const hostname = (headerStore.get('x-forwarded-host') || headerStore.get('host'))?.split(',')[0]?.split(':')[0] ?? null
-  const [website, categoriesResult, companiesResult, jobPostsResult, adminSettings, mastersSnapshot, resolvedSearchParams, currentUser] = await Promise.all([
+  const companySessionRequest = new Request('http://localhost/labour/company/search', { headers: headerStore })
+  const [website, categoriesResult, companiesResult, jobPostsResult, adminSettings, mastersSnapshot, resolvedSearchParams, currentUser, companySessionUser] = await Promise.all([
     getLabourCompanyWebsiteContent(),
     supabaseAdmin.from('labour_categories').select('id,name,is_active').order('created_at', { ascending: true }),
     supabaseAdmin
@@ -1021,7 +1023,8 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
     getLabourAdminSettings(),
     getLabourMastersSnapshot(),
     searchParams,
-    getCurrentUser()
+    getCurrentUser(),
+    getCompanyUserFromRequest(companySessionRequest)
   ])
 
   const queryErrors = [
@@ -1101,6 +1104,10 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
   const currentCompany = currentUser
     ? companyRows.find(company => normalizeEmail(company.email) === normalizeEmail(currentUser.email)) || null
     : null
+  const companySessionCompany = companySessionUser
+    ? companyRows.find(company => normalizeEmail(company.email) === normalizeEmail(companySessionUser.email)) || null
+    : null
+  const orderingCompany = companySessionCompany || currentCompany
   const defaultFeaturedCompany = currentCompany
     ? featuredCompanies.find(company => company.id === currentCompany.id) || null
     : featuredCompanies[0] || null
@@ -1112,9 +1119,17 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
           String(right.published_at || '').localeCompare(String(left.published_at || ''))
         )
     : []
-  const requestedLiveJobPost = requestedJobId
-    ? jobPostRows.find(jobPost => jobPost.id === requestedJobId && isLiveJobPost(jobPost)) || null
+  const requestedJobPostCandidate = requestedJobId
+    ? jobPostRows.find(jobPost => jobPost.id === requestedJobId) || null
     : null
+  const useGlobalTierOrdering = shouldUseGlobalWorkerTierOrdering({
+    requestedJobId,
+    selectedJobId: requestedJobPostCandidate?.id,
+    selectedJobCompanyId: requestedJobPostCandidate?.company_id,
+    authenticatedCompanyId: orderingCompany?.id,
+    selectedJobIsLive: Boolean(requestedJobPostCandidate && isLiveJobPost(requestedJobPostCandidate))
+  })
+  const requestedLiveJobPost = useGlobalTierOrdering ? requestedJobPostCandidate : null
   const selectedJobPost = requestedJobId
     ? requestedLiveJobPost
     : currentCompanyLiveJobPosts[0] || null
@@ -1198,7 +1213,7 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
         businessCategoryIds: jobContextBusinessCategoryIds,
         industryCategoryIds: jobContextIndustryCategoryIds,
         city: jobContext.city,
-        globalTierOrder: shouldUseGlobalWorkerTierOrdering(requestedJobId, selectedJobPost?.id)
+        globalTierOrder: useGlobalTierOrdering
       }
     : null
   const paginatedWorkerResult = await getPaginatedWorkers(filters, selectedCategoryIds, jobContextBucketInput)
@@ -1378,6 +1393,7 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
         featuredCompany={featuredCompany}
         authenticatedCompany={authenticatedCompany}
         initialRequestedJobId={requestedJobId}
+        initialRequestedJobAuthorized={useGlobalTierOrdering}
         initialHostname={hostname}
       />
     </CompanySiteShell>

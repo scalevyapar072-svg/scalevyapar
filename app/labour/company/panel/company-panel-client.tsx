@@ -14,6 +14,7 @@ import {
   resolveCompanyBillingHistory
 } from '@/lib/labour-company-billing'
 import type { CompanyJobPostingPlanSummary } from '@/lib/labour-plan-utils'
+import { buildCompanyWorkerSearchHref, resolveAuthorizedWorkerSearchJob } from '@/lib/labour-worker-search-job'
 import {
   getWhatsappConsentCopy,
   normalizeWhatsappConsentLanguage,
@@ -893,6 +894,24 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
   }, [dashboard?.profile.status])
 
   const latestJobs = useMemo(() => dashboard?.jobs.slice(0, 4) ?? [], [dashboard])
+  const searchWorkersHref = useMemo(() => {
+    const selectedJob = resolveAuthorizedWorkerSearchJob(
+      (dashboard?.jobs || []).map(job => ({
+        id: job.id,
+        companyId: dashboard?.profile.id || '',
+        status: job.status,
+        expiresAt: job.expiresAt,
+        createdAt: job.submittedAt || job.publishedAt,
+        publishedAt: job.publishedAt,
+      })),
+      {
+        authenticatedCompanyId: dashboard?.profile.id,
+        requestedJobId: '',
+      },
+    )
+
+    return buildCompanyWorkerSearchHref(selectedJob?.id)
+  }, [dashboard])
 
   const recentApplicationItems = useMemo(() => {
     if (!dashboard) return []
@@ -1654,7 +1673,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
               <span className={styles.companyDashboardSidebarIcon}>H</span>
               <span>{content.sidebar.hiredWorkersLabel}</span>
             </button>
-            <a href="/labour/company/search" className={styles.companyDashboardSidebarItem}>
+            <a href={searchWorkersHref} className={styles.companyDashboardSidebarItem}>
               <span className={styles.companyDashboardSidebarIcon}>W</span>
               <span>{content.sidebar.searchWorkersLabel}</span>
             </a>
@@ -1743,7 +1762,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
               <a href="/labour/company/job-post" className={styles.companyDashboardPrimaryButton}>
                 {content.actions.postNewRequirementLabel}
               </a>
-              <a href="/labour/company/search" className={styles.companyDashboardSecondaryButton}>
+              <a href={searchWorkersHref} className={styles.companyDashboardSecondaryButton}>
                 {content.actions.browseWorkersLabel}
               </a>
             </div>
@@ -2062,7 +2081,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
                     </span>
                     <em>›</em>
                   </a>
-                  <a href="/labour/company/search" className={styles.companyDashboardQuickAction}>
+                  <a href={searchWorkersHref} className={styles.companyDashboardQuickAction}>
                     <span className={styles.companyDashboardQuickActionIcon}>W</span>
                     <span>
                       <strong>{quickActionItems[1]?.title}</strong>
@@ -2692,7 +2711,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
 
         <div className={styles.companyPanelSidebarNav}>
           <div className={`${styles.companyPanelSidebarItem} ${styles.companyPanelSidebarItemActive}`}>Jobs</div>
-          <a href="/labour/company/search" className={styles.companyPanelSidebarItemLink}>{content.sidebar.searchWorkersLabel}</a>
+          <a href={searchWorkersHref} className={styles.companyPanelSidebarItemLink}>{content.sidebar.searchWorkersLabel}</a>
           <a href="/labour/company/pricing" className={styles.companyPanelSidebarItemLink}>{content.sidebar.billingPlanLabel}</a>
           <a href="/labour/company/pricing" className={styles.companyPanelSidebarItemLink}>{content.sidebar.billingPlanLabel}</a>
           <a href="/labour/company/contact" className={styles.companyPanelSidebarItemLink}>{content.support.title}</a>
@@ -2759,7 +2778,7 @@ export function CompanyPanelClient({ signinMode = false, jobId, content }: Props
               <a href="/labour/company/job-post" target="_blank" rel="noreferrer" className={styles.primaryButton} style={{ background: '#0f172a', color: '#ffffff', border: '1px solid transparent' }}>
                 {content.actions.postNewRequirementLabel}
               </a>
-              <a href="/labour/company/search" className={styles.secondaryButton}>
+              <a href={searchWorkersHref} className={styles.secondaryButton}>
                 {content.actions.browseWorkersLabel}
               </a>
             </div>

@@ -12,6 +12,7 @@ import {
   type LabourMasterOption
 } from '@/lib/labour-masters-schema'
 import { toRozgarPublicPath } from '@/lib/labour-company-host'
+import { buildWorkerContactLinks, type WorkerDocumentKind } from '@/lib/labour-company-worker-access'
 import { getWorkerGlobalOrderTier, shouldUseGlobalWorkerTierOrdering } from '@/lib/labour-worker-search-order'
 import styles from '../company-site.module.css'
 
@@ -67,6 +68,7 @@ type WorkerItem = {
   identityProofType: string
   identityProofNumber: string
   identityProofPath: string
+  resumeDocumentPath: string
   isVerified: boolean
   categoryIds: string[]
   canAccessDirectly: boolean
@@ -347,18 +349,6 @@ const buildCompanyToWorkerWhatsappMessage = (worker: WorkerItem) => {
   ].join('\n')
 }
 
-const getWhatsappHrefWithMessage = (mobile: string, fallbackHref: string, message: string) => {
-  const digits = mobile.replace(/\D/g, '')
-  if (!digits) return fallbackHref
-  return `https://wa.me/91${digits}?text=${encodeURIComponent(message)}`
-}
-
-const getTelHref = (mobile: string) => {
-  const digits = mobile.replace(/\D/g, '')
-  if (!digits) return ''
-  return digits.length === 10 ? `tel:+91${digits}` : `tel:+${digits}`
-}
-
 const getWorkerSkillTags = (worker: WorkerItem) => {
   const mainCategory = worker.categoryLabels[0] || ''
   return Array.from(new Set(worker.skills.filter(Boolean)))
@@ -569,8 +559,8 @@ export function LabourSearchClient({
   const [storedCompanyProfile, setStoredCompanyProfile] = useState<StoredCompanyProfile | null>(null)
   const [hasStoredCompanyToken, setHasStoredCompanyToken] = useState(false)
   const [requestedJobId, setRequestedJobId] = useState(initialRequestedJobId)
-  const [identityProofUrls, setIdentityProofUrls] = useState<Record<string, string>>({})
-  const [identityProofLoadingIds, setIdentityProofLoadingIds] = useState<string[]>([])
+  const [workerDocumentUrls, setWorkerDocumentUrls] = useState<Record<string, string>>({})
+  const [workerDocumentLoadingKeys, setWorkerDocumentLoadingKeys] = useState<string[]>([])
 
   const searchTitle = splitHighlightedTitle(searchPage.title, searchPage.highlightedText)
   const resolveHref = (href: string) => toRozgarPublicPath(href, hostname)
@@ -734,27 +724,6 @@ export function LabourSearchClient({
     return null
   }, [authenticatedCompany, runtimeCompany])
 
-  const latestLiveJobForAccessCompany = useMemo(() => {
-    if (!accessCompany) return null
-
-    let latestJob: SearchJobPostLite | null = null
-
-    for (const jobPost of jobPosts) {
-      if (jobPost.companyId !== accessCompany.id || !isLiveSearchJobPost(jobPost)) continue
-
-      if (
-        !latestJob ||
-        jobPost.createdAt.localeCompare(latestJob.createdAt) > 0 ||
-        (jobPost.createdAt === latestJob.createdAt &&
-          jobPost.publishedAt.localeCompare(latestJob.publishedAt) > 0)
-      ) {
-        latestJob = jobPost
-      }
-    }
-
-    return latestJob
-  }, [accessCompany, jobPosts])
-
   const requestedJobPost = useMemo(
     () => (
       requestedJobId && accessCompany
@@ -778,12 +747,8 @@ export function LabourSearchClient({
       return jobContext
     }
 
-    if (accessCompany && latestLiveJobForAccessCompany) {
-      return buildJobContext(latestLiveJobForAccessCompany, accessCompany)
-    }
-
     return null
-  }, [accessCompany, jobContext, latestLiveJobForAccessCompany, requestedJobCompany, requestedJobPost])
+  }, [accessCompany, jobContext, requestedJobCompany, requestedJobPost])
   const hasValidRequestedJobContext = Boolean(
     initialRequestedJobAuthorized &&
     shouldUseGlobalWorkerTierOrdering({
@@ -1381,66 +1346,56 @@ export function LabourSearchClient({
     )
   }
 
-  const handleContactClick = (worker: WorkerItem) => {
-    if (!revealedContactWorkerIds.includes(worker.id)) {
-      setRevealedContactWorkerIds(current =>
-        current.includes(worker.id) ? current : [...current, worker.id]
-      )
-      return
-    }
+  const getWorkerDocumentUrl = async (worker: WorkerItem, documentKind: WorkerDocumentKind) => {
+    const documentPath = documentKind === 'resume'
+      ? worker.resumeDocumentPath
+      : worker.identityProofPath
+    if (!documentPath) return ''
 
-    const telHref = getTelHref(worker.mobile)
-    if (telHref && typeof window !== 'undefined') {
-      window.location.href = telHref
-    }
-  }
-
-  const getIdentityProofUrl = async (worker: WorkerItem) => {
-    if (!worker.identityProofPath) return ''
-
-    const cachedUrl = identityProofUrls[worker.id]
+    const documentKey = `${worker.id}:${documentKind}`
+    const cachedUrl = workerDocumentUrls[documentKey]
     if (cachedUrl) {
       return cachedUrl
     }
 
-    if (identityProofLoadingIds.includes(worker.id)) return ''
-    setIdentityProofLoadingIds(current => [...current, worker.id])
+    if (workerDocumentLoadingKeys.includes(documentKey)) return ''
+    setWorkerDocumentLoadingKeys(current => [...current, documentKey])
 
     try {
-      const response = await fetch(`/api/labour/company/search/worker-proof?workerId=${encodeURIComponent(worker.id)}`, {
+      const response = await fetch(`/api/labour/company/search/worker-proof?workerId=${encodeURIComponent(worker.id)}&document=${documentKind}`, {
         cache: 'no-store'
       })
       const payload = await response.json()
       if (!response.ok || !payload?.url) {
-        throw new Error(payload?.error || 'Unable to open identity proof')
+        throw new Error(payload?.error || 'Unable to open worker document')
       }
-      setIdentityProofUrls(current => ({ ...current, [worker.id]: payload.url }))
+      setWorkerDocumentUrls(current => ({ ...current, [documentKey]: payload.url }))
       return payload.url as string
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Unable to open identity proof')
+      window.alert(error instanceof Error ? error.message : 'Unable to open worker document')
       return ''
     } finally {
-      setIdentityProofLoadingIds(current => current.filter(id => id !== worker.id))
+      setWorkerDocumentLoadingKeys(current => current.filter(key => key !== documentKey))
     }
   }
 
-  const openIdentityProof = async (worker: WorkerItem) => {
-    if (typeof window === 'undefined' || !worker.identityProofPath) return
+  const openWorkerDocument = async (worker: WorkerItem, documentKind: WorkerDocumentKind) => {
+    if (typeof window === 'undefined') return
 
-    const url = await getIdentityProofUrl(worker)
+    const url = await getWorkerDocumentUrl(worker, documentKind)
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer')
     }
   }
 
-  const downloadIdentityProof = async (worker: WorkerItem) => {
-    if (typeof window === 'undefined' || !worker.identityProofPath) return
+  const downloadWorkerDocument = async (worker: WorkerItem, documentKind: WorkerDocumentKind) => {
+    if (typeof window === 'undefined') return
 
-    const url = await getIdentityProofUrl(worker)
+    const url = await getWorkerDocumentUrl(worker, documentKind)
     if (!url) return
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `${worker.fullName || 'worker'}-identity-proof`
+    anchor.download = `${worker.fullName || 'worker'}-${documentKind === 'resume' ? 'resume' : 'identity-proof'}`
     anchor.rel = 'noreferrer'
     document.body.appendChild(anchor)
     anchor.click()
@@ -1690,12 +1645,7 @@ export function LabourSearchClient({
                     <div className={styles.searchPriorityCategoryTabRow} aria-label="Active job categories">
                       {priorityCategoryTabs.map(tab => {
                         const isSelected = Boolean(
-                          tab.jobId === requestedJobId ||
-                          (
-                            !requestedJobId &&
-                            effectiveJobContext &&
-                            matchesValue(tab.categoryId, effectiveJobContext.categoryId)
-                          )
+                          hasValidRequestedJobContext && tab.jobId === requestedJobId
                         )
 
                         return (
@@ -1760,6 +1710,12 @@ export function LabourSearchClient({
                   const lockedAccessCopy = getLockedAccessCopy(worker)
                   const workLocation = getWorkerAvailableLocationLabel(worker)
                   const isContactRevealed = revealedContactWorkerIds.includes(worker.id)
+                  const contactLinks = buildWorkerContactLinks(
+                    worker.mobile,
+                    buildCompanyToWorkerWhatsappMessage(worker),
+                  )
+                  const identityDocumentKey = `${worker.id}:identity`
+                  const resumeDocumentKey = `${worker.id}:resume`
 
                   return (
                     <article
@@ -1849,17 +1805,17 @@ export function LabourSearchClient({
                                   <div className={styles.searchWorkerDocumentActions}>
                                     <button
                                       type="button"
-                                      onClick={() => openIdentityProof(worker)}
+                                      onClick={() => openWorkerDocument(worker, 'identity')}
                                       className={styles.searchWorkerDocumentButton}
-                                      disabled={identityProofLoadingIds.includes(worker.id)}
+                                      disabled={workerDocumentLoadingKeys.includes(identityDocumentKey)}
                                     >
-                                      {identityProofLoadingIds.includes(worker.id) ? 'Opening...' : 'View'}
+                                      {workerDocumentLoadingKeys.includes(identityDocumentKey) ? 'Opening...' : 'View'}
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => downloadIdentityProof(worker)}
+                                      onClick={() => downloadWorkerDocument(worker, 'identity')}
                                       className={styles.searchWorkerDocumentButton}
-                                      disabled={identityProofLoadingIds.includes(worker.id)}
+                                      disabled={workerDocumentLoadingKeys.includes(identityDocumentKey)}
                                     >
                                       Download
                                     </button>
@@ -1870,7 +1826,28 @@ export function LabourSearchClient({
                               </div>
                               <div className={styles.searchWorkerDocumentRow}>
                                 <span>Resume</span>
-                                <span className={styles.searchWorkerEmptyText}>Resume Not Available</span>
+                                {worker.resumeDocumentPath ? (
+                                  <div className={styles.searchWorkerDocumentActions}>
+                                    <button
+                                      type="button"
+                                      onClick={() => openWorkerDocument(worker, 'resume')}
+                                      className={styles.searchWorkerDocumentButton}
+                                      disabled={workerDocumentLoadingKeys.includes(resumeDocumentKey)}
+                                    >
+                                      {workerDocumentLoadingKeys.includes(resumeDocumentKey) ? 'Opening...' : 'View'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => downloadWorkerDocument(worker, 'resume')}
+                                      className={styles.searchWorkerDocumentButton}
+                                      disabled={workerDocumentLoadingKeys.includes(resumeDocumentKey)}
+                                    >
+                                      Download
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className={styles.searchWorkerEmptyText}>Not Available</span>
+                                )}
                               </div>
                             </div>
                             <div
@@ -1882,29 +1859,53 @@ export function LabourSearchClient({
                             >
                               {canViewWorkerContacts && workerCanAccessDirectly(worker) ? (
                                 <>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleContactClick(worker)}
-                                    className={`${styles.workerActionPrimary} ${styles.searchWorkerContactButton}`}
-                                    style={{ background: accentColor, color: '#ffffff', border: '1px solid transparent' }}
-                                  >
-                                    <Phone size={14} strokeWidth={2.3} />
-                                    {isContactRevealed ? worker.mobile : 'View Contact'}
-                                  </button>
-                                  <a
-                                    href={getWhatsappHrefWithMessage(
-                                      worker.mobile,
-                                      resolveHref('/labour/company/contact'),
-                                      buildCompanyToWorkerWhatsappMessage(worker)
-                                    )}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className={`${styles.whatsappButtonCompact} ${styles.searchWorkerWhatsappButtonCompact}`}
-                                    aria-label={`Open WhatsApp for ${worker.fullName}`}
-                                    title={`WhatsApp ${worker.fullName}`}
-                                  >
-                                    <MessageCircle size={18} strokeWidth={2.3} />
-                                  </a>
+                                  {contactLinks.telHref ? (
+                                    <a
+                                      href={contactLinks.telHref}
+                                      onClick={() => setRevealedContactWorkerIds(current =>
+                                        current.includes(worker.id) ? current : [...current, worker.id]
+                                      )}
+                                      className={`${styles.workerActionPrimary} ${styles.searchWorkerContactButton}`}
+                                      style={{ background: accentColor, color: '#ffffff', border: '1px solid transparent' }}
+                                    >
+                                      <Phone size={14} strokeWidth={2.3} />
+                                      {isContactRevealed ? worker.mobile : 'View Contact'}
+                                    </a>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled
+                                      aria-disabled="true"
+                                      className={`${styles.workerActionPrimary} ${styles.searchWorkerContactButton}`}
+                                      style={{ background: accentColor, color: '#ffffff', border: '1px solid transparent' }}
+                                    >
+                                      <Phone size={14} strokeWidth={2.3} />
+                                      View Contact
+                                    </button>
+                                  )}
+                                  {contactLinks.whatsappHref ? (
+                                    <a
+                                      href={contactLinks.whatsappHref}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={`${styles.whatsappButtonCompact} ${styles.searchWorkerWhatsappButtonCompact}`}
+                                      aria-label={`Open WhatsApp for ${worker.fullName}`}
+                                      title={`WhatsApp ${worker.fullName}`}
+                                    >
+                                      <MessageCircle size={18} strokeWidth={2.3} />
+                                    </a>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled
+                                      aria-disabled="true"
+                                      className={`${styles.whatsappButtonCompact} ${styles.searchWorkerWhatsappButtonCompact}`}
+                                      aria-label={`WhatsApp unavailable for ${worker.fullName}`}
+                                      title="WhatsApp unavailable"
+                                    >
+                                      <MessageCircle size={18} strokeWidth={2.3} />
+                                    </button>
+                                  )}
                                 </>
                               ) : (
                                 <>

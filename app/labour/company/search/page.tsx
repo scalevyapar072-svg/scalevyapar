@@ -8,6 +8,7 @@ import { getLabourMastersSnapshot } from '@/lib/labour-masters'
 import { filterCategoriesByLabourDependency, getVisibleLabourMasterOptions, resolveLabourMasterLabel } from '@/lib/labour-masters-schema'
 import type { LabourCategoryDependency, LabourMasterOption } from '@/lib/labour-masters-schema'
 import { compareWorkerGlobalOrderKeys, shouldUseGlobalWorkerTierOrdering } from '@/lib/labour-worker-search-order'
+import { resolveAuthorizedWorkerSearchJob } from '@/lib/labour-worker-search-job'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export const dynamic = 'force-dynamic'
@@ -95,6 +96,7 @@ type WorkerRow = {
   identity_proof_type: string | null
   identity_proof_number: string | null
   identity_proof_path: string | null
+  resume_document_path: string | null
   created_at: string
 }
 
@@ -606,6 +608,7 @@ const selectWorkerRows = (
         'identity_proof_type',
         'identity_proof_number',
         'identity_proof_path',
+        'resume_document_path',
         'created_at'
       ].filter(Boolean).join(','),
       count ? { count } : undefined
@@ -1131,31 +1134,34 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
     ? companyRows.find(company => normalizeEmail(company.email) === normalizeEmail(companySessionUser.email)) || null
     : null
   const orderingCompany = companySessionCompany || currentCompany
-  const defaultFeaturedCompany = currentCompany
-    ? featuredCompanies.find(company => company.id === currentCompany.id) || null
+  const defaultFeaturedCompany = orderingCompany
+    ? featuredCompanies.find(company => company.id === orderingCompany.id) || null
     : featuredCompanies[0] || null
-  const currentCompanyLiveJobPosts = currentCompany
-    ? jobPostRows
-        .filter(jobPost => jobPost.company_id === currentCompany.id && isLiveJobPost(jobPost))
-        .sort((left, right) =>
-          right.created_at.localeCompare(left.created_at) ||
-          String(right.published_at || '').localeCompare(String(left.published_at || ''))
-        )
-    : []
-  const requestedJobPostCandidate = requestedJobId
-    ? jobPostRows.find(jobPost => jobPost.id === requestedJobId) || null
+  const selectedJobCandidate = resolveAuthorizedWorkerSearchJob(
+    jobPostRows.map(jobPost => ({
+      id: jobPost.id,
+      companyId: jobPost.company_id,
+      status: jobPost.status,
+      expiresAt: jobPost.expires_at,
+      createdAt: jobPost.created_at,
+      publishedAt: jobPost.published_at,
+    })),
+    {
+      authenticatedCompanyId: orderingCompany?.id,
+      requestedJobId,
+    },
+  )
+  const selectedJobPost = selectedJobCandidate
+    ? jobPostRows.find(jobPost => jobPost.id === selectedJobCandidate.id) || null
     : null
+  const effectiveRequestedJobId = selectedJobPost?.id || requestedJobId
   const useGlobalTierOrdering = shouldUseGlobalWorkerTierOrdering({
-    requestedJobId,
-    selectedJobId: requestedJobPostCandidate?.id,
-    selectedJobCompanyId: requestedJobPostCandidate?.company_id,
+    requestedJobId: effectiveRequestedJobId,
+    selectedJobId: selectedJobPost?.id,
+    selectedJobCompanyId: selectedJobPost?.company_id,
     authenticatedCompanyId: orderingCompany?.id,
-    selectedJobIsLive: Boolean(requestedJobPostCandidate && isLiveJobPost(requestedJobPostCandidate))
+    selectedJobIsLive: Boolean(selectedJobPost && isLiveJobPost(selectedJobPost))
   })
-  const requestedLiveJobPost = useGlobalTierOrdering ? requestedJobPostCandidate : null
-  const selectedJobPost = requestedJobId
-    ? requestedLiveJobPost
-    : currentCompanyLiveJobPosts[0] || null
   const selectedJobCompany = selectedJobPost
     ? companyRows.find(company => company.id === selectedJobPost.company_id) || null
     : null
@@ -1277,6 +1283,7 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
       identityProofType: worker.identity_proof_type || '',
       identityProofNumber: worker.identity_proof_number || '',
       identityProofPath: worker.identity_proof_path || '',
+      resumeDocumentPath: worker.resume_document_path || '',
       isVerified: worker.status === 'active' || Boolean(worker.identity_proof_number || worker.identity_proof_path),
       categoryIds: worker.category_ids || [],
       canAccessDirectly: false,
@@ -1286,8 +1293,8 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
     }))
   )
 
-  const authenticatedCompany = currentCompany
-    ? featuredCompanies.find(company => company.id === currentCompany.id) || null
+  const authenticatedCompany = orderingCompany
+    ? featuredCompanies.find(company => company.id === orderingCompany.id) || null
     : null
   const publicSearchContent = {
     theme: {
@@ -1347,6 +1354,12 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
       worker.categoryIds.some(categoryId => authenticatedCompany.activeJobCategoryIds.includes(categoryId))
     )
       ? worker.identityProofPath
+      : '',
+    resumeDocumentPath: Boolean(
+      authenticatedCompany?.canUnlockWorkers &&
+      worker.categoryIds.some(categoryId => authenticatedCompany.activeJobCategoryIds.includes(categoryId))
+    )
+      ? worker.resumeDocumentPath
       : '',
     canAccessDirectly: Boolean(
       authenticatedCompany?.canUnlockWorkers &&
@@ -1415,7 +1428,7 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
         highlightColor={content.theme.highlightColor}
         featuredCompany={featuredCompany}
         authenticatedCompany={authenticatedCompany}
-        initialRequestedJobId={requestedJobId}
+        initialRequestedJobId={effectiveRequestedJobId}
         initialRequestedJobAuthorized={useGlobalTierOrdering}
         initialHostname={hostname}
       />

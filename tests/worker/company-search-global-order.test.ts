@@ -243,8 +243,9 @@ test('missing, invalid, expired, and unauthorized job IDs preserve safe fallback
 test('another company private job ID cannot activate privileged matching on server or client', () => {
   assert.match(
     searchPageSource,
-    /selectedJobCompanyId:\s*requestedJobPostCandidate\?\.company_id/,
+    /selectedJobCompanyId:\s*selectedJobPost\?\.company_id/,
   )
+  assert.match(searchPageSource, /resolveAuthorizedWorkerSearchJob/)
   assert.match(
     searchPageSource,
     /authenticatedCompanyId:\s*orderingCompany\?\.id/,

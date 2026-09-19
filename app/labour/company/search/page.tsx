@@ -15,6 +15,7 @@ export const revalidate = 0
 
 const WORKER_UPLOAD_BUCKET = 'labour-worker-files'
 const SEARCH_PAGE_SIZE = 20
+const GLOBAL_ORDER_FETCH_BATCH_SIZE = 1000
 
 const normalizeEmail = (value: string) => String(value || '').trim().toLowerCase()
 const normalizeValue = (value: string) => String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '-')
@@ -896,10 +897,32 @@ const loadOrderedWorkerRows = async (
     Boolean(jobContext?.globalTierOrder)
   )
 
-  let { data, error } = await buildQuery()
+  const loadRows = async (selectOptions?: { includePreferredWorkLocations?: boolean; includeSalaryRange?: boolean }) => {
+    if (!jobContext?.globalTierOrder) {
+      return buildQuery(selectOptions)
+    }
+
+    const rows: WorkerRow[] = []
+
+    for (let start = 0; ; start += GLOBAL_ORDER_FETCH_BATCH_SIZE) {
+      const { data, error } = await buildQuery(selectOptions)
+        .range(start, start + GLOBAL_ORDER_FETCH_BATCH_SIZE - 1)
+
+      if (error) return { data: null, error }
+
+      const batch = (data || []) as WorkerRow[]
+      rows.push(...batch)
+
+      if (batch.length < GLOBAL_ORDER_FETCH_BATCH_SIZE) {
+        return { data: rows, error: null }
+      }
+    }
+  }
+
+  let { data, error } = await loadRows()
 
   if (error && (isMissingPreferredWorkLocationsColumnError(error.message) || isMissingSalaryRangeColumnError(error.message))) {
-    ;({ data, error } = await buildQuery(getWorkerOptionalColumnFlags(error.message)))
+    ;({ data, error } = await loadRows(getWorkerOptionalColumnFlags(error.message)))
   }
 
   if (error) {

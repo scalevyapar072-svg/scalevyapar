@@ -268,6 +268,9 @@ test('the existing eligible work-location rule determines required-city matching
 test('the globally ordered complete set is sliced only after ordering into 20-worker pages', () => {
   assert.ok(searchPageSource.indexOf('const orderedWorkers = await loadOrderedWorkerRows') < searchPageSource.indexOf('.slice(start, start + pageSize)'))
   assert.match(searchPageSource, /const SEARCH_PAGE_SIZE = 20/)
+  assert.match(searchPageSource, /const GLOBAL_ORDER_FETCH_BATCH_SIZE = 1000/)
+  assert.match(searchPageSource, /\.range\(start, start \+ GLOBAL_ORDER_FETCH_BATCH_SIZE - 1\)/)
+  assert.ok(searchPageSource.indexOf('rows.push(...batch)') < searchPageSource.indexOf('.sort((left, right) => compareWorkerGlobalOrderKeys'))
 })
 
 test('the worker ID remains the deterministic final tie-breaker', () => {

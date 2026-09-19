@@ -14,10 +14,13 @@ const {
   resolveAuthorizedWorkerSearchJob,
 } = await importLocal('lib/labour-worker-search-job.ts')
 const {
+  buildWorkerPhoneRevealState,
   buildWorkerContactLinks,
   canCompanyAccessWorkerRecord,
+  getWorkerPhoneInteraction,
   getWorkerDocumentPath,
   resolveWorkerDocumentAccess,
+  setWorkerPhoneRevealState,
 } = await importLocal('lib/labour-company-worker-access.ts')
 
 const searchPageSource = readFileSync(
@@ -34,6 +37,14 @@ const panelClientSource = readFileSync(
 )
 const workerDocumentRouteSource = readFileSync(
   path.join(workspaceRoot, 'app', 'api', 'labour', 'company', 'search', 'worker-proof', 'route.ts'),
+  'utf8',
+)
+const workerPhoneRouteSource = readFileSync(
+  path.join(workspaceRoot, 'app', 'api', 'labour', 'company', 'search', 'worker-phone', 'route.ts'),
+  'utf8',
+)
+const companySiteStyles = readFileSync(
+  path.join(workspaceRoot, 'app', 'labour', 'company', 'company-site.module.css'),
   'utf8',
 )
 
@@ -128,6 +139,55 @@ test('missing and malformed mobiles produce no clickable contact href', () => {
   }
 })
 
+test('the first phone interaction reveals without dialing and the second exposes only the normalized tel href', () => {
+  assert.deepEqual(getWorkerPhoneInteraction(), {
+    label: 'View Contact',
+    href: '',
+    disabled: false,
+    shouldReveal: true,
+    normalizedMobile: '',
+    whatsappHref: '',
+  })
+
+  const revealed = buildWorkerPhoneRevealState('09876 543210', 'Synthetic message')
+  assert.deepEqual(getWorkerPhoneInteraction(revealed), {
+    label: '+919876543210',
+    href: 'tel:+919876543210',
+    disabled: false,
+    shouldReveal: false,
+    normalizedMobile: '+919876543210',
+    whatsappHref: `https://wa.me/919876543210?text=${encodeURIComponent('Synthetic message')}`,
+  })
+})
+
+test('invalid or missing phone reveals become unavailable and cannot dial', () => {
+  for (const mobile of ['', '12345', '+1 415 555 0100', 'not-a-number']) {
+    assert.deepEqual(getWorkerPhoneInteraction(buildWorkerPhoneRevealState(mobile, 'Synthetic message')), {
+      label: 'Phone not available',
+      href: '',
+      disabled: true,
+      shouldReveal: false,
+      normalizedMobile: '',
+      whatsappHref: '',
+    })
+  }
+})
+
+test('phone reveal state is independent for multiple worker cards', () => {
+  const first = buildWorkerPhoneRevealState('9876543210', 'First worker')
+  const second = buildWorkerPhoneRevealState('', 'Second worker')
+  const states = setWorkerPhoneRevealState(
+    setWorkerPhoneRevealState({}, 'worker-one', first),
+    'worker-two',
+    second,
+  )
+
+  assert.equal(states['worker-one'].status, 'available')
+  assert.equal(states['worker-two'].status, 'unavailable')
+  assert.equal(getWorkerPhoneInteraction(states['worker-one']).href, 'tel:+919876543210')
+  assert.equal(getWorkerPhoneInteraction(states['worker-two']).disabled, true)
+})
+
 test('document access requires an active company, a live matching category, and an eligible visible worker', () => {
   const allowed = {
     companyStatus: 'active',
@@ -204,9 +264,23 @@ test('resume is selected, entitlement-masked, and served by the authenticated do
   assert.match(workerDocumentRouteSource, /resume_document_path/)
 })
 
-test('mobile and document metadata remain masked server-side for unauthorized sessions', () => {
+test('worker phones are absent from the initial page DTO and fetched only by the authenticated endpoint', () => {
   assert.match(searchPageSource, /const authenticatedCompany = orderingCompany/)
-  assert.match(searchPageSource, /mobile:\s*Boolean\(/)
+  assert.doesNotMatch(searchPageSource, /['"]mobile['"]\s*,/)
+  assert.doesNotMatch(searchPageSource, /mobile:\s*worker\.mobile/)
+  assert.doesNotMatch(searchClientSource, /worker\.mobile/)
+  assert.match(searchClientSource, /\/api\/labour\/company\/search\/worker-phone/)
+  assert.match(searchClientSource, /method:\s*'POST'/)
+  assert.match(workerPhoneRouteSource, /getCompanyUserFromRequest/)
+  assert.match(workerPhoneRouteSource, /getUserFromRequest/)
+  assert.match(workerPhoneRouteSource, /resolveWorkerPhoneAccess/)
+  assert.match(workerPhoneRouteSource, /Cache-Control['"]?:\s*['"]private, no-store/)
+  assert.doesNotMatch(workerPhoneRouteSource, /console\.(?:log|info|warn|error)/)
   assert.match(searchPageSource, /identityProofPath:\s*Boolean\(/)
   assert.match(searchPageSource, /resumeDocumentPath:\s*Boolean\(/)
+})
+
+test('phone reveal preserves the existing responsive contact layout', () => {
+  assert.match(companySiteStyles, /\.searchWorkerExpandedActionsUnlocked\s+\.searchWorkerContactButton\s*\{[\s\S]*?width:\s*100%/)
+  assert.match(companySiteStyles, /\.searchWorkerExpandedActionsUnlocked\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*44px/)
 })

@@ -20,6 +20,15 @@ type CompanyWorkerAccessInput = {
   workerIsVisible: boolean | null | undefined
 }
 
+export type WorkerPhoneRevealState = {
+  status: 'loading' | 'available' | 'unavailable'
+  normalizedMobile: string
+  telHref: string
+  whatsappHref: string
+}
+
+export type WorkerPhoneRevealStates = Record<string, WorkerPhoneRevealState>
+
 const normalize = (value: unknown) => String(value || '').trim().toLowerCase()
 
 const normalizeIndianMobile = (value: unknown) => {
@@ -75,6 +84,17 @@ export const resolveWorkerDocumentAccess = (
   }
 }
 
+export const resolveWorkerPhoneAccess = (
+  access: CompanyWorkerAccessInput,
+  mobile: unknown,
+) => {
+  const authorized = canCompanyAccessWorkerRecord(access)
+  return {
+    authorized,
+    normalizedMobile: authorized ? normalizeIndianMobile(mobile) : '',
+  }
+}
+
 export const buildWorkerContactLinks = (mobile: unknown, message: string) => {
   const normalizedMobile = normalizeIndianMobile(mobile)
   if (!normalizedMobile) {
@@ -90,5 +110,85 @@ export const buildWorkerContactLinks = (mobile: unknown, message: string) => {
     normalizedMobile,
     telHref: `tel:${normalizedMobile}`,
     whatsappHref: `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(message)}`,
+  }
+}
+
+export const createWorkerPhoneLoadingState = (): WorkerPhoneRevealState => ({
+  status: 'loading',
+  normalizedMobile: '',
+  telHref: '',
+  whatsappHref: '',
+})
+
+export const buildWorkerPhoneRevealState = (
+  mobile: unknown,
+  message: string,
+): WorkerPhoneRevealState => {
+  const contactLinks = buildWorkerContactLinks(mobile, message)
+  if (!contactLinks.telHref) {
+    return {
+      status: 'unavailable',
+      normalizedMobile: '',
+      telHref: '',
+      whatsappHref: '',
+    }
+  }
+
+  return {
+    status: 'available',
+    ...contactLinks,
+  }
+}
+
+export const setWorkerPhoneRevealState = (
+  current: WorkerPhoneRevealStates,
+  workerId: string,
+  state: WorkerPhoneRevealState,
+): WorkerPhoneRevealStates => ({
+  ...current,
+  [workerId]: state,
+})
+
+export const getWorkerPhoneInteraction = (state?: WorkerPhoneRevealState) => {
+  if (!state) {
+    return {
+      label: 'View Contact',
+      href: '',
+      disabled: false,
+      shouldReveal: true,
+      normalizedMobile: '',
+      whatsappHref: '',
+    }
+  }
+
+  if (state.status === 'loading') {
+    return {
+      label: 'Loading...',
+      href: '',
+      disabled: true,
+      shouldReveal: false,
+      normalizedMobile: '',
+      whatsappHref: '',
+    }
+  }
+
+  if (state.status === 'unavailable') {
+    return {
+      label: 'Phone not available',
+      href: '',
+      disabled: true,
+      shouldReveal: false,
+      normalizedMobile: '',
+      whatsappHref: '',
+    }
+  }
+
+  return {
+    label: state.normalizedMobile,
+    href: state.telHref,
+    disabled: false,
+    shouldReveal: false,
+    normalizedMobile: state.normalizedMobile,
+    whatsappHref: state.whatsappHref,
   }
 }

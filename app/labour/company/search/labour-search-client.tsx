@@ -12,7 +12,14 @@ import {
   type LabourMasterOption
 } from '@/lib/labour-masters-schema'
 import { toRozgarPublicPath } from '@/lib/labour-company-host'
-import { buildWorkerContactLinks, type WorkerDocumentKind } from '@/lib/labour-company-worker-access'
+import {
+  buildWorkerPhoneRevealState,
+  createWorkerPhoneLoadingState,
+  getWorkerPhoneInteraction,
+  setWorkerPhoneRevealState,
+  type WorkerDocumentKind,
+  type WorkerPhoneRevealStates,
+} from '@/lib/labour-company-worker-access'
 import { getWorkerGlobalOrderTier, shouldUseGlobalWorkerTierOrdering } from '@/lib/labour-worker-search-order'
 import styles from '../company-site.module.css'
 
@@ -38,7 +45,6 @@ type SearchPageContent = {
 type WorkerItem = {
   id: string
   fullName: string
-  mobile: string
   city: string
   homeCity: string
   preferredWorkLocations?: Array<{
@@ -554,7 +560,8 @@ export function LabourSearchClient({
   const [openingCompanyPanel, setOpeningCompanyPanel] = useState(false)
   const [expandedWorkerIds, setExpandedWorkerIds] = useState<string[]>([])
   const [shortlistedWorkerIds, setShortlistedWorkerIds] = useState<string[]>([])
-  const [revealedContactWorkerIds, setRevealedContactWorkerIds] = useState<string[]>([])
+  const [workerPhoneRevealStates, setWorkerPhoneRevealStates] = useState<WorkerPhoneRevealStates>({})
+  const workerPhoneRequestIdsRef = useRef(new Set<string>())
   const [imageFallbackWorkerIds, setImageFallbackWorkerIds] = useState<string[]>([])
   const [storedCompanyProfile, setStoredCompanyProfile] = useState<StoredCompanyProfile | null>(null)
   const [hasStoredCompanyToken, setHasStoredCompanyToken] = useState(false)
@@ -1346,6 +1353,39 @@ export function LabourSearchClient({
     )
   }
 
+  const revealWorkerPhone = async (worker: WorkerItem) => {
+    if (workerPhoneRequestIdsRef.current.has(worker.id)) return
+
+    workerPhoneRequestIdsRef.current.add(worker.id)
+    setWorkerPhoneRevealStates(current => setWorkerPhoneRevealState(
+      current,
+      worker.id,
+      createWorkerPhoneLoadingState(),
+    ))
+
+    try {
+      const response = await fetch('/api/labour/company/search/worker-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workerId: worker.id }),
+        cache: 'no-store',
+      })
+      const payload = await response.json()
+      const nextState = response.ok && typeof payload?.mobile === 'string'
+        ? buildWorkerPhoneRevealState(payload.mobile, buildCompanyToWorkerWhatsappMessage(worker))
+        : buildWorkerPhoneRevealState('', '')
+      setWorkerPhoneRevealStates(current => setWorkerPhoneRevealState(current, worker.id, nextState))
+    } catch {
+      setWorkerPhoneRevealStates(current => setWorkerPhoneRevealState(
+        current,
+        worker.id,
+        buildWorkerPhoneRevealState('', ''),
+      ))
+    } finally {
+      workerPhoneRequestIdsRef.current.delete(worker.id)
+    }
+  }
+
   const getWorkerDocumentUrl = async (worker: WorkerItem, documentKind: WorkerDocumentKind) => {
     const documentPath = documentKind === 'resume'
       ? worker.resumeDocumentPath
@@ -1709,11 +1749,7 @@ export function LabourSearchClient({
                   const cardToneClass = getWorkerCardToneClass(isCategoryMatch, worker.status)
                   const lockedAccessCopy = getLockedAccessCopy(worker)
                   const workLocation = getWorkerAvailableLocationLabel(worker)
-                  const isContactRevealed = revealedContactWorkerIds.includes(worker.id)
-                  const contactLinks = buildWorkerContactLinks(
-                    worker.mobile,
-                    buildCompanyToWorkerWhatsappMessage(worker),
-                  )
+                  const phoneInteraction = getWorkerPhoneInteraction(workerPhoneRevealStates[worker.id])
                   const identityDocumentKey = `${worker.id}:identity`
                   const resumeDocumentKey = `${worker.id}:resume`
 
@@ -1859,33 +1895,31 @@ export function LabourSearchClient({
                             >
                               {canViewWorkerContacts && workerCanAccessDirectly(worker) ? (
                                 <>
-                                  {contactLinks.telHref ? (
+                                  {phoneInteraction.href ? (
                                     <a
-                                      href={contactLinks.telHref}
-                                      onClick={() => setRevealedContactWorkerIds(current =>
-                                        current.includes(worker.id) ? current : [...current, worker.id]
-                                      )}
+                                      href={phoneInteraction.href}
                                       className={`${styles.workerActionPrimary} ${styles.searchWorkerContactButton}`}
                                       style={{ background: accentColor, color: '#ffffff', border: '1px solid transparent' }}
                                     >
                                       <Phone size={14} strokeWidth={2.3} />
-                                      {isContactRevealed ? worker.mobile : 'View Contact'}
+                                      {phoneInteraction.label}
                                     </a>
                                   ) : (
                                     <button
                                       type="button"
-                                      disabled
-                                      aria-disabled="true"
+                                      onClick={phoneInteraction.shouldReveal ? () => revealWorkerPhone(worker) : undefined}
+                                      disabled={phoneInteraction.disabled}
+                                      aria-disabled={phoneInteraction.disabled ? 'true' : undefined}
                                       className={`${styles.workerActionPrimary} ${styles.searchWorkerContactButton}`}
                                       style={{ background: accentColor, color: '#ffffff', border: '1px solid transparent' }}
                                     >
                                       <Phone size={14} strokeWidth={2.3} />
-                                      View Contact
+                                      {phoneInteraction.label}
                                     </button>
                                   )}
-                                  {contactLinks.whatsappHref ? (
+                                  {phoneInteraction.whatsappHref ? (
                                     <a
-                                      href={contactLinks.whatsappHref}
+                                      href={phoneInteraction.whatsappHref}
                                       target="_blank"
                                       rel="noreferrer"
                                       className={`${styles.whatsappButtonCompact} ${styles.searchWorkerWhatsappButtonCompact}`}

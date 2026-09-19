@@ -75,7 +75,6 @@ type JobPostRow = {
 type WorkerRow = {
   id: string
   full_name: string
-  mobile: string
   city: string | null
   home_city: string | null
   preferred_work_locations?: unknown[] | null
@@ -587,7 +586,6 @@ const selectWorkerRows = (
       [
         'id',
         'full_name',
-        'mobile',
         'city',
         'home_city',
         includePreferredWorkLocations ? 'preferred_work_locations' : '',
@@ -1251,7 +1249,6 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
     paginatedWorkerResult.rows.map(async worker => ({
       id: worker.id,
       fullName: worker.full_name,
-      mobile: worker.mobile,
       city: worker.city || '',
       homeCity: worker.home_city || '',
       preferredWorkLocations: getWorkerPreferredLocations(worker),
@@ -1331,12 +1328,6 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
   const featuredCompany = authenticatedCompany || defaultFeaturedCompany
   const visibleWorkers = mappedWorkers.map(worker => ({
     ...worker,
-    mobile: Boolean(
-      authenticatedCompany?.canUnlockWorkers &&
-      worker.categoryIds.some(categoryId => authenticatedCompany.activeJobCategoryIds.includes(categoryId))
-    )
-      ? worker.mobile
-      : '',
     identityProofType: Boolean(
       authenticatedCompany?.canUnlockWorkers &&
       worker.categoryIds.some(categoryId => authenticatedCompany.activeJobCategoryIds.includes(categoryId))

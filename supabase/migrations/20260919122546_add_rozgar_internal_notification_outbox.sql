@@ -1,3 +1,10 @@
+-- Stage A: dormant durable infrastructure only.
+-- This migration does not reference business tables and cannot enqueue events.
+begin;
+
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
+
 create table public.rozgar_internal_notification_outbox (
   id uuid primary key default gen_random_uuid(),
   event_key text not null,
@@ -43,17 +50,20 @@ revoke all on table public.rozgar_internal_notification_outbox from public;
 revoke all on table public.rozgar_internal_notification_outbox from anon;
 revoke all on table public.rozgar_internal_notification_outbox from authenticated;
 revoke all on table public.rozgar_internal_notification_outbox from service_role;
-grant select, insert, update on table public.rozgar_internal_notification_outbox to service_role;
+grant select on table public.rozgar_internal_notification_outbox to service_role;
 
 comment on table public.rozgar_internal_notification_outbox is
   'Durable internal-only notifications for new Rozgar companies and first job publications.';
 
-create or replace function public.claim_rozgar_internal_notification_outbox(p_limit integer default 25)
-returns setof public.rozgar_internal_notification_outbox
+create or replace function public.recover_stale_rozgar_internal_notification_outbox()
+returns integer
 language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  affected_rows integer := 0;
+  recovered_rows integer := 0;
 begin
   update public.rozgar_internal_notification_outbox as outbox
   set
@@ -67,19 +77,44 @@ begin
     and outbox.attempt_count >= 4
     and outbox.processing_started_at <= now() - interval '15 minutes';
 
+  get diagnostics affected_rows = row_count;
+  recovered_rows := recovered_rows + affected_rows;
+
+  update public.rozgar_internal_notification_outbox as outbox
+  set
+    status = 'pending',
+    processing_started_at = null,
+    next_attempt_at = now(),
+    last_error_code = 'stale-processing-lease',
+    last_error_message_safe = 'The processing lease expired and the event was returned for retry.',
+    updated_at = now()
+  where outbox.status = 'processing'
+    and outbox.attempt_count < 4
+    and outbox.processing_started_at <= now() - interval '15 minutes';
+
+  get diagnostics affected_rows = row_count;
+  recovered_rows := recovered_rows + affected_rows;
+
+  return recovered_rows;
+end;
+$$;
+
+create or replace function public.claim_rozgar_internal_notification_outbox(p_limit integer default 25)
+returns setof public.rozgar_internal_notification_outbox
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.recover_stale_rozgar_internal_notification_outbox();
+
   return query
   with candidates as (
     select outbox.id
     from public.rozgar_internal_notification_outbox as outbox
-    where (
-      outbox.status = 'pending'
+    where outbox.status = 'pending'
       and outbox.attempt_count < 4
       and outbox.next_attempt_at <= now()
-    ) or (
-      outbox.status = 'processing'
-      and outbox.attempt_count < 4
-      and outbox.processing_started_at <= now() - interval '15 minutes'
-    )
     order by outbox.created_at asc, outbox.id asc
     for update skip locked
     limit least(greatest(coalesce(p_limit, 25), 1), 25)
@@ -97,129 +132,116 @@ begin
 end;
 $$;
 
+create or replace function public.complete_rozgar_internal_notification_outbox(
+  p_outbox_id uuid,
+  p_provider_message_id text,
+  p_sent_at timestamptz default now()
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.rozgar_internal_notification_outbox as outbox
+  set
+    status = 'sent',
+    next_attempt_at = null,
+    processing_started_at = null,
+    sent_at = coalesce(p_sent_at, now()),
+    provider_message_id = nullif(left(coalesce(p_provider_message_id, ''), 500), ''),
+    last_error_code = null,
+    last_error_message_safe = null,
+    updated_at = now()
+  where outbox.id = p_outbox_id
+    and outbox.status = 'processing';
+
+  return found;
+end;
+$$;
+
+create or replace function public.retry_rozgar_internal_notification_outbox(
+  p_outbox_id uuid,
+  p_next_attempt_at timestamptz,
+  p_error_code text,
+  p_error_message_safe text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.rozgar_internal_notification_outbox as outbox
+  set
+    status = 'pending',
+    next_attempt_at = coalesce(p_next_attempt_at, now()),
+    processing_started_at = null,
+    last_error_code = nullif(left(coalesce(p_error_code, ''), 100), ''),
+    last_error_message_safe = nullif(left(coalesce(p_error_message_safe, ''), 1000), ''),
+    updated_at = now()
+  where outbox.id = p_outbox_id
+    and outbox.status = 'processing'
+    and outbox.attempt_count < 4;
+
+  return found;
+end;
+$$;
+
+create or replace function public.fail_rozgar_internal_notification_outbox(
+  p_outbox_id uuid,
+  p_error_code text,
+  p_error_message_safe text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.rozgar_internal_notification_outbox as outbox
+  set
+    status = 'failed',
+    next_attempt_at = null,
+    processing_started_at = null,
+    last_error_code = nullif(left(coalesce(p_error_code, ''), 100), ''),
+    last_error_message_safe = nullif(left(coalesce(p_error_message_safe, ''), 1000), ''),
+    updated_at = now()
+  where outbox.id = p_outbox_id
+    and outbox.status = 'processing';
+
+  return found;
+end;
+$$;
+
+revoke all on function public.recover_stale_rozgar_internal_notification_outbox() from public;
+revoke all on function public.recover_stale_rozgar_internal_notification_outbox() from anon;
+revoke all on function public.recover_stale_rozgar_internal_notification_outbox() from authenticated;
+revoke all on function public.recover_stale_rozgar_internal_notification_outbox() from service_role;
+grant execute on function public.recover_stale_rozgar_internal_notification_outbox() to service_role;
+
 revoke all on function public.claim_rozgar_internal_notification_outbox(integer) from public;
 revoke all on function public.claim_rozgar_internal_notification_outbox(integer) from anon;
 revoke all on function public.claim_rozgar_internal_notification_outbox(integer) from authenticated;
+revoke all on function public.claim_rozgar_internal_notification_outbox(integer) from service_role;
 grant execute on function public.claim_rozgar_internal_notification_outbox(integer) to service_role;
 
-create or replace function public.enqueue_rozgar_company_registration_notification()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  insert into public.rozgar_internal_notification_outbox (
-    event_key,
-    event_type,
-    recipient_email,
-    template_id,
-    payload_json
-  )
-  values (
-    'rozgar-company-registration-' || new.id,
-    'company_registration',
-    'scalevyapar072@gmail.com',
-    'rozgar_company_registration_admin',
-    jsonb_strip_nulls(jsonb_build_object(
-      'company_id', new.id,
-      'company_name', new.company_name,
-      'contact_person', new.contact_person,
-      'registered_mobile', new.mobile,
-      'registered_email', new.email,
-      'city', new.city,
-      'state', new.state,
-      'industry_category', new.industry_category,
-      'business_type', new.business_type,
-      'registered_at', new.created_at
-    ))
-  )
-  on conflict (event_key) do nothing;
+revoke all on function public.complete_rozgar_internal_notification_outbox(uuid, text, timestamptz) from public;
+revoke all on function public.complete_rozgar_internal_notification_outbox(uuid, text, timestamptz) from anon;
+revoke all on function public.complete_rozgar_internal_notification_outbox(uuid, text, timestamptz) from authenticated;
+revoke all on function public.complete_rozgar_internal_notification_outbox(uuid, text, timestamptz) from service_role;
+grant execute on function public.complete_rozgar_internal_notification_outbox(uuid, text, timestamptz) to service_role;
 
-  return new;
-end;
-$$;
+revoke all on function public.retry_rozgar_internal_notification_outbox(uuid, timestamptz, text, text) from public;
+revoke all on function public.retry_rozgar_internal_notification_outbox(uuid, timestamptz, text, text) from anon;
+revoke all on function public.retry_rozgar_internal_notification_outbox(uuid, timestamptz, text, text) from authenticated;
+revoke all on function public.retry_rozgar_internal_notification_outbox(uuid, timestamptz, text, text) from service_role;
+grant execute on function public.retry_rozgar_internal_notification_outbox(uuid, timestamptz, text, text) to service_role;
 
-revoke all on function public.enqueue_rozgar_company_registration_notification() from public;
-revoke all on function public.enqueue_rozgar_company_registration_notification() from anon;
-revoke all on function public.enqueue_rozgar_company_registration_notification() from authenticated;
+revoke all on function public.fail_rozgar_internal_notification_outbox(uuid, text, text) from public;
+revoke all on function public.fail_rozgar_internal_notification_outbox(uuid, text, text) from anon;
+revoke all on function public.fail_rozgar_internal_notification_outbox(uuid, text, text) from authenticated;
+revoke all on function public.fail_rozgar_internal_notification_outbox(uuid, text, text) from service_role;
+grant execute on function public.fail_rozgar_internal_notification_outbox(uuid, text, text) to service_role;
 
-create trigger enqueue_rozgar_company_registration_notification_after_insert
-after insert on public.labour_companies
-for each row
-execute function public.enqueue_rozgar_company_registration_notification();
-
-create or replace function public.enqueue_rozgar_job_published_notification()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  company_name_value text;
-  category_name_value text;
-  plan_name_value text;
-begin
-  select company.company_name
-  into company_name_value
-  from public.labour_companies as company
-  where company.id = new.company_id;
-
-  select category.name
-  into category_name_value
-  from public.labour_categories as category
-  where category.id = new.category_id;
-
-  if new.plan_id is not null then
-    select plan.name
-    into plan_name_value
-    from public.labour_plans as plan
-    where plan.id = new.plan_id;
-  end if;
-
-  insert into public.rozgar_internal_notification_outbox (
-    event_key,
-    event_type,
-    recipient_email,
-    template_id,
-    payload_json
-  )
-  values (
-    'rozgar-job-published-' || new.id,
-    'job_published',
-    'scalevyapar072@gmail.com',
-    'rozgar_job_published_admin',
-    jsonb_strip_nulls(jsonb_build_object(
-      'job_id', new.id,
-      'job_title', new.title,
-      'company_name', company_name_value,
-      'company_id', new.company_id,
-      'labour_categories', jsonb_build_array(category_name_value),
-      'city', new.city,
-      'workers_required', new.workers_needed,
-      'selected_plan', plan_name_value,
-      'published_at', new.published_at,
-      'expires_at', new.expires_at
-    ))
-  )
-  on conflict (event_key) do nothing;
-
-  return new;
-end;
-$$;
-
-revoke all on function public.enqueue_rozgar_job_published_notification() from public;
-revoke all on function public.enqueue_rozgar_job_published_notification() from anon;
-revoke all on function public.enqueue_rozgar_job_published_notification() from authenticated;
-
-create trigger enqueue_rozgar_job_published_notification_after_insert
-after insert on public.labour_job_posts
-for each row
-when (new.status = 'live')
-execute function public.enqueue_rozgar_job_published_notification();
-
-create trigger enqueue_rozgar_job_published_notification_after_status_update
-after update of status on public.labour_job_posts
-for each row
-when (old.status is distinct from new.status and new.status = 'live')
-execute function public.enqueue_rozgar_job_published_notification();
+commit;

@@ -5,8 +5,10 @@ import {
 } from './rozgar-notification-email'
 import { supabaseAdmin } from './supabase-admin'
 
-const OUTBOX_TABLE = 'rozgar_internal_notification_outbox'
 const CLAIM_RPC = 'claim_rozgar_internal_notification_outbox'
+const COMPLETE_RPC = 'complete_rozgar_internal_notification_outbox'
+const RETRY_RPC = 'retry_rozgar_internal_notification_outbox'
+const FAIL_RPC = 'fail_rozgar_internal_notification_outbox'
 const MAX_ATTEMPTS = 4
 const MAX_BATCH_SIZE = 25
 
@@ -141,12 +143,34 @@ const claimRows = async (limit: number) => {
 }
 
 const markRow = async (rowId: string, update: OutboxRowUpdate) => {
-  const { error } = await supabaseAdmin
-    .from(OUTBOX_TABLE)
-    .update({ ...update, updated_at: new Date().toISOString() })
-    .eq('id', rowId)
-    .eq('status', 'processing')
+  let result: { data: unknown; error: { message: string } | null }
+
+  if (update.status === 'sent') {
+    result = await supabaseAdmin.rpc(COMPLETE_RPC, {
+      p_outbox_id: rowId,
+      p_provider_message_id: update.provider_message_id || '',
+      p_sent_at: update.sent_at || new Date().toISOString(),
+    })
+  } else if (update.status === 'pending') {
+    result = await supabaseAdmin.rpc(RETRY_RPC, {
+      p_outbox_id: rowId,
+      p_next_attempt_at: update.next_attempt_at || new Date().toISOString(),
+      p_error_code: update.last_error_code || '',
+      p_error_message_safe: update.last_error_message_safe || '',
+    })
+  } else if (update.status === 'failed') {
+    result = await supabaseAdmin.rpc(FAIL_RPC, {
+      p_outbox_id: rowId,
+      p_error_code: update.last_error_code || '',
+      p_error_message_safe: update.last_error_message_safe || '',
+    })
+  } else {
+    throw new Error(`Unsupported outbox transition: ${String(update.status)}`)
+  }
+
+  const { data, error } = result
   if (error) throw new Error(error.message)
+  if (data !== true) throw new Error('The outbox row was not in a processable state.')
 }
 
 const defaultDependencies: RozgarInternalNotificationProcessorDependencies = {

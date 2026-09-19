@@ -13,13 +13,34 @@ process.env.NEXT_PUBLIC_SUPABASE_URL ||= 'http://127.0.0.1:54321'
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'isolated-test-service-role-key'
 
 const workspaceRoot = process.cwd()
-const migrationPath = path.join(
+const stageAMigrationPath = path.join(
   workspaceRoot,
   'supabase',
   'migrations',
   '20260919122546_add_rozgar_internal_notification_outbox.sql',
 )
-const migrationSource = readFileSync(migrationPath, 'utf8')
+const stageBMigrationPath = path.join(
+  workspaceRoot,
+  'supabase',
+  'migrations',
+  '20260919140716_activate_rozgar_internal_notification_outbox.sql',
+)
+const stageARollbackPath = path.join(
+  workspaceRoot,
+  'supabase',
+  'rollbacks',
+  '20260919122546_add_rozgar_internal_notification_outbox.rollback.sql',
+)
+const stageBRollbackPath = path.join(
+  workspaceRoot,
+  'supabase',
+  'rollbacks',
+  '20260919140716_activate_rozgar_internal_notification_outbox.rollback.sql',
+)
+const stageASource = readFileSync(stageAMigrationPath, 'utf8')
+const stageBSource = readFileSync(stageBMigrationPath, 'utf8')
+const stageARollbackSource = readFileSync(stageARollbackPath, 'utf8')
+const stageBRollbackSource = readFileSync(stageBRollbackPath, 'utf8')
 const registrationRouteSource = readFileSync(
   path.join(workspaceRoot, 'app', 'api', 'labour', 'company-intake', 'route.ts'),
   'utf8',
@@ -166,28 +187,85 @@ const gitBlobHash = (filePath: string) => {
   return createHash('sha1').update(header).update(content).digest('hex')
 }
 
-test('migration creates a separate locked-down outbox with exact durable event keys', () => {
-  assert.match(migrationSource, /create table public\.rozgar_internal_notification_outbox/)
-  assert.doesNotMatch(migrationSource, /alter table public\.worker_referral_email_outbox/)
-  assert.match(migrationSource, /check \(status in \('pending', 'processing', 'sent', 'failed'\)\)/)
-  assert.match(migrationSource, /attempt_count between 0 and 4/)
-  assert.match(migrationSource, /processing_started_at <= now\(\) - interval '15 minutes'/)
-  assert.match(migrationSource, /for update skip locked/)
-  assert.match(migrationSource, /'rozgar-company-registration-' \|\| new\.id/)
-  assert.match(migrationSource, /'rozgar-job-published-' \|\| new\.id/)
-  assert.match(migrationSource, /on conflict \(event_key\) do nothing/g)
-  assert.match(migrationSource, /recipient_email = 'scalevyapar072@gmail\.com'/)
-  assert.match(migrationSource, /revoke all on table public\.rozgar_internal_notification_outbox from anon/)
-  assert.match(migrationSource, /revoke all on table public\.rozgar_internal_notification_outbox from service_role/)
-  assert.match(migrationSource, /grant select, insert, update on table public\.rozgar_internal_notification_outbox to service_role/)
+test('Stage A creates only dormant, locked-down outbox infrastructure', () => {
+  assert.match(stageASource, /create table public\.rozgar_internal_notification_outbox/)
+  assert.doesNotMatch(stageASource, /worker_referral_email_outbox/)
+  assert.match(stageASource, /check \(status in \('pending', 'processing', 'sent', 'failed'\)\)/)
+  assert.match(stageASource, /attempt_count between 0 and 4/)
+  assert.match(stageASource, /create or replace function public\.recover_stale_rozgar_internal_notification_outbox/)
+  assert.match(stageASource, /processing_started_at <= now\(\) - interval '15 minutes'/)
+  assert.match(stageASource, /create or replace function public\.claim_rozgar_internal_notification_outbox/)
+  assert.match(stageASource, /for update skip locked/)
+  assert.match(stageASource, /create or replace function public\.complete_rozgar_internal_notification_outbox/)
+  assert.match(stageASource, /create or replace function public\.retry_rozgar_internal_notification_outbox/)
+  assert.match(stageASource, /create or replace function public\.fail_rozgar_internal_notification_outbox/)
+  assert.match(stageASource, /recipient_email = 'scalevyapar072@gmail\.com'/)
+  assert.match(stageASource, /revoke all on table public\.rozgar_internal_notification_outbox from anon/)
+  assert.match(stageASource, /revoke all on table public\.rozgar_internal_notification_outbox from service_role/)
+  assert.match(stageASource, /grant select on table public\.rozgar_internal_notification_outbox to service_role/)
+  assert.doesNotMatch(stageASource, /grant (?:insert|update|delete)/)
+  assert.equal(stageASource.match(/grant execute on function/g)?.length, 5)
+  assert.doesNotMatch(stageASource, /grant execute on function[\s\S]*?to (?:public|anon|authenticated)/)
+  assert.doesNotMatch(stageASource, /create trigger/)
+  assert.doesNotMatch(stageASource, /insert into public\.rozgar_internal_notification_outbox/)
+  assert.doesNotMatch(stageASource, /labour_companies|labour_job_posts/)
+  assert.doesNotMatch(stageASource, /resend|http|net\./i)
 })
 
-test('company and first-live job triggers are transactional at the table boundary', () => {
-  assert.match(migrationSource, /after insert on public\.labour_companies/)
-  assert.match(migrationSource, /after insert on public\.labour_job_posts[\s\S]*when \(new\.status = 'live'\)/)
-  assert.match(migrationSource, /after update of status on public\.labour_job_posts[\s\S]*old\.status is distinct from new\.status and new\.status = 'live'/)
+test('Stage B alone activates transactional company and first-live job events', () => {
+  assert.doesNotMatch(stageBSource, /create table|alter table|create index/i)
+  assert.match(stageBSource, /after insert on public\.labour_companies/)
+  assert.match(stageBSource, /after insert on public\.labour_job_posts[\s\S]*when \(new\.status = 'live'\)/)
+  assert.match(stageBSource, /after update of status on public\.labour_job_posts[\s\S]*old\.status is distinct from new\.status and new\.status = 'live'/)
+  assert.match(stageBSource, /'rozgar-company-registration-' \|\| new\.id/)
+  assert.match(stageBSource, /'rozgar-job-published-' \|\| new\.id/)
+  assert.equal(stageBSource.match(/on conflict \(event_key\) do nothing/g)?.length, 2)
   assert.doesNotMatch(registrationRouteSource, /sendNewCompanyRegistrationEmail/)
   assert.doesNotMatch(jobRouteSource, /sendNewJobPublishedEmail/)
+})
+
+test('processor uses state-transition RPCs rather than direct table writes', () => {
+  assert.match(outboxSource, /complete_rozgar_internal_notification_outbox/)
+  assert.match(outboxSource, /retry_rozgar_internal_notification_outbox/)
+  assert.match(outboxSource, /fail_rozgar_internal_notification_outbox/)
+  assert.doesNotMatch(outboxSource, /\.from\(['"]rozgar_internal_notification_outbox['"]\)/)
+})
+
+test('rollback files enforce deactivation before infrastructure removal and retain rows for app rollback', () => {
+  const companyTriggerDrop = stageBRollbackSource.indexOf(
+    'drop trigger if exists enqueue_rozgar_company_registration_notification_after_insert',
+  )
+  const jobInsertTriggerDrop = stageBRollbackSource.indexOf(
+    'drop trigger if exists enqueue_rozgar_job_published_notification_after_insert',
+  )
+  const jobUpdateTriggerDrop = stageBRollbackSource.indexOf(
+    'drop trigger if exists enqueue_rozgar_job_published_notification_after_status_update',
+  )
+  const triggerFunctionDrop = stageBRollbackSource.indexOf(
+    'drop function if exists public.enqueue_rozgar_company_registration_notification()',
+  )
+  assert.ok(companyTriggerDrop >= 0)
+  assert.ok(jobInsertTriggerDrop >= 0)
+  assert.ok(jobUpdateTriggerDrop >= 0)
+  assert.ok(triggerFunctionDrop > companyTriggerDrop)
+  assert.ok(triggerFunctionDrop > jobInsertTriggerDrop)
+  assert.ok(triggerFunctionDrop > jobUpdateTriggerDrop)
+  assert.doesNotMatch(stageBRollbackSource, /drop table|delete from|truncate/i)
+
+  assert.match(stageARollbackSource, /Stage B triggers are still active/)
+  assert.match(stageARollbackSource, /drop table if exists public\.rozgar_internal_notification_outbox/)
+  assert.doesNotMatch(
+    stageARollbackSource,
+    /labour_companies|labour_job_posts|worker_referral_email_outbox|alter table|delete from|truncate/i,
+  )
+})
+
+test('all rollout states fail safely around the dormant and activation boundary', () => {
+  assert.doesNotMatch(stageASource, /create trigger|insert into/)
+  assert.match(processorRouteSource, /Promise\.allSettled/)
+  assert.match(processorRouteSource, /processRozgarInternalNotificationOutboxBatch\(\)/)
+  assert.match(stageBSource, /on conflict \(event_key\) do nothing/)
+  assert.doesNotMatch(stageBRollbackSource, /drop table|delete from|truncate/i)
 })
 
 test('all public and Admin company/job entry points converge on trigger-covered writers', () => {

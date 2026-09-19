@@ -12,6 +12,7 @@ import {
   type LabourMasterOption
 } from '@/lib/labour-masters-schema'
 import { toRozgarPublicPath } from '@/lib/labour-company-host'
+import { getWorkerGlobalOrderTier, shouldUseGlobalWorkerTierOrdering } from '@/lib/labour-worker-search-order'
 import styles from '../company-site.module.css'
 
 const COMPANY_TOKEN_KEY = 'labour_company_token'
@@ -781,6 +782,12 @@ export function LabourSearchClient({
 
     return null
   }, [accessCompany, jobContext, latestLiveJobForRuntimeCompany, requestedJobCompany, requestedJobPost])
+  const hasValidRequestedJobContext = Boolean(
+    requestedJobPost &&
+    requestedJobCompany &&
+    isLiveSearchJobPost(requestedJobPost) &&
+    shouldUseGlobalWorkerTierOrdering(requestedJobId, effectiveJobContext?.jobId)
+  )
 
   const isCompanyAuthenticated = Boolean(accessCompany)
   const canViewWorkerContacts = Boolean(accessCompany?.canUnlockWorkers)
@@ -1090,6 +1097,9 @@ export function LabourSearchClient({
       const directCategoryIdMatch = worker.categoryIds.some(categoryId =>
         matchesValue(categoryId, effectiveJobContext.categoryId) || jobContextCategoryOptionIds.has(categoryId)
       )
+      if (hasValidRequestedJobContext && effectiveJobContext.categoryId) {
+        return directCategoryIdMatch
+      }
       const normalizedCategoryIdMatch = worker.categoryIds.some(categoryId =>
         jobContextCategoryMatchValues.has(normalize(categoryId))
       )
@@ -1196,6 +1206,7 @@ export function LabourSearchClient({
     businessTypeOptions,
     categoryDependencies,
     effectiveJobContext,
+    hasValidRequestedJobContext,
     industryCategoryOptions,
     jobContextCategoryMatchValues,
     jobContextCategoryOptionIds,
@@ -1214,6 +1225,16 @@ export function LabourSearchClient({
     () =>
       [...rankedWorkers].sort((left, right) => {
         const hasCategoryPriority = Boolean(effectiveJobContext)
+        if (hasValidRequestedJobContext) {
+          const tierDelta = getWorkerGlobalOrderTier({
+            categoryMatch: left.matchMeta.exactCategoryMatch,
+            active: left.matchMeta.activeStatusMatch
+          }) - getWorkerGlobalOrderTier({
+            categoryMatch: right.matchMeta.exactCategoryMatch,
+            active: right.matchMeta.activeStatusMatch
+          })
+          if (tierDelta !== 0) return tierDelta
+        }
         if (!hasCategoryPriority) {
           const activeDelta = Number(right.matchMeta.activeStatusMatch) - Number(left.matchMeta.activeStatusMatch)
           if (activeDelta !== 0) return activeDelta
@@ -1245,9 +1266,12 @@ export function LabourSearchClient({
         const scoreDelta = right.matchMeta.score - left.matchMeta.score
         if (scoreDelta !== 0) return scoreDelta
 
-        return getWorkerNameFallback(left.worker).localeCompare(getWorkerNameFallback(right.worker))
+        const nameDelta = getWorkerNameFallback(left.worker).localeCompare(getWorkerNameFallback(right.worker))
+        if (nameDelta !== 0) return nameDelta
+
+        return hasValidRequestedJobContext ? left.worker.id.localeCompare(right.worker.id) : 0
       }),
-    [effectiveJobContext, rankedWorkers]
+    [effectiveJobContext, hasValidRequestedJobContext, rankedWorkers]
   )
 
   const paginationItems = useMemo(() => getPaginationItems(currentPage, totalPages), [currentPage, totalPages])

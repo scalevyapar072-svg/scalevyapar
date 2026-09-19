@@ -7,6 +7,7 @@ import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import { getLabourMastersSnapshot } from '@/lib/labour-masters'
 import { filterCategoriesByLabourDependency, getVisibleLabourMasterOptions, resolveLabourMasterLabel } from '@/lib/labour-masters-schema'
 import type { LabourCategoryDependency, LabourMasterOption } from '@/lib/labour-masters-schema'
+import { compareWorkerGlobalOrderKeys, shouldUseGlobalWorkerTierOrdering } from '@/lib/labour-worker-search-order'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export const dynamic = 'force-dynamic'
@@ -149,6 +150,7 @@ type JobContextBucketInput = {
   businessCategoryIds: string[]
   industryCategoryIds: string[]
   city: string
+  globalTierOrder: boolean
 }
 
 type SupabaseQuery = any
@@ -271,6 +273,13 @@ const getEffectiveWorkerStatus = (worker: WorkerRow): SearchableWorkerStatus => 
 
 const getEffectiveWorkerAvailability = (worker: WorkerRow, effectiveStatus: SearchableWorkerStatus) =>
   effectiveStatus === 'active' ? (worker.availability || 'available_today') : 'not_available'
+
+const getWorkerAvailabilityPriority = (availability: string | null | undefined) => {
+  const normalized = normalizeValue(availability || '')
+  if (normalized === 'available_today') return 2
+  if (normalized === 'available_this_week') return 1
+  return 0
+}
 
 const matchesEffectiveWorkerStatusFilter = (effectiveStatus: SearchableWorkerStatus, workerStatusFilter: string) => {
   const normalized = normalizeValue(workerStatusFilter)
@@ -503,33 +512,41 @@ const applyWorkerFilters = (
   return nextQuery
 }
 
-const applyWorkerOrder = (query: SupabaseQuery, sortBy: string) => {
-  const nextQuery = query
+const applyWorkerOrder = (query: SupabaseQuery, sortBy: string, deterministic = false) => {
+  let orderedQuery = query
 
   switch (sortBy) {
     case 'name-asc':
-      return nextQuery
+      orderedQuery = query
         .order('full_name', { ascending: true })
         .order('created_at', { ascending: false })
+      break
     case 'name-desc':
-      return nextQuery
+      orderedQuery = query
         .order('full_name', { ascending: false })
         .order('created_at', { ascending: false })
+      break
     case 'newest':
-      return nextQuery.order('created_at', { ascending: false })
+      orderedQuery = query.order('created_at', { ascending: false })
+      break
     case 'wage-asc':
-      return nextQuery
+      orderedQuery = query
         .order('expected_daily_wage', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
+      break
     case 'wage-desc':
-      return nextQuery
+      orderedQuery = query
         .order('expected_daily_wage', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
+      break
     default:
-      return nextQuery
+      orderedQuery = query
         .order('experience_years', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
+      break
   }
+
+  return deterministic ? orderedQuery.order('id', { ascending: true }) : orderedQuery
 }
 
 const isMissingPreferredWorkLocationsColumnError = (message: string) => {
@@ -875,7 +892,8 @@ const loadOrderedWorkerRows = async (
 ) => {
   const buildQuery = (selectOptions?: { includePreferredWorkLocations?: boolean; includeSalaryRange?: boolean }) => applyWorkerOrder(
     applyWorkerFilters(selectWorkerRows(null, selectOptions), filters, selectedCategoryIds),
-    filters.sortBy
+    filters.sortBy,
+    Boolean(jobContext?.globalTierOrder)
   )
 
   let { data, error } = await buildQuery()
@@ -912,6 +930,29 @@ const loadOrderedWorkerRows = async (
   }
 
   const buckets = buildWorkerBuckets(jobContext)
+
+  if (jobContext.globalTierOrder) {
+    const matchingCategoryIds = new Set(jobContext.categoryIds)
+
+    return effectiveRows
+      .map((worker, sourceRank) => {
+        const secondaryRank = buckets.findIndex(bucket => workerMatchesBucket(worker, bucket))
+        return {
+          worker,
+          key: {
+            id: worker.id,
+            categoryMatch: (worker.category_ids || []).some(categoryId => matchingCategoryIds.has(categoryId)),
+            active: isActiveWorkerStatus(worker.effectiveStatus),
+            secondaryRank: secondaryRank === -1 ? buckets.length : secondaryRank,
+            availabilityRank: getWorkerAvailabilityPriority(worker.availability),
+            sourceRank
+          }
+        }
+      })
+      .sort((left, right) => compareWorkerGlobalOrderKeys(left.key, right.key))
+      .map(({ worker }) => worker)
+  }
+
   const orderedRows: EffectiveWorkerRow[] = []
   const assignedWorkerIds = new Set<string>()
 
@@ -1071,15 +1112,14 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
           String(right.published_at || '').localeCompare(String(left.published_at || ''))
         )
     : []
-  const selectedJobPost = currentCompany
-    ? (
-        requestedJobId
-          ? currentCompanyLiveJobPosts.find(jobPost => jobPost.id === requestedJobId) || null
-          : currentCompanyLiveJobPosts[0] || null
-      )
+  const requestedLiveJobPost = requestedJobId
+    ? jobPostRows.find(jobPost => jobPost.id === requestedJobId && isLiveJobPost(jobPost)) || null
     : null
-  const selectedJobCompany = selectedJobPost && currentCompany
-    ? currentCompany
+  const selectedJobPost = requestedJobId
+    ? requestedLiveJobPost
+    : currentCompanyLiveJobPosts[0] || null
+  const selectedJobCompany = selectedJobPost
+    ? companyRows.find(company => company.id === selectedJobPost.company_id) || null
     : null
 
   const jobContext = selectedJobPost
@@ -1157,7 +1197,8 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
         categoryIds: jobContextCategoryIds,
         businessCategoryIds: jobContextBusinessCategoryIds,
         industryCategoryIds: jobContextIndustryCategoryIds,
-        city: jobContext.city
+        city: jobContext.city,
+        globalTierOrder: shouldUseGlobalWorkerTierOrdering(requestedJobId, selectedJobPost?.id)
       }
     : null
   const paginatedWorkerResult = await getPaginatedWorkers(filters, selectedCategoryIds, jobContextBucketInput)

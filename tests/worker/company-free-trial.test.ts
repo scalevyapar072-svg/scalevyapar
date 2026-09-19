@@ -173,7 +173,11 @@ const jobHandlers = await importTranspiled(`
   const completeCompanyFreeTrialPublication = async () => null
   const releaseCompanyFreeTrialPublication = async () => null
   const getLabourMarketplaceSnapshot = async () => ({})
-  const sendNewJobSubmittedForReviewEmail = async () => undefined
+  const sentJobPublishedEmails = []
+  const sendNewJobPublishedEmail = async payload => {
+    sentJobPublishedEmails.push(payload)
+    return { delivered: true }
+  }
   const COMPANY_FREE_TRIAL_MARKER_PREFIX = 'company-job-post-free-trial:v1:'
   const helperNormalize = ${extractInitializer(freeTrialSource, 'normalize')}
   const helperNormalizeLookup = ${extractInitializer(freeTrialSource, 'normalizeLookup')}
@@ -187,6 +191,8 @@ const jobHandlers = await importTranspiled(`
     .replaceAll('normalize(job.companyId)', 'helperNormalize(job.companyId)')
     .replaceAll('normalize(companyId)', 'helperNormalize(companyId)')
     .replaceAll('normalizeLookup(job.status)', 'helperNormalizeLookup(job.status)')}
+  export const readSentJobPublishedEmails = () => [...sentJobPublishedEmails]
+  export const resetSentJobPublishedEmails = () => { sentJobPublishedEmails.length = 0 }
 `)
 
 type TrialMarker = {
@@ -458,7 +464,7 @@ const createSyntheticJobRouteHarness = () => {
     },
     now: () => new Date(currentNow),
   }
-  const body = (submissionId: string) => ({
+  const body = (submissionId: string, mode: 'draft' | 'publish' = 'publish') => ({
     jobTitle: 'Synthetic Machine Operator',
     labourCategoryId: 'cat-1',
     selectedPlanId: freePlan.id,
@@ -467,7 +473,7 @@ const createSyntheticJobRouteHarness = () => {
     salaryType: 'Monthly Salary',
     salaryAmount: 20000,
     jobDescription: 'Synthetic verification only',
-    mode: 'publish',
+    mode,
     submissionId,
   })
   return {
@@ -617,6 +623,7 @@ test('10. An inactive zero-value plan is denied', async () => {
 })
 
 test('11. A company with no successful publication can publish one free job', async () => {
+  jobHandlers.resetSentJobPublishedEmails()
   const store = new SyntheticTrialStore()
   const result = await store.publish({ companyId: 'c-new', planId: 'p-free', submissionId: submissionOne, amount: 0 })
   assert.equal(result.status, 'published')
@@ -636,6 +643,7 @@ test('11. A company with no successful publication can publish one free job', as
   assert.equal(route.snapshot.jobPosts[0].publishedAt, '2026-09-18')
   assert.equal(route.snapshot.jobPosts[0].expiresAt, '2026-10-18')
   assert.equal(parseMarker(route.snapshot.auditLogs[0].summary)?.status, 'consumed')
+  assert.equal(jobHandlers.readSentJobPublishedEmails().length, 1)
 })
 
 test('12. A company with historical successful publication is ineligible', async () => {
@@ -660,13 +668,24 @@ test('12. A company with historical successful publication is ineligible', async
   assert.equal((await response.json()).code, 'FREE_TRIAL_NOT_ELIGIBLE')
 })
 
-test('13. Drafting and selecting the free plan do not consume the trial', () => {
+test('13. Drafting and selecting the free plan do not consume the trial', async () => {
+  jobHandlers.resetSentJobPublishedEmails()
   assert.equal(isFirstPublication('draft'), false)
   assert.match(jobRouteSource, /if \(isFirstPublication && isFreeCompanyPlan\)/)
   assert.doesNotMatch(jobFormSource, /reserveCompanyFreeTrialPublication/)
+
+  const route = createSyntheticJobRouteHarness()
+  const response = await jobHandlers.handleCompanyJobPost(
+    { json: async () => route.body(submissionOne, 'draft') },
+    route.dependencies,
+  )
+  assert.equal(response.status, 200)
+  assert.equal(route.snapshot.jobPosts[0].status, 'draft')
+  assert.equal(jobHandlers.readSentJobPublishedEmails().length, 0)
 })
 
 test('14. A failed publication releases the reservation without consuming it', async () => {
+  jobHandlers.resetSentJobPublishedEmails()
   const store = new SyntheticTrialStore()
   const input = { companyId: 'c1', planId: 'p-free', submissionId: submissionOne, amount: 0 }
   assert.equal((await store.publish({ ...input, fail: true })).status, 'failed')
@@ -688,12 +707,14 @@ test('14. A failed publication releases the reservation without consuming it', a
   assert.equal(failed.status, 500)
   assert.equal(route.snapshot.jobPosts.length, 0)
   assert.equal(route.snapshot.auditLogs.length, 0)
+  assert.equal(jobHandlers.readSentJobPublishedEmails().length, 0)
   route.dependencies.createLabourEntity = createJob
   const retry = await jobHandlers.handleCompanyJobPost(
     { json: async () => route.body(submissionOne) },
     route.dependencies,
   )
   assert.equal(retry.status, 200)
+  assert.equal(jobHandlers.readSentJobPublishedEmails().length, 1)
 })
 
 test('15. Successful publication consumes the claim exactly once', async () => {
@@ -705,6 +726,7 @@ test('15. Successful publication consumes the claim exactly once', async () => {
 })
 
 test('16. Retrying the same publication request is idempotent', async () => {
+  jobHandlers.resetSentJobPublishedEmails()
   const store = new SyntheticTrialStore()
   const input = { companyId: 'c1', planId: 'p-free', submissionId: submissionOne, amount: 0 }
   const first = await store.publish(input)
@@ -726,9 +748,11 @@ test('16. Retrying the same publication request is idempotent', async () => {
   assert.equal(firstResponse.status, 200)
   assert.equal(retryResponse.status, 200)
   assert.equal(route.snapshot.jobPosts.length, 1)
+  assert.equal(jobHandlers.readSentJobPublishedEmails().length, 1)
 })
 
 test('17. Concurrent publication requests produce at most one free job', async () => {
+  jobHandlers.resetSentJobPublishedEmails()
   const store = new SyntheticTrialStore()
   const results = await Promise.all([
     store.publish({ companyId: 'c1', planId: 'p-free', submissionId: submissionOne, amount: 0 }),
@@ -747,7 +771,9 @@ test('17. Concurrent publication requests produce at most one free job', async (
   assert.equal(responses.filter(response => response.status === 200).length, 1)
   assert.equal(responses.filter(response => response.status === 409).length, 1)
   assert.equal(route.snapshot.jobPosts.length, 1)
+  assert.equal(jobHandlers.readSentJobPublishedEmails().length, 1)
 
+  jobHandlers.resetSentJobPublishedEmails()
   const duplicateRoute = createSyntheticJobRouteHarness()
   const duplicateResponses = await Promise.all([
     jobHandlers.handleCompanyJobPost({ json: async () => duplicateRoute.body(submissionOne) }, duplicateRoute.dependencies),
@@ -756,6 +782,7 @@ test('17. Concurrent publication requests produce at most one free job', async (
   assert.equal(duplicateResponses.filter(response => response.status === 200).length, 1)
   assert.equal(duplicateResponses.filter(response => response.status === 409).length, 1)
   assert.equal(duplicateRoute.snapshot.jobPosts.length, 1)
+  assert.equal(jobHandlers.readSentJobPublishedEmails().length, 1)
 })
 
 test('stale reservations are reclaimed once by the same deterministic retry', async () => {

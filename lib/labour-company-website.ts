@@ -7,6 +7,7 @@ import {
   DEFAULT_ROZGAR_LOGO_SRC,
   normalizeWebsiteAssetPath
 } from './labour-company-public-assets'
+import { applyVerifiedGstSellerIdentity } from './labour-company-tax'
 
 export type LabourCompanyWebsiteSection =
   | 'hero'
@@ -319,6 +320,7 @@ export interface LabourCompanyWebsiteContent {
         hsnCode: string
         serviceDescription: string
         sellerLegalName: string
+        sellerTradeName: string
         sellerAddress: string
         sellerEmail: string
         sellerPhone: string
@@ -1164,14 +1166,14 @@ const defaultContent: LabourCompanyWebsiteContent = {
       discountLabel: 'Plan discount (~13%)',
       discountCode: '',
       savingsMessage: "Yay! You're saving {amount} on this purchase",
-      gstin: '08AJOPM0347B1ZE',
+      gstin: '08AAOPU8577G1ZR',
       paymentButtonLabel: 'Proceed to Pay',
       policyText: 'We ensure fair use and privacy. Policy violations or fraud may result in suspension and loss of fees. KYC verification is mandatory for unregistered users to activate subscriptions.',
       securityText: '100% safe and secure checkout',
       paymentProviderMode: 'dummy',
       gatewayComingSoonMessage: 'Payment gateway will be connected soon.',
       taxSettings: {
-        sellerGstin: '08AJOPM0347B1ZE',
+        sellerGstin: '08AAOPU8577G1ZR',
         sellerState: 'Rajasthan',
         sellerStateCode: '08',
         gstEnabled: true,
@@ -1180,10 +1182,11 @@ const defaultContent: LabourCompanyWebsiteContent = {
         interStateIgstPercent: '18',
         hsnCode: '998519',
         serviceDescription: 'ScaleVyapar Rozgar Recruitment Services',
-        sellerLegalName: 'ScaleVyapar Rozgar',
-        sellerAddress: 'ScaleVyapar Private Limited, Surat, Gujarat, India - 395002',
+        sellerLegalName: 'POONAM MANUEL',
+        sellerTradeName: 'SCALE VYAPAR',
+        sellerAddress: '2ND FLOOR FLAT NO S-1, A-42, SUN PRIDE BHASKAR ENCLAVE-II, PATRAKAR COLONY OPP. MANSAROVER, JAIPUR, Jaipur, Rajasthan - 302020, India',
         sellerEmail: 'support@scalevyapar.in',
-        sellerPhone: '+91 63588 36897'
+        sellerPhone: '+91 9660768352'
       }
     }
   },
@@ -2404,7 +2407,7 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
         gatewayComingSoonMessage: typeof mergedPricingCheckout.gatewayComingSoonMessage === 'string' && mergedPricingCheckout.gatewayComingSoonMessage.trim()
           ? mergedPricingCheckout.gatewayComingSoonMessage.trim()
           : defaultContent.pricingPage.checkout.gatewayComingSoonMessage,
-        taxSettings: {
+        taxSettings: applyVerifiedGstSellerIdentity({
           ...defaultContent.pricingPage.checkout.taxSettings,
           ...mergedPricingTaxSettings,
           sellerGstin:
@@ -2450,6 +2453,10 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
             (typeof mergedPricingTaxSettings.sellerLegalName === 'string' && mergedPricingTaxSettings.sellerLegalName.trim()
               ? mergedPricingTaxSettings.sellerLegalName.trim()
               : defaultContent.pricingPage.checkout.taxSettings.sellerLegalName),
+          sellerTradeName:
+            (typeof mergedPricingTaxSettings.sellerTradeName === 'string' && mergedPricingTaxSettings.sellerTradeName.trim()
+              ? mergedPricingTaxSettings.sellerTradeName.trim()
+              : defaultContent.pricingPage.checkout.taxSettings.sellerTradeName),
           sellerAddress:
             (typeof mergedPricingTaxSettings.sellerAddress === 'string' && mergedPricingTaxSettings.sellerAddress.trim()
               ? mergedPricingTaxSettings.sellerAddress.trim()
@@ -2462,7 +2469,7 @@ const normalizeContent = (raw: unknown): LabourCompanyWebsiteContent => {
             (typeof mergedPricingTaxSettings.sellerPhone === 'string' && mergedPricingTaxSettings.sellerPhone.trim()
               ? mergedPricingTaxSettings.sellerPhone.trim()
               : defaultContent.pricingPage.checkout.taxSettings.sellerPhone)
-        }
+        })
       }
     },
     signinPage: {

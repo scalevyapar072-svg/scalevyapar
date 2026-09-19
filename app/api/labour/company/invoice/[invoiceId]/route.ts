@@ -10,6 +10,7 @@ import {
 } from '@/lib/labour-company-billing'
 import { renderBillingInvoicePdf } from '@/lib/labour-company-billing-pdf'
 import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { resolveLabourCompanyInvoiceSellerProfileForIssuedAt } from '@/lib/labour-company-tax'
 
 export async function GET(
   request: NextRequest,
@@ -54,15 +55,21 @@ export async function GET(
 
     const checkoutSettings = websiteContent.pricingPage.checkout
     const taxSettings = checkoutSettings.taxSettings
+    const legalSellerProfile = resolveLabourCompanyInvoiceSellerProfileForIssuedAt(
+      taxSettings,
+      record.createdAt,
+      checkoutSettings.gstPercentage
+    )
     const buyer = buildInvoiceBuyer(dashboard.profile)
     const seller = buildInvoiceSeller({
-      name: taxSettings.sellerLegalName || websiteContent.header.logoTitle || websiteContent.theme.brandName,
-      address: taxSettings.sellerAddress || websiteContent.contactPage.address || websiteContent.footer.address,
-      gstin: taxSettings.sellerGstin || checkoutSettings.gstin,
-      email: taxSettings.sellerEmail || websiteContent.contactPage.supportEmail || websiteContent.footer.supportEmail,
-      phone: taxSettings.sellerPhone || websiteContent.contactPage.phone || websiteContent.footer.phone,
-      state: taxSettings.sellerState,
-      stateCode: taxSettings.sellerStateCode
+      name: legalSellerProfile.legalName,
+      tradeName: legalSellerProfile.tradeName,
+      address: legalSellerProfile.address,
+      gstin: legalSellerProfile.gstin,
+      email: legalSellerProfile.email,
+      phone: legalSellerProfile.phone,
+      state: legalSellerProfile.state,
+      stateCode: legalSellerProfile.stateCode
     })
     const invoice = buildTaxInvoiceDocument({
       record,

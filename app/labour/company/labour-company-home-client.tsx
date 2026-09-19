@@ -28,6 +28,7 @@ import type { LabourCompanyWebsiteContent } from '@/lib/labour-company-website'
 import FloatingWhatsApp from '@/components/FloatingWhatsApp'
 import { normalizeRozgarCurrentPath, toRozgarPublicPath } from '@/lib/labour-company-host'
 import { DEFAULT_ROZGAR_LOGO_SRC, normalizeWebsiteAssetPath } from '@/lib/labour-company-public-assets'
+import { resolveRozgarWhatsAppHref } from '@/lib/public-contact'
 import {
   filterBusinessTypesByIndustryDependency,
   filterCategoriesByLabourDependency,
@@ -212,6 +213,7 @@ export function LabourCompanyHomeClient({
   stats,
   initialHostname = null
 }: Props) {
+  const rozgarWhatsAppHref = resolveRozgarWhatsAppHref(content)
   const pathname = usePathname()
   const router = useRouter()
   const homeRef = useRef<HTMLDivElement | null>(null)
@@ -1183,7 +1185,11 @@ export function LabourCompanyHomeClient({
           <span>Made with care in India for a stronger workforce.</span>
         </div>
       </footer>
-      <FloatingWhatsApp isRozgarRoute isRozgarHomeRoute />
+      <FloatingWhatsApp
+        isRozgarRoute
+        isRozgarHomeRoute
+        href={rozgarWhatsAppHref || null}
+      />
     </div>
   )
 }

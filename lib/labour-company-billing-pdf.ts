@@ -299,7 +299,8 @@ export const renderBillingInvoicePdf = (invoice: CompanyTaxInvoiceDocument) => {
   addLine(PAGE_MARGIN, 748, PDF_PAGE_WIDTH - PAGE_MARGIN, 748, COLORS.line, 1.2)
 
   const sellerRows: DetailRow[] = [
-    { label: 'Seller', value: invoice.seller.name },
+    { label: invoice.seller.tradeName ? 'Legal Name' : 'Seller', value: invoice.seller.name },
+    ...(invoice.seller.tradeName ? [{ label: 'Trade Name', value: invoice.seller.tradeName }] : []),
     { label: 'Address', value: invoice.seller.address },
     { label: 'GSTIN / UIN', value: invoice.seller.gstin || 'Not added' },
     { label: 'Email', value: invoice.seller.email || 'Not added' },

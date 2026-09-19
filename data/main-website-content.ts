@@ -1,3 +1,8 @@
+export const DEFAULT_MAIN_WEBSITE_WHATSAPP_NUMBER = '+919660768352'
+export const DEFAULT_MAIN_WEBSITE_PHONE_LABEL = '+91 9660768352'
+export const DEFAULT_MAIN_WEBSITE_WHATSAPP_HREF = 'https://wa.me/919660768352'
+export const DEFAULT_MAIN_WEBSITE_PHONE_HREF = 'tel:+919660768352'
+
 export const defaultMainWebsiteContent = {
   theme: {
     brandName: 'ScaleVyapar',
@@ -5,7 +10,7 @@ export const defaultMainWebsiteContent = {
     accentSoft: '#f8fafc',
     highlightColor: '#94a3b8',
     supportEmail: 'scalevyapar072@gmail.com',
-    whatsappNumber: '+919314023719'
+    whatsappNumber: DEFAULT_MAIN_WEBSITE_WHATSAPP_NUMBER
   },
   header: {
     logoSrc: '/logo.png',
@@ -43,12 +48,12 @@ export const defaultMainWebsiteContent = {
     ],
     contactItems: [
       { icon: '📍', label: 'Jaipur, Rajasthan', href: '' },
-      { icon: '📞', label: '+91 9314023719', href: 'tel:+919314023719' },
+      { icon: '📞', label: DEFAULT_MAIN_WEBSITE_PHONE_LABEL, href: DEFAULT_MAIN_WEBSITE_PHONE_HREF },
       { icon: '📧', label: 'scalevyapar072@gmail.com', href: 'mailto:scalevyapar072@gmail.com' },
-      { icon: '💬', label: 'WhatsApp Us', href: 'https://wa.me/919314023719' }
+      { icon: '💬', label: 'WhatsApp Us', href: DEFAULT_MAIN_WEBSITE_WHATSAPP_HREF }
     ],
     socialLinks: [
-      { icon: '💬', href: 'https://wa.me/919314023719', label: 'WhatsApp' },
+      { icon: '💬', href: DEFAULT_MAIN_WEBSITE_WHATSAPP_HREF, label: 'WhatsApp' },
       { icon: '📧', href: 'mailto:scalevyapar072@gmail.com', label: 'Email' }
     ],
     copyrightText: '© 2026 ScaleVyapar. All rights reserved. Made with ❤️ in Jaipur, India 🇮🇳',
@@ -253,7 +258,7 @@ export const defaultMainWebsiteContent = {
       ],
       ctaText: 'Still not convinced? Talk to us on WhatsApp and we will show you exactly how ScaleVyapar can help your business.',
       ctaButtonLabel: '💬 Talk to Us on WhatsApp',
-      ctaButtonHref: 'https://wa.me/919314023719'
+      ctaButtonHref: DEFAULT_MAIN_WEBSITE_WHATSAPP_HREF
     },
     finalCta: {
       title: 'Ready to Scale Your Business?',
@@ -261,7 +266,7 @@ export const defaultMainWebsiteContent = {
       primaryCtaLabel: 'View Pricing →',
       primaryCtaHref: '/pricing',
       secondaryCtaLabel: '💬 Talk to Us on WhatsApp',
-      secondaryCtaHref: 'https://wa.me/919314023719'
+      secondaryCtaHref: DEFAULT_MAIN_WEBSITE_WHATSAPP_HREF
     }
   },
   pricingPage: {
@@ -315,7 +320,7 @@ export const defaultMainWebsiteContent = {
       title: 'Not sure which tools you need?',
       subtitle: 'Talk to our team on WhatsApp and we will help you choose the right plan for your business.',
       buttonLabel: '💬 Chat on WhatsApp',
-      buttonHref: 'https://wa.me/919314023719'
+      buttonHref: DEFAULT_MAIN_WEBSITE_WHATSAPP_HREF
     }
   },
   toolsPage: {
@@ -402,7 +407,7 @@ export const defaultMainWebsiteContent = {
       primaryCtaLabel: 'Build Your Plan →',
       primaryCtaHref: '/pricing',
       secondaryCtaLabel: '💬 Talk to Us',
-      secondaryCtaHref: 'https://wa.me/919314023719'
+      secondaryCtaHref: DEFAULT_MAIN_WEBSITE_WHATSAPP_HREF
     }
   },
   aboutPage: {
@@ -448,7 +453,7 @@ export const defaultMainWebsiteContent = {
       primaryCtaLabel: 'View Pricing →',
       primaryCtaHref: '/pricing',
       secondaryCtaLabel: '💬 Talk to Us',
-      secondaryCtaHref: 'https://wa.me/919314023719'
+      secondaryCtaHref: DEFAULT_MAIN_WEBSITE_WHATSAPP_HREF
     }
   },
   contactPage: {
@@ -456,8 +461,8 @@ export const defaultMainWebsiteContent = {
     heroSubtitle: 'Have questions about ScaleVyapar? We are here to help. Reach out on WhatsApp for the fastest response.',
     infoTitle: 'Contact Information',
     cards: {
-      whatsapp: { icon: '💬', title: 'WhatsApp — Fastest Response', value: '+91 9314023719', helper: 'Usually replies within minutes', href: 'https://wa.me/919314023719' },
-      phone: { icon: '📞', title: 'Phone', value: '+91 9314023719', helper: 'Mon–Sat, 9AM–7PM IST', href: 'tel:+919314023719' },
+      whatsapp: { icon: '💬', title: 'WhatsApp — Fastest Response', value: DEFAULT_MAIN_WEBSITE_PHONE_LABEL, helper: 'Usually replies within minutes', href: DEFAULT_MAIN_WEBSITE_WHATSAPP_HREF },
+      phone: { icon: '📞', title: 'Phone', value: DEFAULT_MAIN_WEBSITE_PHONE_LABEL, helper: 'Mon–Sat, 9AM–7PM IST', href: DEFAULT_MAIN_WEBSITE_PHONE_HREF },
       email: { icon: '📧', title: 'Email', value: 'scalevyapar072@gmail.com', helper: 'Response within 24 hours', href: 'mailto:scalevyapar072@gmail.com' },
       location: { icon: '📍', title: 'Location', value: 'Jaipur, Rajasthan', helper: 'India 🇮🇳' }
     },
@@ -512,7 +517,7 @@ export const defaultMainWebsiteContent = {
       title: 'Ready to Scale Your Business?',
       subtitle: 'Message us on WhatsApp right now and get started within 24 hours!',
       buttonLabel: '💬 Message Us on WhatsApp',
-      buttonHref: 'https://wa.me/919314023719?text=Hi! I want to know more about ScaleVyapar.'
+      buttonHref: `${DEFAULT_MAIN_WEBSITE_WHATSAPP_HREF}?text=Hi! I want to know more about ScaleVyapar.`
     }
   },
   loginPage: {

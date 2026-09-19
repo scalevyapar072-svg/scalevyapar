@@ -68,6 +68,7 @@ export type CompanyInvoiceParty = {
 }
 
 export type CompanyInvoiceSeller = CompanyInvoiceParty & {
+  tradeName: string
   bankName: string
   accountName: string
   accountNumber: string
@@ -435,6 +436,7 @@ export const buildInvoiceBuyer = (profile: CompanyBillingProfile): CompanyInvoic
 
 export const buildInvoiceSeller = (input: {
   name?: string
+  tradeName?: string
   address?: string
   gstin?: string
   email?: string
@@ -442,19 +444,20 @@ export const buildInvoiceSeller = (input: {
   state?: string
   stateCode?: string
 }): CompanyInvoiceSeller => {
-  const gstin = normalizeGstin(input.gstin) || '08AJOPM0347B1ZE'
+  const gstin = normalizeGstin(input.gstin) || '08AAOPU8577G1ZR'
   const stateCode = input.stateCode?.trim() || deriveStateCodeFromGstin(gstin) || resolveStateCodeFromName(input.state)
   const stateName = input.state?.trim() || resolveStateNameFromCode(stateCode)
 
   return {
-    name: input.name?.trim() || 'ScaleVyapar Rozgar',
-    address: input.address?.trim() || 'ScaleVyapar, India',
+    name: input.name?.trim() || 'POONAM MANUEL',
+    tradeName: typeof input.tradeName === 'string' ? input.tradeName.trim() : 'SCALE VYAPAR',
+    address: input.address?.trim() || '2ND FLOOR FLAT NO S-1, A-42, SUN PRIDE BHASKAR ENCLAVE-II, PATRAKAR COLONY OPP. MANSAROVER, JAIPUR, Jaipur, Rajasthan - 302020, India',
     gstin,
     pan: derivePanFromGstin(gstin),
     placeOfSupply: [stateName, stateCode ? `Code ${stateCode}` : ''].filter(Boolean).join(' - ') || 'Not available',
     placeOfSupplyCode: stateCode,
     email: input.email?.trim() || 'support@scalevyapar.in',
-    phone: input.phone?.trim() || '+91 00000 00000',
+    phone: input.phone?.trim() || '+91 9660768352',
     bankName: 'Bank details available on request',
     accountName: 'ScaleVyapar Rozgar',
     accountNumber: 'To be shared by billing desk',

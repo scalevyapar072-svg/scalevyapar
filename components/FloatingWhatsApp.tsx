@@ -5,24 +5,23 @@ import { usePathname } from 'next/navigation'
 type FloatingWhatsAppProps = {
   isRozgarRoute?: boolean
   isRozgarHomeRoute?: boolean
-  href?: string | null
+  href: string | null
 }
 
 export default function FloatingWhatsApp({
   isRozgarRoute = false,
   isRozgarHomeRoute = false,
-  href = null,
+  href,
 }: FloatingWhatsAppProps) {
   const pathname = usePathname()
   const normalizedPathname = pathname || '/'
-  const resolvedHref = href || 'https://wa.me/919314023719'
   const isSearchPath =
     normalizedPathname === '/search' ||
     normalizedPathname.startsWith('/search/') ||
     normalizedPathname === '/labour/company/search' ||
     normalizedPathname.startsWith('/labour/company/search/')
 
-  if (isSearchPath) return null
+  if (isSearchPath || !href) return null
 
   return (
     <>
@@ -51,7 +50,7 @@ export default function FloatingWhatsApp({
       `}</style>
       <div className={`wa-wrap ${isRozgarRoute ? 'wa-rozgar-route' : ''} ${isRozgarHomeRoute ? 'wa-rozgar-home-route' : ''}`}>
         <a
-          href={resolvedHref}
+          href={href}
           className="wa-btn"
           target="_blank"
           rel="noopener noreferrer"

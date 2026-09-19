@@ -7,6 +7,9 @@ import MobileBottomBar from '@/components/MobileBottomBar'
 import SplashScreen from '@/components/SplashScreen'
 import { isLabourAgentSubdomainHost, LABOUR_AGENT_CANONICAL_PREFIX } from '@/lib/labour-agent-host'
 import { isRozgarSubdomainHost } from '@/lib/labour-company-host'
+import { getLabourCompanyWebsiteContent } from '@/lib/labour-company-website'
+import { getMainWebsiteContent } from '@/lib/main-website-content'
+import { buildWhatsAppHref, resolveRozgarWhatsAppHref } from '@/lib/public-contact'
 
 const rozgarIconVersion = '20260627'
 const rozgarIconBasePath = '/images/rozgar/icons'
@@ -90,6 +93,17 @@ export default async function RootLayout({
   const isRozgarRoute = isRozgarHost || isCanonicalRozgarPath
   const isRozgarHomeRoute = publicPathname === '/' || effectivePathname === '/labour/company'
   const loadMetaPixel = Boolean(metaPixelId) && isRozgarRoute && !isAdminRoute && !isLoginRoute
+  let publicWhatsAppHref: string | null = null
+
+  if (showFloatingWhatsApp || showMobileBottomBar) {
+    if (isRozgarRoute) {
+      const { content } = await getLabourCompanyWebsiteContent()
+      publicWhatsAppHref = resolveRozgarWhatsAppHref(content) || null
+    } else {
+      const { content } = await getMainWebsiteContent()
+      publicWhatsAppHref = buildWhatsAppHref(content.theme.whatsappNumber) || null
+    }
+  }
 
   return (
     <html lang="en">
@@ -149,9 +163,10 @@ export default async function RootLayout({
           <FloatingWhatsApp
             isRozgarRoute={isRozgarRoute}
             isRozgarHomeRoute={isRozgarHomeRoute}
+            href={publicWhatsAppHref}
           />
         ) : null}
-        {showMobileBottomBar ? <MobileBottomBar /> : null}
+        {showMobileBottomBar ? <MobileBottomBar chatHref={publicWhatsAppHref} /> : null}
       </body>
     </html>
   )

@@ -9,6 +9,7 @@ export type LabourCompanyTaxSettings = {
   hsnCode: string
   serviceDescription: string
   sellerLegalName: string
+  sellerTradeName: string
   sellerAddress: string
   sellerEmail: string
   sellerPhone: string
@@ -18,6 +19,22 @@ export type LabourCompanyResolvedTaxSettings = LabourCompanyTaxSettings & {
   intraStateCgstPercentValue: number
   intraStateSgstPercentValue: number
   interStateIgstPercentValue: number
+}
+
+export type LabourCompanyInvoiceSellerProfile = {
+  legalName: string
+  tradeName: string
+  address: string
+  gstin: string
+  email: string
+  phone: string
+  state: string
+  stateCode: string
+}
+
+export type LabourCompanyInvoiceSellerProfileIssue = {
+  code: 'gstin_state_mismatch' | 'address_state_mismatch'
+  message: string
 }
 
 export type LabourCompanyTaxType = 'intra_state' | 'inter_state' | 'gst_disabled'
@@ -45,9 +62,36 @@ export type LabourCompanyTaxBreakdown = LabourCompanyTaxResolution & {
 }
 
 const DEFAULT_GST_PERCENTAGE = 18
-const DEFAULT_SELLER_GSTIN = '08AJOPM0347B1ZE'
-const DEFAULT_SELLER_STATE = 'Rajasthan'
-const DEFAULT_SELLER_STATE_CODE = '08'
+
+export const VERIFIED_GST_SELLER_IDENTITY = Object.freeze({
+  legalName: 'POONAM MANUEL',
+  tradeName: 'SCALE VYAPAR',
+  constitution: 'Proprietorship',
+  gstin: '08AAOPU8577G1ZR',
+  address: '2ND FLOOR FLAT NO S-1, A-42, SUN PRIDE BHASKAR ENCLAVE-II, PATRAKAR COLONY OPP. MANSAROVER, JAIPUR, Jaipur, Rajasthan - 302020, India',
+  state: 'Rajasthan',
+  stateCode: '08',
+  pinCode: '302020'
+})
+
+export const GST_CERTIFICATE_SELLER_PROFILE_EFFECTIVE_AT = '2026-09-19T07:45:00.000Z'
+
+const VERIFIED_SELLER_EMAIL = 'support@scalevyapar.in'
+const VERIFIED_SELLER_PHONE = '+91 9660768352'
+const DEFAULT_SELLER_GSTIN = VERIFIED_GST_SELLER_IDENTITY.gstin
+const DEFAULT_SELLER_STATE = VERIFIED_GST_SELLER_IDENTITY.state
+const DEFAULT_SELLER_STATE_CODE = VERIFIED_GST_SELLER_IDENTITY.stateCode
+
+const LEGACY_INVOICE_SELLER_PROFILE: LabourCompanyInvoiceSellerProfile = Object.freeze({
+  legalName: 'ScaleVyapar Rozgar',
+  tradeName: '',
+  address: 'ScaleVyapar Private Limited, Surat, Gujarat, India - 395002',
+  gstin: VERIFIED_GST_SELLER_IDENTITY.gstin,
+  email: VERIFIED_SELLER_EMAIL,
+  phone: VERIFIED_SELLER_PHONE,
+  state: VERIFIED_GST_SELLER_IDENTITY.state,
+  stateCode: VERIFIED_GST_SELLER_IDENTITY.stateCode
+})
 
 const STATE_CODE_TO_NAME: Record<string, string> = {
   '01': 'Jammu and Kashmir',
@@ -94,6 +138,26 @@ const STATE_NAME_TO_CODE = Object.fromEntries(
 )
 
 const normalizeString = (value: string | null | undefined) => String(value || '').trim()
+
+export const applyVerifiedGstSellerIdentity = <T extends Partial<LabourCompanyTaxSettings>>(
+  settings: T
+): T & Pick<LabourCompanyTaxSettings, 'sellerGstin' | 'sellerState' | 'sellerStateCode' | 'sellerLegalName' | 'sellerTradeName' | 'sellerAddress'> => {
+  const sellerGstin = normalizeGstin(settings.sellerGstin)
+
+  if (sellerGstin && sellerGstin !== VERIFIED_GST_SELLER_IDENTITY.gstin) {
+    return settings as T & Pick<LabourCompanyTaxSettings, 'sellerGstin' | 'sellerState' | 'sellerStateCode' | 'sellerLegalName' | 'sellerTradeName' | 'sellerAddress'>
+  }
+
+  return {
+    ...settings,
+    sellerGstin: VERIFIED_GST_SELLER_IDENTITY.gstin,
+    sellerState: VERIFIED_GST_SELLER_IDENTITY.state,
+    sellerStateCode: VERIFIED_GST_SELLER_IDENTITY.stateCode,
+    sellerLegalName: VERIFIED_GST_SELLER_IDENTITY.legalName,
+    sellerTradeName: VERIFIED_GST_SELLER_IDENTITY.tradeName,
+    sellerAddress: VERIFIED_GST_SELLER_IDENTITY.address
+  }
+}
 
 const normalizeBoolean = (value: boolean | string | null | undefined, fallback: boolean) => {
   if (typeof value === 'boolean') return value
@@ -146,33 +210,102 @@ export const resolveLabourCompanyTaxSettings = (
   settings: Partial<LabourCompanyTaxSettings> | null | undefined,
   fallbackGstPercentage?: string | number | null
 ): LabourCompanyResolvedTaxSettings => {
+  const legalSettings = applyVerifiedGstSellerIdentity(settings || {})
   const genericGstPercent = sanitizePercentage(fallbackGstPercentage, DEFAULT_GST_PERCENTAGE)
-  const sellerGstin = normalizeGstin(settings?.sellerGstin) || DEFAULT_SELLER_GSTIN
-  const sellerStateCode = normalizeString(settings?.sellerStateCode) || deriveStateCodeFromGstin(sellerGstin) || DEFAULT_SELLER_STATE_CODE
-  const sellerState = normalizeString(settings?.sellerState) || resolveStateNameFromCode(sellerStateCode) || DEFAULT_SELLER_STATE
+  const sellerGstin = normalizeGstin(legalSettings.sellerGstin) || DEFAULT_SELLER_GSTIN
+  const sellerStateCode = normalizeString(legalSettings.sellerStateCode) || deriveStateCodeFromGstin(sellerGstin) || DEFAULT_SELLER_STATE_CODE
+  const sellerState = normalizeString(legalSettings.sellerState) || resolveStateNameFromCode(sellerStateCode) || DEFAULT_SELLER_STATE
 
-  const intraStateCgstPercentValue = sanitizePercentage(settings?.intraStateCgstPercent, genericGstPercent / 2)
-  const intraStateSgstPercentValue = sanitizePercentage(settings?.intraStateSgstPercent, genericGstPercent / 2)
-  const interStateIgstPercentValue = sanitizePercentage(settings?.interStateIgstPercent, genericGstPercent)
+  const intraStateCgstPercentValue = sanitizePercentage(legalSettings.intraStateCgstPercent, genericGstPercent / 2)
+  const intraStateSgstPercentValue = sanitizePercentage(legalSettings.intraStateSgstPercent, genericGstPercent / 2)
+  const interStateIgstPercentValue = sanitizePercentage(legalSettings.interStateIgstPercent, genericGstPercent)
 
   return {
     sellerGstin,
     sellerState,
     sellerStateCode,
-    gstEnabled: normalizeBoolean(settings?.gstEnabled, true),
-    intraStateCgstPercent: normalizeString(settings?.intraStateCgstPercent) || String(intraStateCgstPercentValue),
-    intraStateSgstPercent: normalizeString(settings?.intraStateSgstPercent) || String(intraStateSgstPercentValue),
-    interStateIgstPercent: normalizeString(settings?.interStateIgstPercent) || String(interStateIgstPercentValue),
-    hsnCode: normalizeString(settings?.hsnCode) || '998519',
-    serviceDescription: normalizeString(settings?.serviceDescription) || 'ScaleVyapar Rozgar Recruitment Services',
-    sellerLegalName: normalizeString(settings?.sellerLegalName) || 'ScaleVyapar Rozgar',
-    sellerAddress: normalizeString(settings?.sellerAddress) || 'ScaleVyapar Private Limited, Surat, Gujarat, India - 395002',
-    sellerEmail: normalizeString(settings?.sellerEmail) || 'support@scalevyapar.in',
-    sellerPhone: normalizeString(settings?.sellerPhone) || '+91 63588 36897',
+    gstEnabled: normalizeBoolean(legalSettings.gstEnabled, true),
+    intraStateCgstPercent: normalizeString(legalSettings.intraStateCgstPercent) || String(intraStateCgstPercentValue),
+    intraStateSgstPercent: normalizeString(legalSettings.intraStateSgstPercent) || String(intraStateSgstPercentValue),
+    interStateIgstPercent: normalizeString(legalSettings.interStateIgstPercent) || String(interStateIgstPercentValue),
+    hsnCode: normalizeString(legalSettings.hsnCode) || '998519',
+    serviceDescription: normalizeString(legalSettings.serviceDescription) || 'ScaleVyapar Rozgar Recruitment Services',
+    sellerLegalName: normalizeString(legalSettings.sellerLegalName) || VERIFIED_GST_SELLER_IDENTITY.legalName,
+    sellerTradeName: normalizeString(legalSettings.sellerTradeName) || VERIFIED_GST_SELLER_IDENTITY.tradeName,
+    sellerAddress: normalizeString(legalSettings.sellerAddress) || VERIFIED_GST_SELLER_IDENTITY.address,
+    sellerEmail: normalizeString(legalSettings.sellerEmail) || VERIFIED_SELLER_EMAIL,
+    sellerPhone: normalizeString(legalSettings.sellerPhone) || VERIFIED_SELLER_PHONE,
     intraStateCgstPercentValue,
     intraStateSgstPercentValue,
     interStateIgstPercentValue
   }
+}
+
+export const resolveLabourCompanyInvoiceSellerProfile = (
+  settings: Partial<LabourCompanyTaxSettings> | null | undefined,
+  fallbackGstPercentage?: string | number | null
+): LabourCompanyInvoiceSellerProfile => {
+  const resolved = resolveLabourCompanyTaxSettings(settings, fallbackGstPercentage)
+
+  return {
+    legalName: resolved.sellerLegalName,
+    tradeName: resolved.sellerTradeName,
+    address: resolved.sellerAddress,
+    gstin: resolved.sellerGstin,
+    email: resolved.sellerEmail,
+    phone: resolved.sellerPhone,
+    state: resolved.sellerState,
+    stateCode: resolved.sellerStateCode
+  }
+}
+
+export const resolveLabourCompanyInvoiceSellerProfileForIssuedAt = (
+  settings: Partial<LabourCompanyTaxSettings> | null | undefined,
+  issuedAt: string | null | undefined,
+  fallbackGstPercentage?: string | number | null
+): LabourCompanyInvoiceSellerProfile => {
+  const issuedAtTimestamp = Date.parse(normalizeString(issuedAt))
+  const effectiveAtTimestamp = Date.parse(GST_CERTIFICATE_SELLER_PROFILE_EFFECTIVE_AT)
+
+  if (!Number.isFinite(issuedAtTimestamp) || issuedAtTimestamp < effectiveAtTimestamp) {
+    return { ...LEGACY_INVOICE_SELLER_PROFILE }
+  }
+
+  return resolveLabourCompanyInvoiceSellerProfile(settings, fallbackGstPercentage)
+}
+
+export const findLabourCompanyInvoiceSellerProfileIssues = (
+  profile: LabourCompanyInvoiceSellerProfile
+): LabourCompanyInvoiceSellerProfileIssue[] => {
+  const issues: LabourCompanyInvoiceSellerProfileIssue[] = []
+  const gstinStateCode = deriveStateCodeFromGstin(profile.gstin)
+  const configuredStateCode = normalizeString(profile.stateCode) || resolveStateCodeFromName(profile.state)
+
+  if (gstinStateCode && configuredStateCode && gstinStateCode !== configuredStateCode) {
+    issues.push({
+      code: 'gstin_state_mismatch',
+      message: `Seller GSTIN state code ${gstinStateCode} does not match configured seller state code ${configuredStateCode}.`
+    })
+  }
+
+  const address = normalizeString(profile.address).toLowerCase()
+  const addressState = Object.values(STATE_CODE_TO_NAME).find(state =>
+    address.includes(state.toLowerCase())
+  )
+  const configuredState = resolveStateNameFromCode(configuredStateCode) || normalizeString(profile.state)
+
+  if (
+    addressState &&
+    configuredState &&
+    addressState.toLowerCase() !== configuredState.toLowerCase()
+  ) {
+    issues.push({
+      code: 'address_state_mismatch',
+      message: `Seller address names ${addressState}, but the GST seller state is ${configuredState}.`
+    })
+  }
+
+  return issues
 }
 
 export const resolveCompanyTaxResolution = ({

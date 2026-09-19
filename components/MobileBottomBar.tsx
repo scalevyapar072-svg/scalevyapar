@@ -20,7 +20,7 @@ const rozgarPublicPaths = [
 ]
 
 type MobileBottomBarProps = {
-  chatHref?: string | null
+  chatHref: string | null
 }
 
 function isRozgarHost(hostname: string) {
@@ -31,11 +31,10 @@ function isRozgarPublicPath(pathname: string) {
   return rozgarPublicPaths.some(path => pathname === path || (path !== '/' && pathname.startsWith(`${path}/`)))
 }
 
-export default function MobileBottomBar({ chatHref = null }: MobileBottomBarProps) {
+export default function MobileBottomBar({ chatHref }: MobileBottomBarProps) {
   const pathname = usePathname()
   const [hostname, setHostname] = useState(() => (typeof window === 'undefined' ? '' : window.location.hostname))
   const normalizedPathname = pathname || '/'
-  const resolvedChatHref = chatHref || 'https://wa.me/919314023719'
   const hideOnRozgarPages =
     normalizedPathname === '/search' ||
     normalizedPathname.startsWith('/search/') ||
@@ -132,8 +131,8 @@ export default function MobileBottomBar({ chatHref = null }: MobileBottomBarProp
             <span>🛠️</span>
             <span>Tools</span>
           </Link>
-          {resolvedChatHref ? (
-            <a href={resolvedChatHref} className="mobile-bottom-cta" target="_blank" rel="noreferrer">
+          {chatHref ? (
+            <a href={chatHref} className="mobile-bottom-cta" target="_blank" rel="noreferrer">
               <div className="mobile-bottom-cta-icon">💬</div>
               <span>Chat</span>
             </a>

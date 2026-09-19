@@ -5,12 +5,12 @@ import { defaultMainWebsiteContent } from '@/data/main-website-content'
 
 type PricingCalculatorProps = {
   content?: typeof defaultMainWebsiteContent.pricingPage.calculator
-  whatsappNumber?: string
+  whatsappNumber: string
 }
 
 export default function PricingCalculator({
   content = defaultMainWebsiteContent.pricingPage.calculator,
-  whatsappNumber = '919314023719'
+  whatsappNumber
 }: PricingCalculatorProps) {
   const [selected, setSelected] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<'plan' | 'credits'>('plan')

@@ -2,6 +2,7 @@ import { unstable_noStore as noStore } from 'next/cache'
 import { supabaseAdmin } from './supabase-admin'
 import { defaultMainWebsiteContent, type MainWebsiteContent } from '@/data/main-website-content'
 import { normalizeWebsiteAssetPath } from './labour-company-public-assets'
+import { applyAuthoritativeMainWebsitePhone } from './public-contact'
 
 const TABLE_NAME = 'labour_website_content'
 const RECORD_ID = 'main-website'
@@ -40,7 +41,7 @@ const deepMerge = <T>(fallback: T, incoming: unknown): T => {
 const normalizeMainWebsiteContent = (value: unknown): MainWebsiteContent => {
   const merged = deepMerge(defaultMainWebsiteContent, value)
 
-  return {
+  return applyAuthoritativeMainWebsitePhone({
     ...merged,
     header: {
       ...merged.header,
@@ -50,7 +51,7 @@ const normalizeMainWebsiteContent = (value: unknown): MainWebsiteContent => {
       ...merged.footer,
       logoSrc: normalizeWebsiteAssetPath(merged.footer?.logoSrc, defaultMainWebsiteContent.footer.logoSrc)
     }
-  }
+  })
 }
 
 const persistSupabaseContent = async (content: MainWebsiteContent) => {

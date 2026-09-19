@@ -38,7 +38,7 @@ import {
   isMatchingCompanyFreeTrialRetry,
   resolveStoredCompanyPlanAmount
 } from '@/lib/labour-company-free-trial'
-import { sendNewJobPublishedEmail } from '@/lib/rozgar-notification-email'
+import { sendNewJobSubmittedForReviewEmail } from '@/lib/rozgar-notification-email'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MOBILE_REGEX = /^\d{10}$/
@@ -868,30 +868,6 @@ export async function handleCompanyJobPost(
       ],
       uploadedDocuments
     )
-    const notifyFirstPublication = async (job: {
-      id: string
-      title: string
-      city: string
-      workersNeeded: number
-      status: string
-      publishedAt: string
-      expiresAt: string
-    }) => {
-      if (!isFirstPublication || !isPublishedJobStatus(job.status)) return
-
-      await sendNewJobPublishedEmail({
-        jobId: job.id,
-        jobTitle: job.title,
-        companyName: refreshedCompany.companyName || resolvedCompanyName,
-        companyId: refreshedCompany.id,
-        labourCategories: [labourCategory.name],
-        city: job.city || resolvedJobLocation,
-        workersRequired: job.workersNeeded,
-        selectedPlan: selectedPlan.name,
-        publishedAt: job.publishedAt || today,
-        expiresAt: job.expiresAt,
-      })
-    }
 
     if (existingJob) {
       const updatedSnapshot = await dependencies.updateLabourEntity(
@@ -928,8 +904,6 @@ export async function handleCompanyJobPost(
         await dependencies.completeCompanyFreeTrialPublication(freeTrialReservation)
         freeTrialCompleted = true
       }
-
-      await notifyFirstPublication(updatedJob)
 
       return buildSuccessfulJobResponse(mode, updatedJob.id)
     }
@@ -974,7 +948,32 @@ export async function handleCompanyJobPost(
       freeTrialCompleted = true
     }
 
-    if (createdJob) await notifyFirstPublication(createdJob)
+    if (createdJob && mode !== 'draft') {
+      await sendNewJobSubmittedForReviewEmail({
+        jobPostId: createdJob.id,
+        companyName: refreshedCompany.companyName || resolvedCompanyName,
+        companyId: refreshedCompany.id,
+        companyMobile: refreshedCompany.mobile || resolvedMobile,
+        jobTitle: createdJob.title,
+        industryCategory: resolvedIndustryType,
+        businessType: resolvedBusinessType,
+        workerCategory: labourCategory?.name || workerCategory,
+        workLocation: createdJob.city || resolvedJobLocation,
+        salary: createdJob.wageAmount,
+        salaryType,
+        workersRequired: createdJob.workersNeeded,
+        experience: experienceRequired,
+        genderPreference,
+        shift: shiftType,
+        facilities: [
+          foodFacility ? `Food: ${foodFacility}` : '',
+          accommodation ? `Accommodation: ${accommodation}` : '',
+          transportFacility ? `Transport: ${transportFacility}` : '',
+          overtimeAvailable ? `Overtime: ${overtimeAvailable}` : ''
+        ].filter(Boolean),
+        createdAt: createdJob.createdAt
+      })
+    }
 
     return buildSuccessfulJobResponse(mode, createdJob?.id || '')
   } catch (error) {

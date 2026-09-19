@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { requireAdmin } from '@/lib/auth'
 import { processReferralAdminEmailOutboxBatch } from '@/lib/labour-worker-referral-email-outbox'
+import { processRozgarInternalNotificationOutboxBatch } from '@/lib/rozgar-internal-notification-outbox'
 
 const CRON_BEARER_PREFIX = 'Bearer '
 
@@ -21,9 +22,23 @@ const hasValidCronSecret = (request: NextRequest) => {
 }
 
 const buildProcessorSummaryResponse = async () => {
-  const summary = await processReferralAdminEmailOutboxBatch()
+  const [referralResult, internalNotificationResult] = await Promise.allSettled([
+    processReferralAdminEmailOutboxBatch(),
+    processRozgarInternalNotificationOutboxBatch(),
+  ])
 
-  return NextResponse.json(summary, {
+  if (internalNotificationResult.status === 'rejected') {
+    console.error(
+      'Rozgar internal notification outbox processor failed:',
+      internalNotificationResult.reason,
+    )
+  }
+
+  if (referralResult.status === 'rejected') {
+    throw referralResult.reason
+  }
+
+  return NextResponse.json(referralResult.value, {
     headers: {
       'Cache-Control': 'no-store',
     },

@@ -462,11 +462,11 @@ test('worker job feeds and matching continue to include only live jobs', () => {
   }).status, 'live')
 })
 
-test('auto-publish adds only the requested first-publication email integration', () => {
+test('auto-publish leaves delivery to the transactional outbox trigger', () => {
   const changedRuntimeSource = `${routeSource}\n${formSource}\n${panelSource}`
   assert.doesNotMatch(changedRuntimeSource, /sendWhatsApp|whatsapp.*send|enqueueWhatsApp/i)
-  assert.equal((routeSource.match(/sendNewJobPublishedEmail/g) || []).length, 2)
-  assert.match(routeSource, /if \(!isFirstPublication \|\| !isPublishedJobStatus\(job\.status\)\) return/)
+  assert.doesNotMatch(routeSource, /sendNewJobPublishedEmail/)
+  assert.match(routeSource, /const isFirstPublication = isFirstCompanyJobPublication\(mode, existingJob\?\.status\)/)
 })
 
 test('publish route creates no duplicate wallet, payment, or allowance transaction', () => {

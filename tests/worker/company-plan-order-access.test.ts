@@ -85,7 +85,7 @@ const jobHandlers = await importTranspiled(`
     plan.audience === 'company' && typeof plan.planAmount === 'number' && Number.isFinite(plan.planAmount) && plan.planAmount >= 0
       ? plan.planAmount
       : null
-  const sendNewJobPublishedEmail = async () => undefined
+  const sendNewJobSubmittedForReviewEmail = async () => undefined
   ${stripImports(jobRouteSource)}
 `)
 

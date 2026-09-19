@@ -9,7 +9,6 @@ import {
 } from '@/lib/labour-masters-schema'
 import { createClient, getUserByEmail, updateClient, updateUserPassword } from '@/lib/db'
 import { createLabourEntity, getLabourMarketplaceSnapshot } from '@/lib/labour-marketplace'
-import { sendNewCompanyRegistrationEmail } from '@/lib/rozgar-notification-email'
 import {
   parseCompanyRegistrationWhatsappConsents,
   resolveWhatsappConsentTextVersion,
@@ -298,19 +297,6 @@ export async function POST(request: NextRequest) {
         source: 'company_registration',
       })
     }
-
-    await sendNewCompanyRegistrationEmail({
-      companyId: createdCompany.id,
-      companyName: createdCompany.companyName,
-      contactPerson: createdCompany.contactPerson,
-      registeredMobile: createdCompany.mobile,
-      registeredEmail: createdCompany.email,
-      city: createdCompany.city,
-      state: createdCompany.state,
-      industryCategory: createdCompany.industryCategory,
-      businessType: createdCompany.businessType,
-      registeredAt: createdCompany.createdAt,
-    })
 
     return NextResponse.json({
       success: true,

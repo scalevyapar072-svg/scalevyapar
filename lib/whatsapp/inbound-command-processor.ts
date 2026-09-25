@@ -56,7 +56,6 @@ export const createWhatsappAtomicInboundCommandProcessor = ({
     .rpc('process_labour_whatsapp_inbound_command', {
       p_message_id: event.messageId,
       p_normalized_mobile: event.normalizedMobile,
-      p_masked_mobile: event.maskedMobile,
       p_raw_text: event.rawText,
       p_normalized_text: event.normalizedText,
       p_command_kind: event.classification.kind,

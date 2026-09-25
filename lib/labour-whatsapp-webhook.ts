@@ -1,5 +1,10 @@
-import { supabaseAdmin } from './supabase-admin'
-import { getWhatsappPersistenceWriteAvailability } from './whatsapp/persistence-client'
+import { createHash } from 'node:crypto'
+
+import {
+  getWhatsappPersistenceClient,
+  getWhatsappPersistenceWriteAvailability,
+  type WhatsappPersistenceWriteAvailability,
+} from './whatsapp/persistence-client'
 
 type WhatsappWebhookStatusError = {
   code?: number
@@ -57,23 +62,48 @@ type WhatsappWebhookPayload = {
   }>
 }
 
-const createWebhookAuditId = () =>
-  `audit-whatsapp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+type WhatsappStatusRpcRow = {
+  inserted?: boolean
+  duplicate?: boolean
+}
+
+export type WhatsappStatusRpcClient = {
+  rpc: (
+    functionName: string,
+    parameters: Record<string, unknown>,
+  ) => {
+    single: () => Promise<{
+      data: WhatsappStatusRpcRow | null
+      error: unknown
+    }>
+  }
+}
+
+export const createWhatsappWebhookStatusEventKey = (event: WhatsappWebhookStatusEvent) =>
+  createHash('sha256')
+    .update(
+      JSON.stringify([
+        'whatsapp-status-v1',
+        event.messageId,
+        event.status,
+        event.timestamp,
+        event.recipientWaId,
+        event.phoneNumberId,
+      ]),
+      'utf8',
+    )
+    .digest('hex')
 
 const formatWebhookSummary = (event: WhatsappWebhookStatusEvent) => {
   const errorSummary = event.rawErrors.length > 0
-    ? ` | errors=${event.rawErrors
-        .map(error => error.message || error.title || error.error_data?.details || `code:${error.code ?? 'unknown'}`)
-        .join('; ')}`
+    ? ` | errorCodes=${event.rawErrors
+        .map((error) => String(error.code ?? 'unknown'))
+        .join(',')}`
     : ''
 
   return [
     'WhatsApp status',
-    `messageId=${event.messageId}`,
     `status=${event.status}`,
-    `waId=${event.recipientWaId || 'unknown'}`,
-    `phoneNumberId=${event.phoneNumberId || 'unknown'}`,
-    `conversationId=${event.conversationId || 'unknown'}`,
     `origin=${event.conversationOrigin || 'unknown'}`,
     `pricingCategory=${event.pricingCategory || 'unknown'}`,
     `billable=${event.pricingBillable === null ? 'unknown' : String(event.pricingBillable)}${errorSummary}`
@@ -111,24 +141,63 @@ export const extractWhatsappWebhookStatusEvents = (payload: WhatsappWebhookPaylo
   return events
 }
 
-export const persistWhatsappWebhookStatusEvents = async (events: WhatsappWebhookStatusEvent[]) => {
-  if (events.length === 0) return
+export const persistWhatsappWebhookStatusEvents = async (
+  events: WhatsappWebhookStatusEvent[],
+  options: {
+    resolveWriteAvailability?: () => WhatsappPersistenceWriteAvailability
+    resolvePersistenceClient?: typeof getWhatsappPersistenceClient
+  } = {},
+) => {
+  if (events.length === 0) return { inserted: 0, duplicates: 0 }
 
-  const writeAvailability = getWhatsappPersistenceWriteAvailability()
-  if (!writeAvailability.enabled) return
+  const resolveWriteAvailability =
+    options.resolveWriteAvailability || getWhatsappPersistenceWriteAvailability
+  const writeAvailability = resolveWriteAvailability()
+  if (!writeAvailability.enabled) {
+    if (writeAvailability.reason === 'missing_configuration') {
+      throw new Error('WhatsApp status persistence is unavailable.')
+    }
 
-  const payload = events.map(event => ({
-    id: createWebhookAuditId(),
-    action: 'update',
-    entity_type: 'jobApplications',
-    entity_id: event.messageId,
-    summary: formatWebhookSummary(event),
-    actor: 'WHATSAPP_WEBHOOK',
-    created_at: new Date().toISOString()
-  }))
-
-  const { error } = await supabaseAdmin.from('labour_audit_logs').insert(payload)
-  if (error) {
-    throw new Error(`Failed to persist WhatsApp webhook statuses: ${error.message}`)
+    return { inserted: 0, duplicates: 0 }
   }
+
+  const persistence = (options.resolvePersistenceClient || getWhatsappPersistenceClient)()
+  if (!persistence.available) {
+    throw new Error('WhatsApp status persistence is unavailable.')
+  }
+
+  const client = persistence.client as unknown as WhatsappStatusRpcClient
+  const uniqueEvents = new Map<string, WhatsappWebhookStatusEvent>()
+  for (const event of events) {
+    uniqueEvents.set(createWhatsappWebhookStatusEventKey(event), event)
+  }
+
+  let inserted = 0
+  let duplicates = events.length - uniqueEvents.size
+
+  for (const [eventKey, event] of uniqueEvents) {
+    const { data, error } = await client
+      .rpc('record_labour_whatsapp_status_event', {
+        p_event_key: eventKey,
+        p_message_id: event.messageId,
+        p_status: event.status,
+        p_summary: formatWebhookSummary(event),
+        p_recorded_at: null,
+      })
+      .single()
+
+    if (
+      error ||
+      !data ||
+      typeof data.inserted !== 'boolean' ||
+      typeof data.duplicate !== 'boolean'
+    ) {
+      throw new Error('Unable to persist WhatsApp status event idempotently.')
+    }
+
+    inserted += data.inserted ? 1 : 0
+    duplicates += data.duplicate ? 1 : 0
+  }
+
+  return { inserted, duplicates }
 }

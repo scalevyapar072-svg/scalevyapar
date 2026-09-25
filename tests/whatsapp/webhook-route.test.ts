@@ -82,7 +82,7 @@ const postBody = async ({
   signature = buildSignature(body),
   resolveWebhookPostConfig = resolveConfig,
   resolvePersistenceWriteAvailability = disabledPersistence,
-  persistStatusEvents = async (_events: unknown[]) => {},
+  persistStatusEvents = async () => {},
   verifySignature = verifyMetaWebhookSignature,
   logger,
 }: {

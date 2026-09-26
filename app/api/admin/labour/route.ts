@@ -21,6 +21,46 @@ const moveLabourPlan: MoveLabourPlan = async (planId, direction) => {
   return marketplace.moveLabourPlan(planId, direction)
 }
 
+type FindLabourWorkerByMobile = typeof import('@/lib/labour-marketplace')['findLabourWorkerByMobile']
+const findLabourWorkerByMobile: FindLabourWorkerByMobile = async mobile => {
+  const marketplace = await import('@/lib/labour-marketplace')
+  return marketplace.findLabourWorkerByMobile(mobile)
+}
+
+type FindLabourWorkerById = typeof import('@/lib/labour-marketplace')['findLabourWorkerById']
+const findLabourWorkerById: FindLabourWorkerById = async workerId => {
+  const marketplace = await import('@/lib/labour-marketplace')
+  return marketplace.findLabourWorkerById(workerId)
+}
+
+const loadWorkerMobileHelpers = () => import('@/lib/labour-worker-mobile')
+
+type ExistingWorker = Awaited<ReturnType<FindLabourWorkerByMobile>>
+
+const buildDuplicateWorkerConflictResponse = async (worker: ExistingWorker) => {
+  const {
+    DUPLICATE_WORKER_MOBILE_CODE,
+    DUPLICATE_WORKER_MOBILE_MESSAGE,
+  } = await loadWorkerMobileHelpers()
+
+  return Response.json(
+    {
+      code: DUPLICATE_WORKER_MOBILE_CODE,
+      error: DUPLICATE_WORKER_MOBILE_MESSAGE,
+      existingWorker: worker
+        ? {
+            id: worker.id,
+            status: worker.status,
+            isVisible: worker.isVisible,
+            kycStatus: worker.kycStatus,
+            registrationCompleted: Boolean(worker.registrationCompletedAt),
+          }
+        : null,
+    },
+    { status: 409 },
+  )
+}
+
 const getCompanyPlanAmountValidationError = (audience: unknown, planAmount: unknown) => {
   if (audience !== 'company') return ''
   if (typeof planAmount !== 'number' || !Number.isFinite(planAmount)) {
@@ -57,6 +97,8 @@ type AdminLabourMutationDependencies = {
   deleteLabourEntity: typeof deleteLabourEntity
   getLabourAdminVisibleCategories: typeof getLabourAdminVisibleCategories
   requireAdmin: typeof requireAdmin
+  findLabourWorkerById?: FindLabourWorkerById
+  findLabourWorkerByMobile?: FindLabourWorkerByMobile
   moveLabourPlan?: typeof moveLabourPlan
   updateLabourEntity: typeof updateLabourEntity
   getLabourMarketplaceSnapshot?: typeof getLabourMarketplaceSnapshot
@@ -128,8 +170,10 @@ export async function handleAdminLabourPost(
     moveLabourPlan,
     updateLabourEntity,
     getLabourMarketplaceSnapshot,
+    findLabourWorkerByMobile,
   }
 ) {
+  let normalizedWorkerMobile = ''
   try {
     const admin = await dependencies.requireAdmin(request)
     if (admin instanceof Response) {
@@ -174,14 +218,50 @@ export async function handleAdminLabourPost(
       }
     }
 
+    let mutationPayload = payload as Record<string, unknown>
+    if (entityType === 'workers') {
+      const { normalizeIndianWorkerMobile } = await loadWorkerMobileHelpers()
+      normalizedWorkerMobile = normalizeIndianWorkerMobile(mutationPayload.mobile)
+      if (!normalizedWorkerMobile) {
+        return Response.json({ error: 'Worker mobile must be exactly 10 digits.' }, { status: 400 })
+      }
+
+      const existingWorker = await (
+        dependencies.findLabourWorkerByMobile || findLabourWorkerByMobile
+      )(normalizedWorkerMobile)
+      if (existingWorker) {
+        return buildDuplicateWorkerConflictResponse(existingWorker)
+      }
+
+      mutationPayload = {
+        ...mutationPayload,
+        mobile: normalizedWorkerMobile,
+      }
+    }
+
     const snapshot = await dependencies.createLabourEntity(
       entityType,
-      payload as Record<string, unknown>,
+      mutationPayload,
       admin.email
     )
     const adminCategories = await dependencies.getLabourAdminVisibleCategories()
     return Response.json({ success: true, snapshot: { ...snapshot, adminCategories } })
   } catch (error) {
+    if (normalizedWorkerMobile) {
+      const { isWorkerMobileUniqueConflict } = await loadWorkerMobileHelpers()
+      if (isWorkerMobileUniqueConflict(error)) {
+        let existingWorker: ExistingWorker = null
+        try {
+          existingWorker = await (
+            dependencies.findLabourWorkerByMobile || findLabourWorkerByMobile
+          )(normalizedWorkerMobile)
+        } catch {
+          // The safe conflict response remains useful even when the follow-up lookup is unavailable.
+        }
+        return buildDuplicateWorkerConflictResponse(existingWorker)
+      }
+    }
+
     console.error('Labour marketplace create failed:', error)
     return Response.json(
       { error: error instanceof Error ? error.message : 'Failed to create labour record' },
@@ -239,6 +319,7 @@ export async function handleAdminLabourPut(
     moveLabourPlan,
     updateLabourEntity,
     getLabourMarketplaceSnapshot,
+    findLabourWorkerById,
   }
 ) {
   try {
@@ -291,9 +372,11 @@ export async function handleAdminLabourPut(
     }
 
     if (entityType === 'workers') {
-      const currentWorker = (
-        await (dependencies.getLabourMarketplaceSnapshot || getLabourMarketplaceSnapshot)()
-      ).workers.find(worker => worker.id === String(id))
+      const currentWorker = dependencies.findLabourWorkerById
+        ? await dependencies.findLabourWorkerById(String(id))
+        : (
+            await (dependencies.getLabourMarketplaceSnapshot || getLabourMarketplaceSnapshot)()
+          ).workers.find(worker => worker.id === String(id))
       if (!currentWorker) {
         return Response.json({ error: 'Record not found' }, { status: 404 })
       }

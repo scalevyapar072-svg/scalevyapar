@@ -11,6 +11,15 @@ const { reconcileWorkerKycVisibility } = await import(
     path.join(workspaceRoot, 'lib', 'worker-kyc-completeness.ts'),
   ).href,
 )
+const {
+  findWorkerByIndianMobile,
+  normalizeIndianWorkerMobile,
+  workerMobilesMatch,
+} = await import(
+  pathToFileURL(
+    path.join(workspaceRoot, 'lib', 'labour-worker-mobile.ts'),
+  ).href,
+)
 const labourAdminPageSource = readFileSync(
   path.join(workspaceRoot, 'app', 'admin', 'labour', 'page.tsx'),
   'utf8',
@@ -83,6 +92,7 @@ const saveWorkerHarnessModule = await import(
         workerSaveBusy,
         setError,
         setSaved,
+        setExistingWorkerConflict,
         buildWorkerEditorDraft,
         workerDraft,
         validateWorker,
@@ -106,6 +116,10 @@ const saveWorkerHarnessModule = await import(
         setWorkerKycMetadataDraft,
         setWorkerKycReviewValidation,
         setIsWorkerKycReviewOpen,
+        normalizeIndianWorkerMobile,
+        findWorkerByIndianMobile,
+        summarizeExistingWorker,
+        workerMobilesMatch,
       } = dependencies
 
       const saveWorker = ${saveWorkerExpression}
@@ -178,6 +192,7 @@ const makeSaveHarness = (options: SaveHarnessOptions = {}) => {
     reviewOpen: false,
     snapshotHistory: [] as Array<{ workers: WorkerRecord[] }>,
     metadataDraft: null as null | { identityProofType: string; identityProofNumber: string },
+    existingWorkerConflict: null as null | Record<string, unknown>,
   }
 
   const workerDraft = makeWorker({
@@ -190,6 +205,9 @@ const makeSaveHarness = (options: SaveHarnessOptions = {}) => {
     workerSaveBusy: options.busy || false,
     setError: (message: string) => state.errors.push(message),
     setSaved: (message: string) => state.saved.push(message),
+    setExistingWorkerConflict: (conflict: Record<string, unknown> | null) => {
+      state.existingWorkerConflict = conflict
+    },
     buildWorkerEditorDraft: (draft: WorkerRecord) => ({ ...draft }),
     workerDraft,
     validateWorker: () => '',
@@ -276,6 +294,16 @@ const makeSaveHarness = (options: SaveHarnessOptions = {}) => {
     setIsWorkerKycReviewOpen: (open: boolean) => {
       state.reviewOpen = open
     },
+    normalizeIndianWorkerMobile,
+    findWorkerByIndianMobile,
+    summarizeExistingWorker: (worker: WorkerRecord) => ({
+      id: worker.id,
+      status: worker.status,
+      isVisible: worker.isVisible,
+      kycStatus: '',
+      registrationCompleted: false,
+    }),
+    workerMobilesMatch,
   }
 
   return {
@@ -354,7 +382,10 @@ type WorkerFileMockState = {
   removals: Array<{ bucket: string; paths: string[] }>
 }
 
-const installWorkerFileMocks = (workers: WorkerRecord[]) => {
+const installWorkerFileMocks = (
+  workers: WorkerRecord[],
+  options: { failWorkerUpdate?: boolean } = {},
+) => {
   const state: WorkerFileMockState = {
     workers: new Map(workers.map(worker => [worker.id, { ...worker }])),
     uploads: [],
@@ -375,6 +406,9 @@ const installWorkerFileMocks = (workers: WorkerRecord[]) => {
       actor: string,
     ) => {
       state.updates.push({ entityType, workerId, payload: { ...payload }, actor })
+      if (options.failWorkerUpdate) {
+        throw new Error('Synthetic worker record update failure')
+      }
       const worker = state.workers.get(workerId)
       if (!worker) return null
       state.workers.set(workerId, { ...worker, ...payload } as WorkerRecord)
@@ -629,6 +663,23 @@ test('12. file add, replace, and delete operations target only the selected work
     state.workers.get(decoy.id)?.identityProofPath,
     'workers/worker-decoy/identity_proof/untouched.png',
   )
+})
+
+test('12b. a worker-record failure after upload removes the newly uploaded object', async () => {
+  const selected = makeWorker({ id: 'worker-rollback' })
+  const state = installWorkerFileMocks([selected], { failWorkerUpdate: true })
+
+  const response = await workerFileRoute.POST(
+    makeWorkerFilePostRequest(selected.id, 'profile_photo'),
+  )
+
+  assert.equal(response.status, 500)
+  assert.equal(state.uploads.length, 1)
+  assert.deepEqual(state.removals, [{
+    bucket: 'labour-worker-files',
+    paths: [state.uploads[0].storagePath],
+  }])
+  assert.equal(state.workers.get(selected.id)?.profilePhotoPath, '')
 })
 
 test('13. deleted and intentionally empty document paths remain empty', async () => {

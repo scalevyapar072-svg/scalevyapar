@@ -52,6 +52,13 @@ import {
   getCompanyFreePlanJobPostLimitValidationError,
   getCompanyPlanAmountValidationError,
 } from '@/lib/labour-company-free-trial'
+import {
+  DUPLICATE_WORKER_MOBILE_CODE,
+  DUPLICATE_WORKER_MOBILE_MESSAGE,
+  findWorkerByIndianMobile,
+  normalizeIndianWorkerMobile,
+  workerMobilesMatch,
+} from '@/lib/labour-worker-mobile'
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'inactive_paused_by_worker' | 'blocked' | 'rejected'
 type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
@@ -201,6 +208,22 @@ type LabourWorker = {
   registrationCompletedAt: string
   createdAt: string
 }
+
+type ExistingWorkerConflict = {
+  id: string
+  status: string
+  isVisible: boolean
+  kycStatus: string
+  registrationCompleted: boolean
+}
+
+const summarizeExistingWorker = (worker: LabourWorker): ExistingWorkerConflict => ({
+  id: worker.id,
+  status: worker.status,
+  isVisible: worker.isVisible,
+  kycStatus: worker.kycStatus,
+  registrationCompleted: Boolean(worker.registrationCompletedAt),
+})
 
 type LabourCompany = {
   id: string
@@ -2130,6 +2153,8 @@ export default function LabourExchangeAdminPage() {
   const [workerPhotoFile, setWorkerPhotoFile] = useState<File | null>(null)
   const [workerIdentityDocumentFile, setWorkerIdentityDocumentFile] = useState<File | null>(null)
   const [workerSaveBusy, setWorkerSaveBusy] = useState(false)
+  const [existingWorkerConflict, setExistingWorkerConflict] = useState<ExistingWorkerConflict | null>(null)
+  const [directLookupWorker, setDirectLookupWorker] = useState<LabourWorker | null>(null)
   const [companyDraft, setCompanyDraft] = useState<LabourCompany>(blankCompany)
   const [jobPostDraft, setJobPostDraft] = useState<LabourJobPost>(blankJobPost)
   const [jobReviewReasonDrafts, setJobReviewReasonDrafts] = useState<Record<string, string>>({})
@@ -2160,6 +2185,7 @@ export default function LabourExchangeAdminPage() {
   const workerKycPanelRef = useRef<HTMLDivElement | null>(null)
   const mobileNavigationTriggerRef = useRef<HTMLButtonElement | null>(null)
   const mobileNavigationCloseRef = useRef<HTMLButtonElement | null>(null)
+  const workerLookupRequestRef = useRef(0)
 
   const [categoryFilters, setCategoryFilters] = useState<CategoryFilters>(blankCategoryFilters)
   const [planFilters, setPlanFilters] = useState<PlanFilters>(blankPlanFilters)
@@ -2369,6 +2395,34 @@ export default function LabourExchangeAdminPage() {
   }, [])
 
   useEffect(() => {
+    if (activeSection !== 'workers') return
+
+    const normalizedMobile = normalizeIndianWorkerMobile(workerFilters.search)
+    const requestId = ++workerLookupRequestRef.current
+    if (!normalizedMobile) {
+      setDirectLookupWorker(null)
+      return
+    }
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch('/api/admin/labour/worker-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: normalizedMobile }),
+        })
+        const data = await response.json().catch(() => null)
+        if (workerLookupRequestRef.current !== requestId) return
+        setDirectLookupWorker(response.ok && data?.worker ? data.worker as LabourWorker : null)
+      } catch {
+        if (workerLookupRequestRef.current === requestId) setDirectLookupWorker(null)
+      }
+    }, 250)
+
+    return () => window.clearTimeout(timeout)
+  }, [activeSection, workerFilters.search])
+
+  useEffect(() => {
     if (!isMobileNavigationOpen) return
 
     const previousBodyOverflow = document.body.style.overflow
@@ -2440,6 +2494,39 @@ export default function LabourExchangeAdminPage() {
   const replaceSnapshot = (nextSnapshot: LabourSnapshot) => {
     setSnapshot(nextSnapshot)
     setError('')
+  }
+
+  const openExistingWorker = async () => {
+    if (!existingWorkerConflict?.id) return
+
+    try {
+      const response = await fetch('/api/admin/labour/worker-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workerId: existingWorkerConflict.id }),
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok || !data.worker) {
+        setError(data.error || 'Failed to load the existing worker.')
+        return
+      }
+
+      const worker = data.worker as LabourWorker
+      setDirectLookupWorker(worker)
+      setWorkerFilters({
+        ...blankWorkerFilters,
+        search: normalizeIndianWorkerMobile(worker.mobile) || worker.mobile,
+      })
+      setWorkerDraft(buildWorkerEditorDraft(worker))
+      setWorkerHomeStateId(inferWorkerHomeStateId(worker.homeCity || worker.city))
+      setEditingWorkerId(worker.id)
+      setIsWorkerCategoryMenuOpen(false)
+      setWorkerCategorySearch('')
+      setError('')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch {
+      setError('Failed to load the existing worker.')
+    }
   }
 
   const saveSettings = async () => {
@@ -3765,10 +3852,25 @@ export default function LabourExchangeAdminPage() {
 
     const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
     if (!response.ok) {
-      setError(data.error || 'Failed to save record.')
+      if (data.code === DUPLICATE_WORKER_MOBILE_CODE) {
+        const existingWorker = data.existingWorker
+        setExistingWorkerConflict(existingWorker && typeof existingWorker.id === 'string'
+          ? {
+              id: existingWorker.id,
+              status: String(existingWorker.status || 'pending'),
+              isVisible: existingWorker.isVisible !== false,
+              kycStatus: String(existingWorker.kycStatus || ''),
+              registrationCompleted: Boolean(existingWorker.registrationCompleted),
+            }
+          : null)
+        setError(DUPLICATE_WORKER_MOBILE_MESSAGE)
+      } else {
+        setError(data.error || 'Failed to save record.')
+      }
       return false
     }
 
+    setExistingWorkerConflict(null)
     replaceSnapshot(data.snapshot)
     return data.snapshot as LabourSnapshot
   }
@@ -3875,6 +3977,7 @@ export default function LabourExchangeAdminPage() {
     setWorkerHomeStateId('')
     setShowAllWorkerPreferredStates(false)
     setExpandedWorkerPreferredCityStates([])
+    setExistingWorkerConflict(null)
   }
 
   const resetCompanyDraft = () => {
@@ -4558,8 +4661,14 @@ export default function LabourExchangeAdminPage() {
     { company: [], worker: [] }
   )
 
-  const filteredWorkers = [...snapshot.workers]
+  const normalizedWorkerSearch = normalizeIndianWorkerMobile(workerFilters.search)
+  const workerListSource =
+    directLookupWorker && !snapshot.workers.some(worker => worker.id === directLookupWorker.id)
+      ? [directLookupWorker, ...snapshot.workers]
+      : snapshot.workers
+  const filteredWorkers = [...workerListSource]
     .filter(worker => {
+      if (normalizedWorkerSearch && workerMobilesMatch(worker.mobile, normalizedWorkerSearch)) return true
       if (workerFilters.companyId && worker.companyId !== workerFilters.companyId) return false
       if (workerFilters.status !== 'all' && getEffectiveWorkerStatus(worker) !== workerFilters.status) return false
       if (workerFilters.availability !== 'all' && getEffectiveWorkerAvailability(worker) !== workerFilters.availability) return false
@@ -5733,7 +5842,8 @@ export default function LabourExchangeAdminPage() {
   const validateWorker = (draft: LabourWorker = workerDraft) => {
     if (!draft.fullName.trim()) return 'Worker name is required.'
     if (!draft.mobile.trim()) return 'Worker mobile is required.'
-    if (!isTenDigitMobile(draft.mobile)) return 'Worker mobile must be exactly 10 digits.'
+    const normalizedMobile = normalizeIndianWorkerMobile(draft.mobile)
+    if (!normalizedMobile) return 'Worker mobile must be exactly 10 digits.'
     if (!draft.industryCategory.trim()) return 'Industry category is required.'
     if (!draft.businessType.trim()) return 'Business type is required.'
     if (!draft.homeCity.trim()) return 'City is required.'
@@ -5758,11 +5868,6 @@ export default function LabourExchangeAdminPage() {
     ) {
       return 'Maximum expected wage cannot be less than minimum expected wage.'
     }
-
-    const duplicateMobile = snapshot.workers.find(
-      worker => worker.id !== editingWorkerId && worker.mobile.trim() === draft.mobile.trim()
-    )
-    if (duplicateMobile) return 'Another worker already uses this mobile number.'
 
     return ''
   }
@@ -5937,10 +6042,28 @@ export default function LabourExchangeAdminPage() {
 
     setError('')
     setSaved('')
-    const normalizedWorkerDraft = buildWorkerEditorDraft(workerDraft)
+    setExistingWorkerConflict(null)
+    const workerEditorDraft = buildWorkerEditorDraft(workerDraft)
+    const canonicalMobile = normalizeIndianWorkerMobile(workerEditorDraft.mobile)
+    const normalizedWorkerDraft = editingWorkerId
+      ? workerEditorDraft
+      : {
+          ...workerEditorDraft,
+          mobile: canonicalMobile || workerEditorDraft.mobile.trim(),
+        }
     const validationError = validateWorker(normalizedWorkerDraft)
     if (validationError) {
       setError(validationError)
+      return
+    }
+
+    const duplicateWorker = findWorkerByIndianMobile(
+      snapshot.workers.filter(worker => worker.id !== editingWorkerId),
+      canonicalMobile,
+    )
+    if (duplicateWorker) {
+      setExistingWorkerConflict(summarizeExistingWorker(duplicateWorker))
+      setError(DUPLICATE_WORKER_MOBILE_MESSAGE)
       return
     }
 
@@ -5993,7 +6116,7 @@ export default function LabourExchangeAdminPage() {
 
       const createdWorker = creationSnapshot.workers.find(worker =>
         !existingWorkerIds.has(worker.id) &&
-        worker.mobile.trim() === normalizedWorkerDraft.mobile.trim()
+        workerMobilesMatch(worker.mobile, normalizedWorkerDraft.mobile)
       )
       if (!createdWorker) {
         resetWorkerDraft()
@@ -7924,7 +8047,20 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div>
                     <label style={labelStyle}>Mobile *</label>
-                    <input value={workerDraft.mobile} maxLength={10} onChange={event => setWorkerDraft(current => ({ ...current, mobile: event.target.value.replace(/\D/g, '').slice(0, 10) }))} style={inputStyle} />
+                    <input
+                      value={workerDraft.mobile}
+                      maxLength={18}
+                      inputMode="tel"
+                      onChange={event => setWorkerDraft(current => ({ ...current, mobile: event.target.value }))}
+                      onBlur={() => {
+                        if (editingWorkerId) return
+                        const normalizedMobile = normalizeIndianWorkerMobile(workerDraft.mobile)
+                        if (normalizedMobile) {
+                          setWorkerDraft(current => ({ ...current, mobile: normalizedMobile }))
+                        }
+                      }}
+                      style={inputStyle}
+                    />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -8562,6 +8698,21 @@ export default function LabourExchangeAdminPage() {
                   <input type="checkbox" checked={workerDraft.isVisible} onChange={event => setWorkerDraft(current => ({ ...current, isVisible: event.target.checked }))} />
                   Worker profile visible to companies
                 </label>
+                {existingWorkerConflict ? (
+                  <div style={{ border: '1px solid #fbbf24', background: '#fffbeb', borderRadius: '12px', padding: '12px', display: 'grid', gap: '8px' }}>
+                    <p style={{ margin: 0, color: '#92400e', fontSize: '13px', fontWeight: 600 }}>
+                      {DUPLICATE_WORKER_MOBILE_MESSAGE}
+                    </p>
+                    <p style={{ margin: 0, color: '#78350f', fontSize: '12px' }}>
+                      Status: {titleCase(existingWorkerConflict.status || 'pending')} | {existingWorkerConflict.isVisible ? 'Visible' : 'Hidden'} | KYC: {titleCase(existingWorkerConflict.kycStatus || 'not_submitted')} | Registration: {existingWorkerConflict.registrationCompleted ? 'Complete' : 'Incomplete'}
+                    </p>
+                    <div>
+                      <button type="button" onClick={() => void openExistingWorker()} style={subtleButtonStyle}>
+                        Open Existing Worker
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button
                     type="button"
@@ -8695,7 +8846,7 @@ export default function LabourExchangeAdminPage() {
                               </span>
                             </div>
                             <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>
-                              {worker.mobile} | City: {worker.homeCity || worker.city || 'No city'} | {getWorkerStatusLabel(effectiveWorkerStatus)} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
+                              {worker.mobile} | City: {worker.homeCity || worker.city || 'No city'} | {normalizedWorkerSearch && workerMobilesMatch(worker.mobile, normalizedWorkerSearch) ? `Stored Status: ${titleCase(worker.status)}` : getWorkerStatusLabel(effectiveWorkerStatus)} | {worker.isVisible ? 'Visible' : 'Hidden'} | {formatCurrency(worker.walletBalance)}
                             </p>
                             {preferredWorkCityLabels.length > 0 ? (
                               <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: '12px' }}>

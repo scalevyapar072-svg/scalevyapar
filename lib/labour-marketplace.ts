@@ -28,6 +28,11 @@ import {
   type CompanyJobPublicationMarker,
   type CompanyFreeTrialMarker
 } from './labour-company-free-trial'
+import {
+  findWorkerByIndianMobile,
+  getIndianWorkerMobileLookupVariants,
+  normalizeIndianWorkerMobile,
+} from './labour-worker-mobile'
 import { supabaseAdmin } from './supabase-admin'
 
 export type LabourEntityType =
@@ -3272,6 +3277,69 @@ const writeSupabaseAuditLog = async (
 export const getLabourMarketplaceSnapshot = async (): Promise<LabourMarketplaceSnapshot> => {
   const { data, storage } = await readDataWithStorage()
   return buildSnapshot(data, storage)
+}
+
+export const findLabourWorkerByMobile = async (mobile: unknown): Promise<LabourWorkerRecord | null> => {
+  const canonicalMobile = normalizeIndianWorkerMobile(mobile)
+  if (!canonicalMobile) return null
+
+  const backend = await getStorageBackend()
+  if (backend === 'json') {
+    return findWorkerByIndianMobile((await readJsonData()).workers, canonicalMobile)
+  }
+
+  const exactResult = await supabaseAdmin
+    .from(STORAGE_TABLES.workers)
+    .select('*')
+    .in('mobile', getIndianWorkerMobileLookupVariants(canonicalMobile))
+    .limit(10)
+  if (exactResult.error) {
+    throw new Error('Failed to look up the existing labour worker.')
+  }
+
+  const exactWorker = findWorkerByIndianMobile(
+    (exactResult.data || []).map(row => mapWorkerRow(row as Parameters<typeof mapWorkerRow>[0])),
+    canonicalMobile,
+  )
+  if (exactWorker) return exactWorker
+
+  const separatorTolerantPattern = `%${canonicalMobile.split('').join('%')}%`
+  const normalizedResult = await supabaseAdmin
+    .from(STORAGE_TABLES.workers)
+    .select('*')
+    .ilike('mobile', separatorTolerantPattern)
+    .limit(25)
+  if (normalizedResult.error) {
+    throw new Error('Failed to look up the existing labour worker.')
+  }
+
+  return findWorkerByIndianMobile(
+    (normalizedResult.data || []).map(row => mapWorkerRow(row as Parameters<typeof mapWorkerRow>[0])),
+    canonicalMobile,
+  )
+}
+
+export const findLabourWorkerById = async (workerId: unknown): Promise<LabourWorkerRecord | null> => {
+  const normalizedWorkerId = String(workerId || '').trim()
+  if (!normalizedWorkerId) return null
+
+  const backend = await getStorageBackend()
+  if (backend === 'json') {
+    return (await readJsonData()).workers.find(worker => worker.id === normalizedWorkerId) || null
+  }
+
+  const result = await supabaseAdmin
+    .from(STORAGE_TABLES.workers)
+    .select('*')
+    .eq('id', normalizedWorkerId)
+    .maybeSingle()
+  if (result.error) {
+    throw new Error('Failed to look up the existing labour worker.')
+  }
+
+  return result.data
+    ? mapWorkerRow(result.data as Parameters<typeof mapWorkerRow>[0])
+    : null
 }
 
 export type LabourPlanMoveDirection = 'up' | 'down'

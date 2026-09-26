@@ -48,6 +48,7 @@ const loadAdminLabourRouteModule = async () => {
     export const createLabourEntity = async () => {
       throw new Error('createLabourEntity stub should not be called directly in tests')
     }
+    export const createLabourWorkerId = () => 'worker-test'
     export const deleteLabourEntity = async () => {
       throw new Error('deleteLabourEntity stub should not be called directly in tests')
     }

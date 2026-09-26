@@ -22,6 +22,7 @@ const {
   resolveWorkerDocumentAccess,
   setWorkerPhoneRevealState,
 } = await importLocal('lib/labour-company-worker-access.ts')
+const { getWorkerKycReviewState } = await importLocal('lib/worker-kyc-completeness.ts')
 
 const searchPageSource = readFileSync(
   path.join(workspaceRoot, 'app', 'labour', 'company', 'search', 'page.tsx'),
@@ -203,6 +204,42 @@ test('document access requires an active company, a live matching category, and 
   assert.equal(canCompanyAccessWorkerRecord({ ...allowed, workerCategoryIds: ['electrician'] }), false)
   assert.equal(canCompanyAccessWorkerRecord({ ...allowed, workerStatus: 'pending' }), false)
   assert.equal(canCompanyAccessWorkerRecord({ ...allowed, workerIsVisible: false }), false)
+  assert.deepEqual(resolveWorkerDocumentAccess({
+    ...allowed,
+    workerStatus: 'pending',
+    workerIsVisible: false,
+  }, {
+    identityProofPath: '',
+    resumeDocumentPath: '',
+  }, 'identity'), {
+    authorized: false,
+    documentPath: '',
+  })
+})
+
+test('Verified badge uses the same approved and complete KYC state as Admin', () => {
+  const completeWorker = {
+    fullName: 'Synthetic Worker',
+    city: 'Test City',
+    categoryIds: ['test-category'],
+    profilePhotoPath: 'workers/synthetic/profile.png',
+    identityProofType: 'other',
+    identityProofNumber: 'SYNTHETIC',
+    identityProofPath: 'workers/synthetic/identity.png',
+    status: 'active',
+    kycStatus: 'approved',
+  }
+
+  assert.equal(getWorkerKycReviewState(completeWorker), 'approved')
+  assert.equal(getWorkerKycReviewState({ ...completeWorker, identityProofPath: '' }), 'not_submitted')
+  assert.equal(getWorkerKycReviewState({ ...completeWorker, kycStatus: 'pending_review' }), 'ready_for_review')
+  assert.match(searchPageSource, /'kyc_status'/)
+  assert.match(searchPageSource, /isVerified:\s*getWorkerKycReviewState\(\{/)
+  assert.match(searchPageSource, /kycStatus:\s*worker\.kyc_status/)
+  assert.doesNotMatch(
+    searchPageSource,
+    /isVerified:\s*worker\.status === 'active' \|\| Boolean\(worker\.identity_proof_number \|\| worker\.identity_proof_path\)/,
+  )
 })
 
 test('identity and resume paths are mapped independently and preserve genuine absence', () => {

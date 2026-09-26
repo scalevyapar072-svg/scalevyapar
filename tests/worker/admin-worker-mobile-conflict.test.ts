@@ -37,6 +37,7 @@ const workerFixture = (overrides: Record<string, unknown> = {}) => ({
 const marketplaceStubUrl = toDataUrl(`
   export class LabourEntityConflictError extends Error {}
   export const createLabourEntity = () => { throw new Error('not stubbed') }
+  export const createLabourWorkerId = () => 'worker-created'
   export const deleteLabourEntity = () => { throw new Error('not stubbed') }
   export const getLabourAdminVisibleCategories = async () => []
   export const getLabourMarketplaceSnapshot = async () => ({ workers: [], plans: [] })
@@ -92,12 +93,14 @@ const makeRequest = (mobile: string) => new Request('https://example.test/api/ad
 
 const makeDependencies = (overrides: Record<string, unknown> = {}) => ({
   createLabourEntity: async () => ({ workers: [] }),
+  createLabourWorkerId: () => 'worker-created',
   deleteLabourEntity: async () => ({ workers: [] }),
   getLabourAdminVisibleCategories: async () => [],
   requireAdmin: async () => ({ email: 'admin@example.test' }),
   updateLabourEntity: async () => ({ workers: [] }),
   mutationRuntime: { vercelEnv: 'production' },
   findLabourWorkerByMobile: async () => null,
+  findLabourWorkerById: async () => workerFixture({ id: 'worker-created' }),
   ...overrides,
 })
 
@@ -330,9 +333,31 @@ test('valid new worker creation keeps the existing response and canonicalizes on
 
   assert.equal(response.status, 200)
   assert.equal(createdPayload?.mobile, '6000000000')
+  assert.equal(createdPayload?.id, 'worker-created')
   assert.equal(createdPayload?.fullName, 'Synthetic Worker')
   assert.equal(body.success, true)
+  assert.equal(body.workerId, 'worker-created')
+  assert.equal(body.worker.id, 'worker-created')
   assert.deepEqual(body.snapshot.workers, snapshot.workers)
+})
+
+test('worker creation returns the exact persistent ID even when the worker is outside the capped snapshot', async () => {
+  const insertedWorker = workerFixture({ id: 'worker-1001', mobile: '6000000000' })
+  const response = await adminRoute.handleAdminLabourPost(
+    makeRequest('6000000000'),
+    makeDependencies({
+      createLabourWorkerId: () => insertedWorker.id,
+      createLabourEntity: async () => ({ workers: [] }),
+      findLabourWorkerById: async (workerId: string) =>
+        workerId === insertedWorker.id ? insertedWorker : null,
+    }),
+  )
+  const body = await response.json()
+
+  assert.equal(response.status, 200)
+  assert.deepEqual(body.snapshot.workers, [])
+  assert.equal(body.workerId, insertedWorker.id)
+  assert.equal(body.worker.id, insertedWorker.id)
 })
 
 test('UI keeps the friendly conflict and authorized Open Existing Worker action', () => {
@@ -342,7 +367,8 @@ test('UI keeps the friendly conflict and authorized Open Existing Worker action'
     'A worker with this mobile number already exists. Open the existing worker record to review or update it.',
   )
   assert.match(adminPageSource, />\s*Open Existing Worker\s*</)
-  assert.match(adminPageSource, /body: JSON\.stringify\(\{ workerId: existingWorkerConflict\.id \}\)/)
+  assert.match(adminPageSource, /requestAdminWorkerLookup\(\{ workerId: existingWorkerConflict\.id \}\)/)
+  assert.match(adminPageSource, /requestAdminWorkerLookup\(\{ workerId: creationResult\.workerId \}\)/)
   assert.match(adminPageSource, /Status: \{titleCase\(existingWorkerConflict\.status/)
   assert.doesNotMatch(adminPageSource, /labour_workers_mobile_key/)
 })
@@ -355,5 +381,5 @@ test('worker insert precedes every optional upload and failed creation performs 
   assert.ok(insertIndex > 0)
   assert.ok(photoIndex > insertIndex)
   assert.ok(identityIndex > insertIndex)
-  assert.match(adminPageSource, /const creationSnapshot = await persistEntity[\s\S]*if \(!creationSnapshot\) return[\s\S]*requestWorkerFileUpload/)
+  assert.match(adminPageSource, /const creationResult = await persistEntity[\s\S]*if \(!creationResult\) return[\s\S]*requestWorkerFileUpload/)
 })

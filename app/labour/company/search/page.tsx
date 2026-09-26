@@ -10,6 +10,7 @@ import type { LabourCategoryDependency, LabourMasterOption } from '@/lib/labour-
 import { compareWorkerGlobalOrderKeys, shouldUseGlobalWorkerTierOrdering } from '@/lib/labour-worker-search-order'
 import { resolveAuthorizedWorkerSearchJob } from '@/lib/labour-worker-search-job'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getWorkerKycReviewState } from '@/lib/worker-kyc-completeness'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -87,6 +88,7 @@ type WorkerRow = {
   minimum_expected_wage?: number | null
   maximum_expected_wage?: number | null
   status: string | null
+  kyc_status: string | null
   availability: string | null
   is_visible: boolean | null
   active_plan: string | null
@@ -598,6 +600,7 @@ const selectWorkerRows = (
         includeSalaryRange ? 'minimum_expected_wage' : '',
         includeSalaryRange ? 'maximum_expected_wage' : '',
         'status',
+        'kyc_status',
         'availability',
         'is_visible',
         'active_plan',
@@ -1281,7 +1284,17 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
       identityProofNumber: worker.identity_proof_number || '',
       identityProofPath: worker.identity_proof_path || '',
       resumeDocumentPath: worker.resume_document_path || '',
-      isVerified: worker.status === 'active' || Boolean(worker.identity_proof_number || worker.identity_proof_path),
+      isVerified: getWorkerKycReviewState({
+        fullName: worker.full_name,
+        city: worker.city,
+        categoryIds: worker.category_ids,
+        profilePhotoPath: worker.profile_photo_path,
+        identityProofType: worker.identity_proof_type,
+        identityProofNumber: worker.identity_proof_number,
+        identityProofPath: worker.identity_proof_path,
+        status: worker.status,
+        kycStatus: worker.kyc_status,
+      }) === 'approved',
       categoryIds: worker.category_ids || [],
       canAccessDirectly: false,
       categoryLabels: (worker.category_ids || [])

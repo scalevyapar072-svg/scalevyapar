@@ -110,6 +110,8 @@ const saveWorkerHarnessModule = await import(
         requestWorkerFileUpload,
         replaceSnapshot,
         requestWorkerMetadataUpdate,
+        requestAdminWorkerLookup,
+        rememberExactWorker,
         setSelectedWorkerReviewId,
         buildWorkerKycReviewDraft,
         setWorkerKycReviewDraft,
@@ -149,6 +151,7 @@ type SaveHarnessOptions = {
   photoUploadFails?: boolean
   identityUploadFails?: boolean
   metadataFails?: boolean
+  workerOutsideSnapshot?: boolean
   identityProofType?: string
   identityProofNumber?: string
 }
@@ -227,8 +230,8 @@ const makeSaveHarness = (options: SaveHarnessOptions = {}) => {
       calls.persist.push({ method, entityType, payload, id })
       if (options.creationThrows) throw new Error('Synthetic worker creation failure')
       if (options.creationReturnsNull) return null
-      currentSnapshot = { workers: [createdWorker] }
-      return currentSnapshot
+      currentSnapshot = { workers: options.workerOutsideSnapshot ? [] : [createdWorker] }
+      return { snapshot: currentSnapshot, worker: createdWorker }
     },
     buildWorkerSavePayload: (draft: Record<string, unknown>) => ({ ...draft }),
     resetWorkerDraft: () => {
@@ -258,7 +261,11 @@ const makeSaveHarness = (options: SaveHarnessOptions = {}) => {
             : worker,
         ),
       }
-      return { snapshot: currentSnapshot }
+      const updatedWorker = currentSnapshot.workers.find(worker => worker.id === workerId) || {
+        ...createdWorker,
+        [field]: `workers/${workerId}/${documentKind}/synthetic.png`,
+      }
+      return { snapshot: currentSnapshot, worker: updatedWorker }
     },
     replaceSnapshot: (nextSnapshot: { workers: WorkerRecord[] }) => {
       currentSnapshot = nextSnapshot
@@ -280,8 +287,15 @@ const makeSaveHarness = (options: SaveHarnessOptions = {}) => {
             : worker,
         ),
       }
-      return currentSnapshot
+      const updatedWorker = currentSnapshot.workers.find(worker => worker.id === workerId) || {
+        ...createdWorker,
+        identityProofType,
+        identityProofNumber,
+      }
+      return { snapshot: currentSnapshot, worker: updatedWorker }
     },
+    requestAdminWorkerLookup: async () => createdWorker,
+    rememberExactWorker: () => undefined,
     setSelectedWorkerReviewId: (workerId: string) => {
       state.selectedWorkerId = workerId
     },
@@ -337,14 +351,14 @@ const loadWorkerFileRoute = async () => {
       globalThis.${workerFileMockKey}.requireAdmin(...args)
   `)
   const marketplaceStubUrl = toDataUrl(`
-    export const getLabourMarketplaceSnapshot = (...args) =>
-      globalThis.${workerFileMockKey}.getLabourMarketplaceSnapshot(...args)
+    export const findLabourWorkerById = (...args) =>
+      globalThis.${workerFileMockKey}.findLabourWorkerById(...args)
     export const updateLabourEntity = (...args) =>
       globalThis.${workerFileMockKey}.updateLabourEntity(...args)
   `)
   const workerAppStubUrl = toDataUrl(`
-    export const uploadWorkerRegistrationAsset = (...args) =>
-      globalThis.${workerFileMockKey}.uploadWorkerRegistrationAsset(...args)
+    export const uploadAdminWorkerRegistrationAsset = (...args) =>
+      globalThis.${workerFileMockKey}.uploadAdminWorkerRegistrationAsset(...args)
   `)
   const supabaseStubUrl = toDataUrl(`
     export const supabaseAdmin = {
@@ -396,9 +410,10 @@ const installWorkerFileMocks = (
 
   ;(globalThis as Record<string, unknown>)[workerFileMockKey] = {
     requireAdmin: async () => ({ email: 'mock-admin@example.test' }),
-    getLabourMarketplaceSnapshot: async () => ({
-      workers: Array.from(state.workers.values()).map(worker => ({ ...worker })),
-    }),
+    findLabourWorkerById: async (workerId: string) => {
+      const worker = state.workers.get(workerId)
+      return worker ? { ...worker } : null
+    },
     updateLabourEntity: async (
       entityType: string,
       workerId: string,
@@ -414,7 +429,7 @@ const installWorkerFileMocks = (
       state.workers.set(workerId, { ...worker, ...payload } as WorkerRecord)
       return { workers: Array.from(state.workers.values()).map(item => ({ ...item })) }
     },
-    uploadWorkerRegistrationAsset: async (
+    uploadAdminWorkerRegistrationAsset: async (
       workerId: string,
       input: { documentKind: string },
     ) => {
@@ -502,6 +517,23 @@ test('3. successful creation identifies and selects the returned worker ID', asy
 
   assert.equal(harness.state.selectedWorkerId, 'worker-created')
   assert.equal(harness.state.reviewOpen, true)
+})
+
+test('3b. a worker beyond the snapshot cap still opens Review KYC by its exact response ID', async () => {
+  const harness = makeSaveHarness({ workerOutsideSnapshot: true })
+  await harness.saveWorker()
+
+  assert.equal(harness.state.selectedWorkerId, 'worker-created')
+  assert.equal(harness.state.reviewOpen, true)
+  assert.doesNotMatch(harness.state.errors.at(-1) || '', /could not be confirmed/i)
+  assert.match(
+    labourAdminPageSource,
+    /directLookupWorker\?\.id === selectedWorkerReviewId \? directLookupWorker : null/,
+  )
+  assert.match(
+    labourAdminPageSource,
+    /directLookupWorker\?\.id === workerId \? directLookupWorker : null/,
+  )
 })
 
 test('4. selected Worker Photo uploads only after worker creation', async () => {
@@ -663,6 +695,8 @@ test('12. file add, replace, and delete operations target only the selected work
     state.workers.get(decoy.id)?.identityProofPath,
     'workers/worker-decoy/identity_proof/untouched.png',
   )
+  assert.match(workerFileRouteSource, /const worker = await findLabourWorkerById\(workerId\)/)
+  assert.match(workerFileRouteSource, /uploadAdminWorkerRegistrationAsset\(workerId/)
 })
 
 test('12b. a worker-record failure after upload removes the newly uploaded object', async () => {

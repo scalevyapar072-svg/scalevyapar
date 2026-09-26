@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth'
 import {
-  getLabourMarketplaceSnapshot,
+  findLabourWorkerById,
   updateLabourEntity
 } from '@/lib/labour-marketplace'
-import { uploadWorkerRegistrationAsset } from '@/lib/labour-worker-app'
+import { uploadAdminWorkerRegistrationAsset } from '@/lib/labour-worker-app'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export const runtime = 'nodejs'
@@ -65,8 +65,7 @@ const getWorkerFileContext = async (workerId: string, documentKind: string) => {
     throw new WorkerFileRequestError('Invalid worker document kind.', 400)
   }
 
-  const snapshot = await getLabourMarketplaceSnapshot()
-  const worker = snapshot.workers.find(record => record.id === workerId)
+  const worker = await findLabourWorkerById(workerId)
   if (!worker) {
     throw new WorkerFileRequestError('Worker not found.', 404)
   }
@@ -220,7 +219,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const uploaded = await uploadWorkerRegistrationAsset(workerId, {
+    const uploaded = await uploadAdminWorkerRegistrationAsset(workerId, {
       documentKind: context.documentKind,
       fileName: file.name,
       contentType,
@@ -233,6 +232,10 @@ export async function POST(request: NextRequest) {
     }, admin.email)
     if (!snapshot) {
       throw new WorkerFileRequestError('Worker not found.', 404)
+    }
+    const worker = await findLabourWorkerById(workerId)
+    if (!worker) {
+      throw new WorkerFileRequestError('Worker not found after file update.', 500)
     }
 
     if (context.storagePath && context.storagePath !== uploadedPath) {
@@ -267,7 +270,8 @@ export async function POST(request: NextRequest) {
       success: true,
       message: context.storagePath ? 'Worker file replaced.' : 'Worker file uploaded.',
       storagePath: uploadedPath,
-      snapshot
+      snapshot,
+      worker,
     })
   } catch (error) {
     if (uploadedPath && !keepUploadedFile) {
@@ -320,12 +324,18 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    const worker = await findLabourWorkerById(workerId)
+    if (!worker) {
+      throw new WorkerFileRequestError('Worker not found after file deletion.', 500)
+    }
+
     return NextResponse.json({
       success: true,
       message: context.documentKind === 'profile_photo'
         ? 'Worker photo deleted.'
         : 'Identity document deleted.',
-      snapshot
+      snapshot,
+      worker,
     })
   } catch (error) {
     return toErrorResponse(error, 'Failed to delete worker file.')

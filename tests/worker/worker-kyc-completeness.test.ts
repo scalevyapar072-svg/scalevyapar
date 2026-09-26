@@ -45,6 +45,10 @@ const workerAppSource = readFileSync(
   path.join(workspaceRoot, 'lib', 'labour-worker-app.ts'),
   'utf8',
 )
+const workerUploadRouteSource = readFileSync(
+  path.join(workspaceRoot, 'app', 'api', 'labour', 'worker', 'upload', 'route.ts'),
+  'utf8',
+)
 const completenessSource = readFileSync(
   path.join(workspaceRoot, 'lib', 'worker-kyc-completeness.ts'),
   'utf8',
@@ -57,10 +61,13 @@ const loadAdminLabourRoute = async () => {
   const authStubUrl = toDataUrl('export const requireAdmin = async () => ({ email: "admin@test.invalid" })')
   const marketplaceStubUrl = toDataUrl(`
     export const createLabourEntity = async () => ({})
+    export const createLabourWorkerId = () => 'worker-test'
     export const deleteLabourEntity = async () => ({})
     export const getLabourAdminVisibleCategories = async () => []
     export const getLabourMarketplaceSnapshot = async () => ({ workers: [], jobPosts: [] })
     export const updateLabourEntity = async () => ({})
+    export const findLabourWorkerById = async () => null
+    export const findLabourWorkerByMobile = async () => null
     export class LabourEntityConflictError extends Error {
       constructor(message, statusCode = 409) {
         super(message)
@@ -84,6 +91,7 @@ const loadAdminLabourRoute = async () => {
   const routeSource = adminRouteSource
     .replace("'@/lib/auth'", `'${authStubUrl}'`)
     .replace("'@/lib/labour-marketplace'", `'${marketplaceStubUrl}'`)
+    .replaceAll("import('@/lib/labour-marketplace')", `import('${marketplaceStubUrl}')`)
     .replace("'@/lib/worker-lifecycle-mutation-guard'", `'${guardStubUrl}'`)
     .replace("'@/lib/worker-kyc-completeness'", `'${completenessModuleUrl}'`)
 
@@ -323,6 +331,17 @@ test('existing worker-app KYC submission behavior remains reviewable', () => {
   assert.equal(isWorkerKycComplete(worker), true)
   assert.equal(getWorkerKycReviewState(worker), 'ready_for_review')
   assert.match(workerAppSource, /registrationCompletedAt: existing\.registrationCompletedAt \|\| new Date\(\)\.toISOString\(\)/)
+})
+
+test('Admin exact-file lookup does not replace worker-app OTP, session, or upload wiring', () => {
+  assert.match(workerAppSource, /export const requestWorkerOtp = async/)
+  assert.match(workerAppSource, /export const verifyWorkerOtpCode = async/)
+  assert.match(workerAppSource, /export const completeWorkerAppRegistration = async/)
+  assert.match(workerAppSource, /export const updateWorkerAppProfile = async/)
+  assert.match(workerAppSource, /export const uploadWorkerRegistrationAsset = async/)
+  assert.match(workerAppSource, /const snapshot = await getLabourMarketplaceSnapshot\(\)[\s\S]*?const worker = findWorkerById\(snapshot, workerId\)/)
+  assert.match(workerUploadRouteSource, /import \{ requireWorkerApp, uploadWorkerRegistrationAsset \}/)
+  assert.doesNotMatch(workerUploadRouteSource, /uploadAdminWorkerRegistrationAsset/)
 })
 
 test('pending-review KYC is not automatically approved for an operationally active worker', () => {

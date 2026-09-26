@@ -2496,22 +2496,33 @@ export default function LabourExchangeAdminPage() {
     setError('')
   }
 
+  const rememberExactWorker = (worker: LabourWorker | null | undefined, nextSnapshot: LabourSnapshot) => {
+    if (!worker) return
+    setDirectLookupWorker(current =>
+      current?.id === worker.id || !nextSnapshot.workers.some(entry => entry.id === worker.id)
+        ? worker
+        : current
+    )
+  }
+
+  const requestAdminWorkerLookup = async (query: { workerId?: string; mobile?: string }) => {
+    const response = await fetch('/api/admin/labour/worker-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(query),
+    })
+    const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+    if (!response.ok || !data.worker) {
+      throw new Error(data.error || 'Failed to load the existing worker.')
+    }
+    return data.worker as LabourWorker
+  }
+
   const openExistingWorker = async () => {
     if (!existingWorkerConflict?.id) return
 
     try {
-      const response = await fetch('/api/admin/labour/worker-lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workerId: existingWorkerConflict.id }),
-      })
-      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
-      if (!response.ok || !data.worker) {
-        setError(data.error || 'Failed to load the existing worker.')
-        return
-      }
-
-      const worker = data.worker as LabourWorker
+      const worker = await requestAdminWorkerLookup({ workerId: existingWorkerConflict.id })
       setDirectLookupWorker(worker)
       setWorkerFilters({
         ...blankWorkerFilters,
@@ -3759,6 +3770,7 @@ export default function LabourExchangeAdminPage() {
 
   const selectedWorkerReview =
     (snapshot?.workers || []).find(worker => worker.id === selectedWorkerReviewId) ||
+    (directLookupWorker?.id === selectedWorkerReviewId ? directLookupWorker : null) ||
     null
   const selectedWorkerKycAuditLog = selectedWorkerReview
     ? (Array.isArray(snapshot?.auditLogs)
@@ -3872,7 +3884,13 @@ export default function LabourExchangeAdminPage() {
 
     setExistingWorkerConflict(null)
     replaceSnapshot(data.snapshot)
-    return data.snapshot as LabourSnapshot
+    const worker = data.worker as LabourWorker | undefined
+    rememberExactWorker(worker, data.snapshot as LabourSnapshot)
+    return {
+      snapshot: data.snapshot as LabourSnapshot,
+      worker,
+      workerId: typeof data.workerId === 'string' ? data.workerId : undefined,
+    }
   }
 
   const movePlan = async (planId: string, direction: 'up' | 'down') => {
@@ -6009,7 +6027,7 @@ export default function LabourExchangeAdminPage() {
       throw new Error('The worker file was accepted, but the refreshed worker record was not returned.')
     }
 
-    return data as { message?: string; snapshot: LabourSnapshot }
+    return data as { message?: string; snapshot: LabourSnapshot; worker?: LabourWorker }
   }
 
   const requestWorkerMetadataUpdate = async (
@@ -6034,7 +6052,10 @@ export default function LabourExchangeAdminPage() {
       throw new Error('The identity proof details were accepted, but the refreshed worker record was not returned.')
     }
 
-    return data.snapshot as LabourSnapshot
+    return {
+      snapshot: data.snapshot as LabourSnapshot,
+      worker: data.worker as LabourWorker | undefined,
+    }
   }
 
   const saveWorker = async () => {
@@ -6103,7 +6124,6 @@ export default function LabourExchangeAdminPage() {
         return
       }
 
-      const existingWorkerIds = new Set(snapshot.workers.map(worker => worker.id))
       const creationPayload = buildWorkerSavePayload({
         ...normalizedWorkerDraft,
         profilePhotoPath: '',
@@ -6111,20 +6131,25 @@ export default function LabourExchangeAdminPage() {
         identityProofNumber: '',
         identityProofPath: ''
       })
-      const creationSnapshot = await persistEntity('POST', 'workers', creationPayload)
-      if (!creationSnapshot) return
+      const creationResult = await persistEntity('POST', 'workers', creationPayload)
+      if (!creationResult) return
 
-      const createdWorker = creationSnapshot.workers.find(worker =>
-        !existingWorkerIds.has(worker.id) &&
-        workerMobilesMatch(worker.mobile, normalizedWorkerDraft.mobile)
-      )
+      let createdWorker = creationResult.worker || null
+      if (!createdWorker && creationResult.workerId) {
+        try {
+          createdWorker = await requestAdminWorkerLookup({ workerId: creationResult.workerId })
+        } catch {
+          createdWorker = null
+        }
+      }
       if (!createdWorker) {
         resetWorkerDraft()
         setError('Worker created, but the new worker ID could not be confirmed. Refresh Workers and open KYC Review before retrying KYC uploads.')
         return
       }
 
-      let latestSnapshot = creationSnapshot
+      let latestSnapshot = creationResult.snapshot
+      let latestWorker = createdWorker
       const failures: string[] = []
       const appendFailure = (label: string, error: unknown) => {
         const detail = (error instanceof Error ? error.message : '').trim().replace(/[.\s]+$/, '')
@@ -6137,6 +6162,8 @@ export default function LabourExchangeAdminPage() {
         try {
           const result = await requestWorkerFileUpload(createdWorker.id, 'profile_photo', workerPhotoFile)
           latestSnapshot = result.snapshot
+          latestWorker = result.worker || latestWorker
+          rememberExactWorker(result.worker, latestSnapshot)
           replaceSnapshot(latestSnapshot)
         } catch (error) {
           appendFailure('Worker Photo upload', error)
@@ -6147,6 +6174,8 @@ export default function LabourExchangeAdminPage() {
         try {
           const result = await requestWorkerFileUpload(createdWorker.id, 'identity_proof', workerIdentityDocumentFile)
           latestSnapshot = result.snapshot
+          latestWorker = result.worker || latestWorker
+          rememberExactWorker(result.worker, latestSnapshot)
           replaceSnapshot(latestSnapshot)
         } catch (error) {
           appendFailure('Identity Proof Document upload', error)
@@ -6157,18 +6186,22 @@ export default function LabourExchangeAdminPage() {
       const identityProofNumber = normalizedWorkerDraft.identityProofNumber.trim()
       if (identityProofType || identityProofNumber) {
         try {
-          latestSnapshot = await requestWorkerMetadataUpdate(
+          const result = await requestWorkerMetadataUpdate(
             createdWorker.id,
             identityProofType,
             identityProofNumber
           )
+          latestSnapshot = result.snapshot
+          latestWorker = result.worker || latestWorker
+          rememberExactWorker(result.worker, latestSnapshot)
           replaceSnapshot(latestSnapshot)
         } catch (error) {
           appendFailure('Identity Proof Type/Number save', error)
         }
       }
 
-      const refreshedWorker = latestSnapshot.workers.find(worker => worker.id === createdWorker.id) || createdWorker
+      const refreshedWorker = latestWorker
+      rememberExactWorker(refreshedWorker, latestSnapshot)
       replaceSnapshot(latestSnapshot)
       setSelectedWorkerReviewId(refreshedWorker.id)
       setWorkerKycReviewDraft(buildWorkerKycReviewDraft(refreshedWorker))
@@ -6196,7 +6229,8 @@ export default function LabourExchangeAdminPage() {
   }
 
   const openWorkerKycReview = (workerId: string) => {
-    const worker = snapshot?.workers.find(entry => entry.id === workerId)
+    const worker = snapshot?.workers.find(entry => entry.id === workerId) ||
+      (directLookupWorker?.id === workerId ? directLookupWorker : null)
     if (!worker) return
     setSelectedWorkerReviewId(workerId)
     setWorkerKycReviewDraft(buildWorkerKycReviewDraft(worker))
@@ -6229,6 +6263,7 @@ export default function LabourExchangeAdminPage() {
     try {
       const data = await requestWorkerFileUpload(worker.id, documentKind, file)
 
+      rememberExactWorker(data.worker, data.snapshot)
       replaceSnapshot(data.snapshot)
       setSelectedWorkerReviewId(worker.id)
       showSaved(data.message || 'Worker file saved.')
@@ -6259,6 +6294,7 @@ export default function LabourExchangeAdminPage() {
         return
       }
 
+      rememberExactWorker(data.worker as LabourWorker | undefined, data.snapshot as LabourSnapshot)
       replaceSnapshot(data.snapshot)
       setSelectedWorkerReviewId(worker.id)
       showSaved(data.message || `${label} deleted.`)

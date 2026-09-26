@@ -984,6 +984,8 @@ const ensureDataFile = async () => {
 
 const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
+export const createLabourWorkerId = () => createId('worker')
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -4376,7 +4378,7 @@ export const updateLabourEntity = async (
       break
     }
     case 'workers': {
-      const existing = (await readSupabaseData()).workers.find(record => record.id === id)
+      const existing = await findLabourWorkerById(id)
       if (!existing) return null
       const supabaseData = await readSupabaseData()
       const normalized = normalizeWorker(payload, existing)

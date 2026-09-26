@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/auth'
 import {
   createLabourEntity,
+  createLabourWorkerId,
   deleteLabourEntity,
   getLabourAdminVisibleCategories,
   getLabourMarketplaceSnapshot,
@@ -94,6 +95,7 @@ const isEntityType = (value: unknown): value is LabourEntityType =>
 
 type AdminLabourMutationDependencies = {
   createLabourEntity: typeof createLabourEntity
+  createLabourWorkerId?: typeof createLabourWorkerId
   deleteLabourEntity: typeof deleteLabourEntity
   getLabourAdminVisibleCategories: typeof getLabourAdminVisibleCategories
   requireAdmin: typeof requireAdmin
@@ -164,16 +166,19 @@ export async function handleAdminLabourPost(
   request: Request,
   dependencies: AdminLabourMutationDependencies = {
     createLabourEntity,
+    createLabourWorkerId,
     deleteLabourEntity,
     getLabourAdminVisibleCategories,
     requireAdmin,
     moveLabourPlan,
     updateLabourEntity,
     getLabourMarketplaceSnapshot,
+    findLabourWorkerById,
     findLabourWorkerByMobile,
   }
 ) {
   let normalizedWorkerMobile = ''
+  let createdWorkerId = ''
   try {
     const admin = await dependencies.requireAdmin(request)
     if (admin instanceof Response) {
@@ -235,8 +240,10 @@ export async function handleAdminLabourPost(
 
       mutationPayload = {
         ...mutationPayload,
+        id: (dependencies.createLabourWorkerId || createLabourWorkerId)(),
         mobile: normalizedWorkerMobile,
       }
+      createdWorkerId = String(mutationPayload.id)
     }
 
     const snapshot = await dependencies.createLabourEntity(
@@ -244,8 +251,16 @@ export async function handleAdminLabourPost(
       mutationPayload,
       admin.email
     )
+    const worker = createdWorkerId
+      ? await (dependencies.findLabourWorkerById || findLabourWorkerById)(createdWorkerId)
+      : null
     const adminCategories = await dependencies.getLabourAdminVisibleCategories()
-    return Response.json({ success: true, snapshot: { ...snapshot, adminCategories } })
+    return Response.json({
+      success: true,
+      snapshot: { ...snapshot, adminCategories },
+      ...(createdWorkerId ? { workerId: createdWorkerId } : {}),
+      ...(worker ? { worker } : {}),
+    })
   } catch (error) {
     if (normalizedWorkerMobile) {
       const { isWorkerMobileUniqueConflict } = await loadWorkerMobileHelpers()
@@ -423,7 +438,14 @@ export async function handleAdminLabourPut(
     }
 
     const adminCategories = await dependencies.getLabourAdminVisibleCategories()
-    return Response.json({ success: true, snapshot: { ...snapshot, adminCategories } })
+    const worker = entityType === 'workers'
+      ? await (dependencies.findLabourWorkerById || findLabourWorkerById)(String(id))
+      : null
+    return Response.json({
+      success: true,
+      snapshot: { ...snapshot, adminCategories },
+      ...(worker ? { worker } : {}),
+    })
   } catch (error) {
     console.error('Labour marketplace update failed:', error)
     return Response.json(

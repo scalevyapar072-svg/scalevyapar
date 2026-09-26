@@ -6,6 +6,7 @@ import {
   createLabourEntity,
   createLabourEntity as createLabourRecord,
   deleteLabourEntity,
+  findLabourWorkerById,
   getLabourMarketplaceSnapshot,
   LabourJobApplicationRecord,
   LabourCategoryRecord,
@@ -2844,21 +2845,17 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
   }
 }
 
-export const uploadWorkerRegistrationAsset = async (
-  workerId: string,
-  payload: {
-    documentKind: 'profile_photo' | 'identity_proof' | 'resume_document'
-    fileName: string
-    contentType: string
-    bytes: Buffer
-  }
-) => {
-  const snapshot = await getLabourMarketplaceSnapshot()
-  const worker = findWorkerById(snapshot, workerId)
-  if (!worker) {
-    throw new Error('Worker account not found.')
-  }
+type WorkerRegistrationAssetPayload = {
+  documentKind: 'profile_photo' | 'identity_proof' | 'resume_document'
+  fileName: string
+  contentType: string
+  bytes: Buffer
+}
 
+const storeWorkerRegistrationAsset = async (
+  workerId: string,
+  payload: WorkerRegistrationAssetPayload,
+) => {
   if (!payload.bytes.length) {
     throw new Error('Uploaded file is empty.')
   }
@@ -2887,6 +2884,31 @@ export const uploadWorkerRegistrationAsset = async (
     bucket: WORKER_UPLOAD_BUCKET,
     fileName: safeFileName
   }
+}
+
+export const uploadWorkerRegistrationAsset = async (
+  workerId: string,
+  payload: WorkerRegistrationAssetPayload,
+) => {
+  const snapshot = await getLabourMarketplaceSnapshot()
+  const worker = findWorkerById(snapshot, workerId)
+  if (!worker) {
+    throw new Error('Worker account not found.')
+  }
+
+  return storeWorkerRegistrationAsset(workerId, payload)
+}
+
+export const uploadAdminWorkerRegistrationAsset = async (
+  workerId: string,
+  payload: WorkerRegistrationAssetPayload,
+) => {
+  const worker = await findLabourWorkerById(workerId)
+  if (!worker) {
+    throw new Error('Worker account not found.')
+  }
+
+  return storeWorkerRegistrationAsset(workerId, payload)
 }
 
 export const getWorkerRegistrationReferralEligibility = async (

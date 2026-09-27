@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getWorkerAppDashboard, verifyWorkerOtpCode } from '@/lib/labour-worker-app'
+import { getSafeWorkerAuthErrorMessage } from '@/lib/labour-worker-otp'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +22,9 @@ export async function POST(request: NextRequest) {
       dashboard
     })
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to verify OTP.' }, { status: 400 })
+    return NextResponse.json(
+      { error: getSafeWorkerAuthErrorMessage(error, 'Failed to verify OTP.') },
+      { status: 400 }
+    )
   }
 }

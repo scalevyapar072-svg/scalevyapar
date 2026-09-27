@@ -7,6 +7,7 @@ import {
   createLabourEntity as createLabourRecord,
   deleteLabourEntity,
   findLabourWorkerById,
+  findLabourWorkersByMobile,
   getLabourMarketplaceSnapshot,
   LabourJobApplicationRecord,
   LabourCategoryRecord,
@@ -39,6 +40,8 @@ import {
   normalizeWorkerIdentityProofType,
   reconcileWorkerKycVisibility,
 } from './worker-kyc-completeness'
+import { normalizeIndianWorkerMobile } from './labour-worker-mobile'
+import { resolveWorkerForOtp } from './labour-worker-otp'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
 const OTP_SESSION_ENCRYPTION_KEY = createHash('sha256')
@@ -2201,46 +2204,42 @@ const findWorkerByMobile = (snapshot: LabourMarketplaceSnapshot, mobile: string)
 const findWorkerById = (snapshot: LabourMarketplaceSnapshot, workerId: string) =>
   snapshot.workers.find(worker => worker.id === workerId)
 
+const findSingleWorkerByMobile = async (mobile: string) => {
+  const workers = await findLabourWorkersByMobile(mobile)
+  return workers.length === 1 ? workers[0] : null
+}
+
 const ensureWorkerExists = async (mobile: string) => {
-  const normalizedMobile = sanitizeMobile(mobile)
-  const snapshot = await getLabourMarketplaceSnapshot()
-  const existing = findWorkerByMobile(snapshot, normalizedMobile)
-  if (existing) {
-    return existing
-  }
-
-  const created = await createLabourRecord('workers', {
-    fullName: '',
-    mobile: normalizedMobile,
-    city: '',
-    homeCity: '',
-    address: '',
-    salaryType: DEFAULT_WORKER_SALARY_TYPE,
-    profilePhotoPath: '',
-    resumeDocumentPath: '',
-      skills: [],
-      experienceYears: 0,
-      expectedDailyWage: 0,
-      minimumExpectedWage: 0,
-      maximumExpectedWage: 0,
-      walletBalance: 0,
-      registrationFeePaid: false,
-      status: 'pending',
-    availability: 'available_today',
-    isVisible: false,
-    categoryIds: [],
-    identityProofType: '',
-    identityProofNumber: '',
-    identityProofPath: '',
-    registrationCompletedAt: ''
-  }, 'worker-app')
-
-  const worker = findWorkerByMobile(created, normalizedMobile)
-  if (!worker) {
-    throw new Error('Failed to create worker profile for mobile number.')
-  }
-
-  return worker
+  return resolveWorkerForOtp(mobile, {
+    findWorkersByMobile: findLabourWorkersByMobile,
+    createWorker: async normalizedMobile => {
+      await createLabourRecord('workers', {
+        fullName: '',
+        mobile: normalizedMobile,
+        city: '',
+        homeCity: '',
+        address: '',
+        salaryType: DEFAULT_WORKER_SALARY_TYPE,
+        profilePhotoPath: '',
+        resumeDocumentPath: '',
+        skills: [],
+        experienceYears: 0,
+        expectedDailyWage: 0,
+        minimumExpectedWage: 0,
+        maximumExpectedWage: 0,
+        walletBalance: 0,
+        registrationFeePaid: false,
+        status: 'pending',
+        availability: 'available_today',
+        isVisible: false,
+        categoryIds: [],
+        identityProofType: '',
+        identityProofNumber: '',
+        identityProofPath: '',
+        registrationCompletedAt: ''
+      }, 'worker-app')
+    },
+  })
 }
 
 export const generateWorkerAppToken = async (payload: WorkerAppTokenPayload): Promise<string> =>
@@ -2285,8 +2284,8 @@ export const requireWorkerApp = async (request: Request): Promise<WorkerAppToken
 }
 
 export const requestWorkerOtp = async (mobile: string) => {
-  const normalizedMobile = sanitizeMobile(mobile)
-  if (normalizedMobile.length !== 10) {
+  const normalizedMobile = normalizeIndianWorkerMobile(mobile)
+  if (!normalizedMobile) {
     throw new Error('Enter a valid 10-digit mobile number.')
   }
 
@@ -2386,12 +2385,15 @@ export const requestWorkerOtp = async (mobile: string) => {
 }
 
 export const verifyWorkerOtpCode = async (mobile: string, otpCode: string, otpSessionToken?: string) => {
-  const normalizedMobile = sanitizeMobile(mobile)
+  const normalizedMobile = normalizeIndianWorkerMobile(mobile)
   const normalizedOtpCode = String(otpCode).trim()
 
+  if (!normalizedMobile) {
+    throw new Error('Enter a valid 10-digit mobile number.')
+  }
+
   if (!isTwoFactorOtpProvider() && supportsStatelessDemoOtp() && normalizedOtpCode === DEV_OTP_CODE) {
-    const snapshot = await getLabourMarketplaceSnapshot()
-    const worker = findWorkerByMobile(snapshot, normalizedMobile)
+    const worker = await findSingleWorkerByMobile(normalizedMobile)
     if (!worker) {
       throw new Error('Worker account not found. Request OTP again.')
     }
@@ -2431,8 +2433,7 @@ export const verifyWorkerOtpCode = async (mobile: string, otpCode: string, otpSe
       throw new Error('Invalid OTP code.')
     }
 
-    const snapshot = await getLabourMarketplaceSnapshot()
-    const worker = findWorkerById(snapshot, statelessSession.workerId)
+    const worker = await findLabourWorkerById(statelessSession.workerId)
     if (!worker) {
       throw new Error('Worker account not found after OTP verification.')
     }
@@ -2496,8 +2497,7 @@ export const verifyWorkerOtpCode = async (mobile: string, otpCode: string, otpSe
     'supabase'
   )
 
-  const snapshot = await getLabourMarketplaceSnapshot()
-  const worker = findWorkerById(snapshot, session.workerId)
+  const worker = await findLabourWorkerById(session.workerId)
   if (!worker) {
     throw new Error('Worker account not found after OTP verification.')
   }
@@ -2733,7 +2733,7 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
     snapshot.categories,
     adminSettings.settings.workerHomeControls.popularCitySuggestions
   )
-  const worker = findWorkerById(snapshot, workerId)
+  const worker = await findLabourWorkerById(workerId)
   if (!worker) {
     throw new Error('Worker account not found.')
   }

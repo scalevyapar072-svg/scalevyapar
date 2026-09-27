@@ -3281,45 +3281,47 @@ export const getLabourMarketplaceSnapshot = async (): Promise<LabourMarketplaceS
   return buildSnapshot(data, storage)
 }
 
-export const findLabourWorkerByMobile = async (mobile: unknown): Promise<LabourWorkerRecord | null> => {
+export const findLabourWorkersByMobile = async (mobile: unknown): Promise<LabourWorkerRecord[]> => {
   const canonicalMobile = normalizeIndianWorkerMobile(mobile)
-  if (!canonicalMobile) return null
+  if (!canonicalMobile) return []
 
   const backend = await getStorageBackend()
   if (backend === 'json') {
-    return findWorkerByIndianMobile((await readJsonData()).workers, canonicalMobile)
+    return (await readJsonData()).workers.filter(worker =>
+      normalizeIndianWorkerMobile(worker.mobile) === canonicalMobile
+    )
   }
 
   const exactResult = await supabaseAdmin
     .from(STORAGE_TABLES.workers)
     .select('*')
     .in('mobile', getIndianWorkerMobileLookupVariants(canonicalMobile))
-    .limit(10)
   if (exactResult.error) {
     throw new Error('Failed to look up the existing labour worker.')
   }
-
-  const exactWorker = findWorkerByIndianMobile(
-    (exactResult.data || []).map(row => mapWorkerRow(row as Parameters<typeof mapWorkerRow>[0])),
-    canonicalMobile,
-  )
-  if (exactWorker) return exactWorker
 
   const separatorTolerantPattern = `%${canonicalMobile.split('').join('%')}%`
   const normalizedResult = await supabaseAdmin
     .from(STORAGE_TABLES.workers)
     .select('*')
     .ilike('mobile', separatorTolerantPattern)
-    .limit(25)
   if (normalizedResult.error) {
     throw new Error('Failed to look up the existing labour worker.')
   }
 
-  return findWorkerByIndianMobile(
-    (normalizedResult.data || []).map(row => mapWorkerRow(row as Parameters<typeof mapWorkerRow>[0])),
-    canonicalMobile,
-  )
+  const workersById = new Map<string, LabourWorkerRecord>()
+  for (const row of [...(exactResult.data || []), ...(normalizedResult.data || [])]) {
+    const worker = mapWorkerRow(row as Parameters<typeof mapWorkerRow>[0])
+    if (normalizeIndianWorkerMobile(worker.mobile) === canonicalMobile) {
+      workersById.set(worker.id, worker)
+    }
+  }
+
+  return [...workersById.values()]
 }
+
+export const findLabourWorkerByMobile = async (mobile: unknown): Promise<LabourWorkerRecord | null> =>
+  findWorkerByIndianMobile(await findLabourWorkersByMobile(mobile), mobile)
 
 export const findLabourWorkerById = async (workerId: unknown): Promise<LabourWorkerRecord | null> => {
   const normalizedWorkerId = String(workerId || '').trim()

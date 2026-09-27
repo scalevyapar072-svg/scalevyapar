@@ -124,6 +124,20 @@ const hasReviewFieldMutation = (
   (Object.hasOwn(payload, 'submittedAt') && payload.submittedAt !== current.submittedAt) ||
   (Object.hasOwn(payload, 'reviewedAt') && payload.reviewedAt !== current.reviewedAt)
 
+const hasJobLifecycleFieldMutation = (
+  payload: Record<string, unknown>,
+  current: {
+    status: string
+    validityDays: number
+    publishedAt: string
+    expiresAt: string
+  },
+) =>
+  (Object.hasOwn(payload, 'status') && payload.status !== current.status) ||
+  (Object.hasOwn(payload, 'validityDays') && payload.validityDays !== current.validityDays) ||
+  (Object.hasOwn(payload, 'publishedAt') && payload.publishedAt !== current.publishedAt) ||
+  (Object.hasOwn(payload, 'expiresAt') && payload.expiresAt !== current.expiresAt)
+
 const isWorkerKycApprovalMutation = (
   payload: Record<string, unknown>,
   currentKycStatus: unknown,
@@ -415,13 +429,16 @@ export async function handleAdminLabourPut(
       }
       const jobPayload = mutationPayload
       if (
-        hasReviewFieldMutation(jobPayload, current) ||
-        (current.reviewStatus !== 'approved' &&
-          current.status !== 'live' &&
-          jobPayload.status === 'live')
+        hasReviewFieldMutation(jobPayload, current)
       ) {
         return Response.json(
           { error: 'Use the controlled job review workflow to approve or reject this job.' },
+          { status: 409 },
+        )
+      }
+      if (hasJobLifecycleFieldMutation(jobPayload, current)) {
+        return Response.json(
+          { error: 'Use the Admin Job Post editor to save lifecycle changes.' },
           { status: 409 },
         )
       }

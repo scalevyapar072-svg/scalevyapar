@@ -3893,6 +3893,26 @@ export default function LabourExchangeAdminPage() {
     }
   }
 
+  const persistAdminJobPostOverride = async (
+    jobPostId: string,
+    payload: Record<string, unknown>,
+  ) => {
+    const response = await fetch('/api/admin/labour/job-post-override', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobPostId, payload }),
+    })
+
+    const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+    if (!response.ok) {
+      setError(data.error || 'Failed to save job post.')
+      return false
+    }
+
+    replaceSnapshot(data.snapshot)
+    return true
+  }
+
   const movePlan = async (planId: string, direction: 'up' | 'down') => {
     if (movingPlanId) return
 
@@ -5930,6 +5950,9 @@ export default function LabourExchangeAdminPage() {
     if (resolveJobPostValidityDays(jobPostDraft.validityDays, 0) <= 0) return 'Validity days must be at least 1.'
     if (jobPostDraft.publishedAt && Number.isNaN(new Date(jobPostDraft.publishedAt).getTime())) return 'Published At must be a valid date.'
     if (jobPostDraft.expiresAt && Number.isNaN(new Date(jobPostDraft.expiresAt).getTime())) return 'Expires At must be a valid date.'
+    if (jobPostDraft.status === 'live' && (!jobPostDraft.expiresAt || jobPostDraft.expiresAt <= getTodayDateValue())) {
+      return 'Expires At must be a future date before a job can be made live.'
+    }
     return ''
   }
 
@@ -6726,9 +6749,11 @@ export default function LabourExchangeAdminPage() {
     const selectedCompanyPlan = getCompanyPlanByName(jobPostDraft.connectedPlan) || getCompanyActivePlan(jobPostDraft.companyId)
     const publishedAt = jobPostDraft.publishedAt || getTodayDateValue()
     const selectedCompanyPlanLiveDays = selectedCompanyPlan ? getJobPostLiveDays(selectedCompanyPlan) : 0
-    const generatedValidityDays = selectedCompanyPlanLiveDays > 0
-      ? selectedCompanyPlanLiveDays
-      : resolveJobPostValidityDays(jobPostDraft.validityDays, 3)
+    const generatedValidityDays = editingJobPostId
+      ? resolveJobPostValidityDays(jobPostDraft.validityDays, selectedCompanyPlanLiveDays || 3)
+      : selectedCompanyPlanLiveDays > 0
+        ? selectedCompanyPlanLiveDays
+        : resolveJobPostValidityDays(jobPostDraft.validityDays, 3)
     const generatedCity = jobPostDraft.city.trim() || selectedCompany?.city.trim() || defaultAdminCity
     const generatedLocationLabel =
       jobPostDraft.locationLabel.trim() ||
@@ -6748,17 +6773,16 @@ export default function LabourExchangeAdminPage() {
       validityDays: generatedValidityDays,
       status: jobPostDraft.status || 'draft',
       publishedAt,
-      expiresAt: selectedCompanyPlanLiveDays > 0
-        ? addDays(publishedAt, generatedValidityDays)
-        : jobPostDraft.expiresAt || addDays(publishedAt, generatedValidityDays)
+      expiresAt: editingJobPostId
+        ? jobPostDraft.expiresAt || addDays(publishedAt, generatedValidityDays)
+        : selectedCompanyPlanLiveDays > 0
+          ? addDays(publishedAt, generatedValidityDays)
+          : jobPostDraft.expiresAt || addDays(publishedAt, generatedValidityDays)
     }
 
-    const ok = await persistEntity(
-      editingJobPostId ? 'PUT' : 'POST',
-      'jobPosts',
-      payload,
-      editingJobPostId || undefined
-    )
+    const ok = editingJobPostId
+      ? await persistAdminJobPostOverride(editingJobPostId, payload)
+      : await persistEntity('POST', 'jobPosts', payload)
 
     if (!ok) return
     resetJobPostDraft()

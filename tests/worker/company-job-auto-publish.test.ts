@@ -79,6 +79,7 @@ const routeHelpers = await importTranspiled(`
   const normalizeCompanyJobSubmissionId = ${extractVariableInitializer(routeSource, 'normalizeCompanyJobSubmissionId')}
   const buildCompanyJobSubmissionId = ${extractVariableInitializer(routeSource, 'buildCompanyJobSubmissionId')}
   const isFirstCompanyJobPublication = ${extractVariableInitializer(routeSource, 'isFirstCompanyJobPublication')}
+  const getProtectedCompanyJobLifecycleFields = ${extractVariableInitializer(routeSource, 'getProtectedCompanyJobLifecycleFields')}
   const buildCompanyJobSubmissionFields = ${extractVariableInitializer(routeSource, 'buildCompanyJobSubmissionFields')}
   export {
     buildCompanyJobSubmissionFields,
@@ -87,6 +88,7 @@ const routeHelpers = await importTranspiled(`
     hasMeaningfulCompanyProfileChange,
     applyCompanyUpdateWhenRequired,
     isFirstCompanyJobPublication,
+    getProtectedCompanyJobLifecycleFields,
   }
 `)
 
@@ -140,6 +142,26 @@ const isFirstPublication = routeHelpers.isFirstCompanyJobPublication as (
   mode: 'draft' | 'publish',
   existingStatus: unknown,
 ) => boolean
+
+const getProtectedLifecycleFields = routeHelpers.getProtectedCompanyJobLifecycleFields as (
+  payload: Record<string, unknown>,
+) => string[]
+
+test('company requests cannot supply protected status, review, or live-period fields', () => {
+  assert.deepEqual(
+    getProtectedLifecycleFields({
+      status: 'live',
+      expiresAt: '2099-12-31',
+      review_status: 'approved',
+      published_at: '2099-01-01',
+      validityDays: 999,
+    }),
+    ['status', 'review_status', 'published_at', 'expiresAt', 'validityDays'],
+  )
+  assert.deepEqual(getProtectedLifecycleFields({ mode: 'publish', selectedPlanId: 'plan-1' }), [])
+  assert.match(routeSource, /code: 'PROTECTED_JOB_LIFECYCLE_FIELDS'/)
+  assert.match(routeSource, /getProtectedCompanyJobLifecycleFields\(body\)/)
+})
 
 const countUsed = planHelpers.countUsedJobPostsForPlan as (
   jobs: Array<{

@@ -108,6 +108,25 @@ const buildCompanyJobSubmissionId = (companyId: string, submissionId: string) =>
 }
 const isFirstCompanyJobPublication = (mode: 'draft' | 'publish', existingStatus: unknown) =>
   mode === 'publish' && !isPublishedJobStatus(existingStatus)
+const getProtectedCompanyJobLifecycleFields = (payload: Record<string, unknown>) =>
+  [
+    'status',
+    'jobStatus',
+    'reviewStatus',
+    'review_status',
+    'reviewReason',
+    'review_reason',
+    'submittedAt',
+    'submitted_at',
+    'reviewedAt',
+    'reviewed_at',
+    'publishedAt',
+    'published_at',
+    'expiresAt',
+    'expires_at',
+    'validityDays',
+    'validity_days',
+  ].filter(field => Object.hasOwn(payload, field))
 const buildCompanyJobSubmissionFields = ({
   mode,
   existingJob,
@@ -410,6 +429,17 @@ export async function handleCompanyJobPost(
 
     if (!company) {
       return NextResponse.json({ error: 'This registered company account could not be found. Please sign in again.' }, { status: 404 })
+    }
+
+    const protectedLifecycleFields = getProtectedCompanyJobLifecycleFields(body)
+    if (protectedLifecycleFields.length > 0) {
+      return NextResponse.json(
+        {
+          code: 'PROTECTED_JOB_LIFECYCLE_FIELDS',
+          error: 'Job status and live-period fields are managed by the server.',
+        },
+        { status: 400 },
+      )
     }
 
     const resolvedCompanyName = companyName || normalize(company.companyName)

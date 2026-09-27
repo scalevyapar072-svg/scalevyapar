@@ -15,15 +15,28 @@ test('admin review route requires admin and accepts only approve or reject', asy
   assert.match(source, /JobReviewValidationError/)
 })
 
-test('generic admin route blocks direct review-field mutation and unreviewed live promotion', async () => {
+test('generic admin route blocks direct review and lifecycle mutation', async () => {
   const source = await readFile(
     new URL('../../app/api/admin/labour/route.ts', import.meta.url),
     'utf8',
   )
 
   assert.match(source, /hasReviewFieldMutation/)
-  assert.match(source, /current\.reviewStatus !== 'approved'/)
+  assert.match(source, /hasJobLifecycleFieldMutation/)
   assert.match(source, /Use the controlled job review workflow/)
+  assert.match(source, /Use the Admin Job Post editor to save lifecycle changes/)
+})
+
+test('dedicated Admin override route requires Admin and updates only the job entity', async () => {
+  const source = await readFile(
+    new URL('../../app/api/admin/labour/job-post-override/route.ts', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /requireAdmin/)
+  assert.match(source, /handleAdminJobPostOverrideRequest/)
+  assert.match(source, /updateLabourEntity\('jobPosts'/)
+  assert.doesNotMatch(source, /walletTransactions|razorpay|checkout|plan_purchase/i)
 })
 
 test('company publish bypasses the legacy review queue and becomes live immediately', async () => {

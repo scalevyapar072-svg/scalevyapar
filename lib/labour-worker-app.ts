@@ -42,6 +42,12 @@ import {
 } from './worker-kyc-completeness'
 import { normalizeIndianWorkerMobile } from './labour-worker-mobile'
 import { resolveWorkerForOtp } from './labour-worker-otp'
+import {
+  resolveWorkerRegistrationAssetPath,
+  uploadAndLinkWorkerRegistrationAsset,
+  type WorkerRegistrationAssetKind,
+  type WorkerRegistrationAssetPayload,
+} from './labour-worker-registration-assets'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'scalevyapar-secret-key-2024')
 const OTP_SESSION_ENCRYPTION_KEY = createHash('sha256')
@@ -1178,7 +1184,7 @@ const deriveWorkerStatus = (
 const ensureWorkerUploadBucket = async () => {
   const { data: buckets, error } = await supabaseAdmin.storage.listBuckets()
   if (error) {
-    throw new Error(`Failed to access worker upload storage: ${error.message}`)
+    throw new Error('Failed to access worker upload storage.')
   }
 
   if ((buckets || []).some(bucket => bucket.name === WORKER_UPLOAD_BUCKET)) {
@@ -1191,7 +1197,7 @@ const ensureWorkerUploadBucket = async () => {
   })
 
   if (createError && !createError.message.toLowerCase().includes('already')) {
-    throw new Error(`Failed to create worker upload bucket: ${createError.message}`)
+    throw new Error('Failed to create worker upload bucket.')
   }
 }
 
@@ -2845,13 +2851,6 @@ export const getWorkerAppDashboard = async (workerId: string): Promise<WorkerApp
   }
 }
 
-type WorkerRegistrationAssetPayload = {
-  documentKind: 'profile_photo' | 'identity_proof' | 'resume_document'
-  fileName: string
-  contentType: string
-  bytes: Buffer
-}
-
 const storeWorkerRegistrationAsset = async (
   workerId: string,
   payload: WorkerRegistrationAssetPayload,
@@ -2876,7 +2875,7 @@ const storeWorkerRegistrationAsset = async (
   })
 
   if (error) {
-    throw new Error(`Failed to upload worker document: ${error.message}`)
+    throw new Error('Failed to upload worker document.')
   }
 
   return {
@@ -2886,17 +2885,66 @@ const storeWorkerRegistrationAsset = async (
   }
 }
 
+const WORKER_REGISTRATION_ASSET_COLUMNS: Record<WorkerRegistrationAssetKind, string> = {
+  profile_photo: 'profile_photo_path',
+  identity_proof: 'identity_proof_path',
+  resume_document: 'resume_document_path',
+}
+
+const linkWorkerRegistrationAsset = async (
+  workerId: string,
+  documentKind: WorkerRegistrationAssetKind,
+  storagePath: string,
+) => {
+  const column = WORKER_REGISTRATION_ASSET_COLUMNS[documentKind]
+  const { data, error } = await supabaseAdmin
+    .from('labour_workers')
+    .update({
+      [column]: storagePath,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', workerId)
+    .select('id')
+    .maybeSingle()
+
+  if (error || !data) {
+    throw new Error('Failed to link uploaded worker document.')
+  }
+}
+
+const removeWorkerRegistrationAsset = async (storagePath: string) => {
+  const { error } = await supabaseAdmin.storage
+    .from(WORKER_UPLOAD_BUCKET)
+    .remove([storagePath])
+  if (error) {
+    throw new Error('Failed to clean up uploaded worker document.')
+  }
+}
+
+const assertWorkerRegistrationAssetExists = async (
+  storagePath: string,
+  requiresExistenceCheck: boolean,
+) => {
+  if (!storagePath || !requiresExistenceCheck) return
+
+  const { data: exists, error } = await supabaseAdmin.storage
+    .from(WORKER_UPLOAD_BUCKET)
+    .exists(storagePath)
+  if (error || !exists) {
+    throw new Error('Uploaded worker document was not found.')
+  }
+}
+
 export const uploadWorkerRegistrationAsset = async (
   workerId: string,
   payload: WorkerRegistrationAssetPayload,
 ) => {
-  const snapshot = await getLabourMarketplaceSnapshot()
-  const worker = findWorkerById(snapshot, workerId)
-  if (!worker) {
-    throw new Error('Worker account not found.')
-  }
-
-  return storeWorkerRegistrationAsset(workerId, payload)
+  return uploadAndLinkWorkerRegistrationAsset(workerId, payload, {
+    findWorkerById: findLabourWorkerById,
+    storeAsset: storeWorkerRegistrationAsset,
+    linkAsset: linkWorkerRegistrationAsset,
+    removeAsset: removeWorkerRegistrationAsset,
+  })
 }
 
 export const uploadAdminWorkerRegistrationAsset = async (
@@ -2961,13 +3009,15 @@ export const completeWorkerAppRegistration = async (
 ) => {
   assertWorkerLifecycleMutationAllowed()
 
-  const snapshot = await getLabourMarketplaceSnapshot()
-  const adminSettings = await getLabourAdminSettings()
+  const [snapshot, adminSettings, existing] = await Promise.all([
+    getLabourMarketplaceSnapshot(),
+    getLabourAdminSettings(),
+    findLabourWorkerById(workerId),
+  ])
   const masterData = await readLabourMasterData(
     snapshot.categories,
     adminSettings.settings.workerHomeControls.popularCitySuggestions
   )
-  const existing = findWorkerById(snapshot, workerId)
   if (!existing) {
     throw new Error('Worker account not found.')
   }
@@ -2976,7 +3026,39 @@ export const completeWorkerAppRegistration = async (
     payload.preferredWorkLocations,
     masterData.availableCitiesByState
   )
-  const incomingIdentityProofPath = payload.identityProofPath.trim()
+  const resolvedProfilePhoto = resolveWorkerRegistrationAssetPath({
+    workerId,
+    documentKind: 'profile_photo',
+    incomingPath: payload.profilePhotoPath,
+    existingPath: existing.profilePhotoPath,
+  })
+  const resolvedIdentityProof = resolveWorkerRegistrationAssetPath({
+    workerId,
+    documentKind: 'identity_proof',
+    incomingPath: payload.identityProofPath,
+    existingPath: existing.identityProofPath,
+  })
+  const resolvedResumeDocument = resolveWorkerRegistrationAssetPath({
+    workerId,
+    documentKind: 'resume_document',
+    incomingPath: String(payload.resumeDocumentPath || ''),
+    existingPath: existing.resumeDocumentPath,
+  })
+  await Promise.all([
+    assertWorkerRegistrationAssetExists(
+      resolvedProfilePhoto.path,
+      resolvedProfilePhoto.requiresExistenceCheck,
+    ),
+    assertWorkerRegistrationAssetExists(
+      resolvedIdentityProof.path,
+      resolvedIdentityProof.requiresExistenceCheck,
+    ),
+    assertWorkerRegistrationAssetExists(
+      resolvedResumeDocument.path,
+      resolvedResumeDocument.requiresExistenceCheck,
+    ),
+  ])
+  const incomingIdentityProofPath = resolvedIdentityProof.path
   const existingIdentityProofPath = existing.identityProofPath.trim()
   const hasNewIdentityProof =
     Boolean(incomingIdentityProofPath) &&
@@ -2984,7 +3066,7 @@ export const completeWorkerAppRegistration = async (
   const shouldResetKycForReview =
     hasNewIdentityProof &&
     isWorkerKycCorrectionStatus(existing.kycStatus)
-  const nextResumeDocumentPath = String(payload.resumeDocumentPath || '').trim() || existing.resumeDocumentPath
+  const nextResumeDocumentPath = resolvedResumeDocument.path
 
   const nextWorker: LabourWorkerRecord = {
     ...existing,
@@ -3001,7 +3083,7 @@ export const completeWorkerAppRegistration = async (
     minimumExpectedWage: payload.minimumExpectedWage || 0,
     maximumExpectedWage: payload.maximumExpectedWage || 0,
     availability: payload.availability as LabourWorkerRecord['availability'],
-    profilePhotoPath: payload.profilePhotoPath.trim(),
+    profilePhotoPath: resolvedProfilePhoto.path,
     identityProofType: normalizeWorkerIdentityProofType(payload.identityProofType),
     identityProofNumber: payload.identityProofNumber.trim(),
     identityProofPath: incomingIdentityProofPath,
@@ -3015,6 +3097,8 @@ export const completeWorkerAppRegistration = async (
 
   assertWorkerRegistrationPayload({
     ...payload,
+    profilePhotoPath: nextWorker.profilePhotoPath,
+    identityProofPath: nextWorker.identityProofPath,
     identityProofType: nextWorker.identityProofType
   })
 

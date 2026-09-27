@@ -339,7 +339,7 @@ test('Admin exact-file lookup does not replace worker-app OTP, session, or uploa
   assert.match(workerAppSource, /export const completeWorkerAppRegistration = async/)
   assert.match(workerAppSource, /export const updateWorkerAppProfile = async/)
   assert.match(workerAppSource, /export const uploadWorkerRegistrationAsset = async/)
-  assert.match(workerAppSource, /const snapshot = await getLabourMarketplaceSnapshot\(\)[\s\S]*?const worker = findWorkerById\(snapshot, workerId\)/)
+  assert.match(workerAppSource, /findWorkerById: findLabourWorkerById/)
   assert.match(workerUploadRouteSource, /import \{ requireWorkerApp, uploadWorkerRegistrationAsset \}/)
   assert.doesNotMatch(workerUploadRouteSource, /uploadAdminWorkerRegistrationAsset/)
 })

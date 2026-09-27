@@ -12,6 +12,30 @@ type WorkerRegisterDependencies = {
   mutationRuntime?: WorkerLifecycleMutationRuntime
 }
 
+const SAFE_WORKER_REGISTER_ERRORS = new Set([
+  'Missing worker authorization token.',
+  'Invalid worker authorization token.',
+  'Worker account not found.',
+  'Full name is required.',
+  'City is required.',
+  'Select at least one category.',
+  'Profile photo upload is required.',
+  'Identity proof type is required.',
+  'Identity proof number is required.',
+  'Identity proof upload is required.',
+  'Expected wage cannot be negative.',
+  'Maximum expected wage cannot be less than minimum expected wage.',
+  'Uploaded worker document does not belong to the authenticated worker.',
+  'Uploaded worker document was not found.',
+])
+
+const getSafeWorkerRegisterErrorMessage = (error: unknown) => {
+  const message = error instanceof Error ? error.message : ''
+  return SAFE_WORKER_REGISTER_ERRORS.has(message)
+    ? message
+    : 'Failed to complete worker registration.'
+}
+
 export async function POST(request: Request) {
   return handleWorkerRegisterPost(request)
 }
@@ -65,7 +89,7 @@ export async function handleWorkerRegisterPost(
     })
   } catch (error) {
     return Response.json(
-      { error: error instanceof Error ? error.message : 'Failed to complete worker registration.' },
+      { error: getSafeWorkerRegisterErrorMessage(error) },
       { status: 400 }
     )
   }

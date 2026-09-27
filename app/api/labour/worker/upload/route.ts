@@ -27,6 +27,29 @@ const ALLOWED_EXTENSIONS = new Map([
 const RESUME_ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png']
 const RESUME_MAX_SIZE_MB = 5
 
+type WorkerUploadDependencies = {
+  getLabourAdminSettings: typeof getLabourAdminSettings
+  requireWorkerApp: typeof requireWorkerApp
+  uploadWorkerRegistrationAsset: typeof uploadWorkerRegistrationAsset
+}
+
+const SAFE_UPLOAD_ERRORS = new Set([
+  'Missing worker authorization token.',
+  'Invalid worker authorization token.',
+  'Worker account not found.',
+  'Uploaded file is empty.',
+  'Worker account has an invalid storage identifier.',
+  'Failed to upload worker document.',
+  'Failed to link uploaded worker document.',
+])
+
+const getSafeWorkerUploadErrorMessage = (error: unknown) => {
+  const message = error instanceof Error ? error.message : ''
+  return SAFE_UPLOAD_ERRORS.has(message)
+    ? message
+    : 'Failed to upload worker document.'
+}
+
 const resolveUploadContentType = (file: File) => {
   const reportedType = String(file.type || '').trim().toLowerCase()
   if (ALLOWED_MIME_TYPES.has(reportedType)) {
@@ -38,8 +61,19 @@ const resolveUploadContentType = (file: File) => {
 }
 
 export async function POST(request: NextRequest) {
+  return handleWorkerUploadPost(request)
+}
+
+export async function handleWorkerUploadPost(
+  request: Request,
+  dependencies: WorkerUploadDependencies = {
+    getLabourAdminSettings,
+    requireWorkerApp,
+    uploadWorkerRegistrationAsset,
+  },
+) {
   try {
-    const auth = await requireWorkerApp(request)
+    const auth = await dependencies.requireWorkerApp(request)
     const formData = await request.formData()
     const requestedDocumentKind = String(formData.get('documentKind') || '').trim()
     const documentKind =
@@ -63,7 +97,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only JPG, JPEG, PNG, WEBP, HEIC, HEIF, or PDF files are allowed.' }, { status: 400 })
     }
 
-    const settings = await getLabourAdminSettings()
+    const settings = await dependencies.getLabourAdminSettings()
     const extension = file.name.split('.').pop()?.trim().toLowerCase() || ''
     const allowedExtensions =
       documentKind === 'resume_document'
@@ -107,7 +141,7 @@ export async function POST(request: NextRequest) {
     if (!bytes.length) {
       return NextResponse.json({ error: 'Uploaded file is empty.' }, { status: 400 })
     }
-    const uploaded = await uploadWorkerRegistrationAsset(auth.workerId, {
+    const uploaded = await dependencies.uploadWorkerRegistrationAsset(auth.workerId, {
       documentKind,
       fileName: file.name,
       contentType,
@@ -122,7 +156,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to upload worker document.' },
+      { error: getSafeWorkerUploadErrorMessage(error) },
       { status: 400 }
     )
   }

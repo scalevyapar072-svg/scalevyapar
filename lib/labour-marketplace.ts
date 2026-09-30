@@ -33,6 +33,7 @@ import {
   getIndianWorkerMobileLookupVariants,
   normalizeIndianWorkerMobile,
 } from './labour-worker-mobile'
+import { readCompleteAdminWorkerDataset } from './labour-worker-admin-dataset'
 import { supabaseAdmin } from './supabase-admin'
 
 export type LabourEntityType =
@@ -3279,6 +3280,25 @@ const writeSupabaseAuditLog = async (
 export const getLabourMarketplaceSnapshot = async (): Promise<LabourMarketplaceSnapshot> => {
   const { data, storage } = await readDataWithStorage()
   return buildSnapshot(data, storage)
+}
+
+export const getAllLabourWorkersForAdmin = async (): Promise<LabourWorkerRecord[]> => {
+  const backend = await getStorageBackend()
+  if (backend === 'json') return (await readJsonData()).workers
+
+  const rows = await readCompleteAdminWorkerDataset<Parameters<typeof mapWorkerRow>[0]>(async (from, to) => {
+    const result = await supabaseAdmin
+      .from(STORAGE_TABLES.workers)
+      .select('*')
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to)
+
+    if (result.error) throw new Error('Unable to load the complete worker dataset.')
+    return (result.data || []) as Parameters<typeof mapWorkerRow>[0][]
+  })
+
+  return rows.map(mapWorkerRow)
 }
 
 export const findLabourWorkersByMobile = async (mobile: unknown): Promise<LabourWorkerRecord[]> => {

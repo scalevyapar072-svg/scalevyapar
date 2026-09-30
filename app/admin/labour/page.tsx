@@ -59,6 +59,22 @@ import {
   normalizeIndianWorkerMobile,
   workerMobilesMatch,
 } from '@/lib/labour-worker-mobile'
+import {
+  filterAndSortWorkerEntries,
+  getWorkerPageSelectionState,
+  getWorkerPageSelectionIds,
+  getWorkerPaginationBounds,
+  paginateWorkerResults,
+  updateWorkerPageSelection,
+  WORKER_RESULTS_PAGE_SIZE,
+  WORKER_RESULTS_PAGE_SIZES,
+  type WorkerResultsPageSize
+} from '@/lib/labour-worker-filters'
+import {
+  type WorkerBulkDestination,
+  type WorkerBulkField,
+  type WorkerBulkResult
+} from '@/lib/labour-worker-bulk-domain'
 type DemandLevel = 'high' | 'medium' | 'low'
 type WorkerStatus = 'pending' | 'active' | 'inactive_wallet_empty' | 'inactive_subscription_expired' | 'inactive_paused_by_worker' | 'blocked' | 'rejected'
 type WorkerIdentityProofType = '' | 'aadhaar' | 'pan' | 'voter_id' | 'driving_license' | 'other'
@@ -337,6 +353,13 @@ type WorkerKycReviewDraft = {
 type WorkerKycMetadataDraft = {
   identityProofType: WorkerIdentityProofType
   identityProofNumber: string
+}
+
+type WorkerBulkDraft = {
+  field: '' | WorkerBulkField
+  destination: '' | WorkerBulkDestination
+  rejectionReason: string
+  overwriteExistingRejectionReason: boolean
 }
 
 type AuditLog = {
@@ -1180,6 +1203,12 @@ const KYC_DISPLAY_FALLBACK_MESSAGES = new Set([
 ])
 const isKycDisplayFallbackRemark = (value: string) =>
   KYC_DISPLAY_FALLBACK_MESSAGES.has(value.trim().replace(/[“”]/g, '').toLowerCase())
+const blankWorkerBulkDraft: WorkerBulkDraft = {
+  field: '',
+  destination: '',
+  rejectionReason: '',
+  overwriteExistingRejectionReason: false
+}
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 const blankJobFilters: JobFilters = {
   search: '',
@@ -2174,6 +2203,16 @@ export default function LabourExchangeAdminPage() {
   const [workerKycReviewValidation, setWorkerKycReviewValidation] = useState('')
   const [workerFileBusyKey, setWorkerFileBusyKey] = useState('')
   const [workerKycMetadataSavingId, setWorkerKycMetadataSavingId] = useState('')
+  const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>([])
+  const [workerBulkDraft, setWorkerBulkDraft] = useState<WorkerBulkDraft>(blankWorkerBulkDraft)
+  const [workerBulkResult, setWorkerBulkResult] = useState<WorkerBulkResult | null>(null)
+  const [workerBulkConfirmed, setWorkerBulkConfirmed] = useState(false)
+  const [workerBulkBusy, setWorkerBulkBusy] = useState(false)
+  const [completeWorkers, setCompleteWorkers] = useState<LabourWorker[] | null>(null)
+  const [completeWorkersLoading, setCompleteWorkersLoading] = useState(true)
+  const [completeWorkersError, setCompleteWorkersError] = useState('')
+  const [workerPage, setWorkerPage] = useState(1)
+  const [workerPageSize, setWorkerPageSize] = useState<WorkerResultsPageSize>(WORKER_RESULTS_PAGE_SIZE)
   const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string | null>(null)
   const [selectedCompanyAuditId, setSelectedCompanyAuditId] = useState<string | null>(null)
   const [selectedSavedJobId, setSelectedSavedJobId] = useState<string | null>(null)
@@ -2294,6 +2333,24 @@ export default function LabourExchangeAdminPage() {
     }
   }
 
+  const fetchCompleteWorkers = async () => {
+    setCompleteWorkersLoading(true)
+    setCompleteWorkersError('')
+
+    try {
+      const response = await fetch('/api/admin/labour/workers', { cache: 'no-store' })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !Array.isArray(data?.workers)) {
+        throw new Error('Unable to load the complete worker dataset.')
+      }
+      setCompleteWorkers(data.workers as LabourWorker[])
+    } catch {
+      setCompleteWorkersError('Unable to load the complete worker dataset. Retry before filtering or selecting workers.')
+    } finally {
+      setCompleteWorkersLoading(false)
+    }
+  }
+
   const fetchSettings = async () => {
     setSettingsLoading(true)
 
@@ -2387,12 +2444,34 @@ export default function LabourExchangeAdminPage() {
 
   useEffect(() => {
     void fetchSnapshot()
+    void fetchCompleteWorkers()
     void fetchSettings()
     void fetchMasters()
     void fetchReferralSnapshot()
     void fetchReferralSettings()
     void fetchReferralWithdrawals()
   }, [])
+
+  useEffect(() => {
+    setWorkerPage(1)
+    setSelectedWorkerIds([])
+    setWorkerBulkResult(null)
+    setWorkerBulkConfirmed(false)
+  }, [
+    workerFilters.search,
+    workerFilters.companyId,
+    workerFilters.status,
+    workerFilters.availability,
+    workerFilters.categoryId,
+    workerFilters.industryCategory,
+    workerFilters.businessType,
+    workerFilters.dateFrom,
+    workerFilters.dateTo,
+    workerFilters.sort,
+    workerFilters.visibility,
+    workerFilters.kyc,
+    workerPageSize
+  ])
 
   useEffect(() => {
     if (activeSection !== 'workers') return
@@ -3769,6 +3848,7 @@ export default function LabourExchangeAdminPage() {
   }, [isWorkerKycReviewOpen])
 
   const selectedWorkerReview =
+    (completeWorkers || []).find(worker => worker.id === selectedWorkerReviewId) ||
     (snapshot?.workers || []).find(worker => worker.id === selectedWorkerReviewId) ||
     (directLookupWorker?.id === selectedWorkerReviewId ? directLookupWorker : null) ||
     null
@@ -3886,6 +3966,7 @@ export default function LabourExchangeAdminPage() {
     replaceSnapshot(data.snapshot)
     const worker = data.worker as LabourWorker | undefined
     rememberExactWorker(worker, data.snapshot as LabourSnapshot)
+    if (entityType === 'workers') await fetchCompleteWorkers()
     return {
       snapshot: data.snapshot as LabourSnapshot,
       worker,
@@ -3961,6 +4042,7 @@ export default function LabourExchangeAdminPage() {
       await fetchMasters()
     } else {
       replaceSnapshot(data.snapshot)
+      if (entityType === 'workers') await fetchCompleteWorkers()
     }
     showSaved(`${label} deleted`)
   }
@@ -4076,6 +4158,8 @@ export default function LabourExchangeAdminPage() {
       </div>
     )
   }
+
+  const workerDataset = completeWorkers ?? []
 
   const getPlanIndustryLabels = (plan: LabourPlan) =>
     (plan.industryCategoryValues || []).map(getIndustryCategoryLabel).filter(Boolean)
@@ -4503,11 +4587,6 @@ export default function LabourExchangeAdminPage() {
       ? resolveLabourMasterLabel(masterOptionsByKey.business_type || [], value, value)
       : 'No business type'
   }
-  const getWorkerCreatedAtTimestamp = (worker: LabourWorker) => {
-    if (!worker.createdAt) return Number.NaN
-    const timestamp = new Date(worker.createdAt).getTime()
-    return Number.isNaN(timestamp) ? Number.NaN : timestamp
-  }
   const getCompanyIndustryCategoryValue = (company: LabourCompany) =>
     findMatchingMasterOption(masterOptionsByKey.industry_category || [], company.industryCategory)?.value || company.industryCategory
   const getCompanyBusinessTypeValue = (company: LabourCompany) =>
@@ -4701,35 +4780,25 @@ export default function LabourExchangeAdminPage() {
 
   const normalizedWorkerSearch = normalizeIndianWorkerMobile(workerFilters.search)
   const workerListSource =
-    directLookupWorker && !snapshot.workers.some(worker => worker.id === directLookupWorker.id)
-      ? [directLookupWorker, ...snapshot.workers]
-      : snapshot.workers
-  const filteredWorkers = [...workerListSource]
-    .filter(worker => {
-      if (normalizedWorkerSearch && workerMobilesMatch(worker.mobile, normalizedWorkerSearch)) return true
-      if (workerFilters.companyId && worker.companyId !== workerFilters.companyId) return false
-      if (workerFilters.status !== 'all' && getEffectiveWorkerStatus(worker) !== workerFilters.status) return false
-      if (workerFilters.availability !== 'all' && getEffectiveWorkerAvailability(worker) !== workerFilters.availability) return false
-      if (workerFilters.categoryId && !getWorkerCategoryIds(worker).includes(workerFilters.categoryId)) return false
-      if (workerFilters.visibility === 'visible' && !worker.isVisible) return false
-      if (workerFilters.visibility === 'hidden' && worker.isVisible) return false
-      if (workerFilters.kyc !== 'all' && getWorkerKycState(worker) !== workerFilters.kyc) return false
-      if (workerFilters.industryCategory && getWorkerIndustryCategoryValue(worker) !== workerFilters.industryCategory) return false
-      if (workerFilters.businessType && getWorkerBusinessTypeValue(worker) !== workerFilters.businessType) return false
-
-      const createdAtTimestamp = getWorkerCreatedAtTimestamp(worker)
-      if (workerFilters.dateFrom) {
-        const fromTimestamp = new Date(`${workerFilters.dateFrom}T00:00:00`).getTime()
-        if (Number.isNaN(createdAtTimestamp) || createdAtTimestamp < fromTimestamp) return false
-      }
-      if (workerFilters.dateTo) {
-        const toTimestamp = new Date(`${workerFilters.dateTo}T23:59:59.999`).getTime()
-        if (Number.isNaN(createdAtTimestamp) || createdAtTimestamp > toTimestamp) return false
-      }
-
-      return matchesSearch(workerFilters.search, [
-        worker.fullName,
-        worker.mobile,
+    completeWorkers && directLookupWorker && !completeWorkers.some(worker => worker.id === directLookupWorker.id)
+      ? [directLookupWorker, ...completeWorkers]
+      : workerDataset
+  const workerFilterResult = filterAndSortWorkerEntries(
+    workerListSource.map(worker => ({
+      worker,
+      id: worker.id,
+      fullName: worker.fullName,
+      mobile: worker.mobile,
+      createdAt: worker.createdAt,
+      companyId: worker.companyId,
+      status: getEffectiveWorkerStatus(worker),
+      availability: getEffectiveWorkerAvailability(worker),
+      categoryIds: getWorkerCategoryIds(worker),
+      industryCategory: getWorkerIndustryCategoryValue(worker),
+      businessType: getWorkerBusinessTypeValue(worker),
+      isVisible: worker.isVisible,
+      kycState: getWorkerKycState(worker),
+      searchValues: [
         worker.city,
         worker.homeCity,
         worker.status,
@@ -4739,37 +4808,16 @@ export default function LabourExchangeAdminPage() {
         getWorkerIndustryCategoryLabel(worker),
         getWorkerBusinessTypeLabel(worker),
         getWorkerCategoryLabel(worker)
-      ])
-    })
-    .sort((left, right) => {
-      switch (workerFilters.sort) {
-        case 'name_desc':
-          return String(right.fullName || '').localeCompare(String(left.fullName || ''), undefined, { sensitivity: 'base' })
-        case 'created_desc': {
-          const leftTimestamp = getWorkerCreatedAtTimestamp(left)
-          const rightTimestamp = getWorkerCreatedAtTimestamp(right)
-          if (Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) {
-            return String(left.fullName || '').localeCompare(String(right.fullName || ''), undefined, { sensitivity: 'base' })
-          }
-          if (Number.isNaN(leftTimestamp)) return 1
-          if (Number.isNaN(rightTimestamp)) return -1
-          return rightTimestamp - leftTimestamp || String(left.fullName || '').localeCompare(String(right.fullName || ''), undefined, { sensitivity: 'base' })
-        }
-        case 'created_asc': {
-          const leftTimestamp = getWorkerCreatedAtTimestamp(left)
-          const rightTimestamp = getWorkerCreatedAtTimestamp(right)
-          if (Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) {
-            return String(left.fullName || '').localeCompare(String(right.fullName || ''), undefined, { sensitivity: 'base' })
-          }
-          if (Number.isNaN(leftTimestamp)) return 1
-          if (Number.isNaN(rightTimestamp)) return -1
-          return leftTimestamp - rightTimestamp || String(left.fullName || '').localeCompare(String(right.fullName || ''), undefined, { sensitivity: 'base' })
-        }
-        case 'name_asc':
-        default:
-          return String(left.fullName || '').localeCompare(String(right.fullName || ''), undefined, { sensitivity: 'base' })
-      }
-    })
+      ]
+    })),
+    workerFilters
+  )
+  const filteredWorkers = workerFilterResult.workers
+  const workerPagination = paginateWorkerResults(filteredWorkers, workerPage, workerPageSize)
+  const visibleWorkers = workerPagination.pageItems
+  const currentPageWorkerIds = getWorkerPageSelectionIds(visibleWorkers, worker => worker.id)
+  const workerPageSelectionState = getWorkerPageSelectionState(selectedWorkerIds, currentPageWorkerIds)
+  const workerPaginationBounds = getWorkerPaginationBounds(workerPagination)
   const filteredCompanies = [...snapshot.companies]
     .filter(company => {
       if (companyFilters.status !== 'all' && company.status !== companyFilters.status) return false
@@ -5239,7 +5287,7 @@ export default function LabourExchangeAdminPage() {
       details: parseWhatsappAuditSummary(log.summary)
     }))
   const unreadWorkerNotificationsCount = snapshot.workerNotifications.filter(notification => !notification.isRead).length
-  const pendingWorkerKycCount = snapshot.workers.filter(worker => getWorkerKycState(worker) === 'ready_for_review').length
+  const pendingWorkerKycCount = workerDataset.filter(worker => getWorkerKycState(worker) === 'ready_for_review').length
   const pendingCompanyApprovalsCount = snapshot.companies.filter(company => company.status === 'pending').length
   const openRechargeRequestsCount = rechargeRequests.filter(
     request => request.requestType !== 'worker_support' && request.requestStatus === 'open'
@@ -5253,7 +5301,7 @@ export default function LabourExchangeAdminPage() {
   const enabledAutomationCount = Object.entries(settingsDraft.automationControls)
     .filter(([key, value]) => key !== 'pendingKycEscalationHours' && value === true)
     .length
-  const pendingKycReviewCount = snapshot.workers.filter(
+  const pendingKycReviewCount = workerDataset.filter(
     worker => getWorkerKycState(worker) === 'ready_for_review'
   ).length
   const categoryReportRows = categoryDemandRows.map(row => ({
@@ -6251,8 +6299,136 @@ export default function LabourExchangeAdminPage() {
     }
   }
 
+  const clearWorkerBulkPreview = () => {
+    setWorkerBulkResult(null)
+    setWorkerBulkConfirmed(false)
+  }
+
+  const updateWorkerBulkDraft = (nextDraft: Partial<WorkerBulkDraft>) => {
+    setWorkerBulkDraft(current => ({ ...current, ...nextDraft }))
+    clearWorkerBulkPreview()
+  }
+
+  const toggleWorkerSelection = (workerId: string) => {
+    setSelectedWorkerIds(current =>
+      current.includes(workerId)
+        ? current.filter(selectedId => selectedId !== workerId)
+        : [...current, workerId]
+    )
+    clearWorkerBulkPreview()
+  }
+
+  const setCurrentWorkerPageSelection = (shouldSelect: boolean) => {
+    setSelectedWorkerIds(current => updateWorkerPageSelection(current, currentPageWorkerIds, shouldSelect))
+    clearWorkerBulkPreview()
+  }
+
+  const changeWorkerPage = (nextPage: number) => {
+    setWorkerPage(nextPage)
+    setSelectedWorkerIds([])
+    clearWorkerBulkPreview()
+  }
+
+  const changeWorkerPageSize = (nextPageSize: WorkerResultsPageSize) => {
+    setWorkerPageSize(nextPageSize)
+    setWorkerPage(1)
+    setSelectedWorkerIds([])
+    clearWorkerBulkPreview()
+  }
+
+  const clearWorkerSelection = () => {
+    setSelectedWorkerIds([])
+    setWorkerBulkDraft(blankWorkerBulkDraft)
+    clearWorkerBulkPreview()
+  }
+
+  const getWorkerBulkDestinationLabel = (destination: WorkerBulkDestination) =>
+    destination.replace(/_/g, ' ').replace(/\b\w/g, character => character.toUpperCase())
+
+  const runWorkerBulkDryRun = async () => {
+    setError('')
+    if (!workerBulkDraft.field || !workerBulkDraft.destination) {
+      setError('Choose one bulk field and one destination value.')
+      return
+    }
+    if (workerBulkDraft.field === 'kyc' && workerBulkDraft.destination === 'rejected' && !workerBulkDraft.rejectionReason.trim()) {
+      setError('Enter one rejection reason before running the dry run.')
+      return
+    }
+
+    const idempotencyKey = globalThis.crypto?.randomUUID?.() || `worker-bulk-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    setWorkerBulkBusy(true)
+    setWorkerBulkConfirmed(false)
+    try {
+      const response = await fetch('/api/admin/labour/workers/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'dry-run',
+          workerIds: selectedWorkerIds,
+          field: workerBulkDraft.field,
+          destination: workerBulkDraft.destination,
+          rejectionReason: workerBulkDraft.rejectionReason.trim(),
+          overwriteExistingRejectionReason: workerBulkDraft.overwriteExistingRejectionReason,
+          idempotencyKey
+        })
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) throw new Error(data.error || 'The dry run could not be completed safely.')
+      setWorkerBulkResult(data.result)
+    } catch (bulkError) {
+      setWorkerBulkResult(null)
+      setError(bulkError instanceof Error ? bulkError.message : 'The dry run could not be completed safely.')
+    } finally {
+      setWorkerBulkBusy(false)
+    }
+  }
+
+  const applyWorkerBulkUpdate = async () => {
+    if (!workerBulkResult?.confirmationToken || !workerBulkResult.idempotencyKey || !workerBulkConfirmed) {
+      setError('Review the dry run and explicitly confirm it before applying.')
+      return
+    }
+
+    setError('')
+    setWorkerBulkBusy(true)
+    try {
+      const response = await fetch('/api/admin/labour/workers/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'apply',
+          workerIds: selectedWorkerIds,
+          field: workerBulkDraft.field,
+          destination: workerBulkDraft.destination,
+          rejectionReason: workerBulkDraft.rejectionReason.trim(),
+          overwriteExistingRejectionReason: workerBulkDraft.overwriteExistingRejectionReason,
+          idempotencyKey: workerBulkResult.idempotencyKey,
+          confirmationToken: workerBulkResult.confirmationToken,
+          confirmed: true
+        })
+      })
+      const data = await response.json().catch(() => ({ error: 'Unexpected response from server.' }))
+      if (!response.ok) throw new Error(data.error || 'The bulk update could not be completed safely.')
+      const appliedResult = data.result as WorkerBulkResult
+      setWorkerBulkResult(appliedResult)
+      setWorkerBulkConfirmed(false)
+      setSelectedWorkerIds([])
+      await Promise.all([fetchSnapshot(), fetchCompleteWorkers()])
+      showSaved(
+        appliedResult.failed > 0 || appliedResult.skipped > 0
+          ? `Bulk update finished with ${appliedResult.changed} changed, ${appliedResult.skipped} skipped and ${appliedResult.failed} failed`
+          : `Bulk update finished: ${appliedResult.changed} changed and ${appliedResult.unchanged} unchanged`
+      )
+    } catch (bulkError) {
+      setError(bulkError instanceof Error ? bulkError.message : 'The bulk update could not be completed safely.')
+    } finally {
+      setWorkerBulkBusy(false)
+    }
+  }
+
   const openWorkerKycReview = (workerId: string) => {
-    const worker = snapshot?.workers.find(entry => entry.id === workerId) ||
+    const worker = workerDataset.find(entry => entry.id === workerId) ||
       (directLookupWorker?.id === workerId ? directLookupWorker : null)
     if (!worker) return
     setSelectedWorkerReviewId(workerId)
@@ -8872,15 +9048,208 @@ export default function LabourExchangeAdminPage() {
                     </select>
                     <button onClick={() => setWorkerFilters(blankWorkerFilters)} style={subtleButtonStyle}>Clear Filters</button>
                   </div>
+                  {workerFilterResult.validationError ? (
+                    <p role="alert" style={{ margin: '0 0 12px', color: '#b91c1c', fontSize: '12px', fontWeight: '700' }}>
+                      {workerFilterResult.validationError}
+                    </p>
+                  ) : null}
+                  {completeWorkersError ? (
+                    <div role="alert" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', margin: '0 0 12px', color: '#b91c1c', fontSize: '12px', fontWeight: '700' }}>
+                      <span>{completeWorkersError}</span>
+                      <button type="button" onClick={() => void fetchCompleteWorkers()} style={subtleButtonStyle}>Retry worker dataset</button>
+                    </div>
+                  ) : null}
+                  {!completeWorkersLoading && !completeWorkersError && !workerFilterResult.validationError ? (
+                    <p style={{ margin: '0 0 12px', color: '#64748b', fontSize: '12px' }}>
+                      {filteredWorkers.length} matching worker{filteredWorkers.length === 1 ? '' : 's'} · page {workerPagination.page} of {workerPagination.totalPages}
+                    </p>
+                  ) : null}
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '12px', padding: '10px 12px', border: '1px solid #dbe7e7', borderRadius: '12px', background: '#f7fbfb' }}>
+                  <p style={{ margin: 0, color: '#0f4c4c', fontSize: '13px', fontWeight: '700' }}>
+                    {selectedWorkerIds.length} worker{selectedWorkerIds.length === 1 ? '' : 's'} selected
+                  </p>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f4c4c', fontSize: '12px', fontWeight: '700', cursor: workerPageSelectionState.totalOnPage === 0 ? 'default' : 'pointer' }}>
+                      <input
+                        ref={element => {
+                          if (element) element.indeterminate = workerPageSelectionState.indeterminate
+                        }}
+                        type="checkbox"
+                        aria-label="Select all on this page"
+                        checked={workerPageSelectionState.checked}
+                        onChange={event => setCurrentWorkerPageSelection(event.target.checked)}
+                        disabled={workerPageSelectionState.totalOnPage === 0}
+                      />
+                      <span>Select all on this page</span>
+                      <span style={{ color: '#64748b', fontWeight: '600' }}>({workerPageSelectionState.totalOnPage})</span>
+                    </label>
+                    <button type="button" onClick={clearWorkerSelection} disabled={selectedWorkerIds.length === 0} style={{ ...subtleButtonStyle, opacity: selectedWorkerIds.length === 0 ? 0.55 : 1 }}>
+                      Clear Selection
+                    </button>
+                  </div>
+                </div>
+
+                {(selectedWorkerIds.length > 0 || workerBulkResult) ? (
+                  <div style={{ marginBottom: '14px', padding: '14px', border: '1px solid #b9d8d6', borderRadius: '14px', background: '#f8fcfc', display: 'grid', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                      <div>
+                        <p style={{ margin: '0 0 3px', color: '#0f4c4c', fontSize: '13px', fontWeight: '800' }}>Safe bulk update</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>One field and one destination per operation. Every worker is revalidated on the server.</p>
+                      </div>
+                      <span style={{ borderRadius: '999px', padding: '5px 9px', background: '#e6f4f2', color: '#0f766e', fontSize: '11px', fontWeight: '800' }}>
+                        {selectedWorkerIds.length || workerBulkResult?.selected || 0} selected
+                      </span>
+                    </div>
+
+                    {selectedWorkerIds.length > 0 ? (
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                        <div style={{ minWidth: '180px', flex: '1 1 180px' }}>
+                          <label style={labelStyle}>Field</label>
+                          <select
+                            value={workerBulkDraft.field}
+                            onChange={event => updateWorkerBulkDraft({ field: event.target.value as WorkerBulkDraft['field'], destination: '', rejectionReason: '', overwriteExistingRejectionReason: false })}
+                            style={inputStyle}
+                          >
+                            <option value="">Choose field</option>
+                            <option value="status">Worker Status</option>
+                            <option value="visibility">Visibility</option>
+                            <option value="kyc">KYC Status</option>
+                          </select>
+                        </div>
+                        <div style={{ minWidth: '210px', flex: '1 1 210px' }}>
+                          <label style={labelStyle}>Destination value</label>
+                          <select
+                            value={workerBulkDraft.destination}
+                            onChange={event => updateWorkerBulkDraft({ destination: event.target.value as WorkerBulkDraft['destination'] })}
+                            style={inputStyle}
+                            disabled={!workerBulkDraft.field}
+                          >
+                            <option value="">Choose destination</option>
+                            {workerBulkDraft.field === 'status' ? workerStatuses.map(status => (
+                              <option key={status} value={status}>{getWorkerStatusLabel(status)}</option>
+                            )) : null}
+                            {workerBulkDraft.field === 'visibility' ? (
+                              <>
+                                <option value="visible">Visible</option>
+                                <option value="hidden">Hidden</option>
+                              </>
+                            ) : null}
+                            {workerBulkDraft.field === 'kyc' ? (
+                              <>
+                                <option value="not_submitted">Not Submitted</option>
+                                <option value="ready_for_review">Ready for Review (derived only)</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                              </>
+                            ) : null}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void runWorkerBulkDryRun()}
+                          disabled={workerBulkBusy || !workerBulkDraft.field || !workerBulkDraft.destination}
+                          style={{ ...primaryButtonStyle, background: '#0f766e', opacity: workerBulkBusy || !workerBulkDraft.field || !workerBulkDraft.destination ? 0.6 : 1 }}
+                        >
+                          {workerBulkBusy ? 'Checking...' : 'Run Dry Run'}
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {selectedWorkerIds.length > 0 && workerBulkDraft.field === 'kyc' && workerBulkDraft.destination === 'rejected' ? (
+                      <div style={{ display: 'grid', gap: '8px' }}>
+                        <div>
+                          <label style={labelStyle}>Rejection reason (required)</label>
+                          <textarea
+                            value={workerBulkDraft.rejectionReason}
+                            onChange={event => updateWorkerBulkDraft({ rejectionReason: event.target.value })}
+                            maxLength={500}
+                            rows={3}
+                            placeholder="Enter the single reason that will be recorded for eligible workers."
+                            style={{ ...inputStyle, resize: 'vertical' }}
+                          />
+                        </div>
+                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#475569', fontSize: '12px', lineHeight: 1.5 }}>
+                          <input
+                            type="checkbox"
+                            checked={workerBulkDraft.overwriteExistingRejectionReason}
+                            onChange={event => updateWorkerBulkDraft({ overwriteExistingRejectionReason: event.target.checked })}
+                            style={{ marginTop: '2px' }}
+                          />
+                          I explicitly confirm that this reason may replace an existing KYC rejection reason. Leave unchecked to preserve and skip those workers.
+                        </label>
+                      </div>
+                    ) : null}
+
+                    {workerBulkResult ? (
+                      <div style={{ padding: '12px', borderRadius: '12px', border: '1px solid #d7e3e2', background: '#ffffff', display: 'grid', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <p style={{ margin: 0, color: '#0f172a', fontSize: '13px', fontWeight: '800' }}>
+                            {workerBulkResult.mode === 'dry-run' ? 'Dry-run confirmation' : workerBulkResult.replayed ? 'Applied result (idempotent replay)' : 'Applied result'}
+                          </p>
+                          <span style={{ color: '#0f766e', fontSize: '12px', fontWeight: '700' }}>
+                            {workerBulkResult.field === 'kyc' ? 'KYC Status' : workerBulkResult.field === 'status' ? 'Worker Status' : 'Visibility'} → {getWorkerBulkDestinationLabel(workerBulkResult.destination)}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {[
+                            ['Selected', workerBulkResult.selected],
+                            ['Eligible', workerBulkResult.eligible],
+                            ['Changed', workerBulkResult.changed],
+                            ['Unchanged', workerBulkResult.unchanged],
+                            ['Skipped', workerBulkResult.skipped],
+                            ['Failed validation', workerBulkResult.failed]
+                          ].map(([label, value]) => (
+                            <span key={String(label)} style={{ borderRadius: '999px', padding: '5px 9px', background: '#f1f5f9', color: '#334155', fontSize: '11px', fontWeight: '700' }}>
+                              {label}: {value}
+                            </span>
+                          ))}
+                        </div>
+                        {workerBulkResult.rejectionReason ? (
+                          <p style={{ margin: 0, color: '#475569', fontSize: '12px' }}><strong>Rejection reason:</strong> {workerBulkResult.rejectionReason}</p>
+                        ) : null}
+                        {workerBulkResult.reasons.length > 0 ? (
+                          <div>
+                            <p style={{ margin: '0 0 5px', color: '#475569', fontSize: '12px', fontWeight: '700' }}>Safe reasons</p>
+                            <ul style={{ margin: 0, paddingLeft: '18px', color: '#64748b', fontSize: '12px', lineHeight: 1.6 }}>
+                              {workerBulkResult.reasons.map(item => <li key={item.reason}>{item.count} × {item.reason}</li>)}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {workerBulkResult.mode === 'dry-run' && workerBulkResult.eligible > 0 ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', paddingTop: '4px' }}>
+                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#334155', fontSize: '12px', fontWeight: '600', maxWidth: '680px' }}>
+                              <input type="checkbox" checked={workerBulkConfirmed} onChange={event => setWorkerBulkConfirmed(event.target.checked)} style={{ marginTop: '2px' }} />
+                              I confirm this exact field, destination, worker selection, and rejection reason (when applicable). Eligibility will be checked again during apply.
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => void applyWorkerBulkUpdate()}
+                              disabled={!workerBulkConfirmed || workerBulkBusy}
+                              style={{ ...primaryButtonStyle, background: '#0f766e', opacity: !workerBulkConfirmed || workerBulkBusy ? 0.6 : 1 }}
+                            >
+                              {workerBulkBusy ? 'Applying...' : `Apply to ${workerBulkResult.eligible} eligible`}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div style={{ display: 'grid', gap: '12px' }}>
-                  {filteredWorkers.length === 0 ? (
+                  {completeWorkersLoading && completeWorkers === null ? (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Loading the complete worker dataset...</p>
+                  ) : workerFilterResult.validationError ? (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Correct the registration date range to view workers.</p>
+                  ) : completeWorkersError && completeWorkers === null ? (
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Worker results are unavailable until the complete dataset loads.</p>
+                  ) : filteredWorkers.length === 0 ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                       <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>No workers found for the selected filters.</p>
                       <button onClick={() => setWorkerFilters(blankWorkerFilters)} style={subtleButtonStyle}>Clear Filters</button>
                     </div>
                   ) : (
-                    filteredWorkers.map(worker => {
+                    visibleWorkers.map(worker => {
                       const kycTone = getWorkerKycTone(worker)
                       const effectiveWorkerStatus = getEffectiveWorkerStatus(worker)
                       const effectiveWorkerAvailability = getEffectiveWorkerAvailability(worker)
@@ -8898,7 +9267,15 @@ export default function LabourExchangeAdminPage() {
                       const preferredWorkCityLabels = getWorkerPreferredWorkCityLabels(worker)
                       return (
                         <div key={worker.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                          <div>
+                          <label style={{ display: 'flex', alignItems: 'flex-start', paddingTop: '2px' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedWorkerIds.includes(worker.id)}
+                              onChange={() => toggleWorkerSelection(worker.id)}
+                              aria-label={`Select ${worker.fullName || 'worker'}`}
+                            />
+                          </label>
+                          <div style={{ flex: '1 1 auto', minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '4px' }}>
                               <p style={{ margin: 0, color: '#0f172a', fontWeight: '700' }}>{worker.fullName}</p>
                               <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '999px', padding: '5px 9px', background: kycTone.background, color: kycTone.color, border: `1px solid ${kycTone.border}` }}>
@@ -8975,6 +9352,32 @@ export default function LabourExchangeAdminPage() {
                     })
                   )}
                 </div>
+                {filteredWorkers.length > 0 && !workerFilterResult.validationError ? (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                        Showing {workerPaginationBounds.from}-{workerPaginationBounds.to} of {workerPagination.total}
+                      </p>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '7px', color: '#475569', fontSize: '12px', fontWeight: '700' }}>
+                        <span>Rows per page</span>
+                        <select
+                          aria-label="Rows per page"
+                          value={workerPageSize}
+                          onChange={event => changeWorkerPageSize(Number(event.target.value) as WorkerResultsPageSize)}
+                          style={{ ...inputStyle, width: '92px', padding: '7px 9px' }}
+                        >
+                          {WORKER_RESULTS_PAGE_SIZES.map(pageSize => (
+                            <option key={pageSize} value={pageSize}>{pageSize === 1_000 ? '1,000' : pageSize}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button type="button" onClick={() => changeWorkerPage(workerPagination.page - 1)} disabled={workerPagination.page <= 1} style={{ ...subtleButtonStyle, opacity: workerPagination.page <= 1 ? 0.55 : 1 }}>Previous</button>
+                      <button type="button" onClick={() => changeWorkerPage(workerPagination.page + 1)} disabled={workerPagination.page >= workerPagination.totalPages} style={{ ...subtleButtonStyle, opacity: workerPagination.page >= workerPagination.totalPages ? 0.55 : 1 }}>Next</button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div style={cardStyle}>
@@ -8987,13 +9390,13 @@ export default function LabourExchangeAdminPage() {
                   </div>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     <span style={{ ...subtleButtonStyle, cursor: 'default' }}>
-                      Ready {snapshot.workers.filter(worker => getWorkerKycState(worker) === 'ready_for_review').length}
+                      Ready {workerDataset.filter(worker => getWorkerKycState(worker) === 'ready_for_review').length}
                     </span>
                     <span style={{ ...subtleButtonStyle, cursor: 'default' }}>
-                      Needs correction {snapshot.workers.filter(worker => getWorkerKycState(worker) === 'needs_correction').length}
+                      Needs correction {workerDataset.filter(worker => getWorkerKycState(worker) === 'needs_correction').length}
                     </span>
                     <span style={{ ...subtleButtonStyle, cursor: 'default' }}>
-                      Rejected {snapshot.workers.filter(worker => getWorkerKycState(worker) === 'rejected').length}
+                      Rejected {workerDataset.filter(worker => getWorkerKycState(worker) === 'rejected').length}
                     </span>
                   </div>
                 </div>

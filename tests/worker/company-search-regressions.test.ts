@@ -289,11 +289,15 @@ test('every Company Panel Search Worker navigation carries the latest authorized
   assert.equal((panelClientSource.match(/href=\{searchWorkersHref\}/g) || []).length, 5)
 })
 
-test('resume is selected, entitlement-masked, and served by the authenticated document route', () => {
+test('resume controls use only the existing authenticated document route and never expose a storage path', () => {
   assert.match(searchPageSource, /resume_document_path/)
-  assert.match(searchPageSource, /resumeDocumentPath:/)
+  assert.match(searchPageSource, /hasResumeDocument:\s*Boolean\(worker\.resume_document_path\)/)
   assert.match(searchClientSource, /document=\$\{documentKind\}/)
-  assert.match(searchClientSource, /worker\.resumeDocumentPath/)
+  assert.match(searchClientSource, /worker\.hasResumeDocument\s*&&\s*workerCanAccessDirectly\(worker\)/)
+  assert.doesNotMatch(searchClientSource, /resumeDocumentPath/)
+  assert.doesNotMatch(searchPageSource, /resumeDocumentPath:/)
+  assert.match(searchClientSource, /openWorkerDocument\(worker,\s*'resume'\)/)
+  assert.match(searchClientSource, /downloadWorkerDocument\(worker,\s*'resume'\)/)
   assert.doesNotMatch(searchClientSource, />Resume Not Available</)
   assert.match(workerDocumentRouteSource, /getCompanyUserFromRequest/)
   assert.match(workerDocumentRouteSource, /getUserFromRequest/)
@@ -316,7 +320,8 @@ test('worker phones are absent from the initial page DTO and fetched only by the
   assert.match(searchPageSource, /identityVerificationState:\s*getCompanyIdentityVerificationState\(\{/)
   assert.doesNotMatch(searchPageSource, /identityProof(?:Type|Number|Path):\s*Boolean\(/)
   assert.doesNotMatch(searchClientSource, /identityProof(?:Type|Number|Path)/)
-  assert.match(searchPageSource, /resumeDocumentPath:\s*Boolean\(/)
+  assert.match(searchPageSource, /hasResumeDocument:\s*Boolean\(worker\.resume_document_path\)/)
+  assert.doesNotMatch(searchClientSource, /resumeDocumentPath/)
 })
 
 test('phone reveal preserves the existing responsive contact layout', () => {

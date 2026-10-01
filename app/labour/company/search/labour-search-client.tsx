@@ -32,31 +32,36 @@ type CompanyIdentityVerificationState = 'not_submitted' | 'in_review' | 'approve
 const IDENTITY_VERIFICATION_META: Record<CompanyIdentityVerificationState, {
   label: string
   message: string
-  badgeClassName: string
+  photoBadgeLabel: string
+  photoBadgeClassName: string
   cardClassName: string
 }> = {
   not_submitted: {
     label: 'Identity Proof Pending',
     message: 'Worker profile is available. Identity document is not submitted. Verify identity before final hiring.',
-    badgeClassName: styles.searchWorkerIdentityBadgePending,
+    photoBadgeLabel: 'Check ID',
+    photoBadgeClassName: styles.searchWorkerIdentityPhotoBadgeAttention,
     cardClassName: styles.searchWorkerIdentityProofPending,
   },
   in_review: {
     label: 'Identity Verification in Review',
     message: 'Identity Verification in Review.',
-    badgeClassName: styles.searchWorkerIdentityBadgeReview,
+    photoBadgeLabel: 'Check ID',
+    photoBadgeClassName: styles.searchWorkerIdentityPhotoBadgeAttention,
     cardClassName: styles.searchWorkerIdentityProofReview,
   },
   approved: {
     label: 'Identity Verified',
     message: 'Identity document verified by Rozgar.',
-    badgeClassName: styles.searchWorkerIdentityBadgeApproved,
+    photoBadgeLabel: 'Verified',
+    photoBadgeClassName: styles.searchWorkerIdentityPhotoBadgeApproved,
     cardClassName: styles.searchWorkerIdentityProofApproved,
   },
   rejected: {
     label: 'Identity Verification Needed',
     message: 'Identity Verification Needed.',
-    badgeClassName: styles.searchWorkerIdentityBadgeRejected,
+    photoBadgeLabel: 'Check ID',
+    photoBadgeClassName: styles.searchWorkerIdentityPhotoBadgeAttention,
     cardClassName: styles.searchWorkerIdentityProofRejected,
   },
 }
@@ -104,7 +109,7 @@ type WorkerItem = {
   businessType: string
   businessTypeLabel: string
   createdAt: string
-  resumeDocumentPath: string
+  hasResumeDocument: boolean
   identityVerificationState: CompanyIdentityVerificationState
   isVerified: boolean
   categoryIds: string[]
@@ -1418,9 +1423,6 @@ export function LabourSearchClient({
   }
 
   const getWorkerDocumentUrl = async (worker: WorkerItem, documentKind: 'resume') => {
-    const documentPath = worker.resumeDocumentPath
-    if (!documentPath) return ''
-
     const documentKey = `${worker.id}:${documentKind}`
     const cachedUrl = workerDocumentUrls[documentKey]
     if (cachedUrl) {
@@ -1812,6 +1814,14 @@ export function LabourSearchClient({
                             </div>
                           )}
                           {availabilityMeta.isActive ? <span className={styles.searchWorkerActiveDot} /> : null}
+                          <span
+                            className={`${styles.searchWorkerIdentityPhotoBadge} ${identityVerificationMeta.photoBadgeClassName}`}
+                            aria-label={identityVerificationMeta.label}
+                            title={identityVerificationMeta.label}
+                          >
+                            <ShieldCheck size={11} strokeWidth={2.3} aria-hidden="true" />
+                            <span>{identityVerificationMeta.photoBadgeLabel}</span>
+                          </span>
                         </div>
                       </div>
 
@@ -1820,10 +1830,6 @@ export function LabourSearchClient({
                           <div>
                             <div className={styles.searchWorkerNameRow}>
                               <h2 className={styles.searchWorkerName}>{worker.fullName}</h2>
-                              <span className={`${styles.searchWorkerIdentityBadge} ${identityVerificationMeta.badgeClassName}`}>
-                                <ShieldCheck size={13} strokeWidth={2.2} aria-hidden="true" />
-                                {identityVerificationMeta.label}
-                              </span>
                               {hasCategoryPriority ? (
                                 <span className={`${styles.searchWorkerMatchBadge} ${isCategoryMatch ? styles.searchWorkerMatchBadgePositive : styles.searchWorkerMatchBadgeNeutral}`}>
                                   {matchBadgeLabel}
@@ -1862,27 +1868,17 @@ export function LabourSearchClient({
                             <div className={styles.searchWorkerDocumentsCard}>
                               <p className={styles.searchWorkerDocumentsTitle}>Verification &amp; documents</p>
                               <div className={`${styles.searchWorkerIdentityProofCard} ${identityVerificationMeta.cardClassName}`}>
-                                <div className={styles.searchWorkerIdentityProofDecoration} aria-hidden="true">
-                                  <span />
-                                  <span />
-                                </div>
-                                <div className={styles.searchWorkerIdentityProofHeader}>
-                                  <span className={`${styles.searchWorkerIdentityBadge} ${identityVerificationMeta.badgeClassName}`}>
-                                    <ShieldCheck size={13} strokeWidth={2.2} aria-hidden="true" />
-                                    {identityVerificationMeta.label}
-                                  </span>
-                                  <span className={styles.searchWorkerIdentityProofMark} aria-hidden="true">
-                                    <ShieldCheck size={22} strokeWidth={1.9} />
-                                  </span>
-                                </div>
+                                <span className={styles.searchWorkerIdentityProofMark} aria-hidden="true">
+                                  <ShieldCheck size={17} strokeWidth={2} />
+                                </span>
                                 <div className={styles.searchWorkerIdentityProofCopy}>
-                                  <p>Identity verification</p>
+                                  <p>{identityVerificationMeta.label}</p>
                                   <span>{identityVerificationMeta.message}</span>
                                 </div>
                               </div>
                               <div className={styles.searchWorkerDocumentRow}>
                                 <span>Resume</span>
-                                {worker.resumeDocumentPath ? (
+                                {worker.hasResumeDocument && workerCanAccessDirectly(worker) ? (
                                   <div className={styles.searchWorkerDocumentActions}>
                                     <button
                                       type="button"

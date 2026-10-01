@@ -11068,44 +11068,37 @@
   box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.15);
 }
 
-.searchWorkerIdentityBadge {
+.searchWorkerIdentityPhotoBadge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-height: 26px;
-  padding: 5px 9px;
+  gap: 4px;
+  min-height: 22px;
+  max-width: calc(100% - 16px);
+  padding: 4px 7px;
   border-radius: 999px;
-  border: 1px solid transparent;
-  font-size: 10.5px;
-  line-height: 1.2;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  font-size: 9.5px;
+  line-height: 1;
   font-weight: 800;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(6px);
 }
 
-.searchWorkerIdentityBadgePending {
-  border-color: rgba(217, 119, 6, 0.28);
-  background: #fef3c7;
-  color: #92400e;
+.searchWorkerIdentityPhotoBadgeAttention {
+  background: rgba(254, 243, 199, 0.96);
+  color: #854d0e;
 }
 
-.searchWorkerIdentityBadgeReview {
-  border-color: rgba(234, 88, 12, 0.24);
-  background: #ffedd5;
-  color: #9a3412;
-}
-
-.searchWorkerIdentityBadgeApproved {
-  border-color: rgba(37, 99, 235, 0.26);
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.searchWorkerIdentityBadgeRejected {
-  border-color: rgba(225, 29, 72, 0.22);
-  background: #ffe4e6;
-  color: #be123c;
+.searchWorkerIdentityPhotoBadgeApproved {
+  background: rgba(220, 252, 231, 0.96);
+  color: #166534;
 }
 
 .searchWorkerBody {
@@ -11343,109 +11336,74 @@
 }
 
 .searchWorkerIdentityProofCard {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  width: min(100%, 410px);
-  min-height: 186px;
-  aspect-ratio: 1.586 / 1;
-  overflow: hidden;
-  padding: 16px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
   border: 1px solid rgba(203, 213, 225, 0.96);
-  border-radius: 18px;
+  border-radius: 12px;
   background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
-  isolation: isolate;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
 }
 
 .searchWorkerIdentityProofPending {
   border-color: rgba(217, 119, 6, 0.3);
-  background: linear-gradient(145deg, #fffdf5 0%, #fffbeb 100%);
+  background: #fffbeb;
 }
 
 .searchWorkerIdentityProofReview {
-  border-color: rgba(234, 88, 12, 0.24);
-  background: linear-gradient(145deg, #fffaf5 0%, #fff7ed 100%);
+  border-color: rgba(217, 119, 6, 0.3);
+  background: #fffbeb;
 }
 
 .searchWorkerIdentityProofApproved {
-  border-color: rgba(37, 99, 235, 0.28);
-  background: linear-gradient(145deg, #f8fbff 0%, #eff6ff 100%);
+  border-color: rgba(22, 163, 74, 0.26);
+  background: #f0fdf4;
 }
 
 .searchWorkerIdentityProofRejected {
-  border-color: rgba(225, 29, 72, 0.22);
-  background: linear-gradient(145deg, #fffafa 0%, #fff1f2 100%);
-}
-
-.searchWorkerIdentityProofDecoration {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.searchWorkerIdentityProofDecoration span:first-child {
-  position: absolute;
-  width: 170px;
-  height: 170px;
-  right: -64px;
-  top: -76px;
-  border-radius: 999px;
-  background: rgba(96, 165, 250, 0.13);
-}
-
-.searchWorkerIdentityProofDecoration span:last-child {
-  position: absolute;
-  width: 150px;
-  height: 14px;
-  left: -34px;
-  bottom: 20px;
-  border-radius: 999px;
-  background: rgba(13, 148, 136, 0.09);
-  transform: rotate(-12deg);
-}
-
-.searchWorkerIdentityProofHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  border-color: rgba(217, 119, 6, 0.3);
+  background: #fffbeb;
 }
 
 .searchWorkerIdentityProofMark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
-  border-radius: 13px;
-  border: 1px solid rgba(37, 99, 235, 0.16);
-  background: rgba(255, 255, 255, 0.76);
-  color: #2563eb;
+  border-radius: 10px;
+  border: 1px solid rgba(217, 119, 6, 0.18);
+  background: rgba(255, 255, 255, 0.82);
+  color: #a16207;
+}
+
+.searchWorkerIdentityProofApproved .searchWorkerIdentityProofMark {
+  border-color: rgba(22, 163, 74, 0.18);
+  color: #15803d;
 }
 
 .searchWorkerIdentityProofCopy {
   display: grid;
-  gap: 6px;
-  max-width: 330px;
+  gap: 3px;
+  min-width: 0;
 }
 
 .searchWorkerIdentityProofCopy p {
   margin: 0;
   color: #0f172a;
-  font-size: 14px;
+  font-size: 12.5px;
   line-height: 1.25;
   font-weight: 800;
 }
 
 .searchWorkerIdentityProofCopy span {
   color: #475569;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11.5px;
+  line-height: 1.4;
   font-weight: 600;
 }
 
@@ -15288,6 +15246,18 @@
     height: 68px;
     min-height: 68px;
     border-radius: 18px;
+  }
+
+  .searchWorkerIdentityPhotoBadge {
+    left: 5px;
+    bottom: 5px;
+    width: 22px;
+    min-height: 22px;
+    padding: 0;
+  }
+
+  .searchWorkerIdentityPhotoBadge > span {
+    display: none;
   }
 
   .searchWorkerAvatarFallback {

@@ -1281,7 +1281,7 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
         'General business'
       ),
       createdAt: worker.created_at,
-      resumeDocumentPath: worker.resume_document_path || '',
+      hasResumeDocument: Boolean(worker.resume_document_path),
       identityVerificationState: getCompanyIdentityVerificationState({
         identityProofPath: worker.identity_proof_path,
         kycStatus: worker.kyc_status,
@@ -1343,12 +1343,6 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
   const featuredCompany = authenticatedCompany || defaultFeaturedCompany
   const visibleWorkers = mappedWorkers.map(worker => ({
     ...worker,
-    resumeDocumentPath: Boolean(
-      authenticatedCompany?.canUnlockWorkers &&
-      worker.categoryIds.some(categoryId => authenticatedCompany.activeJobCategoryIds.includes(categoryId))
-    )
-      ? worker.resumeDocumentPath
-      : '',
     canAccessDirectly: Boolean(
       authenticatedCompany?.canUnlockWorkers &&
       worker.categoryIds.some(categoryId => authenticatedCompany.activeJobCategoryIds.includes(categoryId))

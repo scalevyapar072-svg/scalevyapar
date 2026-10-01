@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import type { PostgrestFilterBuilder, PostgrestQueryBuilder } from '@supabase/supabase-js'
 import { CompanySiteShell } from '../company-site-shell'
 import { LabourSearchClient } from './labour-search-client'
 import { getCompanyUserFromRequest, getCurrentUser } from '@/lib/auth'
@@ -158,9 +159,29 @@ type JobContextBucketInput = {
   globalTierOrder: boolean
 }
 
-type SupabaseQuery = any
+const getLabourWorkersTable = () => supabaseAdmin.from('labour_workers')
 
-const applyCompanySearchVisibilityFilter = (query: SupabaseQuery) =>
+type AdminSupabaseQueryContext = ReturnType<typeof getLabourWorkersTable> extends PostgrestQueryBuilder<
+  infer ClientOptions,
+  infer Schema,
+  infer Relation,
+  infer RelationName,
+  infer Relationships
+>
+  ? [ClientOptions, Schema, Relation, RelationName, Relationships]
+  : never
+
+type SupabaseQuery<Result, Method> = PostgrestFilterBuilder<
+  AdminSupabaseQueryContext[0],
+  AdminSupabaseQueryContext[1],
+  AdminSupabaseQueryContext[2]['Row'],
+  Result,
+  AdminSupabaseQueryContext[3],
+  AdminSupabaseQueryContext[4],
+  Method
+>
+
+const applyCompanySearchVisibilityFilter = <Result, Method>(query: SupabaseQuery<Result, Method>) =>
   query.not('is_visible', 'is', false)
 
 const isWorkerVisibleInCompanySearch = (worker: Pick<WorkerRow, 'is_visible'>) =>
@@ -459,8 +480,8 @@ const buildSearchCategoryOptions = (
   return Array.from(byId.values())
 }
 
-const applyWorkerFilters = (
-  query: SupabaseQuery,
+const applyWorkerFilters = <Result, Method>(
+  query: SupabaseQuery<Result, Method>,
   filters: SearchFilters,
   selectedCategoryIds: string[],
   statuses: readonly string[] = SEARCHABLE_WORKER_STATUSES
@@ -517,7 +538,11 @@ const applyWorkerFilters = (
   return nextQuery
 }
 
-const applyWorkerOrder = (query: SupabaseQuery, sortBy: string, deterministic = false) => {
+const applyWorkerOrder = <Result, Method>(
+  query: SupabaseQuery<Result, Method>,
+  sortBy: string,
+  deterministic = false
+) => {
   let orderedQuery = query
 
   switch (sortBy) {
@@ -583,9 +608,8 @@ const selectWorkerRows = (
   const includeSalaryRange = options.includeSalaryRange ?? true
 
   return (
-  supabaseAdmin
-    .from('labour_workers')
-    .select(
+    getLabourWorkersTable()
+      .select(
       [
         'id',
         'full_name',
@@ -614,7 +638,7 @@ const selectWorkerRows = (
         'created_at'
       ].filter(Boolean).join(','),
       count ? { count } : undefined
-    )
+      ) as unknown as SupabaseQuery<unknown[], 'GET'>
   )
 }
 
@@ -675,7 +699,7 @@ const fetchWorkerRange = async (
   return (data || []) as WorkerRow[]
 }
 
-const applyWorkerBucket = (query: SupabaseQuery, bucket: WorkerBucket) => {
+const applyWorkerBucket = <Result, Method>(query: SupabaseQuery<Result, Method>, bucket: WorkerBucket) => {
   let nextQuery = query
 
   if (bucket.includeCategoryIds?.length) {

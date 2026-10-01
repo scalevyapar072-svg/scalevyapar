@@ -217,7 +217,7 @@ test('document access requires an active company, a live matching category, and 
   })
 })
 
-test('Verified badge uses the same approved and complete KYC state as Admin', () => {
+test('existing verified ranking signal keeps the same approved and complete KYC state as Admin', () => {
   const completeWorker = {
     fullName: 'Synthetic Worker',
     city: 'Test City',
@@ -313,7 +313,9 @@ test('worker phones are absent from the initial page DTO and fetched only by the
   assert.match(workerPhoneRouteSource, /resolveWorkerPhoneAccess/)
   assert.match(workerPhoneRouteSource, /Cache-Control['"]?:\s*['"]private, no-store/)
   assert.doesNotMatch(workerPhoneRouteSource, /console\.(?:log|info|warn|error)/)
-  assert.match(searchPageSource, /identityProofPath:\s*Boolean\(/)
+  assert.match(searchPageSource, /identityVerificationState:\s*getCompanyIdentityVerificationState\(\{/)
+  assert.doesNotMatch(searchPageSource, /identityProof(?:Type|Number|Path):\s*Boolean\(/)
+  assert.doesNotMatch(searchClientSource, /identityProof(?:Type|Number|Path)/)
   assert.match(searchPageSource, /resumeDocumentPath:\s*Boolean\(/)
 })
 

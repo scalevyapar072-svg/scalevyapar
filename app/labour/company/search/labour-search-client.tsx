@@ -17,7 +17,6 @@ import {
   createWorkerPhoneLoadingState,
   getWorkerPhoneInteraction,
   setWorkerPhoneRevealState,
-  type WorkerDocumentKind,
   type WorkerPhoneRevealStates,
 } from '@/lib/labour-company-worker-access'
 import { getWorkerGlobalOrderTier, shouldUseGlobalWorkerTierOrdering } from '@/lib/labour-worker-search-order'
@@ -27,6 +26,40 @@ const COMPANY_TOKEN_KEY = 'labour_company_token'
 const COMPANY_PROFILE_KEY = 'labour_company_profile'
 const SHORTLIST_STORAGE_KEY = 'labour_company_search_shortlist'
 const WORKERS_PER_PAGE = 20
+
+type CompanyIdentityVerificationState = 'not_submitted' | 'in_review' | 'approved' | 'rejected'
+
+const IDENTITY_VERIFICATION_META: Record<CompanyIdentityVerificationState, {
+  label: string
+  message: string
+  badgeClassName: string
+  cardClassName: string
+}> = {
+  not_submitted: {
+    label: 'Identity Proof Pending',
+    message: 'Worker profile is available. Identity document is not submitted. Verify identity before final hiring.',
+    badgeClassName: styles.searchWorkerIdentityBadgePending,
+    cardClassName: styles.searchWorkerIdentityProofPending,
+  },
+  in_review: {
+    label: 'Identity Verification in Review',
+    message: 'Identity Verification in Review.',
+    badgeClassName: styles.searchWorkerIdentityBadgeReview,
+    cardClassName: styles.searchWorkerIdentityProofReview,
+  },
+  approved: {
+    label: 'Identity Verified',
+    message: 'Identity document verified by Rozgar.',
+    badgeClassName: styles.searchWorkerIdentityBadgeApproved,
+    cardClassName: styles.searchWorkerIdentityProofApproved,
+  },
+  rejected: {
+    label: 'Identity Verification Needed',
+    message: 'Identity Verification Needed.',
+    badgeClassName: styles.searchWorkerIdentityBadgeRejected,
+    cardClassName: styles.searchWorkerIdentityProofRejected,
+  },
+}
 
 type SearchPageContent = {
   eyebrow: string
@@ -71,10 +104,8 @@ type WorkerItem = {
   businessType: string
   businessTypeLabel: string
   createdAt: string
-  identityProofType: string
-  identityProofNumber: string
-  identityProofPath: string
   resumeDocumentPath: string
+  identityVerificationState: CompanyIdentityVerificationState
   isVerified: boolean
   categoryIds: string[]
   canAccessDirectly: boolean
@@ -1386,10 +1417,8 @@ export function LabourSearchClient({
     }
   }
 
-  const getWorkerDocumentUrl = async (worker: WorkerItem, documentKind: WorkerDocumentKind) => {
-    const documentPath = documentKind === 'resume'
-      ? worker.resumeDocumentPath
-      : worker.identityProofPath
+  const getWorkerDocumentUrl = async (worker: WorkerItem, documentKind: 'resume') => {
+    const documentPath = worker.resumeDocumentPath
     if (!documentPath) return ''
 
     const documentKey = `${worker.id}:${documentKind}`
@@ -1419,7 +1448,7 @@ export function LabourSearchClient({
     }
   }
 
-  const openWorkerDocument = async (worker: WorkerItem, documentKind: WorkerDocumentKind) => {
+  const openWorkerDocument = async (worker: WorkerItem, documentKind: 'resume') => {
     if (typeof window === 'undefined') return
 
     const url = await getWorkerDocumentUrl(worker, documentKind)
@@ -1428,14 +1457,14 @@ export function LabourSearchClient({
     }
   }
 
-  const downloadWorkerDocument = async (worker: WorkerItem, documentKind: WorkerDocumentKind) => {
+  const downloadWorkerDocument = async (worker: WorkerItem, documentKind: 'resume') => {
     if (typeof window === 'undefined') return
 
     const url = await getWorkerDocumentUrl(worker, documentKind)
     if (!url) return
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `${worker.fullName || 'worker'}-${documentKind === 'resume' ? 'resume' : 'identity-proof'}`
+    anchor.download = `${worker.fullName || 'worker'}-resume`
     anchor.rel = 'noreferrer'
     document.body.appendChild(anchor)
     anchor.click()
@@ -1750,7 +1779,7 @@ export function LabourSearchClient({
                   const lockedAccessCopy = getLockedAccessCopy(worker)
                   const workLocation = getWorkerAvailableLocationLabel(worker)
                   const phoneInteraction = getWorkerPhoneInteraction(workerPhoneRevealStates[worker.id])
-                  const identityDocumentKey = `${worker.id}:identity`
+                  const identityVerificationMeta = IDENTITY_VERIFICATION_META[worker.identityVerificationState]
                   const resumeDocumentKey = `${worker.id}:resume`
 
                   return (
@@ -1783,12 +1812,6 @@ export function LabourSearchClient({
                             </div>
                           )}
                           {availabilityMeta.isActive ? <span className={styles.searchWorkerActiveDot} /> : null}
-                          {worker.isVerified ? (
-                            <span className={styles.searchWorkerVerifiedPill}>
-                              <ShieldCheck size={13} strokeWidth={2.2} />
-                              Verified
-                            </span>
-                          ) : null}
                         </div>
                       </div>
 
@@ -1797,7 +1820,10 @@ export function LabourSearchClient({
                           <div>
                             <div className={styles.searchWorkerNameRow}>
                               <h2 className={styles.searchWorkerName}>{worker.fullName}</h2>
-                              {worker.isVerified ? <CheckCircle2 size={18} strokeWidth={2.2} className={styles.searchWorkerVerifiedIcon} /> : null}
+                              <span className={`${styles.searchWorkerIdentityBadge} ${identityVerificationMeta.badgeClassName}`}>
+                                <ShieldCheck size={13} strokeWidth={2.2} aria-hidden="true" />
+                                {identityVerificationMeta.label}
+                              </span>
                               {hasCategoryPriority ? (
                                 <span className={`${styles.searchWorkerMatchBadge} ${isCategoryMatch ? styles.searchWorkerMatchBadgePositive : styles.searchWorkerMatchBadgeNeutral}`}>
                                   {matchBadgeLabel}
@@ -1834,31 +1860,25 @@ export function LabourSearchClient({
                         {isExpanded ? (
                           <div className={styles.searchWorkerExpandedPanel}>
                             <div className={styles.searchWorkerDocumentsCard}>
-                              <p className={styles.searchWorkerDocumentsTitle}>Documents</p>
-                              <div className={styles.searchWorkerDocumentRow}>
-                                <span>{worker.identityProofType || 'Aadhaar Card'}</span>
-                                {worker.identityProofPath ? (
-                                  <div className={styles.searchWorkerDocumentActions}>
-                                    <button
-                                      type="button"
-                                      onClick={() => openWorkerDocument(worker, 'identity')}
-                                      className={styles.searchWorkerDocumentButton}
-                                      disabled={workerDocumentLoadingKeys.includes(identityDocumentKey)}
-                                    >
-                                      {workerDocumentLoadingKeys.includes(identityDocumentKey) ? 'Opening...' : 'View'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => downloadWorkerDocument(worker, 'identity')}
-                                      className={styles.searchWorkerDocumentButton}
-                                      disabled={workerDocumentLoadingKeys.includes(identityDocumentKey)}
-                                    >
-                                      Download
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <span className={styles.searchWorkerEmptyText}>Not Available</span>
-                                )}
+                              <p className={styles.searchWorkerDocumentsTitle}>Verification &amp; documents</p>
+                              <div className={`${styles.searchWorkerIdentityProofCard} ${identityVerificationMeta.cardClassName}`}>
+                                <div className={styles.searchWorkerIdentityProofDecoration} aria-hidden="true">
+                                  <span />
+                                  <span />
+                                </div>
+                                <div className={styles.searchWorkerIdentityProofHeader}>
+                                  <span className={`${styles.searchWorkerIdentityBadge} ${identityVerificationMeta.badgeClassName}`}>
+                                    <ShieldCheck size={13} strokeWidth={2.2} aria-hidden="true" />
+                                    {identityVerificationMeta.label}
+                                  </span>
+                                  <span className={styles.searchWorkerIdentityProofMark} aria-hidden="true">
+                                    <ShieldCheck size={22} strokeWidth={1.9} />
+                                  </span>
+                                </div>
+                                <div className={styles.searchWorkerIdentityProofCopy}>
+                                  <p>Identity verification</p>
+                                  <span>{identityVerificationMeta.message}</span>
+                                </div>
                               </div>
                               <div className={styles.searchWorkerDocumentRow}>
                                 <span>Resume</span>

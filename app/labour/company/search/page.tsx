@@ -10,6 +10,7 @@ import type { LabourCategoryDependency, LabourMasterOption } from '@/lib/labour-
 import { compareWorkerGlobalOrderKeys, shouldUseGlobalWorkerTierOrdering } from '@/lib/labour-worker-search-order'
 import { resolveAuthorizedWorkerSearchJob } from '@/lib/labour-worker-search-job'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getCompanyIdentityVerificationState } from '@/lib/labour-company-identity-verification'
 import { getWorkerKycReviewState } from '@/lib/worker-kyc-completeness'
 
 export const dynamic = 'force-dynamic'
@@ -1280,10 +1281,11 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
         'General business'
       ),
       createdAt: worker.created_at,
-      identityProofType: worker.identity_proof_type || '',
-      identityProofNumber: worker.identity_proof_number || '',
-      identityProofPath: worker.identity_proof_path || '',
       resumeDocumentPath: worker.resume_document_path || '',
+      identityVerificationState: getCompanyIdentityVerificationState({
+        identityProofPath: worker.identity_proof_path,
+        kycStatus: worker.kyc_status,
+      }),
       isVerified: getWorkerKycReviewState({
         fullName: worker.full_name,
         city: worker.city,
@@ -1341,24 +1343,6 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
   const featuredCompany = authenticatedCompany || defaultFeaturedCompany
   const visibleWorkers = mappedWorkers.map(worker => ({
     ...worker,
-    identityProofType: Boolean(
-      authenticatedCompany?.canUnlockWorkers &&
-      worker.categoryIds.some(categoryId => authenticatedCompany.activeJobCategoryIds.includes(categoryId))
-    )
-      ? worker.identityProofType
-      : '',
-    identityProofNumber: Boolean(
-      authenticatedCompany?.canUnlockWorkers &&
-      worker.categoryIds.some(categoryId => authenticatedCompany.activeJobCategoryIds.includes(categoryId))
-    )
-      ? worker.identityProofNumber
-      : '',
-    identityProofPath: Boolean(
-      authenticatedCompany?.canUnlockWorkers &&
-      worker.categoryIds.some(categoryId => authenticatedCompany.activeJobCategoryIds.includes(categoryId))
-    )
-      ? worker.identityProofPath
-      : '',
     resumeDocumentPath: Boolean(
       authenticatedCompany?.canUnlockWorkers &&
       worker.categoryIds.some(categoryId => authenticatedCompany.activeJobCategoryIds.includes(categoryId))

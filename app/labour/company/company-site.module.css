@@ -11068,22 +11068,44 @@
   box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.15);
 }
 
-.searchWorkerVerifiedPill {
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
+.searchWorkerIdentityBadge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 6px 10px;
+  justify-content: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 5px 9px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-  color: #ffffff;
-  font-size: 11px;
+  border: 1px solid transparent;
+  font-size: 10.5px;
   line-height: 1.2;
-  font-weight: 600;
-  box-shadow: 0 10px 24px rgba(21, 128, 61, 0.24);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.searchWorkerIdentityBadgePending {
+  border-color: rgba(217, 119, 6, 0.28);
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.searchWorkerIdentityBadgeReview {
+  border-color: rgba(234, 88, 12, 0.24);
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.searchWorkerIdentityBadgeApproved {
+  border-color: rgba(37, 99, 235, 0.26);
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.searchWorkerIdentityBadgeRejected {
+  border-color: rgba(225, 29, 72, 0.22);
+  background: #ffe4e6;
+  color: #be123c;
 }
 
 .searchWorkerBody {
@@ -11114,11 +11136,6 @@
   line-height: 1.08;
   font-weight: 700;
   letter-spacing: -0.03em;
-}
-
-.searchWorkerVerifiedIcon {
-  color: #2563eb;
-  flex: 0 0 auto;
 }
 
 .searchWorkerMatchBadge {
@@ -11325,6 +11342,113 @@
   text-transform: uppercase;
 }
 
+.searchWorkerIdentityProofCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: min(100%, 410px);
+  min-height: 186px;
+  aspect-ratio: 1.586 / 1;
+  overflow: hidden;
+  padding: 16px;
+  border: 1px solid rgba(203, 213, 225, 0.96);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
+  isolation: isolate;
+}
+
+.searchWorkerIdentityProofPending {
+  border-color: rgba(217, 119, 6, 0.3);
+  background: linear-gradient(145deg, #fffdf5 0%, #fffbeb 100%);
+}
+
+.searchWorkerIdentityProofReview {
+  border-color: rgba(234, 88, 12, 0.24);
+  background: linear-gradient(145deg, #fffaf5 0%, #fff7ed 100%);
+}
+
+.searchWorkerIdentityProofApproved {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: linear-gradient(145deg, #f8fbff 0%, #eff6ff 100%);
+}
+
+.searchWorkerIdentityProofRejected {
+  border-color: rgba(225, 29, 72, 0.22);
+  background: linear-gradient(145deg, #fffafa 0%, #fff1f2 100%);
+}
+
+.searchWorkerIdentityProofDecoration {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.searchWorkerIdentityProofDecoration span:first-child {
+  position: absolute;
+  width: 170px;
+  height: 170px;
+  right: -64px;
+  top: -76px;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.13);
+}
+
+.searchWorkerIdentityProofDecoration span:last-child {
+  position: absolute;
+  width: 150px;
+  height: 14px;
+  left: -34px;
+  bottom: 20px;
+  border-radius: 999px;
+  background: rgba(13, 148, 136, 0.09);
+  transform: rotate(-12deg);
+}
+
+.searchWorkerIdentityProofHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.searchWorkerIdentityProofMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  background: rgba(255, 255, 255, 0.76);
+  color: #2563eb;
+}
+
+.searchWorkerIdentityProofCopy {
+  display: grid;
+  gap: 6px;
+  max-width: 330px;
+}
+
+.searchWorkerIdentityProofCopy p {
+  margin: 0;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.searchWorkerIdentityProofCopy span {
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
 .searchWorkerDocumentRow {
   display: flex;
   align-items: center;
@@ -11334,6 +11458,11 @@
   font-size: 13px;
   line-height: 1.35;
   font-weight: 700;
+}
+
+.searchWorkerIdentityProofCard + .searchWorkerDocumentRow {
+  padding-top: 10px;
+  border-top: 1px solid rgba(226, 232, 240, 0.92);
 }
 
 .searchWorkerDocumentActions {

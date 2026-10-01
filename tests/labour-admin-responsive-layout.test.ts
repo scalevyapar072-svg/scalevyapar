@@ -46,6 +46,25 @@ test('Labour Admin keeps the existing desktop sidebar layout', () => {
   assert.match(pageSource, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
+test('Workers storage status keeps readable copy above wrapping quick actions at desktop width', () => {
+  assert.match(
+    pageSource,
+    /className=\{`labour-storage-card\$\{activeSection === 'workers' \? ' labour-storage-card--workers' : ''\}`\}/,
+  )
+  assert.match(
+    pageSource,
+    /\.labour-storage-card--workers\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\);[\s\S]*?align-items: start/,
+  )
+  assert.match(
+    pageSource,
+    /\.labour-storage-card--workers \.labour-storage-copy\s*\{[\s\S]*?min-width: 0/,
+  )
+  assert.match(
+    pageSource,
+    /\.labour-storage-card--workers \.labour-storage-actions\s*\{[\s\S]*?justify-content: flex-start/,
+  )
+})
+
 test('Categories contain long content and actions without changing the desktop card layout', () => {
   const longCategoryContent = {
     name: 'Industrial electrical installation and maintenance specialists '.repeat(3),

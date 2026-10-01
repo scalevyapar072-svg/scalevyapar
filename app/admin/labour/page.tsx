@@ -7297,6 +7297,19 @@ export default function LabourExchangeAdminPage() {
           flex-wrap: wrap;
           justify-content: flex-end;
         }
+        .labour-storage-card--workers {
+          grid-template-columns: minmax(0, 1fr);
+          align-items: start;
+        }
+        .labour-storage-card--workers .labour-storage-copy {
+          min-width: 0;
+        }
+        .labour-storage-card--workers .labour-storage-copy > div:last-child {
+          min-width: 0;
+        }
+        .labour-storage-card--workers .labour-storage-actions {
+          justify-content: flex-start;
+        }
         .labour-metric-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
@@ -7712,7 +7725,10 @@ export default function LabourExchangeAdminPage() {
             <div className="labour-page-stack">
               {activeSection !== 'whatsappAutomation' && (
                 <>
-                  <div style={{ ...cardStyle }} className="labour-storage-card">
+                  <div
+                    style={{ ...cardStyle }}
+                    className={`labour-storage-card${activeSection === 'workers' ? ' labour-storage-card--workers' : ''}`}
+                  >
                     <div className="labour-storage-copy">
                       <div className="labour-storage-icon">
                         <Database className="labour-nav-icon" />

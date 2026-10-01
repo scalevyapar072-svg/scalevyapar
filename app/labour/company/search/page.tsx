@@ -1305,6 +1305,7 @@ export default async function LabourCompanySearchPage({ searchParams }: PageProp
         'General business'
       ),
       createdAt: worker.created_at,
+      hasIdentityDocument: Boolean(worker.identity_proof_path),
       hasResumeDocument: Boolean(worker.resume_document_path),
       identityVerificationState: getCompanyIdentityVerificationState({
         identityProofPath: worker.identity_proof_path,

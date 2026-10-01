@@ -8,6 +8,7 @@ import { isLiveWorkerSearchJob } from '@/lib/labour-worker-search-job'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 const WORKER_UPLOAD_BUCKET = 'labour-worker-files'
+const PRIVATE_NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' }
 
 export const dynamic = 'force-dynamic'
 
@@ -106,10 +107,10 @@ export async function handleWorkerDocumentGet(
   const workerId = request.nextUrl.searchParams.get('workerId')?.trim()
   const requestedDocument = request.nextUrl.searchParams.get('document')?.trim().toLowerCase() || 'identity'
   if (!workerId) {
-    return NextResponse.json({ error: 'Worker id is required.' }, { status: 400 })
+    return NextResponse.json({ error: 'Worker id is required.' }, { status: 400, headers: PRIVATE_NO_STORE_HEADERS })
   }
   if (requestedDocument !== 'identity' && requestedDocument !== 'resume') {
-    return NextResponse.json({ error: 'Worker document type is invalid.' }, { status: 400 })
+    return NextResponse.json({ error: 'Worker document type is invalid.' }, { status: 400, headers: PRIVATE_NO_STORE_HEADERS })
   }
   const documentKind = requestedDocument as WorkerDocumentKind
 
@@ -118,12 +119,12 @@ export async function handleWorkerDocumentGet(
     const generalUser = companyUser ? null : await dependencies.getGeneralUser(request)
     const authenticatedUser = companyUser || (generalUser?.role === 'CLIENT' ? generalUser : null)
     if (!authenticatedUser?.email) {
-      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401, headers: PRIVATE_NO_STORE_HEADERS })
     }
 
     const company = await dependencies.findCompanyByEmail(authenticatedUser.email)
     if (!company) {
-      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403, headers: PRIVATE_NO_STORE_HEADERS })
     }
 
     const [companyJobs, worker] = await Promise.all([
@@ -131,7 +132,7 @@ export async function handleWorkerDocumentGet(
       dependencies.findWorkerDocumentRecord(workerId),
     ])
     if (!worker) {
-      return NextResponse.json({ error: 'Worker document is not available.' }, { status: 404 })
+      return NextResponse.json({ error: 'Worker document is not available.' }, { status: 404, headers: PRIVATE_NO_STORE_HEADERS })
     }
 
     const liveJobCategoryIds = companyJobs
@@ -155,18 +156,20 @@ export async function handleWorkerDocumentGet(
       resumeDocumentPath: worker.resume_document_path,
     }, documentKind)
     if (!documentAccess.authorized) {
-      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403, headers: PRIVATE_NO_STORE_HEADERS })
     }
     const documentPath = documentAccess.documentPath
     if (!documentPath) {
-      return NextResponse.json({ error: 'Worker document is not available.' }, { status: 404 })
+      return NextResponse.json({ error: 'Worker document is not available.' }, { status: 404, headers: PRIVATE_NO_STORE_HEADERS })
     }
 
     const url = await dependencies.createSignedWorkerFileUrl(documentPath)
-    return NextResponse.json({ url })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to sign worker document.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ url }, { headers: PRIVATE_NO_STORE_HEADERS })
+  } catch {
+    return NextResponse.json(
+      { error: 'Unable to open worker document.' },
+      { status: 500, headers: PRIVATE_NO_STORE_HEADERS },
+    )
   }
 }
 

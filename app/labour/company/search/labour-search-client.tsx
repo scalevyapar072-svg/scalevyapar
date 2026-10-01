@@ -109,6 +109,7 @@ type WorkerItem = {
   businessType: string
   businessTypeLabel: string
   createdAt: string
+  hasIdentityDocument: boolean
   hasResumeDocument: boolean
   identityVerificationState: CompanyIdentityVerificationState
   isVerified: boolean
@@ -1422,7 +1423,7 @@ export function LabourSearchClient({
     }
   }
 
-  const getWorkerDocumentUrl = async (worker: WorkerItem, documentKind: 'resume') => {
+  const getWorkerDocumentUrl = async (worker: WorkerItem, documentKind: 'identity' | 'resume') => {
     const documentKey = `${worker.id}:${documentKind}`
     const cachedUrl = workerDocumentUrls[documentKey]
     if (cachedUrl) {
@@ -1450,7 +1451,7 @@ export function LabourSearchClient({
     }
   }
 
-  const openWorkerDocument = async (worker: WorkerItem, documentKind: 'resume') => {
+  const openWorkerDocument = async (worker: WorkerItem, documentKind: 'identity' | 'resume') => {
     if (typeof window === 'undefined') return
 
     const url = await getWorkerDocumentUrl(worker, documentKind)
@@ -1459,14 +1460,14 @@ export function LabourSearchClient({
     }
   }
 
-  const downloadWorkerDocument = async (worker: WorkerItem, documentKind: 'resume') => {
+  const downloadWorkerDocument = async (worker: WorkerItem, documentKind: 'identity' | 'resume') => {
     if (typeof window === 'undefined') return
 
     const url = await getWorkerDocumentUrl(worker, documentKind)
     if (!url) return
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `${worker.fullName || 'worker'}-resume`
+    anchor.download = `${worker.fullName || 'worker'}-${documentKind === 'identity' ? 'identity-proof' : 'resume'}`
     anchor.rel = 'noreferrer'
     document.body.appendChild(anchor)
     anchor.click()
@@ -1782,6 +1783,7 @@ export function LabourSearchClient({
                   const workLocation = getWorkerAvailableLocationLabel(worker)
                   const phoneInteraction = getWorkerPhoneInteraction(workerPhoneRevealStates[worker.id])
                   const identityVerificationMeta = IDENTITY_VERIFICATION_META[worker.identityVerificationState]
+                  const identityDocumentKey = `${worker.id}:identity`
                   const resumeDocumentKey = `${worker.id}:resume`
 
                   return (
@@ -1875,6 +1877,31 @@ export function LabourSearchClient({
                                   <p>{identityVerificationMeta.label}</p>
                                   <span>{identityVerificationMeta.message}</span>
                                 </div>
+                              </div>
+                              <div className={styles.searchWorkerDocumentRow}>
+                                <span>Identity Proof</span>
+                                {worker.hasIdentityDocument && workerCanAccessDirectly(worker) ? (
+                                  <div className={styles.searchWorkerDocumentActions}>
+                                    <button
+                                      type="button"
+                                      onClick={() => openWorkerDocument(worker, 'identity')}
+                                      className={styles.searchWorkerDocumentButton}
+                                      disabled={workerDocumentLoadingKeys.includes(identityDocumentKey)}
+                                    >
+                                      {workerDocumentLoadingKeys.includes(identityDocumentKey) ? 'Opening...' : 'View'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => downloadWorkerDocument(worker, 'identity')}
+                                      className={styles.searchWorkerDocumentButton}
+                                      disabled={workerDocumentLoadingKeys.includes(identityDocumentKey)}
+                                    >
+                                      Download
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className={styles.searchWorkerEmptyText}>Not Available</span>
+                                )}
                               </div>
                               <div className={styles.searchWorkerDocumentRow}>
                                 <span>Resume</span>

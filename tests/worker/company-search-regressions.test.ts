@@ -289,13 +289,18 @@ test('every Company Panel Search Worker navigation carries the latest authorized
   assert.equal((panelClientSource.match(/href=\{searchWorkersHref\}/g) || []).length, 5)
 })
 
-test('resume controls use only the existing authenticated document route and never expose a storage path', () => {
+test('identity and resume controls use only the authenticated document route without exposing document paths', () => {
+  assert.match(searchPageSource, /hasIdentityDocument:\s*Boolean\(worker\.identity_proof_path\)/)
   assert.match(searchPageSource, /resume_document_path/)
   assert.match(searchPageSource, /hasResumeDocument:\s*Boolean\(worker\.resume_document_path\)/)
   assert.match(searchClientSource, /document=\$\{documentKind\}/)
+  assert.match(searchClientSource, /worker\.hasIdentityDocument\s*&&\s*workerCanAccessDirectly\(worker\)/)
   assert.match(searchClientSource, /worker\.hasResumeDocument\s*&&\s*workerCanAccessDirectly\(worker\)/)
+  assert.doesNotMatch(searchClientSource, /identityProof(?:Type|Number|Path)/)
   assert.doesNotMatch(searchClientSource, /resumeDocumentPath/)
   assert.doesNotMatch(searchPageSource, /resumeDocumentPath:/)
+  assert.match(searchClientSource, /openWorkerDocument\(worker,\s*'identity'\)/)
+  assert.match(searchClientSource, /downloadWorkerDocument\(worker,\s*'identity'\)/)
   assert.match(searchClientSource, /openWorkerDocument\(worker,\s*'resume'\)/)
   assert.match(searchClientSource, /downloadWorkerDocument\(worker,\s*'resume'\)/)
   assert.doesNotMatch(searchClientSource, />Resume Not Available</)

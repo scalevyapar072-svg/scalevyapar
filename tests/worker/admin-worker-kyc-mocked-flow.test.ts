@@ -716,6 +716,31 @@ test('12b. a worker-record failure after upload removes the newly uploaded objec
   assert.equal(state.workers.get(selected.id)?.profilePhotoPath, '')
 })
 
+test('12c. replacing a profile photo preserves the saved visibility value', async () => {
+  for (const isVisible of [true, false]) {
+    const selected = makeWorker({
+      id: `worker-photo-${isVisible ? 'visible' : 'hidden'}`,
+      isVisible,
+      profilePhotoPath: `workers/worker-photo-${isVisible ? 'visible' : 'hidden'}/profile_photo/original.png`,
+    })
+    const state = installWorkerFileMocks([selected])
+
+    const response = await workerFileRoute.POST(
+      makeWorkerFilePostRequest(selected.id, 'profile_photo'),
+    )
+
+    assert.equal(response.status, 200)
+    assert.equal(state.updates.length, 1)
+    assert.deepEqual(state.updates[0].payload, {
+      profilePhotoPath: state.uploads[0].storagePath,
+      isVisible,
+    })
+    assert.equal(state.workers.get(selected.id)?.isVisible, isVisible)
+    assert.equal(Object.hasOwn(state.updates[0].payload, 'status'), false)
+    assert.equal(Object.hasOwn(state.updates[0].payload, 'kycStatus'), false)
+  }
+})
+
 test('13. deleted and intentionally empty document paths remain empty', async () => {
   const worker = makeWorker({
     id: 'worker-empty-path',

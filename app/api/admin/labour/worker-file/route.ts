@@ -228,7 +228,10 @@ export async function POST(request: NextRequest) {
     uploadedPath = uploaded.storagePath
 
     const snapshot = await updateLabourEntity('workers', workerId, {
-      [context.field]: uploadedPath
+      [context.field]: uploadedPath,
+      ...(context.documentKind === 'profile_photo'
+        ? { isVisible: context.isVisible }
+        : {})
     }, admin.email)
     if (!snapshot) {
       throw new WorkerFileRequestError('Worker not found.', 404)
@@ -244,7 +247,10 @@ export async function POST(request: NextRequest) {
         let rollbackSucceeded = false
         try {
           rollbackSucceeded = Boolean(await updateLabourEntity('workers', workerId, {
-            [context.field]: context.storagePath
+            [context.field]: context.storagePath,
+            ...(context.documentKind === 'profile_photo'
+              ? { isVisible: context.isVisible }
+              : {})
           }, admin.email))
         } catch {
           rollbackSucceeded = false

@@ -4908,7 +4908,7 @@ export const deleteLabourEntity = async (
       break
     }
     case 'workers': {
-      const existing = (await readSupabaseData()).workers.find(record => record.id === id)
+      const existing = await findLabourWorkerById(id)
       if (!existing) return null
       summary = `Deleted worker ${existing.fullName}`
       const referralDeleteConflictMessage = await getReferralWorkerDeleteConflictMessage(id)

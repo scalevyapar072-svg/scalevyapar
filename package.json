@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed:labour-demo": "node scripts/seed-labour-demo-data.mjs",
-    "verify:production-safe": "node scripts/verify-production-safe.mjs"
+    "verify:production-safe": "node scripts/verify-production-safe.mjs",
+    "test:whatsapp": "tsx --test tests/whatsapp/admin-job-post-review-route.test.ts tests/whatsapp/admin-status-route.test.ts tests/whatsapp/automatic-mode-foundation.test.ts tests/whatsapp/automation-executor.test.ts tests/whatsapp/automation-preview.test.ts tests/whatsapp/consent-write-service.test.ts tests/whatsapp/consent.test.ts tests/whatsapp/inbound-stop-start-webhook.test.ts tests/whatsapp/job-lifecycle-events.test.ts tests/whatsapp/job-review-migration.test.ts tests/whatsapp/job-review-workflow.test.ts tests/whatsapp/meta-client.test.ts tests/whatsapp/meta-config.test.ts tests/whatsapp/meta-signature.test.ts tests/whatsapp/meta-status.test.ts tests/whatsapp/opt-out.test.ts tests/whatsapp/persistence-admin-route.test.ts tests/whatsapp/persistence-foundation.test.ts tests/whatsapp/recipient-eligibility.test.ts tests/whatsapp/sender.test.ts tests/whatsapp/template-inventory.test.ts tests/whatsapp/template-recipient-ui.test.ts tests/whatsapp/universal-safety-gate.test.ts tests/whatsapp/webhook-route.test.ts tests/whatsapp/worker-job-match-admin-preview.test.ts tests/whatsapp/worker-job-match-contract.test.ts tests/whatsapp/worker-job-match-migration.test.ts tests/whatsapp/worker-job-match-outbox-admin-preview.test.ts tests/whatsapp/worker-job-match-outbox-contract.test.ts tests/whatsapp/worker-job-match-outbox-migration.test.ts tests/whatsapp/worker-job-match-outbox-preview.test.ts tests/whatsapp/worker-job-match-preview.test.ts tests/whatsapp/worker-lifecycle-events.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
@@ -40,6 +41,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",
+    "tsx": "4.23.13",
     "typescript": "^5"
   }
 }

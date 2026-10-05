@@ -46,6 +46,8 @@ export type WhatsappMetaSendConfig = {
 
 export type WhatsappMetaWebhookPostConfig = {
   appSecret: string
+  businessAccountId: string
+  phoneNumberId: string
 }
 
 export type WhatsappMetaHealthConfig = {
@@ -83,6 +85,12 @@ type ResolutionResult<T> =
     }
 
 const normalizeText = (value: string | undefined) => String(value || '').trim()
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/
+
+const isSafePrivateValue = (value: string) =>
+  Boolean(value) && !CONTROL_CHARACTER_PATTERN.test(value)
+
+const isMetaNumericIdentifier = (value: string) => /^\d+$/.test(value)
 
 export const isValidWhatsappGraphApiVersion = (value: string) =>
   WHATSAPP_GRAPH_API_VERSION_PATTERN.test(normalizeText(value))
@@ -199,7 +207,14 @@ export const readWhatsappMetaConfig = (
       resolvedValues.phoneNumberId.value ? '' : 'WHATSAPP_PHONE_NUMBER_ID',
     ].filter(Boolean),
     missingWebhookPostVariables: [
-      resolvedValues.appSecret ? '' : 'WHATSAPP_APP_SECRET',
+      isSafePrivateValue(resolvedValues.appSecret) ? '' : 'WHATSAPP_APP_SECRET',
+      resolvedValues.phoneNumberId.source === 'canonical' &&
+      isMetaNumericIdentifier(resolvedValues.phoneNumberId.value)
+        ? ''
+        : 'WHATSAPP_PHONE_NUMBER_ID',
+      isMetaNumericIdentifier(resolvedValues.businessAccountId)
+        ? ''
+        : 'WHATSAPP_BUSINESS_ACCOUNT_ID',
     ].filter(Boolean),
     missingHealthVariables: [
       resolvedValues.accessToken.value ? '' : 'WHATSAPP_ACCESS_TOKEN',
@@ -260,6 +275,8 @@ export const resolveWhatsappWebhookPostConfig = (
     ok: true,
     config: {
       appSecret: resolvedValues.appSecret,
+      businessAccountId: resolvedValues.businessAccountId,
+      phoneNumberId: resolvedValues.phoneNumberId.value,
     },
     snapshot,
   }
@@ -304,6 +321,10 @@ export const resolveWhatsappHealthConfig = (
 
 export const getWhatsappWebhookVerifyToken = (
   env: EnvMap = process.env,
-) =>
-  resolveCanonicalOrLegacy(env, 'WHATSAPP_WEBHOOK_VERIFY_TOKEN', ['WHATSAPP_VERIFY_TOKEN'])
-    .value
+) => {
+  const value = resolveCanonicalOrLegacy(env, 'WHATSAPP_WEBHOOK_VERIFY_TOKEN', [
+    'WHATSAPP_VERIFY_TOKEN',
+  ]).value
+
+  return isSafePrivateValue(value) ? value : ''
+}

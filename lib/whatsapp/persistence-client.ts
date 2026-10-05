@@ -25,7 +25,7 @@ export type WhatsappPersistenceWriteAvailability =
     }
   | {
       enabled: false
-      reason: 'preview_disabled' | 'missing_configuration'
+      reason: 'environment_not_production' | 'missing_configuration'
       message: string
     }
 
@@ -75,16 +75,19 @@ export const getWhatsappPersistenceClient = ():
   }
 }
 
-export const getWhatsappPersistenceWriteAvailability = (): WhatsappPersistenceWriteAvailability => {
-  if (String(process.env.VERCEL_ENV || '').trim().toLowerCase() === 'preview') {
+export const getWhatsappPersistenceWriteAvailability = (
+  resolvePersistence = getWhatsappPersistenceClient,
+): WhatsappPersistenceWriteAvailability => {
+  // Never create a service-role client outside the exact Production environment.
+  if (process.env.VERCEL_ENV !== 'production') {
     return {
       enabled: false,
-      reason: 'preview_disabled',
-      message: 'WhatsApp consent persistence is disabled in Preview deployments.',
+      reason: 'environment_not_production',
+      message: 'WhatsApp persistence writes are disabled unless VERCEL_ENV is exactly production.',
     }
   }
 
-  const persistence = getWhatsappPersistenceClient()
+  const persistence = resolvePersistence()
   if (!persistence.available) {
     return {
       enabled: false,

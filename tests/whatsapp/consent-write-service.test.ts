@@ -23,8 +23,8 @@ test('preview deployments fail closed for WhatsApp consent reads and writes', as
     const availability = getWhatsappPersistenceWriteAvailability()
     assert.deepEqual(availability, {
       enabled: false,
-      reason: 'preview_disabled',
-      message: 'WhatsApp consent persistence is disabled in Preview deployments.',
+      reason: 'environment_not_production',
+      message: 'WhatsApp persistence writes are disabled unless VERCEL_ENV is exactly production.',
     })
 
     const preferences = await getWhatsappConsentPreferences({
@@ -58,7 +58,7 @@ test('preview deployments fail closed for WhatsApp consent reads and writes', as
 
     assert.equal(result.persisted, false)
     assert.equal(result.writeEnabled, false)
-    assert.equal(result.disabledReason, 'preview_disabled')
+    assert.equal(result.disabledReason, 'environment_not_production')
     assert.equal(result.state.service_allowed, null)
     assert.equal(result.consentTextVersion, WHATSAPP_CONSENT_TEXT_VERSION)
   } finally {
